@@ -880,3 +880,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-872 | Daily reagent QC records each of the reagent's controls, and a lot is due until every control is read. | P1 | FRS-BB-990 |
 | URS-BB-873 | An excursion quarantine alert says how many units are still held and closes when none is. | P2 | FRS-BB-991 |
 | URS-BB-874 | The expired-units alert says how many of its units are still to remove and closes when none is. | P3 | FRS-BB-992 |
+| URS-BB-875 | The HL7 message log can be searched by patient, order, unit or control id and filtered by type, direction and status. | P2 | FRS-BB-993 |

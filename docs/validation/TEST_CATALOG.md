@@ -1118,5 +1118,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1107 | I | `CompetitorGapWorkflowTests.ReagentQc_WithControls_NeedsEachControlEachDay` | URS-BB-872 / FRS-BB-990 |
 | TEST-BB-1108 | U | `ExcursionQuarantineAlertTests.Now_CountsUnitsStillHeld_AndClearsWhenNone` | URS-BB-873 / FRS-BB-991 |
 | TEST-BB-1109 | U | `ExpiredUnitsAlertTests.Now_CountsUnitsStillToRemove_AndClosesWhenNone` | URS-BB-874 / FRS-BB-992 |
+| TEST-BB-1110 | I | `Hl7MessageSearchTests.Filter_FindsByTextTypeDirectionAndStatus` | URS-BB-875 / FRS-BB-993 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

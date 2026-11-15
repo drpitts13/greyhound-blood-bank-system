@@ -204,13 +204,39 @@
         </div>
     </div>
     <Outcome Value="_logFb" />
+    @* Pass 96: find one patient's, order's or control id's messages. *@
+    <div class="form-row" style="align-items:flex-end;" data-hl7-log-filter>
+        <div class="field" style="flex:2;"><label>Search</label>
+            <input @bind="_logSearch" @bind:event="oninput" @onkeydown="OnLogSearchKey" placeholder="MRN, name, order, unit or control id" data-hl7-log-search />
+        </div>
+        <div class="field"><label>Type</label>
+            <select @bind="_logType" data-hl7-log-type>
+                <option value="">Any</option>
+                @foreach (var t in new[] { "ADT", "ORM", "OML", "ORU", "RAS", "BPS", "BTS", "DFT", "ACK" })
+                {
+                    <option value="@t">@t.ToUpperInvariant()</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label>Direction</label>
+            <select @bind="_logDirection"><option value="">Any</option>@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@Ui.EnumText(d)</option> }</select>
+        </div>
+        <div class="field"><label>Status</label>
+            <select @bind="_logStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<Hl7MessageStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
+        </div>
+        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync" data-hl7-log-apply>Search</button>
+    </div>
+    @if (!_loading && _messages.Count >= BloodBankLIS.Domain.Interfaces.Hl7MessageSearch.DefaultTake)
+    {
+        <p class="muted" data-hl7-log-limited>Showing the newest @_messages.Count. Search to find older messages.</p>
+    }
     @if (_loading)
     {
         <div class="loading">Loading messages...</div>
     }
     else if (_messages.Count == 0)
     {
-        <div class="empty">No messages logged.</div>
+        <div class="empty">@(LogFiltered ? "No message matches the search." : "No messages logged.")</div>
     }
     else
     {
@@ -318,6 +344,20 @@
     private string? _resolveLabel;
 
     private List<Hl7MessageVm> _messages = new();
+    private string _logSearch = string.Empty;
+    private string _logType = string.Empty;
+    private Hl7Direction? _logDirection;
+    private Hl7MessageStatus? _logStatus;
+
+    private bool LogFiltered => !string.IsNullOrWhiteSpace(_logSearch) || !string.IsNullOrWhiteSpace(_logType) || _logDirection is not null || _logStatus is not null;
+
+    private async Task OnLogSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LoadAsync();
+        }
+    }
     private List<Hl7ErrorVm> _errors = new();
     private List<Hl7ErrorVm> _resolvedErrors = new();
     private bool _loading = true;
@@ -344,7 +384,7 @@
     {
         _loading = true;
         _busy = true;
-        var messages = await Api.GetHl7MessagesAsync();
+        var messages = await Api.GetHl7MessagesAsync(_logSearch, _logType, _logDirection, _logStatus);
         var errors = await Api.GetHl7ErrorsAsync();
         _messages = messages.Value ?? new();
         _errors = errors.Value ?? new();

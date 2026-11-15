@@ -22,6 +22,8 @@ Every error that closes keeps a note of why: the reason you gave on **Resolve**,
 
 **Waiting to send** lists outbound messages (results to the EHR, charges to billing) not yet acknowledged, oldest first, with why each has not gone: no enabled outbound interface is set up to take it (it sends once one is), the last send failed and it will be retried, its retries are spent (fix the interface, then **Send**), or it is simply queued for the next attempt within a minute. A wait longer than 15 minutes is marked: such a message will not go by itself. None of these is an error, so they do not appear in the error queue. In the message log an outbound message not yet sent reads **Queued**. A charge withheld because it was cancelled before sending is not listed.
 
+**Message log** lists the newest 200 messages. To find others, **Search** by MRN, patient name, order, unit or control id (anything in the message, ignoring case; Enter searches), and narrow by **Type** (ADT, ORM, ORU, DFT, …), **Direction** and **Status**. When 200 are shown, older ones are found by searching.
+
 Outbound messages, including billing DFT, result, and blood product dispense (BPS) messages your interfaces send, appear with their acknowledgement status. A message that has not been acknowledged is still pending. The downtime snapshot counts those so you can see the backlog after an outage.
 
 ## What the bench should do

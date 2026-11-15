@@ -840,8 +840,16 @@ public sealed class BloodBankApiClient
         }
     }
 
-    public Task<ApiResult<List<Hl7MessageVm>>> GetHl7MessagesAsync(CancellationToken ct = default) =>
-        SendAsync<List<Hl7MessageVm>>(HttpMethod.Get, "api/hl7/messages", ct: ct);
+    public Task<ApiResult<List<Hl7MessageVm>>> GetHl7MessagesAsync(
+        string? search = null, string? type = null, Hl7Direction? direction = null, Hl7MessageStatus? status = null, CancellationToken ct = default)
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(search)) q.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        if (!string.IsNullOrWhiteSpace(type)) q.Add($"type={Uri.EscapeDataString(type)}");
+        if (direction is not null) q.Add($"direction={direction}");
+        if (status is not null) q.Add($"status={status}");
+        return SendAsync<List<Hl7MessageVm>>(HttpMethod.Get, "api/hl7/messages" + (q.Count > 0 ? "?" + string.Join("&", q) : ""), ct: ct);
+    }
 
     public Task<ApiResult<Hl7MessageDetailVm>> GetHl7MessageAsync(long id, CancellationToken ct = default) =>
         SendAsync<Hl7MessageDetailVm>(HttpMethod.Get, $"api/hl7/messages/{id}", ct: ct);

@@ -24147,3 +24147,21 @@ Following pass 94, the other alerts raised once by an event: the expiry sweep's 
 ### Tests
 
 - TEST-BB-1109. Full suite passed.
+
+## Iteration 815 — End-user testing pass 96: finding a message in the HL7 log (2026-11-15)
+
+### How it was tested
+
+Lookback (the open notification, notify by 2027-01-29) and the HL7 interface page: the error queue, the outbound messages waiting, and the message log, read as an interface analyst asked about one patient's messages.
+
+### Found and fixed
+
+1. **The message log could not be searched.** It listed every message ever logged, newest first, with no way to find one patient's, one order's or one control id's messages, and the endpoint returned the whole log every time. The log now has a search (MRN, name, order, unit or control id; anything in the message, ignoring case) and filters for type, direction and status, and shows the newest 200 unless searched.
+
+### Retested live
+
+- Searching *mrn0009* lists Helen Interface's seven messages (ADT, ORM, ORU, RAS and three DFT).
+
+### Tests
+
+- TEST-BB-1110. Full suite passed.

@@ -111,14 +111,22 @@ public static class Hl7Endpoints
         });
 
         group.MapGet("/messages", async (
+            string? search,
+            string? type,
+            Hl7Direction? direction,
+            Hl7MessageStatus? status,
+            int? take,
             IRepository<Hl7MessageLog> repo,
             IRepository<Patient> patients,
             IRepository<InterfaceEndpoint> endpoints,
             CancellationToken ct) =>
         {
-            var messages = await repo.ListAsync(ct);
+            // Pass 96: searched and limited, newest first.
+            var messages = await repo.ListAsync(BloodBankLIS.Domain.Interfaces.Hl7MessageSearch.Filter(search, type, direction, status), ct);
             var dtos = messages
                 .OrderByDescending(m => m.ReceivedUtc)
+                .ThenByDescending(m => m.Id)
+                .Take(BloodBankLIS.Domain.Interfaces.Hl7MessageSearch.Take(take))
                 .Select(m => Hl7MessageDto.From(m))
                 .ToList();
             return Results.Ok(MarkControlAlreadyApplied(await AttachPatientIdsAsync(
