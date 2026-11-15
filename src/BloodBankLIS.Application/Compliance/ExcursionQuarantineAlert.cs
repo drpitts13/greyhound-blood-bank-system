@@ -20,6 +20,21 @@ public static class ExcursionQuarantineAlert
         return parts.Length >= 2 && long.TryParse(parts[1], out var id) ? id : null;
     }
 
+    /// <summary>
+    /// As <see cref="Now"/>, but one open alert per location (end-user testing pass 127: two quarantine runs in one
+    /// excursion each raised "1 unit(s) still quarantined at FRIDGE-1"). The first alert seen for a location is kept; any
+    /// other for the same location is closed, since the held count is per location.
+    /// </summary>
+    public static AlertCandidate? NowOncePerLocation(Alert alert, IReadOnlyDictionary<long, int> heldByLocation, ISet<long> seenLocations)
+    {
+        if (LocationId(alert.Key) is long locationId && !seenLocations.Add(locationId))
+        {
+            return null;
+        }
+
+        return Now(alert, heldByLocation);
+    }
+
     /// <summary>What the alert says now, or null when no unit at its location is still held for an excursion.</summary>
     public static AlertCandidate? Now(Alert alert, IReadOnlyDictionary<long, int> heldByLocation)
     {

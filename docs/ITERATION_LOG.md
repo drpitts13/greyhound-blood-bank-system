@@ -24714,3 +24714,25 @@ Storage rules on move and receipt (both already enforced), then the unit chart a
 ### Tests
 
 - TEST-BB-1147. Full suite passed.
+
+## Iteration 846 — End-user testing pass 127: a duplicate excursion alert (2026-11-15)
+
+### How it was tested
+
+Where a unit's last storage location still drives behaviour (excursion quarantine, location deactivation, readings: all limited to units in storage), Store tubes (the list for a scanned place is there), then the Alerts inbox.
+
+### Found and fixed
+
+1. **The same excursion showed twice in the alerts.** *1 unit(s) still quarantined at FRIDGE-1* was open twice, Critical, both for deviation DEV-3: each automatic quarantine run in an excursion raised its own alert keyed by the time it ran, and the scanner kept each one up to date with the same count. The alert is now keyed by the excursion, so a later run in the same excursion does not raise another, and the scanner keeps one open alert per location and closes any other.
+
+### Retested live
+
+- After restart the second FRIDGE-1 alert was closed (*Closed in the last 7 days*); open alerts went from 29 to 28, with one *1 unit(s) still quarantined at FRIDGE-1*.
+
+### Noted, not changed
+
+- Several alert texts give times in UTC (*since 2026-11-12 16:43 UTC*) while the inbox shows local times; the text is stored when raised.
+
+### Tests
+
+- TEST-BB-1148. Full suite passed.

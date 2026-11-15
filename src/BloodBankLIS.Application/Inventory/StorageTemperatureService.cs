@@ -325,7 +325,8 @@ public sealed class StorageTemperatureService
         {
             await _alerts.RaiseAsync(new AlertCandidate(
                 AlertRule.TemperatureExcursion,
-                $"TEMP-QUAR:{location.Id}:{now:yyyyMMddHHmm}",
+                // Pass 127: keyed by the excursion, so a later quarantine run in the same excursion does not raise another.
+                $"TEMP-QUAR:{location.Id}:{start:yyyyMMddHHmm}",
                 AlertSeverity.Critical,
                 $"{quarantined.Count} unit(s) quarantined at {location.Code}",
                 note + $" Deviation DEV-{deviationId}. Review each unit before release.",

@@ -13,6 +13,7 @@ routes:
 Alerts come from thirteen places:
 
 - **Temperature excursion**: a storage reading outside the location range. Critical.
+  When units are quarantined automatically after a long excursion, one alert per refrigerator, freezer or incubator says how many are still held there (*1 unit(s) still quarantined at FRIDGE-1*); a later quarantine in the same excursion updates that alert instead of raising another, and it closes once none is held.
 - **Incompatible after release**: a retrospective crossmatch for a unit released as an emergency or under MTP came back incompatible. Critical. Tell the clinical team at once; the unit may already be transfusing. A critical deviation is opened for it too, and the alert gives its number.
 - **Units expired**: the scheduled expiration sweep moved units to Expired. Remove them from storage. If any were reserved for patients, the alert is critical and names each unit and patient MRN (the first five, then how many more); those reservations have ended, so reserve replacement units. It then opens **Blood orders to prepare**, where those orders need units again.
 - **Below minimum stock**: a product is under its minimum stock level.

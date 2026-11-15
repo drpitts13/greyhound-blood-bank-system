@@ -29,4 +29,16 @@ public class ExcursionQuarantineAlertTests
         Assert.Equal(7, ExcursionQuarantineAlert.LocationId("TEMP-QUAR:7:202611121222"));
         Assert.Null(ExcursionQuarantineAlert.LocationId("TEMP:DEV-3"));
     }
+
+    // TEST-BB-1148: of two open alerts for one location (two quarantine runs in one excursion), the first is kept and the
+    // other closed; another location keeps its own (end-user testing pass 127).
+    [Fact]
+    public void NowOncePerLocation_KeepsOneAlertPerLocation()
+    {
+        var held = new Dictionary<long, int> { [7] = 1, [9] = 2 };
+        var seen = new HashSet<long>();
+        Assert.NotNull(ExcursionQuarantineAlert.NowOncePerLocation(Raised(7), held, seen));
+        Assert.Null(ExcursionQuarantineAlert.NowOncePerLocation(Raised(7), held, seen));
+        Assert.NotNull(ExcursionQuarantineAlert.NowOncePerLocation(Raised(9), held, seen));
+    }
 }

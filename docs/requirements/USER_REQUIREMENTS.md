@@ -911,3 +911,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-903 | Merging charts moves lookback notifications, massive transfusion activations and special-order lines to the surviving chart, and undoing it moves them back. | P1 | FRS-BB-1021 |
 | URS-BB-904 | A merge is refused while both charts have an active massive transfusion protocol. | P2 | FRS-BB-1022 |
 | URS-BB-905 | A unit that has left the blood bank is not shown as being in its last storage location. | P2 | FRS-BB-1023 |
+| URS-BB-906 | One alert per storage location says how many units are still quarantined after an excursion, not one per quarantine run. | P2 | FRS-BB-1024 |

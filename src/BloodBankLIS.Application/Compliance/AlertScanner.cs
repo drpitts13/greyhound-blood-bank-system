@@ -127,10 +127,11 @@ public sealed class AlertScanner
             .Where(u => u.ReasonCode == UnitQuarantineReason.StorageTemperatureExcursion && u.CurrentLocationId is not null)
             .GroupBy(u => u.CurrentLocationId!.Value)
             .ToDictionary(g => g.Key, g => g.Count());
+        var seenLocations = new HashSet<long>();
         var (_, quarantineCleared) = await _alerts.RecheckAsync(
             AlertRule.TemperatureExcursion,
             ExcursionQuarantineAlert.KeyPrefix,
-            alert => ExcursionQuarantineAlert.Now(alert, heldAfterExcursion),
+            alert => ExcursionQuarantineAlert.NowOncePerLocation(alert, heldAfterExcursion, seenLocations),
             ct);
         resolved += quarantineCleared;
 
