@@ -218,6 +218,18 @@ public sealed class ResultService
             return EvaluationResult<TestResult>.Fail(linkError);
         }
 
+        // Pass 85: a hand-entered result tested earlier (on paper during an outage) keeps when it was tested.
+        if (request.TestedUtc is DateTime testedUtc && request.Source == ResultSource.Manual)
+        {
+            var tested = ResultTestedTimeRule.Evaluate(testedUtc, specimen.CollectedUtc, _clock.UtcNow);
+            if (tested.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([tested]));
+            }
+
+            request = request with { SourceReference = ResultTestedTimeRule.SourceReference(testedUtc) };
+        }
+
         var normalizedCode = request.TestCode.Trim().ToUpperInvariant();
 
         if (_orderLines is not null)

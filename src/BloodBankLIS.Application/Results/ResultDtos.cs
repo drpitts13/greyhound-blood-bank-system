@@ -60,7 +60,9 @@ public sealed record SaveTestResultRequest(
     string? SourceReference = null,
     long? OrderActionId = null,
     // Titer tests: the grade read at each dilution (1:n).
-    IReadOnlyList<TiterReading>? TiterReadings = null);
+    IReadOnlyList<TiterReading>? TiterReadings = null,
+    // Pass 85: when a hand-entered result was tested, if earlier than now (paper results after an outage).
+    DateTime? TestedUtc = null);
 
 public sealed record TestResultDto(
     long Id,

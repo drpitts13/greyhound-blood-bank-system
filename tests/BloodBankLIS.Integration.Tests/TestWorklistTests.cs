@@ -283,6 +283,35 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("Accepted", save.Error!);
     }
 
+    // TEST-BB-1098 (end-user testing pass 85): a hand-entered result tested earlier keeps the time tested with its source,
+    // shown on the worklist; a time in the future or before collection is refused and nothing is saved.
+    [Fact]
+    public async Task Save_TestedEarlier_KeepsTheTimeTested()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var collected = seed.specimen!.CollectedUtc;
+        SaveTestResultRequest Request(DateTime tested) => new(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null, TestedUtc: tested);
+
+        var future = await Results(c).SaveTestResultAsync(Request(_factory.Clock.UtcNow.AddMinutes(10)));
+        Assert.False(future.Succeeded);
+        Assert.Contains("cannot be in the future", string.Join(" ", future.Evaluation!.HardStops.Select(h => h.Message)));
+        var early = await Results(c).SaveTestResultAsync(Request(collected.AddHours(-1)));
+        Assert.Contains("before the specimen was collected", string.Join(" ", early.Evaluation!.HardStops.Select(h => h.Message)));
+        Assert.False(await c.TestResults.AnyAsync(r => r.SpecimenId == seed.specimen.Id));
+
+        var tested = collected.AddMinutes(20);
+        var saved = await Results(c).SaveTestResultAsync(Request(tested));
+        Assert.True(saved.Succeeded, saved.Error);
+        Assert.Equal(ResultSource.Manual, saved.Value!.Source);
+        Assert.Equal($"Manual · tested {ClinicalTimeText.Local(tested)} (entered later)", saved.Value.SourceReference);
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.All));
+        Assert.Equal($"tested {ClinicalTimeText.Local(tested)} (entered later)", item.CurrentResultSourceDetail);
+    }
+
     [Fact]
     public async Task SaveIncomplete_SetsEntered_AndUpdatesOrderLine()
     {

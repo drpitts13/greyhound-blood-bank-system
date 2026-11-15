@@ -426,6 +426,16 @@
                 </div>
             }
 
+            @* Pass 85: results read on paper (an outage) keep when they were tested, not only when they were entered. *@
+            <details style="margin-top:.5rem;" data-result-tested-at open="@(_testedLocal is not null)">
+                <summary class="muted">Tested earlier (paper or downtime result)?</summary>
+                <div class="field" style="max-width:16rem;">
+                    <label>Time tested</label>
+                    <input type="datetime-local" @bind="_testedLocal" data-result-tested-time />
+                    <span class="sub">Leave blank when testing now. Kept with the result as "tested … (entered later)".</span>
+                </div>
+            </details>
+
             @if (WorkItem.CurrentResultStatus == ResultStatus.Verified && _showSavePrompt)
             {
                 <div class="field" style="margin-top:.5rem;">
@@ -520,6 +530,7 @@
     // Starts unchosen: filled in from the reactions or chosen, never assumed Compatible.
     private CrossmatchResult? _xmResult;
     private string _correctionReason = string.Empty;
+    private DateTime? _testedLocal;
     private bool _showSavePrompt;
     private bool _showDeltaOverride;
     private bool _postedVerifyDelta;
@@ -1047,7 +1058,8 @@
             includeOverride ? _authorizedBy.Trim() : null,
             includeOverride ? _historyResolution : null,
             signatureId,
-            TiterReadings: _definition?.ResultValueType == ResultValueType.Titer ? TiterReadings() : null);
+            TiterReadings: _definition?.ResultValueType == ResultValueType.Titer ? TiterReadings() : null,
+            TestedUtc: _testedLocal is DateTime testedLocal ? LocalEntry.ToUtc(testedLocal) : null);
 
         var r = await Api.SaveTestResultAsync(req, signatureId);
         _busy = false;
@@ -1077,6 +1089,7 @@
             _showDeltaOverride = false;
             _correctionReason = string.Empty;
             _overrideReason = string.Empty;
+            _testedLocal = null;
             await OnSaved.InvokeAsync();
         }
     }

@@ -332,7 +332,7 @@ public sealed class TestWorklistService
                 specimen?.Barcode,
                 order.OrderType == OrderType.TransfusionReactionWorkup,
                 SpecimenStorageLocation: specimen?.StorageLocation,
-                CurrentResultSourceDetail: current?.Source is ResultSource.Instrument or ResultSource.Interface
+                CurrentResultSourceDetail: current?.Source is ResultSource.Instrument or ResultSource.Interface or ResultSource.Manual
                     ? ResultSourceDetail.For(current.SourceReference)
                     : null,
                 ReflexFrom: TestWorklistView.ReflexLabel(line.ReflexFromTestCode, line.ReflexFromValue),

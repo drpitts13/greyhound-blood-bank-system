@@ -23918,3 +23918,25 @@ The Antibody ID worklist (the open workup on an expired specimen is already flag
 ### Tests
 
 - TEST-BB-1097. Full suite passed.
+
+## Iteration 803 — End-user testing pass 85: results read on paper and entered later (2026-11-14)
+
+### How it was tested
+
+The downtime snapshot (outage #1, 2026-11-12 03:15 to 05:15, with paper issues counted against it), then the test worklist: what a technologist entering results read on paper during that outage could record.
+
+### Found and fixed
+
+1. **A result entered later showed only when it was entered.** Paper issues are tied to the outage, but a result read on paper at 04:00 and entered at 06:00 recorded only 06:00, as if tested two hours later, and nothing said it was a back-entry. The entry panel now has *Tested earlier (paper or downtime result)?* with the time tested; the result keeps it with its source (*Manual · tested … (entered later)*), shown on the worklist beside the source. It cannot be in the future or before the specimen was collected.
+
+### Retested live
+
+- The pending ABO/Rh for ACC-RXN-POST1 shows the *Tested earlier* field. With a future time and no readings, the page asked for the readings before sending; no result was saved, and readings were not invented to go further. The server's refusal of a future or pre-collection time, and the stored and displayed time, are covered by the tests.
+
+### Noted
+
+- A specimen that has expired since it was tested on paper still cannot take the result; whether the time tested should decide that is not changed here.
+
+### Tests
+
+- TEST-BB-1098. Full suite passed.

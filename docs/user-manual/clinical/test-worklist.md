@@ -38,6 +38,10 @@ When you enter cell reactions for an ABO/Rh, a crossmatch, or a test made of sub
 
 > Hard stop. Verify is refused when the specimen is rejected or expired (a correction of an already verified result is the exception and can be verified after expiry, OCD-051), when the order is on hold, or when you are verifying your own patient ABO or Rh entry.
 
+### A result tested earlier
+
+When the test was read earlier than you are entering it (results read on paper during an outage, entered once the system is back), open **Tested earlier (paper or downtime result)?** under the entry and give the **Time tested**. The result keeps it with its source, and the worklist shows it beside the source as *tested 2026-11-12 04:00 (entered later)*; the entry time is still recorded as when it was entered. A time in the future, or before the specimen was collected, is refused. Leave it blank when testing now. The specimen must still be acceptable for entry when you enter the result.
+
 ## Discrepancies
 
 If the ABO or Rh does not match history, verification stops. A supervisor chooses **Retain** (keep the historical type and do not replace it with this result) or **Replace** (accept the new type), with an electronic signature. Do not verify around the delta by editing history.
