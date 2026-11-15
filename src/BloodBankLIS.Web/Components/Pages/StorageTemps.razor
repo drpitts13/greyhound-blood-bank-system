@@ -71,6 +71,10 @@
                         <td>@RangeText(loc.RangeMinC, loc.RangeMaxC)</td>
                         <td class="@(loc.LastStatus is StorageTemperatureStatus s && StorageTemperatureRule.IsExcursion(s) ? "text-error" : null)">
                             @(loc.LastReadingC is decimal c ? $"{c} °C" : "None")
+                            @if (loc.ReadingDue is { } due)
+                            {
+                                <span class="badge badge-amber" data-reading-due title="Facility Policies › Storage temperature reading interval">Reading due: @due</span>
+                            }
                         </td>
                         <td>@loc.LastReadingUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@loc.UnitsStored</td>

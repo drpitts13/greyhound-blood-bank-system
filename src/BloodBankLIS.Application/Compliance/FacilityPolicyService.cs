@@ -114,6 +114,9 @@ public sealed class FacilityPolicyService
         await GetIntAsync(FacilityPolicyKeys.RhigMaternalBloodVolumeMl, 0, ct),
         (RhigDoseRule.Rounding)Math.Clamp(await GetIntAsync(FacilityPolicyKeys.RhigDoseRounding, 0, ct), 0, 3));
 
+    public Task<int> GetTemperatureReadingIntervalHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.TemperatureReadingIntervalHours, 0, ct);
+
     public Task<int> GetSpecimenRetentionDaysAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.SpecimenRetentionDays, 0, ct);
 

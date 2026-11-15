@@ -31,6 +31,7 @@ public static class DashboardQueueCatalog
     public const string Supervisor = "supervisor";
     public const string Handoff = "handoff";
     public const string TemperatureExcursions = "temp-excursions";
+    public const string TemperatureReadingsDue = "temp-readings-due";
     public const string Hl7Errors = "hl7-errors";
     public const string InstrumentFailures = "instrument-failures";
     public const string NearExpiry = "near-expiry";
@@ -95,6 +96,8 @@ public static class DashboardQueueCatalog
             || has(PermissionCodes.InventoryRelease) || has(PermissionCodes.OverrideApprove), Supervisor, "Supervisor queue", "/supervisor");
         Add(cards, has(PermissionCodes.InventoryReceive)
             || has(PermissionCodes.DeviationManage), TemperatureExcursions, "Temperature excursions", "/storage-temps");
+        // Pass 87: locations whose temperature reading is due under the facility's interval.
+        Add(cards, has(PermissionCodes.InventoryReceive), TemperatureReadingsDue, "Temperature readings due", "/storage-temps");
         Add(cards, has(PermissionCodes.InventoryReceive) || has(PermissionCodes.InventoryDiscard)
             || canIssue || has(PermissionCodes.CompatibilityAllocate), NearExpiry, "Near expiry", "/inventory?board=near");
         // Products below their minimum stock level: whoever keeps or uses the stock should see a shortage before it bites.

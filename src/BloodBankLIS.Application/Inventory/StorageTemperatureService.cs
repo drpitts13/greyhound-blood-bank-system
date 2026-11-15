@@ -43,7 +43,9 @@ public sealed record StorageLocationTemperatureDto(
     decimal? LastReadingC,
     DateTime? LastReadingUtc,
     StorageTemperatureStatus? LastStatus,
-    int UnitsStored);
+    int UnitsStored,
+    // Pass 87: a reading is due under the facility's reading interval ("No reading recorded", "Due since …"), or null.
+    string? ReadingDue = null);
 
 public sealed record StorageDeviceDto(
     long LocationId,
@@ -484,6 +486,8 @@ public sealed class StorageTemperatureService
                 ct))
             .GroupBy(u => u.CurrentLocationId!.Value)
             .ToDictionary(g => g.Key, g => g.Count());
+        var interval = _policy is null ? 0 : await _policy.GetTemperatureReadingIntervalHoursAsync(ct);
+        var now = _clock.UtcNow;
 
         return locations
             .OrderBy(l => l.Code)
@@ -493,7 +497,8 @@ public sealed class StorageTemperatureService
                 return new StorageLocationTemperatureDto(
                     l.Id, l.Code, l.Name, l.StorageTempMinC, l.StorageTempMaxC,
                     last?.ReadingC, last?.ReadingUtc, last?.Status,
-                    counts.GetValueOrDefault(l.Id));
+                    counts.GetValueOrDefault(l.Id),
+                    TemperatureReadingDueRule.Text(l.StorageTempMinC is not null || l.StorageTempMaxC is not null, last?.ReadingUtc, interval, now));
             })
             .ToList();
     }

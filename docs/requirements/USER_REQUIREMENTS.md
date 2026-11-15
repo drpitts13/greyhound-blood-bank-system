@@ -871,3 +871,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-863 | A hand-entered result tested earlier than it is entered keeps when it was tested. | P2 | FRS-BB-981 |
 | URS-BB-864 | A transfusion reaction investigation records the imputability and the hemovigilance report. | P2 | FRS-BB-982 |
 | URS-BB-865 | Results, crossmatches and issues done on paper while a specimen was acceptable can be entered after it expires, on the terms of OCD-091. | P1 | FRS-BB-983 |
+| URS-BB-866 | A storage location whose temperature reading is overdue under the facility's interval is shown and counted. | P2 | FRS-BB-984 |

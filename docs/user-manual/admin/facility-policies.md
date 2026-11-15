@@ -20,6 +20,7 @@ Each row shows the current value and the citation the parameter was written agai
 - the three *RhIG dose* settings;
 - *RhIG: give within (hours of the event)*;
 - *Lookback: notify the physician within (days)*: the days after a lookback notification is opened within which the recipient's physician is to be notified. One value applies to every lookback type (a recipient, a facility the unit was shipped to, a recall); the lookback list and a DIN search show each notification's notify-by date from it. It ships 84 days (OCD-089, decided 2026-11-14); 0 means not set;
+- *Storage temperature reading interval (hours)*: how long a refrigerator, freezer or platelet incubator with a temperature range may go without a reading before Storage temps marks it reading due and the home card counts it (end-user testing pass 87); 0, the default, means not set and it is listed to enter;
 - *Specimen retention days*.
 
 While such a setting is still at its "not set" value, its row is marked **Not set**. A note at the top of the page names all of them, with **Show only these** to list just them. The home card **Facility settings to enter**, for those who can edit configuration, counts them and opens this page filtered to them. Until a value is entered, what depends on it does not happen; for example, no RhIG dose is calculated. Settings that are off by choice, such as the neonatal rules, are not counted.

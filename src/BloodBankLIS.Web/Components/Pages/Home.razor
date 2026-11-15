@@ -480,6 +480,13 @@
                 var (shortCount, note) = DashboardQueueCatalog.LowStockCard(result.Value);
                 return (card.Key, shortCount, note);
             }
+            case DashboardQueueCatalog.TemperatureReadingsDue:
+            {
+                var result = await Api.GetStorageTemperatureLocationsAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count(l => l.ReadingDue is not null), null)
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.TemperatureExcursions:
             {
                 var result = await Api.GetOpenTemperatureExcursionsAsync();

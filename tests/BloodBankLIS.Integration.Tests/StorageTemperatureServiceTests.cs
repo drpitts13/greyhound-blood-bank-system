@@ -163,6 +163,38 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
         Assert.Equal((0, "1 back in range: close its deviation"), (count, note));
     }
 
+    // TEST-BB-1101 (end-user testing pass 87): with the reading interval set, a location never read, or read longer ago
+    // than the interval, is marked reading due; one read within it is not; with the interval not set, none is.
+    [Fact]
+    public async Task Locations_MarkAReadingDue_UnderTheFacilityInterval()
+    {
+        await using var c = _factory.Create();
+        var read = await AddLocationAsync(c, "TMP-DUE1", 1m, 6m);
+        var stale = await AddLocationAsync(c, "TMP-DUE2", 1m, 6m);
+        var never = await AddLocationAsync(c, "TMP-DUE3", -30m, -18m);
+        var service = Service(c);
+        await service.RecordAsync(new RecordStorageTemperatureRequest(read.Id, 4m, _factory.Clock.UtcNow.AddHours(-1)));
+        await service.RecordAsync(new RecordStorageTemperatureRequest(stale.Id, 4m, _factory.Clock.UtcNow.AddHours(-5)));
+
+        Assert.All((await service.ListLocationsAsync()).Where(l => l.Code.StartsWith("TMP-DUE")), l => Assert.Null(l.ReadingDue));
+
+        var setting = new SystemSetting { Key = FacilityPolicyKeys.TemperatureReadingIntervalHours, Value = "4" };
+        c.SystemSettings.Add(setting);
+        await c.SaveChangesAsync();
+        try
+        {
+            var rows = (await service.ListLocationsAsync()).ToDictionary(l => l.Code);
+            Assert.Null(rows["TMP-DUE1"].ReadingDue);
+            Assert.StartsWith("Due since ", rows["TMP-DUE2"].ReadingDue);
+            Assert.Equal("No reading recorded", rows["TMP-DUE3"].ReadingDue);
+        }
+        finally
+        {
+            c.SystemSettings.Remove(setting);
+            await c.SaveChangesAsync();
+        }
+    }
+
     [Fact]
     public async Task Locations_ShowLastReading_AndKeepTheRangeInForceAtTheTime()
     {

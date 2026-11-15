@@ -23981,3 +23981,21 @@ Option C for patient testing, option B for entering crossmatches and issuing uni
 ### Tests
 
 - TEST-BB-1100. Full suite passed.
+
+## Iteration 806 — End-user testing pass 87: storage temperature readings due (2026-11-14)
+
+### How it was tested
+
+Storage temps: the open excursions (OR-FRIDGE and FRIDGE-1, back in range) and the locations list, read as the technologist starting a shift.
+
+### Found and fixed
+
+1. **A missed temperature reading went unnoticed.** The last readings were from 2026-11-12, two days earlier, and the plasma freezer holding 7 units had never been read; nothing said a reading was due, here or on the home screen. A new facility policy, *Storage temperature reading interval (hours)*, shipped 0 (not set, listed to enter) since the interval is the facility's procedure, marks each location with a temperature range whose last reading is that old, or that has none, as **Reading due**, and a home card **Temperature readings due** counts them.
+
+### Retested live
+
+- With the interval set to 4 hours in the development data (with a reason), Storage temps marked FREEZER-1 and PLT-1 *No reading recorded* and FRIDGE-1 and OR-FRIDGE *Due since …*; the issue window (no range) was not marked; the home card read 4. The interval was then set back to 0.
+
+### Tests
+
+- TEST-BB-1101. Full suite passed.
