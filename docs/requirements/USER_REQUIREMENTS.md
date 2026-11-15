@@ -869,3 +869,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-861 | A supplier delivery completed short of or over its packing list records why. | P2 | FRS-BB-979 |
 | URS-BB-862 | An instrument's own QC sample results are recognised and filed as QC, not as failures and not to a patient. | P2 | FRS-BB-980 |
 | URS-BB-863 | A hand-entered result tested earlier than it is entered keeps when it was tested. | P2 | FRS-BB-981 |
+| URS-BB-864 | A transfusion reaction investigation records the imputability and the hemovigilance report. | P2 | FRS-BB-982 |

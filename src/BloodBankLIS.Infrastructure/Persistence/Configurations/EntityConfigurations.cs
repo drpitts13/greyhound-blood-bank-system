@@ -1844,6 +1844,7 @@ public sealed class ReactionInvestigationConfiguration : IEntityTypeConfiguratio
         b.ToTable("ReactionInvestigations");
         b.Property(x => x.BagCultureResult).HasMaxLength(500);
         b.Property(x => x.SupplierNotificationNote).HasMaxLength(500);
+        b.Property(x => x.HemovigilanceReference).HasMaxLength(200);
         b.Property(x => x.ReopenedBy).HasMaxLength(100);
         b.Property(x => x.ReopenReason).HasMaxLength(500);
         b.Property(x => x.ConcludedReactionCode).HasMaxLength(30);

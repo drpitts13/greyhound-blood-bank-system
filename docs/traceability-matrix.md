@@ -975,6 +975,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-861 / FRS-BB-979 | End-user testing pass 83: completing a delivery that differs from its packing list | `DeliveryCompletionRule.cs`, `DeliveryService.cs`, `InventoryEndpoints.cs`, `Delivery.razor`, `DeliveryReceive.razor`, migration | TEST-BB-1096 | U, I | |
 | URS-BB-862 / FRS-BB-980 | End-user testing pass 84: instrument QC samples | `InstrumentQcSample.cs`, `AstmInboundProcessor.cs`, `InstrumentInterfaceAdminService.cs`, `AdminInstruments.razor`, `Instruments.razor`, migration | TEST-BB-1097 | U, I | |
 | URS-BB-863 / FRS-BB-981 | End-user testing pass 85: time tested for results entered later | `ResultTestedTimeRule.cs`, `ResultService.cs`, `TestWorklistService.cs`, `TestResultEntryPanel.razor` | TEST-BB-1098 | U, I | |
+| URS-BB-864 / FRS-BB-982 | End-user testing pass 86: reaction imputability and hemovigilance report | `ReactionInvestigation.cs`, `ReactionHemovigilanceRule.cs`, `ReactionInvestigationService.cs`, `Reactions.razor`, `ReactionReport.razor`, migration | TEST-BB-1099 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

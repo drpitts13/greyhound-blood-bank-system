@@ -431,6 +431,37 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.DoesNotContain(report.Value.SameDonationUnits, l => l.StartsWith(unit.UnitNumber + " "));
     }
 
+    // TEST-BB-1099 (end-user testing pass 86): imputability and the hemovigilance report are recorded, kept on the
+    // investigation and audited; a report date after today is refused and nothing changes.
+    [Fact]
+    public async Task ImputabilityAndHemovigilanceReport_AreRecorded()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        var today = DateOnly.FromDateTime(_factory.Clock.UtcNow.ToLocalTime());
+        var tomorrow = today.AddDays(2);
+
+        var future = await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, null,
+            Imputability: ReactionImputability.Probable, HemovigilanceReportedOn: tomorrow, HemovigilanceReference: "NHSN event 1"));
+        Assert.False(future.Succeeded);
+        Assert.Contains("cannot be after today", future.Error);
+        Assert.Equal(ReactionImputability.NotDetermined, (await context.ReactionInvestigations.AsNoTracking().SingleAsync(r => r.Id == opened.Id)).Imputability);
+
+        var reportedOn = today.AddDays(-1);
+        var saved = await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, null,
+            Imputability: ReactionImputability.Probable, HemovigilanceReportedOn: reportedOn, HemovigilanceReference: " NHSN event 12345 "));
+        Assert.True(saved.Succeeded, saved.Error);
+        var dto = (await CreateService(context).GetDtoAsync(opened.Id))!;
+        Assert.Equal((ReactionImputability.Probable, (DateOnly?)reportedOn, "NHSN event 12345"),
+            (dto.Imputability, dto.HemovigilanceReportedOn, dto.HemovigilanceReference));
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(ReactionInvestigation) && a.EntityId == opened.Id
+            && a.NewValueJson!.Contains("NHSN event 12345")));
+        Assert.Equal("Ruled out", ReactionHemovigilanceRule.Label(ReactionImputability.RuledOut));
+    }
+
     // TEST-BB-446: the repeat patient type comes from the verified post-transfusion ABO/Rh, compared with the
     // current type and with the pre-transfusion specimen.
     [Fact]

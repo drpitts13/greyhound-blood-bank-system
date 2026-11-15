@@ -392,6 +392,19 @@ else
                 <label class="flex"><input type="checkbox" @bind="_supplierNotified" /> &nbsp;Blood supplier notified@(_selected.SupplierNotifiedUtc is DateTime sn ? $" ({sn.ToLocalTime():yyyy-MM-dd HH:mm})" : "")</label>
                 <div class="field"><label>Supplier notification</label><input @bind="_supplierNote" placeholder="Who was told, reference number" /></div>
             </div>
+            @* Pass 86: imputability (NHSN categories) and the hemovigilance report. *@
+            <div class="form-row" data-reaction-hemovigilance>
+                <div class="field"><label>Imputability</label>
+                    <select @bind="_imputability" data-reaction-imputability>
+                        @foreach (var i in Enum.GetValues<ReactionImputability>())
+                        {
+                            <option value="@i">@ReactionHemovigilanceRule.Label(i)</option>
+                        }
+                    </select>
+                </div>
+                <div class="field"><label>Reported to hemovigilance on</label><input type="date" @bind="_hvReportedOn" data-reaction-hv-date /></div>
+                <div class="field" style="flex:2;"><label>Hemovigilance reference</label><input @bind="_hvReference" maxlength="@ReactionHemovigilanceRule.MaxReferenceLength" placeholder="e.g. NHSN event 12345" data-reaction-hv-reference /></div>
+            </div>
             @if (_sameDonation is { Count: > 0 })
             {
                 <div class="muted" data-same-donation><strong>Other units from this donation:</strong> @string.Join("; ", _sameDonation). Hold them if the supplier asks.</div>
@@ -569,6 +582,9 @@ else
     private string? _bagCultureResult;
     private bool _supplierNotified;
     private string? _supplierNote;
+    private ReactionImputability _imputability;
+    private DateOnly? _hvReportedOn;
+    private string? _hvReference;
     private IReadOnlyList<string>? _sameDonation;
     private string _closeSecret = string.Empty;
 
@@ -786,6 +802,9 @@ else
         _bagCultureResult = r.BagCultureResult;
         _supplierNotified = r.SupplierNotifiedUtc is not null;
         _supplierNote = r.SupplierNotificationNote;
+        _imputability = r.Imputability;
+        _hvReportedOn = r.HemovigilanceReportedOn;
+        _hvReference = r.HemovigilanceReference;
         _concludedReaction = r.ConcludedReactionCode;
         _treatments.Clear();
         foreach (var code in (r.TreatmentCodes ?? string.Empty).Split('|', StringSplitOptions.RemoveEmptyEntries))
@@ -846,7 +865,10 @@ else
             BagCultureSent: _bagCulture,
             BagCultureResult: _bagCultureResult ?? string.Empty,
             SupplierNotified: _supplierNotified,
-            SupplierNotificationNote: _supplierNote ?? string.Empty));
+            SupplierNotificationNote: _supplierNote ?? string.Empty,
+            Imputability: _imputability,
+            HemovigilanceReportedOn: _hvReportedOn,
+            HemovigilanceReference: _hvReference ?? string.Empty));
         _busy = false;
         _fb = r.ToFeedback("Investigation updated.");
         if (r.Succeeded)

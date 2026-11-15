@@ -26,6 +26,15 @@ public class ReactionInvestigation : BaseEntity
 
     public ReactionSeverity Severity { get; set; } = ReactionSeverity.Unknown;
 
+    /// <summary>How likely the transfusion caused the reaction (NHSN categories; pass 86).</summary>
+    public ReactionImputability Imputability { get; set; } = ReactionImputability.NotDetermined;
+
+    /// <summary>When the reaction was reported to the hemovigilance program (for example NHSN), if it was (pass 86).</summary>
+    public DateOnly? HemovigilanceReportedOn { get; set; }
+
+    /// <summary>The program and its report or event number.</summary>
+    public string? HemovigilanceReference { get; set; }
+
     public string? Findings { get; set; }
 
     public string? Conclusions { get; set; }

@@ -66,6 +66,10 @@ Recording CBER notification and the written report for a fatality does not need 
 
 > Demo data. In a development database Marcus Febrile (MRN0006) has a febrile reaction under review, and another red cell unit has been ordered (ORD-RXN-NEXT) and reserved for him. It shows the reaction warnings: **Reaction under investigation** on Ready to issue and the Issue form, the unit count on this list, *with units out or reserved* on the home card and the shift handoff. Releasing the unit does not bring it back.
 
+## Imputability and the hemovigilance report
+
+The investigation records the **Imputability**, how likely the transfusion caused the reaction, in the categories of the CDC NHSN Hemovigilance Module: *Not determined*, *Definite*, *Probable*, *Possible*, *Doubtful*, *Ruled out*. The investigator assigns it; the software does not. When the reaction is reported to your hemovigilance program, record the date it was **Reported to hemovigilance on** (not after today) and the **Hemovigilance reference** (the program and its event number). Both are audited and printed on the reaction report. Whether a reaction must be reported, and by when, is your facility's procedure; nothing here requires it.
+
 ## Bag culture, the supplier, and the donation's other units
 
 The workup checklist records whether the bag was sent for **Gram stain and culture**, with the result, and whether the **blood supplier was notified** (the time is stamped when you tick it and save) with who was told and the reference. When the implicated unit has a donation number, **Other units from this donation** lists its other components with their product and status, on the page and the report, so they can be found and held if the supplier asks. Nothing is held automatically.

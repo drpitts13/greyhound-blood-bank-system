@@ -120,6 +120,8 @@ else if (_report is { } r)
         <table class="mtp-report-facts">
             <tbody>
                 <tr><th>Type / severity</th><td>@(inv.ReactionType ?? "—") &middot; @inv.Severity</td></tr>
+                <tr data-report-imputability><th>Imputability</th><td>@ReactionHemovigilanceRule.Label(inv.Imputability)</td></tr>
+                <tr data-report-hemovigilance><th>Hemovigilance report</th><td>@(inv.HemovigilanceReportedOn is DateOnly hvOn ? $"Reported {hvOn:yyyy-MM-dd}" : "Not recorded")@(inv.HemovigilanceReference is { } hvRef ? $" · {hvRef}" : "")</td></tr>
                 <tr><th>Reaction concluded</th><td>@(inv.ConcludedReactionText ?? "Not decided")</td></tr>
                 <tr><th>Treatment for future transfusions</th><td>@(inv.TreatmentTexts ?? "Not decided")</td></tr>
                 <tr><th>Conclusions</th><td>@(inv.Conclusions ?? "—")</td></tr>

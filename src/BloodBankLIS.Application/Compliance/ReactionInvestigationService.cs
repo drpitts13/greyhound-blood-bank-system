@@ -37,7 +37,11 @@ public sealed record UpdateReactionInvestigationRequest(
     string? BagCultureResult = null,
     // True records when the supplier was told (once); false clears it.
     bool? SupplierNotified = null,
-    string? SupplierNotificationNote = null);
+    string? SupplierNotificationNote = null,
+    // Pass 86: imputability (NHSN categories) and the hemovigilance report; a blank reference with no date clears it.
+    ReactionImputability? Imputability = null,
+    DateOnly? HemovigilanceReportedOn = null,
+    string? HemovigilanceReference = null);
 
 public sealed record ReactionInvestigationDto(
     long Id,
@@ -113,6 +117,9 @@ public sealed record ReactionInvestigationDto(
     public string? BagCultureResult { get; init; }
     public DateTime? SupplierNotifiedUtc { get; init; }
     public string? SupplierNotificationNote { get; init; }
+    public ReactionImputability Imputability { get; init; }
+    public DateOnly? HemovigilanceReportedOn { get; init; }
+    public string? HemovigilanceReference { get; init; }
 
     /// <summary>The specimen workup as the close gate sees it, from the results on this DTO.</summary>
     public ReactionWorkupCompletenessRule.WorkupState SpecimenWorkupState => new(
@@ -189,7 +196,10 @@ public sealed record ReactionInvestigationDto(
             BagCultureSent = r.BagCultureSent,
             BagCultureResult = r.BagCultureResult,
             SupplierNotifiedUtc = r.SupplierNotifiedUtc,
-            SupplierNotificationNote = r.SupplierNotificationNote
+            SupplierNotificationNote = r.SupplierNotificationNote,
+            Imputability = r.Imputability,
+            HemovigilanceReportedOn = r.HemovigilanceReportedOn,
+            HemovigilanceReference = r.HemovigilanceReference
         };
     }
 }
@@ -574,9 +584,25 @@ public sealed class ReactionInvestigationService
             return OperationResult<ReactionInvestigation>.Fail($"{locked.Code}: {locked.Message}");
         }
 
+        if (request.HemovigilanceReference is not null || request.HemovigilanceReportedOn is not null)
+        {
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(_clock.UtcNow, DateTimeKind.Utc), TimeZoneInfo.Local));
+            var hv = ReactionHemovigilanceRule.Evaluate(request.HemovigilanceReportedOn, request.HemovigilanceReference, today);
+            if (hv.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<ReactionInvestigation>.Fail($"{hv.Code}: {hv.Message}");
+            }
+        }
+
         var oldValue = Snapshot(row);
 
         if (request.ReactionType is not null) row.ReactionType = request.ReactionType;
+        if (request.Imputability is not null) row.Imputability = request.Imputability.Value;
+        if (request.HemovigilanceReference is not null)
+        {
+            row.HemovigilanceReference = string.IsNullOrWhiteSpace(request.HemovigilanceReference) ? null : request.HemovigilanceReference.Trim();
+            row.HemovigilanceReportedOn = request.HemovigilanceReportedOn;
+        }
         if (request.Severity is not null) row.Severity = request.Severity.Value;
         if (request.Findings is not null) row.Findings = request.Findings;
         if (request.Conclusions is not null) row.Conclusions = request.Conclusions;
@@ -757,6 +783,9 @@ public sealed class ReactionInvestigationService
         || Differs(r.BagCultureResult, row.BagCultureResult)
         || (r.SupplierNotified is not null && r.SupplierNotified != (row.SupplierNotifiedUtc is not null))
         || Differs(r.SupplierNotificationNote, row.SupplierNotificationNote)
+        || (r.Imputability is not null && r.Imputability != row.Imputability)
+        || (r.HemovigilanceReference is not null
+            && (Differs(r.HemovigilanceReference, row.HemovigilanceReference ?? string.Empty) || r.HemovigilanceReportedOn != row.HemovigilanceReportedOn))
         || Differs(r.ConcludedReactionCode, row.ConcludedReactionCode)
         || (r.TreatmentCodes is not null && string.Join("|", r.TreatmentCodes.Select(ReactionConclusionRule.Normalize).Where(c => c.Length > 0).Distinct()) != (row.TreatmentCodes ?? string.Empty));
 
@@ -972,6 +1001,9 @@ public sealed class ReactionInvestigationService
         row.Status,
         row.ReactionType,
         row.Severity,
+        row.Imputability,
+        row.HemovigilanceReportedOn,
+        row.HemovigilanceReference,
         row.Findings,
         row.Conclusions,
         row.FollowUp,

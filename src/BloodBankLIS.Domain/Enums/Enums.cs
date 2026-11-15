@@ -1050,6 +1050,20 @@ public enum ReactionInvestigationStatus
     Closed = 2
 }
 
+/// <summary>
+/// How likely the transfusion caused the reaction (end-user testing pass 86), in the categories of the CDC NHSN
+/// Hemovigilance Module protocol. Assigned by the investigator; the software does not decide it.
+/// </summary>
+public enum ReactionImputability
+{
+    NotDetermined = 0,
+    Definite = 1,
+    Probable = 2,
+    Possible = 3,
+    Doubtful = 4,
+    RuledOut = 5
+}
+
 public enum ReactionSeverity
 {
     Unknown = 0,

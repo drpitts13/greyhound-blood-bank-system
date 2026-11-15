@@ -23940,3 +23940,23 @@ The downtime snapshot (outage #1, 2026-11-12 03:15 to 05:15, with paper issues c
 ### Tests
 
 - TEST-BB-1098. Full suite passed.
+
+## Iteration 804 — End-user testing pass 86: classifying a transfusion reaction (2026-11-14)
+
+### How it was tested
+
+Reactions: the two open investigations (Febrile, Marcus, under review; Demo-Multi, Riley, open), the investigation form and the printed reaction report, read as a hemovigilance officer preparing a report.
+
+### Found and fixed
+
+1. **No imputability and no hemovigilance report.** An investigation recorded the reaction concluded, its severity and its treatment, but not how likely the transfusion caused it, which hemovigilance reporting (the CDC NHSN Hemovigilance Module) classifies every case by, and not whether or when it was reported. The investigation now records the **Imputability** (Not determined, Definite, Probable, Possible, Doubtful, Ruled out), the date **Reported to hemovigilance on** (not after today) and the **Hemovigilance reference**; all are audited, locked once closed, and printed on the reaction report. Assigning imputability is the investigator's; reporting stays the facility's procedure.
+
+2. **Recorded as an open decision:** whether the time tested (pass 85) should decide if a specimen expired since was acceptable for a back-entered result (OCD-091).
+
+### Retested live
+
+- Riley's investigation shows Imputability *Not determined* with the six categories, the report date and the reference; the reaction report prints *Imputability: Not determined* and *Hemovigilance report: Not recorded*. No determination was saved for the demo patients.
+
+### Tests
+
+- TEST-BB-1099. Full suite passed.
