@@ -985,6 +985,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-871 / FRS-BB-989 | End-user testing pass 92: antigen-negative inventory search | `InventorySearchCriteria.cs`, `InventoryRepository.cs`, `InventoryEndpoints.cs`, `BloodBankApiClient.cs`, `Inventory.razor` | TEST-BB-1106 | I | |
 | URS-BB-872 / FRS-BB-990 | End-user testing pass 93: reagent QC controls | `Reagent.cs`, `ReagentQcControls.cs`, `ReagentQcWorklistRule`, `ReagentQcService.cs`, `Reagents.razor`, migration | TEST-BB-1107 | I | |
 | URS-BB-873 / FRS-BB-991 | End-user testing pass 94: excursion quarantine alerts kept current | `AlertService.cs`, `AlertScanner.cs`, `ExcursionQuarantineAlert.cs` | TEST-BB-1108 | U | |
+| URS-BB-874 / FRS-BB-992 | End-user testing pass 95: expired-units alert kept current | `ExpiredUnitsAlert.cs`, `AlertScanner.cs` | TEST-BB-1109 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

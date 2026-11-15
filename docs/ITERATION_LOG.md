@@ -24129,3 +24129,21 @@ Issue & Transfuse (ready to issue, the open MTP) and the Alerts inbox: 29 open a
 ### Tests
 
 - TEST-BB-1108. Full suite passed.
+
+## Iteration 814 — End-user testing pass 95: the expiry sweep's alerts (2026-11-15)
+
+### How it was tested
+
+Following pass 94, the other alerts raised once by an event: the expiry sweep's "N unit(s) expired … Remove them from storage" (three open, from 2026-11-07, 11-08 and 11-10).
+
+### Found and fixed
+
+1. **The expired-units alert stayed open whatever happened to the units.** It was acknowledged or nothing: discarding the units left it open, and discarding some of them left it saying the same count. The alert scanner now rechecks it against the units that sweep expired: while all are still marked Expired it stands as raised; once some are dealt with it reads *2 of 8 expired unit(s) still to remove*; when none is left it closes.
+
+### Retested live
+
+- After a restart the scan left all three open, correctly: every unit they name is still on a shelf marked Expired (1, 1 and 8 units, the eight being the platelets in FRIDGE-1 found in pass 89). No unit was discarded to force a change.
+
+### Tests
+
+- TEST-BB-1109. Full suite passed.

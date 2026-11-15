@@ -1117,5 +1117,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1106 | I | `InventoryServiceTests.Search_AntigenNegative_FindsOnlyUnitsTypedNegative` | URS-BB-871 / FRS-BB-989 |
 | TEST-BB-1107 | I | `CompetitorGapWorkflowTests.ReagentQc_WithControls_NeedsEachControlEachDay` | URS-BB-872 / FRS-BB-990 |
 | TEST-BB-1108 | U | `ExcursionQuarantineAlertTests.Now_CountsUnitsStillHeld_AndClearsWhenNone` | URS-BB-873 / FRS-BB-991 |
+| TEST-BB-1109 | U | `ExpiredUnitsAlertTests.Now_CountsUnitsStillToRemove_AndClosesWhenNone` | URS-BB-874 / FRS-BB-992 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

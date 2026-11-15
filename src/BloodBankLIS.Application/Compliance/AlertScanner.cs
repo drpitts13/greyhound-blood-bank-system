@@ -134,6 +134,33 @@ public sealed class AlertScanner
             ct);
         resolved += quarantineCleared;
 
+        // Pass 95: "N unit(s) expired … remove them from storage" says how many of those units are still on a shelf, and
+        // closes once all are discarded or otherwise dealt with.
+        if (_units is not null)
+        {
+            // Each unit still marked Expired, under the sweep that expired it (its latest move to Expired).
+            var onShelfBySweep = new Dictionary<string, int>();
+            foreach (var unit in await _units.ListAsync(u => u.Status == UnitStatus.Expired, ct))
+            {
+                var expiredAt = (await _inventory.GetHistoryAsync(unit.Id, ct))
+                    .Where(h => h.ToStatus == UnitStatus.Expired)
+                    .Select(h => (DateTime?)h.ChangedUtc)
+                    .Max();
+                if (expiredAt is DateTime at)
+                {
+                    var stamp = at.ToString("yyyyMMddHHmmss");
+                    onShelfBySweep[stamp] = onShelfBySweep.GetValueOrDefault(stamp) + 1;
+                }
+            }
+
+            var (_, expiredCleared) = await _alerts.RecheckAsync(
+                AlertRule.UnitsExpired,
+                ExpiredUnitsAlert.KeyPrefix,
+                alert => ExpiredUnitsAlert.Now(alert, onShelfBySweep),
+                ct);
+            resolved += expiredCleared;
+        }
+
         return (raised, resolved);
 
         void Add((int Raised, int Resolved) result)
