@@ -24526,3 +24526,21 @@ The Shift handoff's counts and the home dashboard, compared with Lookback.
 ### Tests
 
 - TEST-BB-1133. Full suite passed.
+
+## Iteration 836 — End-user testing pass 117: the physician's statement for an emergency release (2026-11-15)
+
+### How it was tested
+
+Compatibility, the stock count, the audit trail filters, specimen intake and the 3-day specimen rule, then emergency release against 21 CFR 606.151(e).
+
+### Found and fixed
+
+1. **The signed statement that must follow an emergency release was not tracked.** The authorizer was recorded at issue (*Dr. Amy Lee* for John Doe Trauma's emergency release), but the requesting physician's signed statement that the situation was urgent enough was neither recorded nor chased, and once the retrospective crossmatch was done nothing remained to show it was outstanding. Each issue released before testing was complete is now listed on the Retrospective board under **Physician statements to collect**, with the authorizer, until the blood bank records who signed it and when it was received (audited); the home Retrospective card says how many are outstanding.
+
+### Retested live
+
+- Retrospective board: three statements to collect (Morgan Demo-Massive's two massive transfusion units, and John Doe Trauma's emergency release authorized by Dr. Amy Lee). **Record statement** with no signer is refused (*Enter the physician who signed the statement.*); no statement was recorded, since that would be a signature nobody gave. Home: *2 past due; 3 physician statements to collect*.
+
+### Tests
+
+- TEST-BB-1134, TEST-BB-1135. Full suite passed.

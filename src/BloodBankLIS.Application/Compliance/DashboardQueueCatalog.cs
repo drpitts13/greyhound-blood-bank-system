@@ -422,6 +422,20 @@ public static class DashboardQueueCatalog
     /// The HL7 errors card note: how long the oldest unresolved error has waited (an order, result, or admission that has
     /// not reached its destination for that long). The card leads under Needs attention whenever it has errors.
     /// </summary>
+    /// <summary>
+    /// The Retrospective crossmatch card note: crossmatches past due, and physician statements of urgency still to collect
+    /// (pass 117). Either brings the card under Needs attention.
+    /// </summary>
+    public static string? RetrospectiveNote(int overdue, int statementsOutstanding)
+    {
+        var parts = new[]
+        {
+            AttentionNote(overdue, "past due", "past due"),
+            AttentionNote(statementsOutstanding, "physician statement to collect", "physician statements to collect")
+        }.Where(p => p is not null).ToList();
+        return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
     /// <summary>The Lookback notifications card note: those past the facility's notify-by date (pass 116).</summary>
     public static string? LookbackNote(IEnumerable<LookbackNotificationDto> due) =>
         AttentionNote(due.Count(n => n.PastNotifyBy), "past notify-by", "past notify-by");

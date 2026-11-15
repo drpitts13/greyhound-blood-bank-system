@@ -1433,6 +1433,32 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("UNK-20260530-01", row.IssuedUnderEarlierMrn);
     }
 
+    // TEST-BB-1135: an issue released before testing was complete is listed until the physician's signed statement of
+    // urgency is recorded (who signed, when received, audited); a blank signer, a second recording, or a standard issue
+    // is refused (end-user testing pass 117).
+    [Fact]
+    public async Task UrgencyStatement_IsListedUntilRecorded()
+    {
+        var s = await SeedAsync("TX-URGENCY");
+        var issueId = await IssuedAndReceivedAsync(s);
+        await using var c = _factory.Create();
+        Assert.Contains("not released before testing was complete",
+            (await Issuing(c).RecordUrgencyStatementAsync(issueId, new RecordUrgencyStatementRequest("Dr. Lee"))).Error);
+
+        var issue = await c.Issues.SingleAsync(i => i.Id == issueId);
+        issue.TestsIncompleteAtIssue = true;
+        await c.SaveChangesAsync();
+        Assert.Contains(await Issuing(c).ListUrgencyStatementsOutstandingAsync(), r => r.IssueId == issueId);
+        Assert.Contains("Enter the physician", (await Issuing(c).RecordUrgencyStatementAsync(issueId, new RecordUrgencyStatementRequest(" "))).Error);
+
+        var recorded = await Issuing(c).RecordUrgencyStatementAsync(issueId, new RecordUrgencyStatementRequest(" Dr. Amy Lee "));
+        Assert.True(recorded.Succeeded, recorded.Error);
+        Assert.Equal(("Dr. Amy Lee", _factory.Clock.UtcNow), (recorded.Value!.UrgencyStatementSignedBy, recorded.Value.UrgencyStatementReceivedUtc!.Value));
+        Assert.DoesNotContain(await Issuing(c).ListUrgencyStatementsOutstandingAsync(), r => r.IssueId == issueId);
+        Assert.Contains("already recorded", (await Issuing(c).RecordUrgencyStatementAsync(issueId, new RecordUrgencyStatementRequest("Dr. Other"))).Error);
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityType == nameof(Issue) && e.EntityId == issueId && e.Reason == "Physician statement of urgency received."));
+    }
+
     // TEST-BB-1131: with the facility's consent confirmation on, starting a transfusion without confirming consent is
     // refused (TXN-CONSENT) and nothing is recorded; confirmed, it starts and the confirmation is kept (pass 115).
     [Fact]

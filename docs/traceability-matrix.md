@@ -1007,6 +1007,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-893 / FRS-BB-1011 | End-user testing pass 114: no unit received with an unknown type | `InventoryService.cs`, `DeliveryReceive.razor` | TEST-BB-1130 | I | |
 | URS-BB-894 / FRS-BB-1012 | End-user testing pass 115: consent confirmation at the bedside | `TransfusionConsentRule.cs`, `IssuingService.cs`, `Issuing.razor`, `FacilityPolicyCatalog.cs`, migration | TEST-BB-1131, TEST-BB-1132 | I, U | |
 | URS-BB-895 / FRS-BB-1013 | End-user testing pass 116: lookback notifications on the home page and handoff | `DashboardQueueCatalog.cs`, `DashboardHomeLayout.cs`, `Home.razor`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, migration | TEST-BB-1133 | U | |
+| URS-BB-896 / FRS-BB-1014 | End-user testing pass 117: physician statement of urgency for emergency release | `UrgencyStatementRule.cs`, `IssuingService.cs`, `IssuingEndpoints.cs`, `Issuing.razor`, `Home.razor`, migration | TEST-BB-1134, TEST-BB-1135 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

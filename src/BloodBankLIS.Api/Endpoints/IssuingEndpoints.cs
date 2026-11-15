@@ -143,6 +143,14 @@ public static class IssuingEndpoints
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.IssueEmergencyRelease);
 
+        // Pass 117: physician statements of urgency still to collect, and recording one.
+        issues.MapGet("/urgency-statements", async (IssuingService service, CancellationToken ct) =>
+            Results.Ok(await service.ListUrgencyStatementsOutstandingAsync(ct)))
+            .RequirePermission(PermissionCodes.IssueCreate);
+        issues.MapPost("/{id:long}/urgency-statement", async (long id, RecordUrgencyStatementRequest request, IssuingService service, CancellationToken ct) =>
+            EndpointResults.From(await service.RecordUrgencyStatementAsync(id, request, ct), i => new { i.Id, i.UrgencyStatementSignedBy, i.UrgencyStatementReceivedUtc }))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
         issues.MapGet("/pending-retrospective-crossmatch", async (IssuingService service, CancellationToken ct) =>
             Results.Ok(await service.ListPendingRetrospectiveCrossmatchesAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);

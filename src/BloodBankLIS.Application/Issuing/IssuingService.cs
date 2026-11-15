@@ -750,6 +750,82 @@ public sealed class IssuingService
     /// Emergency / MTP issues still waiting for a retrospective compatible crossmatch.
     /// Returned units drop off; transfused units stay until XM is documented.
     /// </summary>
+    /// <summary>
+    /// Pass 117: issues released before testing was complete whose physician statement of urgency is not recorded yet,
+    /// oldest first, with the authorizer recorded at issue.
+    /// </summary>
+    public async Task<IReadOnlyList<UrgencyStatementWorkItemDto>> ListUrgencyStatementsOutstandingAsync(CancellationToken ct = default)
+    {
+        var issues = (await _issues.ListAsync(i => i.TestsIncompleteAtIssue && i.UrgencyStatementReceivedUtc == null, ct))
+            .OrderBy(i => i.IssuedUtc)
+            .ToList();
+        if (issues.Count == 0)
+        {
+            return [];
+        }
+
+        var patientIds = issues.Select(i => i.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var overrideIds = issues.Where(i => i.OverrideId != null).Select(i => i.OverrideId!.Value).ToList();
+        var overrides = overrideIds.Count == 0
+            ? new Dictionary<long, Override>()
+            : (await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct)).ToDictionary(o => o.Id);
+        var rows = new List<UrgencyStatementWorkItemDto>();
+        foreach (var issue in issues)
+        {
+            patients.TryGetValue(issue.PatientId, out var patient);
+            var unit = await _inventory.GetUnitAsync(issue.BloodProductId, ct);
+            rows.Add(new UrgencyStatementWorkItemDto(
+                issue.Id,
+                issue.PatientId,
+                patient?.MedicalRecordNumber,
+                patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
+                unit?.UnitNumber,
+                issue.IssueType,
+                issue.IssuedUtc,
+                issue.OverrideId is long oid && overrides.TryGetValue(oid, out var ov) ? ov.AuthorizedBy : null));
+        }
+
+        return rows;
+    }
+
+    /// <summary>Pass 117: records who signed the statement of urgency and when it was received; audited.</summary>
+    public async Task<OperationResult<Issue>> RecordUrgencyStatementAsync(long issueId, RecordUrgencyStatementRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (!await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueCreate, ct))
+        {
+            return OperationResult<Issue>.Fail("You do not have permission to record a physician statement.");
+        }
+
+        var issue = await _issues.GetByIdAsync(issueId, ct);
+        if (issue is null)
+        {
+            return OperationResult<Issue>.Fail("Issue not found.");
+        }
+
+        var now = _clock.UtcNow;
+        var received = request.ReceivedUtc ?? now;
+        if (UrgencyStatementRule.Validate(issue.TestsIncompleteAtIssue, issue.UrgencyStatementReceivedUtc, request.SignedBy, received, issue.IssuedUtc, now) is { } problem)
+        {
+            return OperationResult<Issue>.Fail(problem);
+        }
+
+        issue.UrgencyStatementSignedBy = request.SignedBy.Trim();
+        issue.UrgencyStatementReceivedUtc = received;
+        issue.UrgencyStatementRecordedBy = _currentUser.UserName;
+        _issues.Update(issue);
+        _audit.Record(
+            AuditEventType.EmergencyRelease,
+            nameof(Issue),
+            issue.Id,
+            oldValue: null,
+            newValue: new { issue.UrgencyStatementSignedBy, issue.UrgencyStatementReceivedUtc, issue.UrgencyStatementRecordedBy },
+            reason: "Physician statement of urgency received.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Issue>.Ok(issue);
+    }
+
     public async Task<IReadOnlyList<RetrospectiveCrossmatchWorkItemDto>> ListPendingRetrospectiveCrossmatchesAsync(
         CancellationToken ct = default)
     {

@@ -575,6 +575,40 @@
             </div>
         }
     </div>
+
+    @* Pass 117: the physician's signed statement of urgency for each release before testing was complete. *@
+    <div class="bb-card" data-urgency-statements>
+        <div class="bb-card-title"><h3>Physician statements to collect</h3></div>
+        <p class="muted">Each unit released before testing was complete needs the requesting physician's signed statement that the situation was urgent enough. Record who signed it and when the blood bank received it. A row stays here, after its crossmatch too, until the statement is recorded.</p>
+        <Outcome Value="_urgencyFb" />
+        @if (_urgencyItems.Count == 0)
+        {
+            <div class="muted">No physician statement is outstanding.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Patient / MRN</th><th>Unit</th><th>Issue</th><th>Issued</th><th>Authorized at issue</th><th>Signed by</th><th>Received</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var row in _urgencyItems)
+                    {
+                        <tr>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Patient #{row.PatientId}")</a><span class="sub mono">@row.MedicalRecordNumber</span></td>
+                            <td class="mono">@row.UnitNumber</td>
+                            <td>@Ui.EnumText(row.IssueType)</td>
+                            <td class="nowrap">@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub">@AlertInboxView.OpenFor(row.IssuedUtc, DateTime.UtcNow) ago</span></td>
+                            <td>@(row.AuthorizedBy ?? "—")</td>
+                            <td><input style="width:12rem;" maxlength="@UrgencyStatementRule.MaxSignedByLength" placeholder="Physician who signed" value="@UrgencySigner(row.IssueId)" @onchange="e => _urgencySigners[row.IssueId] = e.Value?.ToString() ?? string.Empty" data-urgency-signed-by /></td>
+                            <td><input type="date" value="@UrgencyDateText(row.IssueId)" @onchange="e => _urgencyDates[row.IssueId] = e.Value?.ToString() ?? string.Empty" /></td>
+                            <td class="right"><button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => RecordUrgencyStatementAsync(row)" data-urgency-record>Record statement</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
 }
 
 @if (Session.Has(PermissionCodes.IssueCreate) && _desk == "transit")
@@ -1917,6 +1951,32 @@
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<PatientDto> _patients = new();
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
+    private List<UrgencyStatementWorkItemDto> _urgencyItems = new();
+    private readonly Dictionary<long, string> _urgencySigners = new();
+    private readonly Dictionary<long, string> _urgencyDates = new();
+    private Feedback? _urgencyFb;
+
+    private string UrgencySigner(long issueId) => _urgencySigners.GetValueOrDefault(issueId, string.Empty);
+
+    private string UrgencyDateText(long issueId) => _urgencyDates.GetValueOrDefault(issueId, DateTime.Today.ToString("yyyy-MM-dd"));
+
+    private async Task RecordUrgencyStatementAsync(UrgencyStatementWorkItemDto row)
+    {
+        _busy = true;
+        DateTime? received = DateTime.TryParse(UrgencyDateText(row.IssueId), out var day)
+            ? (day.Date == DateTime.Today ? DateTime.UtcNow : LocalEntry.ToUtc(day.Date.AddHours(12)))
+            : null;
+        var r = await Api.RecordUrgencyStatementAsync(row.IssueId, new RecordUrgencyStatementRequest(UrgencySigner(row.IssueId), received));
+        _busy = false;
+        _urgencyFb = r.ToFeedback($"Physician statement recorded for {row.UnitNumber}.");
+        if (r.Succeeded)
+        {
+            _urgencySigners.Remove(row.IssueId);
+            _urgencyDates.Remove(row.IssueId);
+            var list = await Api.GetUrgencyStatementsOutstandingAsync();
+            if (list.Succeeded) _urgencyItems = list.Value ?? new();
+        }
+    }
     private List<InTransitWorkItemDto> _inTransitItems = new();
     private List<OutstandingIssueWorkItemDto> _outstandingItems = new();
     private List<OverdueDispositionWorkItemDto> _dispositionItems = new();
@@ -2822,6 +2882,8 @@
         {
             var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
             if (retro.Succeeded) _retroItems = retro.Value ?? new();
+            var urgency = await Api.GetUrgencyStatementsOutstandingAsync();
+            if (urgency.Succeeded) _urgencyItems = urgency.Value ?? new();
             var transit = await Api.GetInTransitIssuesAsync();
             if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
             var coolers = await Api.GetOpenCoolersAsync();

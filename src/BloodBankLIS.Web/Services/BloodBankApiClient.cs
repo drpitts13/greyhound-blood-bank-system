@@ -768,6 +768,12 @@ public sealed class BloodBankApiClient
         return SendAsync<IssueDto>(HttpMethod.Post, "api/issues", req, ct, headers);
     }
 
+    public Task<ApiResult<List<UrgencyStatementWorkItemDto>>> GetUrgencyStatementsOutstandingAsync(CancellationToken ct = default) =>
+        SendAsync<List<UrgencyStatementWorkItemDto>>(HttpMethod.Get, "api/issues/urgency-statements", ct: ct);
+
+    public Task<ApiResult<object>> RecordUrgencyStatementAsync(long issueId, RecordUrgencyStatementRequest request, CancellationToken ct = default) =>
+        SendAsync<object>(HttpMethod.Post, $"api/issues/{issueId}/urgency-statement", request, ct);
+
     public Task<ApiResult<List<RetrospectiveCrossmatchWorkItemDto>>> GetPendingRetrospectiveCrossmatchesAsync(
         CancellationToken ct = default) =>
         SendAsync<List<RetrospectiveCrossmatchWorkItemDto>>(

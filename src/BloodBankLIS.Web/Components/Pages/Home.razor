@@ -317,7 +317,9 @@
                 }
 
                 var overdue = RetrospectiveCrossmatchAttentionRule.CountOverdue(result.Value);
-                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(overdue, "past due", "past due"));
+                // Pass 117: physician statements of urgency still to collect are worked on the same board.
+                var statements = await Api.GetUrgencyStatementsOutstandingAsync();
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.RetrospectiveNote(overdue, statements.Succeeded ? statements.Value?.Count ?? 0 : 0));
             }
             case DashboardQueueCatalog.InTransit:
             {

@@ -417,6 +417,20 @@ public sealed record SecondAboWorkItemDto(
     // asking for another. Null: nothing ordered yet, the next step is to order one from a separate draw.
     string? AboOrderNumber = null);
 
+/// <summary>An issue released before testing was complete whose physician statement is not recorded yet (pass 117).</summary>
+public sealed record UrgencyStatementWorkItemDto(
+    long IssueId,
+    long PatientId,
+    string? MedicalRecordNumber,
+    string? PatientDisplayName,
+    string? UnitNumber,
+    IssueType IssueType,
+    DateTime IssuedUtc,
+    string? AuthorizedBy);
+
+/// <summary>Records the physician's signed statement of urgency: who signed it and when it was received (now if blank).</summary>
+public sealed record RecordUrgencyStatementRequest(string SignedBy, DateTime? ReceivedUtc = null);
+
 public sealed record RetrospectiveCrossmatchWorkItemDto(
     long IssueId,
     long PatientId,

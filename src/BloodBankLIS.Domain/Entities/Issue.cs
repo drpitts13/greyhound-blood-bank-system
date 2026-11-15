@@ -76,6 +76,16 @@ public class Issue : BaseEntity
     /// <summary>21 CFR 606.151(b): conspicuous incomplete-testing statement for emergency release.</summary>
     public bool TestsIncompleteAtIssue { get; set; }
 
+    /// <summary>
+    /// The physician's signed statement of urgency for a release before testing was complete (21 CFR 606.151(e); end-user
+    /// testing pass 117): who signed it, when the blood bank received it, and who recorded it.
+    /// </summary>
+    public string? UrgencyStatementSignedBy { get; set; }
+
+    public DateTime? UrgencyStatementReceivedUtc { get; set; }
+
+    public string? UrgencyStatementRecordedBy { get; set; }
+
     /// <summary>When retrospective compatibility testing is due (emergency / MTP incomplete issue).</summary>
     public DateTime? RetrospectiveCrossmatchDueUtc { get; set; }
 

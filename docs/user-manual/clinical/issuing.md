@@ -62,6 +62,8 @@ After a unit is issued, the form keeps the patient, the two identifiers, the des
 
 ## Emergency release and massive transfusion
 
+**Physician statements to collect.** Every unit released before testing was complete (emergency release, or massive transfusion without a crossmatch) needs the requesting physician's signed statement that the situation was urgent enough (21 CFR 606.151(e)). The Retrospective board lists each such issue under **Physician statements to collect**, with the authorizer recorded at issue, until the blood bank records it: enter who signed it and the date received, and choose **Record statement** (audited; you need the issue permission). A row stays after its crossmatch is done. The home **Retrospective crossmatch** card says how many statements are still to collect. Nothing is blocked by it.
+
 Emergency and MTP are a different issue type. They are not an instruction to ignore every rule. The missing crossmatch becomes a warning only inside this issue type, and only for someone who has the emergency-release permission. Technologists who can issue routine units cannot release uncrossmatched blood unless that permission was granted.
 
 > Hard stop. When the patient's blood group is established, red cells or whole blood whose group conflicts with it cannot be issued, even as an emergency release. For example, group A red cells for a group O patient are refused whatever reason is entered. Choose group O or another ABO-compatible unit. Rh mismatch and missing crossmatch stay warnings that an authorized person can override.
