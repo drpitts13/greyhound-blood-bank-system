@@ -24435,3 +24435,21 @@ The pass 110 offer on the seeded newborn (MRN0029), then the Issue & Transfuse r
 ### Tests
 
 - Interface-only change, retested live (no automated UI test). Full suite passed.
+
+## Iteration 831 — End-user testing pass 112: how long reaction investigations have been open (2026-11-15)
+
+### How it was tested
+
+The Reactions board and the home Reactions card with the two seeded investigations.
+
+### Found and fixed
+
+1. **Nothing said when a reaction was reported or how long its investigation had been open.** The board listed Marcus Febrile's febrile reaction (under review) and Riley Demo-Multi's (open) with their next steps but no date, so a case open nine days looked like one reported this morning, and the home card counted them without age. The board now has a **Reported** column with the time reported and, while the investigation is still due, how long it has been open; the home card adds how long the oldest has been open.
+
+### Retested live
+
+- Reactions: *Febrile, Marcus — 2026-11-06 07:50, open 9 d*; *Demo-Multi, Riley — 2026-11-12 01:52, open 3 d*. Home Reactions card: *2 with units out or reserved; 1 waiting for the post-transfusion specimen; 1 with workup tests to verify; oldest open 9 d*.
+
+### Tests
+
+- TEST-BB-1128. Full suite passed.

@@ -44,6 +44,7 @@ else
                 <thead>
                     <tr>
                         <th>Patient / MRN</th>
+                        <th>Reported</th>
                         <th>Next step</th>
                         <th>Unit</th>
                         <th>Patient type</th>
@@ -62,6 +63,14 @@ else
                     {
                         <tr>
                             <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientDisplayName ?? $"Patient #{r.PatientId}")</a><span class="sub mono">@(r.MedicalRecordNumber ?? "—")</span></td>
+                            @* Pass 112: when it was reported, and how long an investigation still due has been open. *@
+                            <td class="nowrap" data-reaction-reported>
+                                @ClinicalTimeText.Local(r.ReportedUtc)
+                                @if (OpenReactionInvestigationRule.NeedsAttention(r.Status))
+                                {
+                                    <span class="sub" data-reaction-open-for>open @AlertInboxView.OpenFor(r.ReportedUtc, DateTime.UtcNow)</span>
+                                }
+                            </td>
                             <td>
                                 @if (r.NextStep.Priority <= 3)
                                 {

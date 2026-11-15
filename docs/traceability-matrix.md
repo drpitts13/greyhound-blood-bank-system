@@ -1002,6 +1002,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-888 / FRS-BB-1006 | End-user testing pass 109: instrument QC samples on Reagent QC | `InstrumentQcSampleSummary.cs`, `InstrumentEndpoints.cs`, `Reagents.razor`, `Instruments.razor` | TEST-BB-1126 | U | |
 | URS-BB-889 / FRS-BB-1007 | End-user testing pass 110: maternal antibody antigen-negative requirement offered on the infant chart | `PatientService.cs`, `PatientDtos.cs`, `PatientChartHeader.razor`, `DatabaseSeeder.MotherInfant.cs` | TEST-BB-1127 | I | |
 | URS-BB-890 / FRS-BB-1008 | End-user testing pass 111: confirmation and reserved-unit check after a header requirement | `PatientDetail.razor` | Live retest (UI) | M | |
+| URS-BB-891 / FRS-BB-1009 | End-user testing pass 112: how long reaction investigations have been open | `Reactions.razor`, `DashboardQueueCatalog.cs`, `Home.razor` | TEST-BB-1128 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

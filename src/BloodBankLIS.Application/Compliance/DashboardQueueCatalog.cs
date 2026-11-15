@@ -368,7 +368,7 @@ public static class DashboardQueueCatalog
     /// specimen (it should be drawn promptly after the reaction), and open investigations whose workup tests are not all
     /// verified yet. Closed cases count only for fatality follow-up.
     /// </summary>
-    public static string? ReactionsNote(IEnumerable<ReactionInvestigationDto> investigations)
+    public static string? ReactionsNote(IEnumerable<ReactionInvestigationDto> investigations, DateTime? nowUtc = null)
     {
         var all = investigations.ToList();
         var open = all.Where(r => OpenReactionInvestigationRule.NeedsAttention(r.Status)).ToList();
@@ -378,7 +378,9 @@ public static class DashboardQueueCatalog
             // The patient still has units issued or reserved: check with the physician before another goes (OCD-078).
             AttentionNote(open.Count(r => r.PatientUnitsOutOrReserved > 0), "with units out or reserved", "with units out or reserved"),
             AttentionNote(open.Count(r => r.PostWorkup is null), "waiting for the post-transfusion specimen", "waiting for the post-transfusion specimen"),
-            AttentionNote(open.Count(r => (r.PreWorkup?.Pending ?? 0) + (r.PostWorkup?.Pending ?? 0) > 0), "with workup tests to verify", "with workup tests to verify")
+            AttentionNote(open.Count(r => (r.PreWorkup?.Pending ?? 0) + (r.PostWorkup?.Pending ?? 0) > 0), "with workup tests to verify", "with workup tests to verify"),
+            // Pass 112: how long the oldest investigation still due has been open.
+            nowUtc is { } now && open.Count > 0 ? $"oldest open {AlertInboxView.OpenFor(open.Min(r => r.ReportedUtc), now)}" : null
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }

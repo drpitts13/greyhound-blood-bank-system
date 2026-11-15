@@ -276,6 +276,29 @@ public class DashboardDueCountTests
             DashboardQueueCatalog.ReactionsNote([Done(ReactionInvestigationStatus.UnderReview, 2), Done(ReactionInvestigationStatus.Open, 0)]));
     }
 
+    // TEST-BB-1128: given the time, the Reactions card says how long the oldest investigation still due has been open;
+    // closed cases are not counted for it, and with none still due nothing is added (end-user testing pass 112).
+    [Fact]
+    public void ReactionsNote_SaysHowLongTheOldestHasBeenOpen()
+    {
+        var now = new DateTime(2026, 11, 15, 12, 0, 0, DateTimeKind.Utc);
+        static ReactionWorkupSpecimenDto Side(string role) => new(
+            role, 1, "ACC1", DateTime.UtcNow, null, false, 1, "RXN-1",
+            [new ReactionWorkupLineDto(1, "DAT", "DAT", ResultStatus.Verified, "Negative", true)]);
+        ReactionInvestigationDto Done(ReactionInvestigationStatus status, DateTime reported) => Reaction(status, followUpDue: false) with
+        {
+            PreWorkup = Side(ReactionWorkupSpecimenDto.PreRole),
+            PostWorkup = Side(ReactionWorkupSpecimenDto.PostRole),
+            ReportedUtc = reported
+        };
+
+        var note = DashboardQueueCatalog.ReactionsNote(
+            [Done(ReactionInvestigationStatus.Open, now.AddDays(-3)), Done(ReactionInvestigationStatus.UnderReview, now.AddDays(-9)), Done(ReactionInvestigationStatus.Closed, now.AddDays(-30))],
+            now);
+        Assert.Equal($"oldest open {AlertInboxView.OpenFor(now.AddDays(-9), now)}", note);
+        Assert.Null(DashboardQueueCatalog.ReactionsNote([Done(ReactionInvestigationStatus.Closed, now.AddDays(-30))], now));
+    }
+
     private static ReactionInvestigationDto Reaction(ReactionInvestigationStatus status, bool followUpDue) => new(
         Id: 1, TransfusionEventId: 1, PatientId: 1, BloodProductId: 1, ReportedUtc: DateTime.UtcNow,
         ReportedBy: "tech", ReactionType: null, Severity: ReactionSeverity.Mild, Findings: null,
