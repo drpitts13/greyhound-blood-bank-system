@@ -88,7 +88,8 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
             c,
             _factory.Clock,
             new EfRepository<RhigEvaluation>(c),
-            results: new EfRepository<TestResult>(c));
+            results: new EfRepository<TestResult>(c),
+            reactions: new EfRepository<ReactionInvestigation>(c));
 
     private Patient NewPatient(string key, string last) => new()
     {
@@ -339,6 +340,66 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
             .Where(e => e.EventType == AuditEventType.Print && e.EntityType == "DowntimePatientSummary" && e.EntityId == quiet.Id)
             .SingleAsync();
         Assert.Contains("one patient", printed.NewValueJson);
+    }
+
+    // TEST-BB-1118: the sheet carries the patient's transfusion reactions, newest first, with type, severity and whether
+    // the investigation is still open; a patient with none has none (end-user testing pass 104).
+    [Fact]
+    public async Task Sheet_CarriesPriorReactions_AndAnOpenWorkup()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var reacted = NewPatient(key, "Reacted");
+        var clear = NewPatient(key, "Clear");
+        var product = new ProductType { ProductCode = $"RBC-DTR-{key}", Name = "Reaction RBC", ComponentClass = ComponentClass.RedBloodCells };
+        c.Patients.AddRange(reacted, clear);
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        foreach (var (suffix, days, type, severity, status) in new[]
+                 {
+                     ("OLD", -60, "Febrile non-hemolytic", ReactionSeverity.Mild, ReactionInvestigationStatus.Closed),
+                     ("NEW", -1, (string?)null, ReactionSeverity.Unknown, ReactionInvestigationStatus.Open)
+                 })
+        {
+            var unit = new BloodUnit
+            {
+                UnitNumber = $"W-DTR-{suffix}-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+                ExpiresUtc = now.AddDays(10), Status = UnitStatus.Transfused
+            };
+            c.BloodUnits.Add(unit);
+            await c.SaveChangesAsync();
+            var issue = new Issue { BloodProductId = unit.Id, PatientId = reacted.Id, IssuedUtc = now.AddDays(days), IssuedBy = "tech-test", Status = IssueStatus.Transfused };
+            c.Issues.Add(issue);
+            await c.SaveChangesAsync();
+            var tx = new TransfusionEvent
+            {
+                IssueId = issue.Id, BloodProductId = unit.Id, PatientId = reacted.Id, StartUtc = now.AddDays(days),
+                FinalDisposition = TransfusionDisposition.Stopped, ReactionSuspected = true, DocumentedBy = "tech-test"
+            };
+            c.TransfusionEvents.Add(tx);
+            await c.SaveChangesAsync();
+            c.ReactionInvestigations.Add(new ReactionInvestigation
+            {
+                TransfusionEventId = tx.Id, PatientId = reacted.Id, BloodProductId = unit.Id, ReportedUtc = now.AddDays(days),
+                ReactionType = type, Severity = severity, Status = status
+            });
+            await c.SaveChangesAsync();
+        }
+
+        var row = Assert.Single((await Service(c).GetAsync(reacted.Id)).Patients);
+        Assert.Collection(row.Reactions,
+            r =>
+            {
+                Assert.True(r.InvestigationOpen);
+                Assert.Equal("Reaction, type not yet recorded; investigation open", r.Text);
+            },
+            r =>
+            {
+                Assert.False(r.InvestigationOpen);
+                Assert.Equal("Febrile non-hemolytic (mild)", r.Text);
+            });
+        Assert.Empty(Assert.Single((await Service(c).GetAsync(clear.Id)).Patients).Reactions);
     }
 
     // TEST-BB-580: a patient with an RhIG evaluation still needing work is on the sheet with what is outstanding; one whose

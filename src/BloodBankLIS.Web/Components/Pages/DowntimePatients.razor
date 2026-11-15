@@ -118,7 +118,7 @@ else
                                 }
                             </td>
                             <td>
-                                @if (p.SpecialRequirements.Count == 0 && p.Informational.Count == 0 && p.Rhig is not { Count: > 0 } && p.BloodOrders is not { Count: > 0 })
+                                @if (p.SpecialRequirements.Count == 0 && p.Informational.Count == 0 && p.Rhig is not { Count: > 0 } && p.BloodOrders is not { Count: > 0 } && p.Reactions.Count == 0)
                                 {
                                     <span class="muted">None</span>
                                 }
@@ -137,6 +137,11 @@ else
                                 @foreach (var note in p.Informational)
                                 {
                                     <div class="sub">Note: @note</div>
+                                }
+                                @foreach (var reaction in p.Reactions)
+                                {
+                                    @* Pass 104: a prior reaction, and an open workup, for the bench issuing on paper. *@
+                                    <div data-downtime-reaction><strong>Prior reaction:</strong> @reaction.Text, reported @reaction.ReportedUtc.ToLocalTime().ToString("yyyy-MM-dd")</div>
                                 }
                             </td>
                             <td>

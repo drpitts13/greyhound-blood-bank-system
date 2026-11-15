@@ -994,6 +994,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-880 / FRS-BB-998 | End-user testing pass 101: issue charges for units returned unused | `BillingDtos.cs`, `BillingService.cs`, `Billing.razor` | TEST-BB-1115 | I | |
 | URS-BB-881 / FRS-BB-999 | End-user testing pass 102: component labels only for units in use | `ComponentLabelRule.cs`, `PrintService.cs` | TEST-BB-1116 | I | |
 | URS-BB-882 / FRS-BB-1000 | End-user testing pass 103: storage temperature on the shift handoff | `ShiftHandoff.cs`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, migration | TEST-BB-1117 | U | |
+| URS-BB-883 / FRS-BB-1001 | End-user testing pass 104: prior reactions on the downtime patient summary | `DowntimePatientSummaryService.cs`, `DowntimePatients.razor` | TEST-BB-1118 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

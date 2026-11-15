@@ -18,6 +18,20 @@ public sealed record DowntimeUnitLine(
     DateTime? ReservationEndsUtc = null,
     string? IssuedToLocation = null);
 
+/// <summary>
+/// A transfusion reaction on the patient's record (end-user testing pass 104: the downtime sheet and the one-patient
+/// summary carried antibodies and requirements but no word of a prior reaction, so the bench issuing on paper did not know
+/// the patient had reacted, or that a workup was still open).
+/// </summary>
+public sealed record DowntimeReactionLine(string? ReactionType, ReactionSeverity Severity, DateTime ReportedUtc, bool InvestigationOpen)
+{
+    /// <summary>"Febrile non-hemolytic (mild); investigation open": the date is shown beside it in local time.</summary>
+    public string Text =>
+        (string.IsNullOrWhiteSpace(ReactionType) ? "Reaction, type not yet recorded" : ReactionType.Trim())
+        + (Severity == ReactionSeverity.Unknown ? "" : $" ({Severity.ToString().ToLowerInvariant()})")
+        + (InvestigationOpen ? "; investigation open" : "");
+}
+
 public sealed record DowntimeSpecimenLine(string AccessionNumber, DateTime CollectedUtc, DateTime? ExpiresUtc);
 
 public sealed record DowntimePatientRow(
@@ -44,6 +58,9 @@ public sealed record DowntimePatientRow(
     /// against O+ on file"). End-user testing pass 33: the sheet gave the type on file with no word of it.
     /// </summary>
     public IReadOnlyList<string> TypeDiscrepancies { get; init; } = [];
+
+    /// <summary>Transfusion reactions on record, newest first (pass 104).</summary>
+    public IReadOnlyList<DowntimeReactionLine> Reactions { get; init; } = [];
 }
 
 public sealed record DowntimePatientSummary(DateTime GeneratedUtc, IReadOnlyList<DowntimePatientRow> Patients);
@@ -72,6 +89,7 @@ public sealed class DowntimePatientSummaryService
     private readonly BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? _bloodOrders;
     private readonly IRepository<BloodAttributeDefinition>? _attributes;
     private readonly IRepository<TestResult>? _results;
+    private readonly IRepository<ReactionInvestigation>? _reactions;
 
     public DowntimePatientSummaryService(
         IRepository<Patient> patients,
@@ -90,8 +108,10 @@ public sealed class DowntimePatientSummaryService
         IRepository<RhigEvaluation>? rhig = null,
         BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null,
         IRepository<BloodAttributeDefinition>? attributes = null,
-        IRepository<TestResult>? results = null)
+        IRepository<TestResult>? results = null,
+        IRepository<ReactionInvestigation>? reactions = null)
     {
+        _reactions = reactions;
         _results = results;
         _attributes = attributes;
         _bloodOrders = bloodOrders;
@@ -194,6 +214,12 @@ public sealed class DowntimePatientSummaryService
                 .Where(r => specimenAccessions.ContainsKey(r.SpecimenId))
                 .ToList();
 
+        // Pass 104: prior transfusion reactions, and whether a workup is still open.
+        var reactionRows = _reactions is null
+            ? []
+            : await _reactions.ListAsync(r => patientIds.Contains(r.PatientId), ct);
+        var reactionsByPatient = reactionRows.ToLookup(r => r.PatientId);
+
         var rows = patients.Select(p =>
             {
                 var history = types[p.Id].ToList();
@@ -253,7 +279,12 @@ public sealed class DowntimePatientSummaryService
                                 ? $"{specimenAccessions[r.SpecimenId]} reads {pending}, not yet verified, against {AboRhText(current.Abo, current.RhD)} on file"
                                 : null)
                             .OfType<string>()
-                            .ToList()
+                            .ToList(),
+                    Reactions = reactionsByPatient[p.Id]
+                        .OrderByDescending(r => r.ReportedUtc)
+                        .Select(r => new DowntimeReactionLine(
+                            r.ReactionType, r.Severity, r.ReportedUtc, OpenReactionInvestigationRule.NeedsAttention(r.Status)))
+                        .ToList()
                 };
             })
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)

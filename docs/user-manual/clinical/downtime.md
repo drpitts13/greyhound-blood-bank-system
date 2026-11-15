@@ -33,6 +33,7 @@ Open **Downtime patient summary** from the link on Downtime Snapshot (or go to /
 - ABO/Rh on file, and **No second determination on file** when the second ABO/Rh that issue requires is missing
 - active antibodies
 - special requirements in effect, with informational notes below them
+- prior transfusion reactions, newest first: type, severity, the date reported, and **investigation open** while the workup is not closed
 - current specimens with their expiration
 - reserved and issued units: unit number, product, ABO/Rh, unit expiration, and when the reservation ends
 - blood orders still to prepare: order, priority, products, how many units are still needed, and the needed-by time (a patient whose only open work is such an order is on the sheet too)

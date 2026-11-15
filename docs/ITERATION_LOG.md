@@ -24291,3 +24291,21 @@ Printing (compatibility tags, only for an issued unit) and the Shift handoff's c
 ### Tests
 
 - TEST-BB-1117. Full suite passed.
+
+## Iteration 823 — End-user testing pass 104: prior reactions on the downtime patient summary (2026-11-15)
+
+### How it was tested
+
+Equipment (checks overdue, an item out of service) and the chart's **Print summary**, the one-patient downtime sheet, for patients with antibodies and with a reaction on record.
+
+### Found and fixed
+
+1. **The downtime sheet said nothing about transfusion reactions.** Marcus Febrile has a febrile non-hemolytic reaction under investigation and Riley Demo-Multi an open one, but their sheets showed only type, antibodies, requirements, specimens and units, so a bench issuing on paper would not know the patient had reacted or that a workup was still open. The sheet now lists each prior reaction, newest first, with type, severity, the date reported and *investigation open* while the workup is not closed.
+
+### Retested live
+
+- Marcus Febrile's sheet shows *Prior reaction: Febrile non-hemolytic (mild); investigation open*; Diane Kellerman's shows none.
+
+### Tests
+
+- TEST-BB-1118. Full suite passed.
