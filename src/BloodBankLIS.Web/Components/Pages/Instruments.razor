@@ -105,6 +105,13 @@
                 <a class="badge badge-amber" href="/admin/hl7/translations?tab=unmapped" title="Instrument codes or values with no translation" data-inst-unmapped>@_unmappedInstrumentValues unmapped</a>
             }
         </div>
+        @* Pass 97: find a specimen's messages, older ones included. *@
+        <div class="form-row" style="align-items:flex-end;margin:.3rem 0;" data-inst-search>
+            <div class="field" style="flex:2;"><label>Search</label>
+                <input @bind="_search" @bind:event="oninput" @onkeydown="OnSearchKey" placeholder="Specimen, patient id, or anything in the message" data-inst-search-input />
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync" data-inst-search-apply>Search</button>
+        </div>
         <div class="flex gap" style="margin:.3rem 0 .6rem;" data-inst-show>
             @foreach (var (key, label) in ShowChoices)
             {
@@ -308,18 +315,29 @@
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
+    private string _search = string.Empty;
+
+    private async Task OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LoadAsync();
+        }
+    }
+
     private async Task LoadAsync()
     {
         _busy = true;
         var status = await Api.GetInstrumentStatusAsync();
         var logs = await Api.GetInstrumentLogsAsync();
-        var messages = await Api.GetInstrumentMessagesAsync();
+        var messages = await Api.GetInstrumentMessagesAsync(search: _search);
         _status = status.Value ?? new();
         _logs = logs.Value ?? new();
         _messages = messages.Value ?? new();
         // The list holds the latest messages; add older open failures so the filters match the home card's count.
-        var failures = await Api.GetOpenInstrumentFailuresAsync();
-        foreach (var failure in failures.Value ?? new())
+        // Not while searching: the list is then what the search found.
+        var failures = string.IsNullOrWhiteSpace(_search) ? await Api.GetOpenInstrumentFailuresAsync() : null;
+        foreach (var failure in failures?.Value ?? new())
         {
             if (_messages.All(m => m.Id != failure.Id))
             {

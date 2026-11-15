@@ -47,11 +47,10 @@ public static class InstrumentEndpoints
                 .ToList());
         });
 
-        group.MapGet("/messages", async (long? interfaceId, IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
+        group.MapGet("/messages", async (long? interfaceId, string? search, IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
         {
-            var rows = interfaceId is long id
-                ? await messages.ListAsync(m => m.InterfaceId == id, ct)
-                : await messages.ListAsync(ct);
+            // Pass 97: a specimen or patient id, or anything in the message, finds messages older than the newest 200.
+            var rows = await messages.ListAsync(BloodBankLIS.Domain.Instruments.InstrumentMessageSearch.Filter(interfaceId, search), ct);
             return Results.Ok(rows
                 .OrderByDescending(m => m.ReceivedUtc)
                 .Take(200)

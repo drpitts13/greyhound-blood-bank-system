@@ -2383,8 +2383,13 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<InstrumentLogDto>>> GetInstrumentLogsAsync(long? interfaceId = null, CancellationToken ct = default) =>
         SendAsync<List<InstrumentLogDto>>(HttpMethod.Get, interfaceId is long id ? $"api/instruments/logs?interfaceId={id}" : "api/instruments/logs", ct: ct);
 
-    public Task<ApiResult<List<InstrumentMessageSummaryDto>>> GetInstrumentMessagesAsync(long? interfaceId = null, CancellationToken ct = default) =>
-        SendAsync<List<InstrumentMessageSummaryDto>>(HttpMethod.Get, interfaceId is long id ? $"api/instruments/messages?interfaceId={id}" : "api/instruments/messages", ct: ct);
+    public Task<ApiResult<List<InstrumentMessageSummaryDto>>> GetInstrumentMessagesAsync(long? interfaceId = null, string? search = null, CancellationToken ct = default)
+    {
+        var q = new List<string>();
+        if (interfaceId is long id) q.Add($"interfaceId={id}");
+        if (!string.IsNullOrWhiteSpace(search)) q.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        return SendAsync<List<InstrumentMessageSummaryDto>>(HttpMethod.Get, "api/instruments/messages" + (q.Count > 0 ? "?" + string.Join("&", q) : ""), ct: ct);
+    }
 
     public Task<ApiResult<InstrumentMessageDetailDto>> GetInstrumentMessageAsync(long id, CancellationToken ct = default) =>
         SendAsync<InstrumentMessageDetailDto>(HttpMethod.Get, $"api/instruments/messages/{id}", ct: ct);

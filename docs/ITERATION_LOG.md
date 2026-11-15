@@ -24165,3 +24165,21 @@ Lookback (the open notification, notify by 2027-01-29) and the HL7 interface pag
 ### Tests
 
 - TEST-BB-1110. Full suite passed.
+
+## Iteration 816 — End-user testing pass 97: finding an instrument's messages for a specimen (2026-11-15)
+
+### How it was tested
+
+Following pass 96, the instrument side: the Instruments page message list, read as a technologist asked what the analyzer sent for a specimen.
+
+### Found and fixed
+
+1. **Instrument messages could not be searched.** The list held the newest 200 with no search, so what the analyzer sent for an older specimen could not be found on screen. The page now searches by specimen or patient id, or anything in the message, older messages included.
+
+### Retested live
+
+- Searching *acc-uat-010* lists its five messages, one still an open failure.
+
+### Tests
+
+- TEST-BB-1111. Full suite passed.
