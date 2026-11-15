@@ -24417,3 +24417,21 @@ The mother/baby charts (the RhIG demo pair), the RhIG queue, and what the newbor
 ### Tests
 
 - TEST-BB-1127. Full suite passed.
+
+## Iteration 830 — End-user testing pass 111: confirming a requirement added from the infant's chart (2026-11-15)
+
+### How it was tested
+
+The pass 110 offer on the seeded newborn (MRN0029), then the Issue & Transfuse return and disposition boards against the help.
+
+### Found and fixed
+
+1. **Adding the maternal requirement gave no confirmation, and reserved units were not checked.** After **Add K-negative requirement** the chart reloaded completely; the loading state removed the chart header, and the *K-negative requirement added* message with it. A requirement added under Special requirements also names any reserved unit that does not meet it; added from the header, nothing was said. The chart now refreshes only its requirements and reserved units, so the header keeps its confirmation, and any reserved unit that does not meet the new requirement is named under Special requirements.
+
+### Retested live
+
+- On Baby Boy Lena's chart, **Add K-negative requirement** now shows *K-negative requirement added.* without the page reloading, and the offer goes away. He has no reserved unit, so no unit is named. The added requirement was then removed so the demo starts as seeded.
+
+### Tests
+
+- Interface-only change, retested live (no automated UI test). Full suite passed.

@@ -895,3 +895,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-887 | A patient recorded as deceased is marked in the patient list, in every patient picker, and on the issue form. | P1 | FRS-BB-1005 |
 | URS-BB-888 | Reagent QC shows the QC samples the instruments reported in the last 24 hours with what they read, for the tech recording QC. | P1 | FRS-BB-1006 |
 | URS-BB-889 | An infant's chart offers, in one step, the antigen-negative requirement for each of the mother's clinically significant antibodies the infant is not yet covered for. | P1 | FRS-BB-1007 |
+| URS-BB-890 | Adding a maternal antigen-negative requirement from the infant's chart confirms it, and names reserved units that do not meet it. | P2 | FRS-BB-1008 |

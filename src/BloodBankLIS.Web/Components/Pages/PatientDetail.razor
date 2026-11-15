@@ -57,7 +57,7 @@ else
         OnMerge="MergeDuplicateAsync"
         OnCancelMerge="() => _showMerge = false"
         OnUnmerge="UnmergeAsync"
-        OnRequirementAdded="LoadAsync" />
+        OnRequirementAdded="ReloadRequirementsAsync" />
 
     @* End-user testing pass 47: a second chart for the same person said nothing of the history on the first. *@
     @foreach (var dup in _possibleDuplicates)
@@ -1154,6 +1154,28 @@ else
         ProductAllocationDisplayStatus.CrossmatchExpired => "Crossmatch expired",
         _ => status.ToString()
     };
+
+    /// <summary>
+    /// A requirement added from the chart header (pass 110): refresh the requirements and reserved units only. A full
+    /// LoadAsync shows the loading state, which unmounts the header and loses its confirmation (pass 111).
+    /// </summary>
+    private async Task ReloadRequirementsAsync()
+    {
+        _specialRequirements = (await Api.GetSpecialRequirementsAsync(Id)).Value ?? new();
+        await LoadAllocationsAsync();
+        // As when added under Special requirements: units already reserved that do not meet it are named now.
+        var unmet = _allocations.Where(a => !string.IsNullOrWhiteSpace(a.SpecialRequirementNotice)).ToList();
+        if (unmet.Count > 0)
+        {
+            _srFb = Feedback.Succeed("Special requirement added.") with
+            {
+                Warnings = [.. unmet.Select(a => new RuleMessage(
+                    "ISS-SPECIAL-REQ", $"Reserved unit {a.UnitNumber} does not meet it: {a.SpecialRequirementNotice} See Products."))]
+            };
+        }
+
+        StateHasChanged();
+    }
 
     private async Task LoadAllocationsAsync()
     {
