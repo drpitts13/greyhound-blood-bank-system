@@ -231,8 +231,10 @@ public sealed class Hl7OutboundSender
 
         var matches = await _endpoints.ListAsync(
             e => e.IsEnabled && e.Direction == Hl7Direction.Outbound, ct);
+        // Pass 129: only an endpoint of the message's kind (a charge to billing, a result to results).
         return matches
             .Where(CanSend)
+            .Where(e => BloodBankLIS.Domain.Interfaces.OutboundMessageRoute.Carries(e.InterfaceType, e.MessageTypes, row.MessageType))
             .OrderBy(e => e.Transport == InterfaceTransport.Mllp ? 0 : 1)
             .ThenBy(e => e.Name)
             .FirstOrDefault();

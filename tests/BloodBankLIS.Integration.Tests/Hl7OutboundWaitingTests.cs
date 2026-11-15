@@ -75,4 +75,25 @@ public class Hl7OutboundWaitingTests : IDisposable
         await c.SaveChangesAsync();
         Assert.All(await Sender(c).ListWaitingAsync(), w => Assert.Equal(OutboundMessageWaitRule.NoInterface, w.Reason));
     }
+
+    // TEST-BB-1151: with only a results interface (no message types listed), a queued result goes to it but a charge
+    // waits for a billing interface instead of going to the results system (end-user testing pass 129).
+    [Fact]
+    public async Task ResultsInterfaceOnly_DoesNotTakeCharges()
+    {
+        await using var c = _factory.Create();
+        c.InterfaceEndpoints.Add(new InterfaceEndpoint
+        {
+            Name = "EHR results", Direction = Hl7Direction.Outbound, InterfaceType = InterfaceType.Results,
+            Transport = InterfaceTransport.File, Path = Path.GetTempPath(), IsEnabled = true, MaxRetryCount = 3
+        });
+        c.Hl7Messages.AddRange(
+            Outbound("CHARGE", Hl7MessageStatus.Received, TimeSpan.FromMinutes(1)),
+            Outbound("RESULT", Hl7MessageStatus.Received, TimeSpan.FromMinutes(1), type: "ORU^R01"));
+        await c.SaveChangesAsync();
+
+        var waiting = (await Sender(c).ListWaitingAsync()).ToDictionary(w => w.ControlId);
+        Assert.Equal(OutboundMessageWaitRule.NoInterface, waiting["CHARGE"].Reason);
+        Assert.Equal("Queued; the next send attempt is within a minute.", waiting["RESULT"].Reason);
+    }
 }

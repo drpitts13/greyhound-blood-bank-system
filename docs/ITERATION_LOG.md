@@ -24754,3 +24754,21 @@ Following pass 127's note, every message that writes a time was checked against 
 ### Tests
 
 - TEST-BB-1149; the three rule tests that named UTC now expect the local time. Full suite passed.
+
+## Iteration 848 — End-user testing pass 129: outbound messages to the wrong system (2026-11-15)
+
+### How it was tested
+
+The HL7 outbound queue: the ten charges (DFT) waiting with no interface, the result and dispense messages that are queued only when their interface exists, and how the sender picks an interface for a message queued without one.
+
+### Found and fixed
+
+1. **A queued message could be sent to another system's interface.** A message queued before any interface existed (all ten development charges) was later sent to whichever outbound interface was enabled first, whatever its kind: with only a results feed to the EHR set up, the billing charges would have gone to the EHR's results receiver, and results could go to a billing system. The sender now uses only an interface of the message's kind (a charge to billing, a result to results, a dispense to the blood product interface), or one whose message types list it; otherwise the message keeps waiting with *No enabled outbound interface is set up to send it*.
+
+### Retested live
+
+- With no outbound interface in the development data, the ten charges still wait with that reason; the routing is covered by TEST-BB-1150 and TEST-BB-1151 (a results-only interface takes the result and leaves the charge waiting).
+
+### Tests
+
+- TEST-BB-1150, TEST-BB-1151. Full suite passed.
