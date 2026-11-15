@@ -893,3 +893,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-885 | The test worklist marks STAT and urgent tests not yet verified that are past the facility's turnaround target, lists them first, and the home card counts them. | P1 | FRS-BB-1003 |
 | URS-BB-886 | A patient's death sent by the EHR (ADT PID-29/PID-30) is recorded on the chart and shown, and the blood bank is alerted with the units still reserved for the patient. | P1 | FRS-BB-1004 |
 | URS-BB-887 | A patient recorded as deceased is marked in the patient list, in every patient picker, and on the issue form. | P1 | FRS-BB-1005 |
+| URS-BB-888 | Reagent QC shows the QC samples the instruments reported in the last 24 hours with what they read, for the tech recording QC. | P1 | FRS-BB-1006 |

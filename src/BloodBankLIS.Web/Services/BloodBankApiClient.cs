@@ -2383,6 +2383,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<InstrumentLogDto>>> GetInstrumentLogsAsync(long? interfaceId = null, CancellationToken ct = default) =>
         SendAsync<List<InstrumentLogDto>>(HttpMethod.Get, interfaceId is long id ? $"api/instruments/logs?interfaceId={id}" : "api/instruments/logs", ct: ct);
 
+    public Task<ApiResult<List<InstrumentQcSampleDto>>> GetInstrumentQcSamplesAsync(int hours = 24, CancellationToken ct = default) =>
+        SendAsync<List<InstrumentQcSampleDto>>(HttpMethod.Get, $"api/instruments/qc-samples?hours={hours}", ct: ct);
+
     public Task<ApiResult<List<InstrumentMessageSummaryDto>>> GetInstrumentMessagesAsync(long? interfaceId = null, string? search = null, CancellationToken ct = default)
     {
         var q = new List<string>();

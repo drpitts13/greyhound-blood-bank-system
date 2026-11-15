@@ -24381,3 +24381,21 @@ Following pass 107: a patient registered and then recorded as deceased through t
 ### Tests
 
 - TEST-BB-1125. Full suite passed.
+
+## Iteration 828 — End-user testing pass 109: instrument QC samples on Reagent QC (2026-11-15)
+
+### How it was tested
+
+Instrument status and messages for the ImmuLINK Echo, and Reagent QC, with the seeded QC sample messages.
+
+### Found and fixed
+
+1. **What the analyzer ran as QC could be read only in the instrument message log.** Pass 84 kept QC samples out of patient results, but the tech recording daily reagent QC never saw them: the Echo's two runs of QC-ABSC-POS, one reading Positive and one reading Negative (all screen cells 0), sat as *QC sample* rows on the Instruments page. Reagent QC now lists the QC samples the instruments reported in the last 24 hours, with what each read per test, and **Message** opens the instrument messages searched for that sample. Nothing is recorded or judged from it: comparing with the expected reactions and recording the QC stays with the tech.
+
+### Retested live
+
+- Reagent QC showed both Echo runs of QC-ABSC-POS: *Screen 1: 0 · Screen 2: 0 · Screen 3: 0 · Pos Ctrl: 4+ · Screen: Negative* and *… Screen 2: 1+ · Screen 3: 4+ · Pos Ctrl: 4+ · Screen: Positive*; **Message** opened Instruments with the search filled in and the sample's three messages listed.
+
+### Tests
+
+- TEST-BB-1126. Full suite passed.

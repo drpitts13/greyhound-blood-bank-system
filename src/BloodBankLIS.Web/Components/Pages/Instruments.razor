@@ -283,6 +283,9 @@
 
     [SupplyParameterFromQuery(Name = "show")] public string? ShowQuery { get; set; }
 
+    /// <summary>A sample id to search for (pass 109: from Reagent QC's instrument QC samples).</summary>
+    [SupplyParameterFromQuery(Name = "search")] public string? SearchQuery { get; set; }
+
     // "open" and "held" from the home card's link; the list otherwise shows every message.
     private string _show = "all";
 
@@ -313,7 +316,15 @@
         }
     }
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            _search = SearchQuery.Trim();
+        }
+
+        return LoadAsync();
+    }
 
     private string _search = string.Empty;
 

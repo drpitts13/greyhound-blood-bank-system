@@ -66,6 +66,32 @@
     }
 </div>
 
+@if (_instrumentQc.Count > 0)
+{
+    @* Pass 109: what the analyzers ran as QC, so it can be checked and recorded below. *@
+    <div class="bb-card" data-instrument-qc>
+        <div class="bb-card-title"><h3>QC samples from instruments (last 24 hours)</h3></div>
+        <p class="muted" style="margin-top:0;">Read from the instruments; nothing here is recorded as reagent QC. Check each against the expected reactions and record it under the lot.</p>
+        <div class="table-scroll">
+        <table class="bb">
+            <thead><tr><th>Received</th><th>Instrument</th><th>Sample</th><th>Results</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var qc in _instrumentQc)
+                {
+                    <tr>
+                        <td class="nowrap">@qc.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@qc.InstrumentName</td>
+                        <td class="mono">@qc.SampleId</td>
+                        <td data-instrument-qc-results>@(qc.Results.Count == 0 ? "—" : string.Join(" · ", qc.Results))</td>
+                        <td><a class="btn btn-ghost btn-sm" href="@($"/instruments?search={Uri.EscapeDataString(qc.SampleId)}")">Message</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    </div>
+}
+
 @if (Session.Has(PermissionCodes.ResultEnter))
 {
     <div class="bb-card">
@@ -600,8 +626,12 @@
         }
     }
 
+    private List<InstrumentQcSampleDto> _instrumentQc = new();
+
     private async Task ReloadAsync()
     {
+        var instrumentQc = await Api.GetInstrumentQcSamplesAsync();
+        if (instrumentQc.Succeeded) _instrumentQc = instrumentQc.Value ?? new();
         var reagents = await Api.GetReagentsAsync();
         if (reagents.Succeeded) _reagents = reagents.Value ?? new();
         var lots = await Api.GetReagentLotsAsync();

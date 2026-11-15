@@ -105,6 +105,14 @@ public sealed record InstrumentMessageSummaryDto(
     public bool Held => BloodBankLIS.Domain.Rules.InstrumentMessageFollowUpRule.IsHeld(Status, ResolvedUtc, ErrorDetail);
 }
 
+/// <summary>A QC sample an instrument reported, with what it read (pass 109); shown on Reagent QC, recorded nowhere.</summary>
+public sealed record InstrumentQcSampleDto(
+    long MessageId,
+    string InstrumentName,
+    string SampleId,
+    DateTime ReceivedUtc,
+    IReadOnlyList<string> Results);
+
 public sealed record InstrumentParsedFieldDto(string DataItem, string? Value);
 
 public sealed record InstrumentMappedValueDto(string InstrumentValue, string ApplicationValue);

@@ -47,6 +47,24 @@ public static class InstrumentEndpoints
                 .ToList());
         });
 
+        // Pass 109: QC samples the instruments reported, for the tech recording reagent QC.
+        group.MapGet("/qc-samples", async (int? hours, IRepository<InstrumentMessageLog> messages, IRepository<InstrumentInterface> interfaces, IClock clock, CancellationToken ct) =>
+        {
+            var since = clock.UtcNow.AddHours(-Math.Clamp(hours ?? 24, 1, 168));
+            var rows = await messages.ListAsync(m => m.Status == BloodBankLIS.Domain.Enums.InstrumentMessageStatus.QualityControl && m.ReceivedUtc >= since, ct);
+            var names = (await interfaces.ListAsync(ct)).ToDictionary(i => i.Id, i => i.Name);
+            return Results.Ok(rows
+                .OrderByDescending(m => m.ReceivedUtc)
+                .ThenByDescending(m => m.Id)
+                .Select(m => new InstrumentQcSampleDto(
+                    m.Id,
+                    names.GetValueOrDefault(m.InterfaceId) ?? $"Instrument {m.InterfaceId}",
+                    m.SpecimenId ?? string.Empty,
+                    m.ReceivedUtc,
+                    InstrumentQcSampleSummary.Results(m.RawMessage)))
+                .ToList());
+        });
+
         group.MapGet("/messages", async (long? interfaceId, string? search, IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
         {
             // Pass 97: a specimen or patient id, or anything in the message, finds messages older than the newest 200.
