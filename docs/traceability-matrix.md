@@ -1013,6 +1013,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-899 / FRS-BB-1017 | End-user testing pass 120: physician statement on the emergency releases report | `UrgencyStatementRule.cs`, `EfReportSourceReader.cs`, `ReportViewSql.cs`, `ReportSourceCatalog.cs`, `ReportSeedCatalog.cs`, `DatabaseSeeder.Reports.cs`, migration | TEST-BB-1140 | I | |
 | URS-BB-900 / FRS-BB-1018 | End-user testing pass 121: RhIG report | `ReportSourceCatalog.cs`, `ReportViewCatalog.cs`, `EfReportSourceReader.cs`, `ReportViewSql.cs`, `ReportSeedCatalog.cs`, migration | TEST-BB-1141 | I | |
 | URS-BB-901 / FRS-BB-1019 | End-user testing pass 122: neonatal type and screen records the newborn's type | `ResultService.cs`, `DatabaseSeeder.DemoScenarios.cs` | TEST-BB-1142 | I | |
+| URS-BB-902 / FRS-BB-1020 | End-user testing pass 123: the neonatal type takes the ABO/Rh checks | `PatientTypingTestRule.cs`, `TestWorklistService.cs`, `TestWorklistDtos.cs`, `ResultService.cs` | TEST-BB-1143, TEST-BB-1144 | I, U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

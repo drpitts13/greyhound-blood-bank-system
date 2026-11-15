@@ -292,7 +292,10 @@ public sealed class TestWorklistService
             antibodyRows.TryGetValue(order.PatientId, out var history);
             eligibility.TryGetValue(order.PatientId, out var exm);
             openWorkupIds.TryGetValue(order.PatientId, out var openWorkupId);
-            var (aboRhDeltaHold, aboRhDeltaDetail) = EvaluateAboRhDelta(line.TestCode, current, currentType);
+            // Pass 123: any test that types the patient (the neonatal type too) is checked against the type on file.
+            var lineDef = testDefs.GetValueOrDefault(line.TestCode!);
+            var patientTyping = PatientTypingTestRule.Is(line.TestCode, lineDef?.ResultValueType, lineDef?.ContributesToAboRhHistory ?? false);
+            var (aboRhDeltaHold, aboRhDeltaDetail) = EvaluateAboRhDelta(patientTyping, current, currentType);
             items.Add(new TestWorkItemDto(
                 line.Id,
                 order.Id,
@@ -341,7 +344,7 @@ public sealed class TestWorklistService
                 ReflexFrom: TestWorklistView.ReflexLabel(line.ReflexFromTestCode, line.ReflexFromValue),
                 ReflexTriggerNotice: line.ReflexFromResultId is long triggerId
                     ? ReflexTriggerChangeRule.Notice(triggerId, line.ReflexFromTestCode, line.ReflexFromValue, line.TestCode, resultVersions)
-                    : null) { SpecimenExpiredOnly = expiredOnly });
+                    : null) { SpecimenExpiredOnly = expiredOnly, PatientTyping = patientTyping });
         }
 
         // The verifier sees the reagent lots a hand-entered result was tested with.
@@ -401,11 +404,11 @@ public sealed class TestWorklistService
             or OrderPriority.MassiveTransfusionProtocol;
 
     private static (bool Hold, string? Detail) EvaluateAboRhDelta(
-        string? testCode,
+        bool patientTyping,
         TestResult? current,
         PatientBloodTypeHistory? currentType)
     {
-        if (!string.Equals(testCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
+        if (!patientTyping
             || current is null
             || !AboRhResultValue.TryParse(current.Value, out var entered))
         {

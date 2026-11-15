@@ -71,6 +71,9 @@ public sealed record TestWorkItemDto(
     /// </summary>
     public bool SpecimenExpiredOnly { get; init; }
 
+    /// <summary>The test types the patient (ABORH, or an ABO/Rh test contributing to the history, pass 123).</summary>
+    public bool PatientTyping { get; init; }
+
     /// <summary>
     /// A rush test not yet verified past the facility's turnaround target ("Past the 60 min target: waiting 2 h 15 min";
     /// pass 106). Null when no target is set or it is within it.
@@ -117,7 +120,7 @@ public sealed record TestWorkItemDto(
     public bool IsAboSelfVerifyBlocked(string? userName) =>
         BlockAboSelfVerify
         && CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
-        && string.Equals(TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase) || PatientTyping)
         && !string.IsNullOrWhiteSpace(CurrentResultEnteredBy)
         && string.Equals(CurrentResultEnteredBy, userName, StringComparison.OrdinalIgnoreCase);
 

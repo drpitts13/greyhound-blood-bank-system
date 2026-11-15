@@ -24638,3 +24638,25 @@ Titers, printing, then newborn typing: what a verified neonatal type and screen 
 ### Tests
 
 - TEST-BB-1142. Full suite passed.
+
+## Iteration 842 — End-user testing pass 123: the neonatal type takes the ABO/Rh checks (2026-11-15)
+
+### How it was tested
+
+Following pass 122, every place the application treats ABO/Rh specially was checked for whether it recognised only the test code ABORH.
+
+### Found and fixed
+
+1. **The neonatal type skipped two ABO/Rh safeguards.** The Test Worklist flags an ABO/Rh result that disagrees with the type on file (*Discrepancy*), and the facility's block on verifying your own ABO/Rh stops one person both entering and verifying a type, both wrong-blood-in-tube controls. Both looked for the code ABORH only, so a newborn typed by TSNEO was neither flagged nor blocked. Any test that types the patient (ABORH, or an ABO/Rh test contributing to the ABO/Rh history) now takes both, from one shared definition.
+
+### Retested live
+
+- The Test Worklist renders its five seeded lines as before; no neonatal type was entered live. The block and the definition are covered by TEST-BB-1143 and TEST-BB-1144.
+
+### Not changed
+
+- Batch verification and the downtime sheet's unverified-type note remain ABORH only: batch verification is deliberately narrow, and a newborn's type is not batch-verified.
+
+### Tests
+
+- TEST-BB-1143, TEST-BB-1144. Full suite passed.

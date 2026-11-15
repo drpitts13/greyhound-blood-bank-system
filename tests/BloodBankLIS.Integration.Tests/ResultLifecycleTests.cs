@@ -116,6 +116,10 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
         await using var c = _factory.Create();
         var neo = await WithCatalog(c).EnterResultAsync(new EnterResultRequest(babyTube, "TSNEO-T", value));
         Assert.True(neo.Succeeded, neo.Error);
+        // TEST-BB-1143: the person who entered the newborn's type cannot verify it, as with ABORH (pass 123).
+        var self = await WithCatalog(c).VerifyResultAsync(neo.Value!.Id);
+        Assert.False(self.Succeeded);
+        Assert.Contains(self.Evaluation!.HardStops, r => r.Code == SelfVerifyRule.Code);
         var plain = await WithCatalog(c).EnterResultAsync(new EnterResultRequest(otherTube, "ABOX-T", value));
         Assert.True(plain.Succeeded, plain.Error);
         Assert.True((await WithCatalog(c, Verifier).VerifyResultAsync(neo.Value!.Id)).Succeeded);

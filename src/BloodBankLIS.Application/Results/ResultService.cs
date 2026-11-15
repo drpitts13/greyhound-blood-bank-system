@@ -1254,7 +1254,8 @@ public sealed class ResultService
     private async Task<bool> ResolveBlockSelfVerifyAsync(TestResult result, CancellationToken ct)
     {
         var block = false;
-        if (IsAboRhCode(result.TestCode))
+        // Pass 123: the neonatal type (any ABO/Rh test that types the patient) takes the same self-verification block.
+        if (IsAboRhCode(result.TestCode) || await IsAboRhHistoryTestAsync(result.TestCode, ct))
         {
             // Fail closed: a missing policy service still blocks ABO self-verify.
             block = _policy is null || await _policy.GetBlockAboSelfVerifyAsync(ct);
