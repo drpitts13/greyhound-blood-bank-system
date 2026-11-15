@@ -122,6 +122,18 @@ public sealed class AlertScanner
             Add(await _alerts.SyncAsync(AlertRule.MtpStillOpen, idleMtp, ct));
         }
 
+        // Pass 94: "N unit(s) quarantined at X" after an excursion says how many are still held, and closes once none is.
+        var heldAfterExcursion = (await _inventory.ListQuarantineAsync(ct))
+            .Where(u => u.ReasonCode == UnitQuarantineReason.StorageTemperatureExcursion && u.CurrentLocationId is not null)
+            .GroupBy(u => u.CurrentLocationId!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var (_, quarantineCleared) = await _alerts.RecheckAsync(
+            AlertRule.TemperatureExcursion,
+            ExcursionQuarantineAlert.KeyPrefix,
+            alert => ExcursionQuarantineAlert.Now(alert, heldAfterExcursion),
+            ct);
+        resolved += quarantineCleared;
+
         return (raised, resolved);
 
         void Add((int Raised, int Resolved) result)

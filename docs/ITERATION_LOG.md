@@ -24111,3 +24111,21 @@ Reagent QC: the worklist (seven lots due for 2026-11-15, unreviewed QC, results 
 ### Tests
 
 - TEST-BB-1107. Full suite passed.
+
+## Iteration 813 — End-user testing pass 94: alerts that outlived their cause (2026-11-15)
+
+### How it was tested
+
+Issue & Transfuse (ready to issue, the open MTP) and the Alerts inbox: 29 open alerts, read for whether each still holds.
+
+### Found and fixed
+
+1. **Excursion quarantine alerts stayed Critical after the units were dealt with.** "29 unit(s) quarantined at FRIDGE-1" and "30 unit(s) quarantined at FRIDGE-1", raised on 2026-11-12, were still open and Critical two days later, though only one unit at FRIDGE-1 was still held for the excursion; the rest had been reviewed and released. These alerts are raised once by the event and nothing rechecked them. The alert scanner now rechecks them: each says how many units at its location are still held for an excursion, and closes once none is.
+
+### Retested live
+
+- After a restart the scanner updated both to *1 unit(s) still quarantined at FRIDGE-1* (W0001230002001); they close when it is released or discarded.
+
+### Tests
+
+- TEST-BB-1108. Full suite passed.
