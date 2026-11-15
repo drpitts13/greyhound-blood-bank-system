@@ -51,7 +51,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(16, list.Value!.Count);
+        Assert.Equal(17, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)
@@ -356,6 +356,58 @@ public class ReportServiceTests : IDisposable
         Assert.True(sqlRun.Succeeded, sqlRun.Error);
         Assert.Equal(new[] { "40", "60", "90" }, sqlRun.Value!.Rows.Select(r => r[2] ?? "").ToArray());
         Assert.Equal(("Stat", "75"), (sqlRun.Value.Rows[2][1], sqlRun.Value.Rows[2][3]));
+    }
+
+    // TEST-BB-1141: the RhIG report lists each evaluation with its decision and, when given, the time, vials, lot and
+    // whole hours from the event; one not given has no dose; the SQL view gives the same (end-user testing pass 121).
+    [Fact]
+    public async Task RhigReport_ListsEvaluationsAndDoses()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-RHR", LastName = "Rhig", FirstName = "Mom", DateOfBirth = new DateOnly(1992, 1, 1), Sex = Sex.Female };
+        db.Patients.Add(patient);
+        await db.SaveChangesAsync();
+        var t0 = new DateTime(2026, 10, 1, 6, 0, 0, DateTimeKind.Utc);
+        db.RhigEvaluations.AddRange(
+            new RhigEvaluation
+            {
+                PatientId = patient.Id, Context = RhigContext.Postpartum, EventUtc = t0, Decision = RhigDecision.Candidate, VialsRecommended = 1,
+                RecordedBy = "tech", RecordedUtc = t0.AddHours(1), CompletedBy = "sup", CompletedUtc = t0.AddHours(2),
+                GivenUtc = t0.AddHours(30), GivenVials = 1, GivenLot = "LOT-R1", GivenBy = "nurse"
+            },
+            new RhigEvaluation
+            {
+                PatientId = patient.Id, Context = RhigContext.Antepartum, EventUtc = t0.AddDays(5), Decision = RhigDecision.Undetermined,
+                RecordedBy = "tech", RecordedUtc = t0.AddDays(5)
+            });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-RHIG").Id, new Dictionary<string, string?>());
+        Assert.True(visual.Succeeded, visual.Error);
+        var columns = visual.Value!.Columns.ToList();
+        var given = visual.Value.Rows.Single(r => r[columns.IndexOf("given_lot")] == "LOT-R1");
+        Assert.Equal(("Postpartum", "Candidate", "1", "30"),
+            (given[columns.IndexOf("context")], given[columns.IndexOf("decision")], given[columns.IndexOf("given_vials")], given[columns.IndexOf("hours_event_to_given")]));
+        var open = visual.Value.Rows.Single(r => r[columns.IndexOf("context")] == "Antepartum");
+        Assert.True(string.IsNullOrEmpty(open[columns.IndexOf("hours_event_to_given")]));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-RHIG-SQL",
+            Name = "SQL RhIG",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT context, decision, given_lot, hours_event_to_given FROM rpt_rhig WHERE mrn = 'MRN-RHR' ORDER BY event_utc"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "Postpartum", "Candidate", "LOT-R1", "30" }, sqlRun.Value!.Rows[0].ToArray());
+        Assert.Equal("Antepartum", sqlRun.Value.Rows[1][0]);
+        Assert.True(string.IsNullOrEmpty(sqlRun.Value.Rows[1][3]));
     }
 
     // TEST-BB-1140: the emergency releases report says, for each release before testing was complete, whether the

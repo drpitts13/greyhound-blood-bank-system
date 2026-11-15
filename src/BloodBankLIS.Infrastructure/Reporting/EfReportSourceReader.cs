@@ -37,6 +37,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.Discards => DiscardsAsync(cancellationToken),
             ReportSourceCatalog.Reactions => ReactionsAsync(cancellationToken),
             ReportSourceCatalog.Lookback => LookbackAsync(cancellationToken),
+            ReportSourceCatalog.Rhig => RhigAsync(cancellationToken),
             ReportSourceCatalog.Deviations => DeviationsAsync(cancellationToken),
             ReportSourceCatalog.Overrides => OverridesAsync(cancellationToken),
             ReportSourceCatalog.CrossmatchTransfusion => ActivityAsync(cancellationToken),
@@ -182,6 +183,41 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_at_fault", ReportValueFormat.YesNo(row.ProductAtFault)),
             ("is_fatality", ReportValueFormat.YesNo(row.IsFatality)))).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> RhigAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from e in _db.RhigEvaluations.AsNoTracking()
+            join patient in _db.Patients.AsNoTracking() on e.PatientId equals patient.Id
+            select new
+            {
+                e.EventUtc,
+                e.Context,
+                patient.MedicalRecordNumber,
+                e.Decision,
+                e.VialsRecommended,
+                e.CompletedUtc,
+                e.GivenUtc,
+                e.GivenVials,
+                e.GivenLot,
+                e.GivenBy
+            }).ToListAsync(cancellationToken);
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("event_utc", ReportValueFormat.Date(row.EventUtc)),
+            ("context", row.Context.ToString()),
+            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+            ("decision", row.Decision.ToString()),
+            ("vials_recommended", row.VialsRecommended?.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ("completed_utc", ReportValueFormat.Date(row.CompletedUtc)),
+            ("given_utc", ReportValueFormat.Date(row.GivenUtc)),
+            ("given_vials", row.GivenVials?.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            ("given_lot", ReportValueFormat.Text(row.GivenLot)),
+            ("given_by", ReportValueFormat.Text(row.GivenBy)),
+            ("hours_event_to_given", row.GivenUtc is DateTime given
+                ? ((int)Math.Floor((given - row.EventUtc).TotalHours)).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : null))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> LookbackAsync(CancellationToken cancellationToken)

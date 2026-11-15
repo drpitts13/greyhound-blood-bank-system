@@ -20,6 +20,7 @@ public static class ReportSourceCatalog
     public const string SpecimenRejections = "specimen_rejections";
     public const string TestTurnaround = "test_turnaround";
     public const string BloodOrderTurnaround = "blood_order_turnaround";
+    public const string Rhig = "rhig";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -65,6 +66,19 @@ public static class ReportSourceCatalog
             Field("unit_number", "Unit number"),
             Field("product_at_fault", "Product at fault"),
             Field("is_fatality", "Fatality")),
+        // Pass 121: RhIG evaluations and doses given, for the review of RhIG practice.
+        Source(Rhig, "RhIG evaluations", ReportViewCatalog.Rhig,
+            Field("event_utc", "Event", ReportValueKind.Date),
+            Field("context", "Event type"),
+            Field("mrn", "MRN"),
+            Field("decision", "Decision"),
+            Field("vials_recommended", "Vials recommended"),
+            Field("completed_utc", "Completed", ReportValueKind.Date),
+            Field("given_utc", "Given", ReportValueKind.Date),
+            Field("given_vials", "Vials given"),
+            Field("given_lot", "Lot"),
+            Field("given_by", "Given by"),
+            Field("hours_event_to_given", "Hours from event to given")),
         Source(Lookback, "Lookback notifications", ReportViewCatalog.Lookback,
             Field("din", "DIN"),
             Field("status", "Status"),

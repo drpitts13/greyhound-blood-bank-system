@@ -155,6 +155,24 @@ public static class ReportViewSql
             INNER JOIN BloodProducts u ON u.Id = r.BloodProductId
             """);
 
+        // Pass 121: RhIG evaluations and doses given.
+        yield return (ReportViewCatalog.Rhig, $"""
+            SELECT
+                e.EventUtc AS event_utc,
+                {CaseEnum("e.Context", typeof(RhigContext))} AS context,
+                p.MedicalRecordNumber AS mrn,
+                {CaseEnum("e.Decision", typeof(RhigDecision))} AS decision,
+                e.VialsRecommended AS vials_recommended,
+                e.CompletedUtc AS completed_utc,
+                e.GivenUtc AS given_utc,
+                e.GivenVials AS given_vials,
+                e.GivenLot AS given_lot,
+                e.GivenBy AS given_by,
+                {HoursBetween("e.EventUtc", "e.GivenUtc", sqlServer)} AS hours_event_to_given
+            FROM RhigEvaluations e
+            INNER JOIN Patients p ON p.Id = e.PatientId
+            """);
+
         yield return (ReportViewCatalog.Lookback, $"""
             SELECT
                 n.Din AS din,
@@ -341,6 +359,12 @@ public static class ReportViewSql
     }
 
     private static string TextType(bool sqlServer) => sqlServer ? "nvarchar(80)" : "text";
+
+    /// <summary>Whole hours from one time to another (null when the second is null).</summary>
+    private static string HoursBetween(string from, string to, bool sqlServer) =>
+        sqlServer
+            ? $"CASE WHEN {to} IS NULL THEN NULL ELSE DATEDIFF(MINUTE, {from}, {to}) / 60 END"
+            : $"CASE WHEN {to} IS NULL THEN NULL ELSE CAST((julianday({to}) - julianday({from})) * 24 AS INTEGER) END";
 
     private static string CaseEnum(string column, Type enumType)
     {

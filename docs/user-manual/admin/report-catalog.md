@@ -17,3 +17,5 @@ Open a report to edit it, or create one. Unfinished drafts should stay unpublish
 Deleting or replacing a published report does not delete files people already exported. It changes the next run.
 
 System reports (those that came with the system) cannot be edited; clone one to change it. Their columns follow the catalog, so when a system report gains a column it appears in existing installations at the next start. For example, **Emergency releases and overrides** now has **Physician statement** for each emergency or massive transfusion issue: *Not needed* when testing was complete at issue, *Not received*, or *Received from* the physician who signed it (recorded on the Retrospective board). The SQL view `rpt_overrides` has the same column, `physician_statement`.
+
+**RhIG evaluations and doses given** lists each RhIG evaluation by event (antepartum, postpartum or other exposure) with the decision, vials recommended, when it was completed and, when RhIG was given, the time, vials, lot, who gave it and the whole hours from the event, for the review of RhIG practice against your procedure. The SQL view is `rpt_rhig`.

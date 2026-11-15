@@ -905,3 +905,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-897 | A product order line can ask for a volume in mL (an aliquot) instead of a whole unit, shown on the order and on Blood orders to prepare. | P1 | FRS-BB-1015 |
 | URS-BB-898 | A blood product order from the EHR (ORM/OML with a product code) creates a blood order with the units or volume asked for. | P1 | FRS-BB-1016 |
 | URS-BB-899 | The emergency releases report states whether each release's physician statement of urgency was received and from whom. | P2 | FRS-BB-1017 |
+| URS-BB-900 | A report lists RhIG evaluations and doses given (lot, vials, who, hours from the event) for a period. | P2 | FRS-BB-1018 |

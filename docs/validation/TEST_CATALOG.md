@@ -1149,5 +1149,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1138 | U | `ProductOrderQuantityRuleTests.Read` | URS-BB-898 / FRS-BB-1016 |
 | TEST-BB-1139 | I | `Phase5Hl7Tests.OrmForABloodProduct_CreatesABloodOrder` | URS-BB-898 / FRS-BB-1016 |
 | TEST-BB-1140 | I | `ReportServiceTests.OverridesReport_SaysWhetherThePhysicianStatementWasReceived` | URS-BB-899 / FRS-BB-1017 |
+| TEST-BB-1141 | I | `ReportServiceTests.RhigReport_ListsEvaluationsAndDoses` | URS-BB-900 / FRS-BB-1018 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -24598,3 +24598,21 @@ The Supervisor queue, then the report catalog for what a quality review of emerg
 ### Tests
 
 - TEST-BB-1140. Full suite passed.
+
+## Iteration 840 — End-user testing pass 121: a report of RhIG given (2026-11-15)
+
+### How it was tested
+
+The report catalog against the reviews a transfusion service runs, with the seeded RhIG evaluations.
+
+### Found and fixed
+
+1. **There was no way to review RhIG given over a period.** RhIG evaluations and doses (lot, vials, who, when) were visible one patient at a time on the chart and the open ones on the RhIG queue, but no report listed them, so whether RhIG went to every candidate, from which lots and how long after the event could not be reviewed. A system report, *RhIG evaluations and doses given*, and its SQL view `rpt_rhig` now list each evaluation with the decision and, when given, the time, vials, lot, who gave it and the whole hours from the event, filtered by event date.
+
+### Retested live
+
+- Running it on the development data: Maya DEMO-RHIG's antepartum dose (lot RHIG-DEMO-01) given 2 hours after the event; her postpartum dose (lot RHIG-L2611) given **126 hours** after delivery, a delay the facility's RhIG window (not set in the development data) would have flagged; Noor DEMO-RHIG's postpartum evaluation still undetermined.
+
+### Tests
+
+- TEST-BB-1141 (the seeded report count is now 17). Full suite passed.
