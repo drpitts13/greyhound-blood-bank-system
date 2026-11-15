@@ -866,3 +866,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-858 | A Major or Critical deviation cannot be closed without an FDA reportability determination (OCD-090). | P1 | FRS-BB-976 |
 | URS-BB-859 | Naming a device for a modification says when one of its equipment checks needs action. | P2 | FRS-BB-977 |
 | URS-BB-860 | A shipment's packing temperature outside the container's validated range is named and recorded with each unit shipped. | P2 | FRS-BB-978 |
+| URS-BB-861 | A supplier delivery completed short of or over its packing list records why. | P2 | FRS-BB-979 |

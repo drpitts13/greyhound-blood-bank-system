@@ -119,6 +119,7 @@ public sealed class BloodDeliveryConfiguration : IEntityTypeConfiguration<BloodD
         b.ToTable("BloodDeliveries");
         b.HasKey(d => d.Id);
         b.Property(d => d.PackingListNumber).HasMaxLength(100);
+        b.Property(d => d.CompletionNote).HasMaxLength(500);
         b.Property(d => d.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(d => d.ModifiedBy).HasMaxLength(100);
         b.HasOne(d => d.BloodSupplier).WithMany().HasForeignKey(d => d.BloodSupplierId).OnDelete(DeleteBehavior.Restrict);

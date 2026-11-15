@@ -23881,3 +23881,22 @@ Inventory › Ship to facility: the shipment form, the container list and the re
 ### Tests
 
 - TEST-BB-1095. Full suite passed.
+
+## Iteration 801 — End-user testing pass 83: completing a supplier delivery (2026-11-14)
+
+### How it was tested
+
+Inventory › Open deliveries, delivery PL-UAT-2 (American Red Cross) and its Enter units page; tube storage, the stock count, the neonatal rules and utilization were also looked at and found already covered.
+
+### Found and fixed
+
+1. **A delivery short of its packing list completed with nothing to say why.** Completing a delivery changed only its status, whatever the counts: a delivery four RBC expected and two entered closed as quietly as a matching one, and nothing recorded the shortfall for the supplier credit or the next shift. Completing a delivery whose counts differ now names each product short or over and needs a note saying why; the note is kept on the delivery, shown once completed, and audited with the difference. Enter units offers Complete delivery only when every count matches (it had offered it when over, too).
+
+### Retested live
+
+- PL-UAT-2's expected RBC raised to 2 and saved: "Does not match the packing list: RBC 1 short. Why? (needed to complete)", Complete delivery disabled until a note was typed. The expected count was put back to 1 and the delivery left open; nothing was completed.
+- The completion endpoint answered with and without a note body (checked against a delivery that does not exist).
+
+### Tests
+
+- TEST-BB-1096. Full suite passed.

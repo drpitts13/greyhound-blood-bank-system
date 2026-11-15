@@ -123,15 +123,29 @@ else
         </div>
         @if (_delivery.Status == DeliveryStatus.Open && Session.Has(PermissionCodes.InventoryReceive))
         {
+            @if (_delivery.Differences is { } differences)
+            {
+                @* Pass 83: a delivery that does not match its packing list is completed with a note saying why. *@
+                <div class="field" style="margin-top:.6rem;max-width:40rem;" data-delivery-variance>
+                    <label>Does not match the packing list: @differences. Why? (needed to complete)</label>
+                    <input @bind="_completionNote" @bind:event="oninput" maxlength="@DeliveryCompletionRule.MaxNoteLength" placeholder="e.g. Supplier short 2 RBC, credit requested" data-delivery-completion-note />
+                </div>
+            }
             <div class="flex gap" style="margin-top:.6rem;">
                 <button class="btn btn-secondary" type="button" disabled="@(!CanAddLine)" title="@(CanAddLine ? null : "Every product is already on this delivery.")" @onclick="AddLine">Add product</button>
                 <button class="btn btn-primary" disabled="@_busy" @onclick="SaveDeliveryAsync">Save delivery</button>
-                <button class="btn btn-secondary" disabled="@_busy" @onclick="CompleteAsync">Complete delivery</button>
+                <button class="btn btn-secondary" disabled="@(_busy || (_delivery.Differences is not null && string.IsNullOrWhiteSpace(_completionNote)))" @onclick="CompleteAsync" data-delivery-complete>Complete delivery</button>
             </div>
             @if (IsDirty)
             {
                 <div class="muted" style="margin-top:.4rem;">Unsaved changes. They are saved first when you complete the delivery or enter units.</div>
             }
+        }
+        else if (_delivery.Status == DeliveryStatus.Completed)
+        {
+            <p class="muted" style="margin-top:.6rem;" data-delivery-completed>
+                Completed@(_delivery.CompletedUtc is { } done ? $" {done.ToLocalTime():yyyy-MM-dd HH:mm}" : "")@(_delivery.Differences is { } diff ? $", not matching the packing list ({diff})" : "")@(_delivery.CompletionNote is { } note ? $": {note}" : ".")
+            </p>
         }
     </div>
 
@@ -268,11 +282,13 @@ else
         return r.Succeeded;
     }
 
+    private string? _completionNote;
+
     private async Task CompleteAsync()
     {
         if (IsDirty && !await SaveCoreAsync()) return;
         _busy = true;
-        var r = await Api.CompleteDeliveryAsync(Id);
+        var r = await Api.CompleteDeliveryAsync(Id, _completionNote);
         _busy = false;
         _feedback = r.Succeeded ? r.ToFeedback("Delivery completed.") : r.ToFeedback();
         if (r.Succeeded && r.Value is not null) Apply(r.Value);

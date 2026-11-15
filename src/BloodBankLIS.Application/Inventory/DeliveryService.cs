@@ -232,7 +232,11 @@ public sealed class DeliveryService
         return EvaluationResult<DeliveryDetailDto>.Ok(detail, validation);
     }
 
-    public async Task<EvaluationResult<DeliveryDetailDto>> CompleteAsync(long id, CancellationToken ct = default)
+    public async Task<EvaluationResult<DeliveryDetailDto>> CompleteAsync(long id, CancellationToken ct = default) =>
+        await CompleteAsync(id, new CompleteDeliveryRequest(), ct);
+
+    /// <summary>Completes the delivery; one that differs from its packing list needs a note saying why (pass 83).</summary>
+    public async Task<EvaluationResult<DeliveryDetailDto>> CompleteAsync(long id, CompleteDeliveryRequest request, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync<DeliveryDetailDto>(ct);
         if (denied is not null)
@@ -251,15 +255,26 @@ public sealed class DeliveryService
             return EvaluationResult<DeliveryDetailDto>.Fail("Delivery is already completed.");
         }
 
+        var before = await BuildDetailAsync(delivery, ct);
+        var check = DeliveryCompletionRule.Evaluate(
+            before.Lines.Select(l => new DeliveryCompletionRule.Line(l.ProductLabel, l.ExpectedQuantity, l.ReceivedQuantity)),
+            request.Note);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<DeliveryDetailDto>.Blocked(new RuleEvaluation([check]));
+        }
+
+        var differences = before.Differences;
         delivery.Status = DeliveryStatus.Completed;
         delivery.CompletedUtc = _clock.UtcNow;
+        delivery.CompletionNote = differences is null || string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
         _deliveries.Update(delivery);
         _audit.Record(
             AuditEventType.Update,
             nameof(BloodDelivery),
             delivery.Id,
-            newValue: new { delivery.Status, delivery.CompletedUtc },
-            reason: "Delivery completed.");
+            newValue: new { delivery.Status, delivery.CompletedUtc, Differences = differences, delivery.CompletionNote },
+            reason: differences is null ? "Delivery completed." : $"Delivery completed with differences ({differences}): {delivery.CompletionNote}");
         await _unitOfWork.SaveChangesAsync(ct);
         var detail = await BuildDetailAsync(delivery, ct);
         return EvaluationResult<DeliveryDetailDto>.Ok(detail);
@@ -332,7 +347,9 @@ public sealed class DeliveryService
                 ComponentClassLabels.Label(l.ComponentClass),
                 l.ExpectedQuantity,
                 received.GetValueOrDefault(l.ComponentClass))).ToList(),
-            units.OrderBy(u => u.UnitNumber).Select(BloodUnitDto.From).ToList());
+            units.OrderBy(u => u.UnitNumber).Select(BloodUnitDto.From).ToList(),
+            delivery.CompletionNote,
+            delivery.CompletedUtc);
     }
 
     private async Task<Dictionary<ComponentClass, int>> ReceivedCountsAsync(long deliveryId, CancellationToken ct)

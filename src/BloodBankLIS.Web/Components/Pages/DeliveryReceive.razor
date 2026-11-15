@@ -312,7 +312,7 @@ else
     }
 
     private bool AllExpectedReceived =>
-        _delivery is { Status: DeliveryStatus.Open, Lines.Count: > 0 } && _delivery.Lines.All(l => l.Variance >= 0);
+        _delivery is { Status: DeliveryStatus.Open, Lines.Count: > 0 } && _delivery.Lines.All(l => l.Variance == 0);
 
     private async Task CompleteDeliveryAsync()
     {

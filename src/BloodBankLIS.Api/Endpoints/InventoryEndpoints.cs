@@ -150,8 +150,8 @@ public static class InventoryEndpoints
             EndpointResults.FromEvaluation(await deliveries.UpdateAsync(id, request, ct), d => d))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
-        group.MapPost("/deliveries/{id:long}/complete", async (long id, DeliveryService deliveries, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await deliveries.CompleteAsync(id, ct), d => d))
+        group.MapPost("/deliveries/{id:long}/complete", async (long id, CompleteDeliveryRequest? request, DeliveryService deliveries, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await deliveries.CompleteAsync(id, request ?? new CompleteDeliveryRequest(), ct), d => d))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
         // Intake: new units land in Quarantine.
