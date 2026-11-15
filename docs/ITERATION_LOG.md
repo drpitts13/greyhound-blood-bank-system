@@ -24453,3 +24453,22 @@ The Reactions board and the home Reactions card with the two seeded investigatio
 ### Tests
 
 - TEST-BB-1128. Full suite passed.
+
+## Iteration 832 — End-user testing pass 113: what the patient needs, on a special order (2026-11-15)
+
+### How it was tested
+
+Lookback, the HL7 result publishing path, and Supplier orders with the seeded special order SO-20261112-001 for Avery Demo-Special.
+
+### Found and fixed
+
+1. **A special order's requirements were typed with nothing to check them against.** The line for Avery read *irradiated, CMV-negative*, typed by hand; had she an antibody, the K-negative the supplier must also meet would have depended on the orderer remembering it. Each patient line now shows **Patient needs**, what the patient's units must meet now (antigen-negative red cells from antibodies and the special requirements in effect, as on the antibody card), to compare with the typed requirements before signing.
+2. **"Unknown" could be chosen as the ABO to order.** The ABO choice on a supplier order line listed Unknown, and the service accepted it. It is no longer offered, and an Unknown group or Rh is refused.
+
+### Retested live
+
+- SO-20261112-001: Avery's line shows *Patient needs: CMV-negative red cells; Irradiated red cells* beside the typed *irradiated, CMV-negative*; the ABO choice lists Any, O, A, B, AB.
+
+### Tests
+
+- TEST-BB-1129. Full suite passed.

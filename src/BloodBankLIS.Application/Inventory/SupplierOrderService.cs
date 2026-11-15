@@ -17,6 +17,12 @@ public sealed record SupplierOrderLineDto(long Id, long ProductTypeId, string Pr
     public string? PatientMrn { get; init; }
     public string? PatientName { get; init; }
 
+    /// <summary>
+    /// For a patient line: what the patient's units must meet now (antigen-negative from antibodies, requirements in
+    /// effect), as the downtime sheet and antibody card state it, so the order can be checked against it (pass 113).
+    /// </summary>
+    public IReadOnlyList<string> PatientNeeds { get; init; } = [];
+
     /// <summary>Units on the linked delivery counted against this line; null until the order is received.</summary>
     public int? Received { get; init; }
 
@@ -98,6 +104,7 @@ public sealed class SupplierOrderService
     private readonly IRepository<BloodUnit>? _units;
     private readonly FacilityPolicyService? _policy;
     private readonly IRepository<Patient>? _patients;
+    private readonly BloodBankLIS.Application.Compliance.DowntimePatientSummaryService? _patientSummary;
 
     public SupplierOrderService(
         IRepository<SupplierOrder> orders,
@@ -114,8 +121,10 @@ public sealed class SupplierOrderService
         IReportDocumentRenderer? renderer = null,
         IRepository<BloodUnit>? units = null,
         FacilityPolicyService? policy = null,
-        IRepository<Patient>? patients = null)
+        IRepository<Patient>? patients = null,
+        BloodBankLIS.Application.Compliance.DowntimePatientSummaryService? patientSummary = null)
     {
+        _patientSummary = patientSummary;
         _patients = patients;
         _policy = policy;
         _units = units;
@@ -243,6 +252,12 @@ public sealed class SupplierOrderService
             if (input.Quantity > 0 && await _products.GetByIdAsync(input.ProductTypeId, ct) is null)
             {
                 return OperationResult<SupplierOrderDto>.Fail($"Product {input.ProductTypeId} not found.");
+            }
+
+            // Pass 113: a supplier ships a known group; "Unknown" cannot be ordered (leave it as Any instead).
+            if (input.Quantity > 0 && (input.Abo == AboGroup.Unknown || input.RhD == RhType.Unknown))
+            {
+                return OperationResult<SupplierOrderDto>.Fail("Choose a blood group and Rh to order, or leave them as Any; Unknown cannot be ordered.");
             }
         }
 
@@ -545,6 +560,19 @@ public sealed class SupplierOrderService
             .OrderBy(l => l.ProductCode)
             .ThenBy(l => l.Abo)
             .ToList();
+        // Pass 113: each patient line shows what the patient's units must meet now.
+        if (_patientSummary is not null)
+        {
+            foreach (var pid in linePatientIds)
+            {
+                var needs = (await _patientSummary.GetAntibodyCardAsync(pid, ct))?.SpecialRequirements ?? [];
+                if (needs.Count > 0)
+                {
+                    lineDtos = lineDtos.Select(l => l.PatientId == pid ? l with { PatientNeeds = needs } : l).ToList();
+                }
+            }
+        }
+
         if (order.BloodDeliveryId is long deliveryId && _units is not null)
         {
             var delivered = await _units.ListAsync(u => u.DeliveryId == deliveryId, ct);

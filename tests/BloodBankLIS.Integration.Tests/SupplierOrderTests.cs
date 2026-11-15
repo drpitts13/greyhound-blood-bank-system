@@ -35,7 +35,14 @@ public class SupplierOrderTests : IDisposable
             _signatures,
             new TabularReportRenderer(),
             new EfRepository<BloodUnit>(c),
-            patients: new EfRepository<Patient>(c));
+            patients: new EfRepository<Patient>(c),
+            patientSummary: new BloodBankLIS.Application.Compliance.DowntimePatientSummaryService(
+                new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
+                new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), new EfRepository<PatientBloodTypeHistory>(c),
+                new EfRepository<AntibodyHistory>(c), new EfRepository<SpecialTransfusionRequirement>(c),
+                new EfRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>(c),
+                new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c, _factory.Clock,
+                attributes: new EfRepository<BloodBankLIS.Domain.Entities.Configuration.BloodAttributeDefinition>(c)));
 
     // TEST-BB-1024: a special order starts empty, takes a patient-specific line (Rh, requirements, patient by MRN) beside
     // a stock line, refuses an unknown MRN, keeps the lines apart, and exports them for the supplier (end-user testing
@@ -67,6 +74,22 @@ public class SupplierOrderTests : IDisposable
         var special = Assert.Single(saved.Value.Lines, l => l.PatientMrn is not null);
         Assert.Equal((RhType.Positive, "irradiated, CMV-negative", "MRN-SO-SPEC", 2), (special.RhD!.Value, special.Requirements!, special.PatientMrn!, special.Quantity));
         Assert.Equal("Special, Avery", special.PatientName);
+        // TEST-BB-1129: the patient line shows what the patient's units must meet now; a stock line shows none; an
+        // Unknown group or Rh cannot be ordered (end-user testing pass 113).
+        Assert.Empty(special.PatientNeeds);
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = patient.Id, RequirementType = SpecialTransfusionRequirementType.Irradiated, Reason = "Stem cell transplant",
+            EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1), IsActive = true
+        });
+        await c.SaveChangesAsync();
+        var withNeeds = (await service.GetAsync(created.Value.Id))!;
+        Assert.Contains(withNeeds.Lines.Single(l => l.PatientMrn is not null).PatientNeeds, n => n.Contains("rradiated"));
+        Assert.Empty(withNeeds.Lines.Single(l => l.PatientMrn is null).PatientNeeds);
+        Assert.Contains("Unknown cannot be ordered", (await service.UpdateAsync(created.Value.Id, new UpdateSupplierOrderRequest(
+            [new SupplierOrderLineInput(f.RedCells.Id, AboGroup.Unknown, 1)], null))).Error);
+        Assert.Contains("Unknown cannot be ordered", (await service.UpdateAsync(created.Value.Id, new UpdateSupplierOrderRequest(
+            [new SupplierOrderLineInput(f.RedCells.Id, AboGroup.O, 1, RhType.Unknown)], null))).Error);
 
         var csv = await service.ExportAsync(created.Value.Id, "csv");
         Assert.True(csv.Succeeded, csv.Error);

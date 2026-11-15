@@ -96,7 +96,13 @@
                         <td>@(line.Abo?.ToString() ?? "Any")</td>
                         <td>@(line.RhD is RhType rh ? (rh == RhType.Positive ? "Pos" : "Neg") : "Any")</td>
                         <td>@(line.Requirements ?? "—")</td>
-                        <td>@(line.PatientMrn is null ? "—" : $"{line.PatientName} ({line.PatientMrn})")</td>
+                        <td>@(line.PatientMrn is null ? "—" : $"{line.PatientName} ({line.PatientMrn})")
+                            @if (line.PatientNeeds.Count > 0)
+                            {
+                                @* Pass 113: what the patient's units must meet now, to check the requirements against. *@
+                                <span class="sub" data-order-patient-needs title="From the patient's antibodies and special requirements in effect">Patient needs: @string.Join("; ", line.PatientNeeds)</span>
+                            }
+                        </td>
                         <td class="right">
                             @if (IsDraft && CanEdit)
                             {
@@ -138,7 +144,7 @@
                 <div class="field" style="max-width:7rem;"><label>ABO</label>
                     <select @bind="_newLine.Abo">
                         <option value="">Any</option>
-                        @foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }
+                        @foreach (var a in Enum.GetValues<AboGroup>().Where(g => g != AboGroup.Unknown)) { <option value="@a">@Ui.EnumText(a)</option> }
                     </select>
                 </div>
                 <div class="field" style="max-width:7rem;"><label>Rh</label>
@@ -250,6 +256,7 @@
         public string? Requirements { get; init; }
         public string? PatientMrn { get; init; }
         public string? PatientName { get; init; }
+        public IReadOnlyList<string> PatientNeeds { get; init; } = [];
         public int Quantity { get; set; }
     }
 
@@ -339,7 +346,7 @@
             .Select(l => new EditLine
             {
                 Id = l.Id, ProductTypeId = l.ProductTypeId, ProductCode = l.ProductCode, ProductName = l.ProductName, Abo = l.Abo,
-                RhD = l.RhD, Requirements = l.Requirements, PatientMrn = l.PatientMrn, PatientName = l.PatientName, Quantity = l.Quantity
+                RhD = l.RhD, Requirements = l.Requirements, PatientMrn = l.PatientMrn, PatientName = l.PatientName, PatientNeeds = l.PatientNeeds, Quantity = l.Quantity
             })
             .ToList();
     }
