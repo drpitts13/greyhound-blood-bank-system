@@ -1154,5 +1154,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1143 | I | `ResultLifecycleTests.VerifiedNeonatalType_RecordsThePatientsType` | URS-BB-902 / FRS-BB-1020 |
 | TEST-BB-1144 | U | `PatientTypingTestRuleTests.Is` | URS-BB-902 / FRS-BB-1020 |
 | TEST-BB-1145 | I | `MotherInfantTests.Merge_MovesLookbackAndMtp_AndUnmergeMovesThemBack` | URS-BB-903 / FRS-BB-1021 |
+| TEST-BB-1146 | I | `MotherInfantTests.Merge_MovesLookbackAndMtp_AndUnmergeMovesThemBack` | URS-BB-904 / FRS-BB-1022 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

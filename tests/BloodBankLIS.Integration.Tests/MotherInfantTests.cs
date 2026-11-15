@@ -109,6 +109,20 @@ public class MotherInfantTests
         Assert.True(undone.Succeeded, undone.Error);
         Assert.Equal(duplicate.Id, (await c.LookbackNotifications.AsNoTracking().SingleAsync(n => n.Id == note.Id)).PatientId);
         Assert.Equal(duplicate.Id, (await c.MtpActivations.AsNoTracking().SingleAsync(m => m.Id == mtp.Id)).PatientId);
+
+        // TEST-BB-1146: with an active protocol on each chart the merge is refused, and nothing moves (pass 125).
+        var other = new Patient { MedicalRecordNumber = "MRN-DUP-MTP", LastName = "Trace", FirstName = "Dee", DateOfBirth = new DateOnly(1980, 2, 2), Sex = Sex.Female };
+        c.Patients.Add(other);
+        await c.SaveChangesAsync();
+        MtpActivation Active(long patientId) => new() { PatientId = patientId, RequestedBy = "Dr. Lee", Reason = "Trauma", ActivatedUtc = factory.Clock.UtcNow, ActivatedBy = "tech" };
+        var survivorMtp = Active(survivor.Id);
+        var otherMtp = Active(other.Id);
+        c.MtpActivations.AddRange(survivorMtp, otherMtp);
+        await c.SaveChangesAsync();
+        var refused = await Merge(factory, c).MergeAsync(survivor.Id, other.Id, "Same person");
+        Assert.False(refused.Succeeded);
+        Assert.Contains("Both charts have an active massive transfusion protocol", refused.Error);
+        Assert.Equal(other.Id, (await c.MtpActivations.AsNoTracking().SingleAsync(m => m.Id == otherMtp.Id)).PatientId);
     }
 
     [Fact]

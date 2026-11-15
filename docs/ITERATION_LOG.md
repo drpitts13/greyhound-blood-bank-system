@@ -24678,3 +24678,21 @@ Unit pickers (soonest-expiring first, as expected), the FHIR result mapping, the
 ### Tests
 
 - TEST-BB-1145. Full suite passed.
+
+## Iteration 844 — End-user testing pass 125: a merge into two active massive transfusion protocols (2026-11-15)
+
+### How it was tested
+
+Following pass 124, a merge where each chart has a massive transfusion protocol still active (a trauma registered twice during the activation).
+
+### Found and fixed
+
+1. **A merge could leave two active massive transfusion protocols on one chart.** Activation refuses a second active protocol for a patient, but once pass 124 moved activations with a merge, merging two charts that each had one active would put both on the surviving chart, with two banners and two sets of counts. The merge is now refused while both charts have one active, saying to close the one opened on the duplicate chart first; nothing is moved.
+
+### Retested live
+
+- Not merged live (it would rewrite the demonstration charts); covered by TEST-BB-1146.
+
+### Tests
+
+- TEST-BB-1146. Full suite passed.

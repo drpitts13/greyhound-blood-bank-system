@@ -297,6 +297,15 @@ public sealed class PatientMergeService
             return OperationResult<Patient>.Fail(workupMerge.Message);
         }
 
+        // Pass 125: a patient has one active massive transfusion protocol; a merge must not leave two on one chart.
+        if (_mtpActivations is not null
+            && await _mtpActivations.AnyAsync(a => a.PatientId == survivor.Id && a.Status == MtpActivationStatus.Active, ct)
+            && await _mtpActivations.AnyAsync(a => a.PatientId == duplicate.Id && a.Status == MtpActivationStatus.Active, ct))
+        {
+            return OperationResult<Patient>.Fail(
+                "Both charts have an active massive transfusion protocol. Close the one opened on the duplicate chart, then merge.");
+        }
+
         if (workupMerge.Severity == RuleSeverity.Warning)
         {
             evaluation = new RuleEvaluation(evaluation.Results.Append(workupMerge));
