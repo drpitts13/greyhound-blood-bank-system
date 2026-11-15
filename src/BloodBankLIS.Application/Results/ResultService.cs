@@ -877,7 +877,10 @@ public sealed class ResultService
         Override? authorizedOverride = null;
         AboRhHistoryResolution? historyResolution = null;
 
-        if (result.TestCode == AboRhTestCode && AboRhResultValue.TryParse(result.Value, out var aboRh))
+        // Pass 122: any ABO/Rh test set to contribute to the type history (the neonatal type and screen) records the type
+        // on verification, as ABORH does; before, only ABORH did, so a newborn typed by TSNEO had no type on the chart.
+        if ((result.TestCode == AboRhTestCode || await IsAboRhHistoryTestAsync(result.TestCode, ct))
+            && AboRhResultValue.TryParse(result.Value, out var aboRh))
         {
             var current = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == result.PatientId && h.IsCurrent, ct);
             var delta = AboRhDeltaRule.Evaluate(current?.BloodType, aboRh);
@@ -1231,6 +1234,18 @@ public sealed class ResultService
         }
 
         return testCode;
+    }
+
+    /// <summary>An ABO/Rh test other than ABORH whose verified type goes on the patient's type history (pass 122).</summary>
+    private async Task<bool> IsAboRhHistoryTestAsync(string? testCode, CancellationToken ct)
+    {
+        if (_testDefinitions is null || string.IsNullOrWhiteSpace(testCode))
+        {
+            return false;
+        }
+
+        var def = await _testDefinitions.FirstOrDefaultAsync(d => d.IsActive && d.Code == testCode, ct);
+        return def is { ResultValueType: ResultValueType.AboRh, ContributesToAboRhHistory: true };
     }
 
     private static bool IsAboRhCode(string? testCode) =>

@@ -75,6 +75,57 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
         return result.Value!.Id;
     }
 
+    // TEST-BB-1142: a verified result of an ABO/Rh test set to contribute to the type history (the neonatal type and
+    // screen) puts the type on the patient's chart as ABORH does; one not so set does not (end-user testing pass 122).
+    [Fact]
+    public async Task VerifiedNeonatalType_RecordsThePatientsType()
+    {
+        await using (var setup = _factory.Create())
+        {
+            foreach (var (code, contributes) in new[] { ("TSNEO-T", true), ("ABOX-T", false) })
+            {
+                if (!await setup.TestDefinitions.AnyAsync(t => t.Code == code))
+                {
+                    setup.TestDefinitions.Add(new TestDefinition
+                    {
+                        Code = code, Name = code, Category = TestCategory.AboRh, ResultValueType = ResultValueType.AboRh,
+                        VerificationRequired = true, ContributesToAboRhHistory = contributes, IsActive = true, IsDraft = false,
+                        EffectiveUtc = _factory.Clock.UtcNow, Version = 1
+                    });
+                }
+            }
+
+            await setup.SaveChangesAsync();
+        }
+
+        ResultService WithCatalog(BloodBankDbContext c, ICurrentUser? user = null)
+        {
+            var current = user ?? _factory.CurrentUser;
+            return new(
+                new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c), c,
+                _factory.Clock, current, new AuditWriter(c, _factory.Clock, current),
+                testDefinitions: new EfRepository<TestDefinition>(c),
+                patients: new EfRepository<Patient>(c), permissions: new FixedPermissionEvaluator(2));
+        }
+
+        var baby = await EnsurePatientAsync("MRN-NEO-TYPE");
+        var other = await EnsurePatientAsync("MRN-NEO-OTHER");
+        var babyTube = await AccessionAsync("ACC-NEO-TYPE", baby);
+        var otherTube = await AccessionAsync("ACC-NEO-OTHER", other);
+        var value = AboRhResultValue.Format(AboGroup.O, RhType.Positive);
+        await using var c = _factory.Create();
+        var neo = await WithCatalog(c).EnterResultAsync(new EnterResultRequest(babyTube, "TSNEO-T", value));
+        Assert.True(neo.Succeeded, neo.Error);
+        var plain = await WithCatalog(c).EnterResultAsync(new EnterResultRequest(otherTube, "ABOX-T", value));
+        Assert.True(plain.Succeeded, plain.Error);
+        Assert.True((await WithCatalog(c, Verifier).VerifyResultAsync(neo.Value!.Id)).Succeeded);
+        Assert.True((await WithCatalog(c, Verifier).VerifyResultAsync(plain.Value!.Id)).Succeeded);
+
+        var type = await c.PatientBloodTypeHistory.SingleAsync(t => t.PatientId == baby && t.IsCurrent);
+        Assert.Equal((AboGroup.O, RhType.Positive), (type.Abo, type.RhD));
+        Assert.False(await c.PatientBloodTypeHistory.AnyAsync(t => t.PatientId == other));
+    }
+
     [Fact]
     public async Task ManualEnter_StartsEntered_AndWritesNamedResultAudit()
     {

@@ -38,6 +38,8 @@ For a **Titer** test, set the **First** and **Last dilution** (the last must be 
 
 The catalog includes example tests as **inactive drafts**: antibody and ABO titers, fetal bleed quantitation, a DAT with IgG and C3, an elution, a weak D panel, and an Rh/Kell phenotype. Review each with your medical director, adjust it, and activate only the ones your laboratory performs.
 
+**ABO/Rh history** on an ABO/Rh test (result type ABO/Rh) means a verified result of that test becomes the patient's current type, as ABO/Rh (ABORH) does, with the same check against the type on file. The neonatal type and screen (TSNEO) has it set, so a newborn typed by it has a type on the chart; an ABO/Rh test without it (for example a reference typing) is recorded as a result only.
+
 ## History
 
 Mark the tests that write patient ABO, Rh, antibody screen, or antibody identification into history. Those are the tests the issue gate and electronic crossmatch read. A test you forget to mark will verify on the worklist and still leave the chart without a blood type. A test you mark by mistake can overwrite history with a value that was never meant to be a type.

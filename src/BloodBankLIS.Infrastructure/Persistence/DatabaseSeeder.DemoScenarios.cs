@@ -629,8 +629,17 @@ public static partial class DatabaseSeeder
     /// </summary>
     private static async Task EnsureNeonatalTypeAndScreenTestAsync(BloodBankDbContext context, CancellationToken ct)
     {
-        if (await context.TestDefinitions.AnyAsync(t => t.Code == "TSNEO", ct))
+        var existing = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == "TSNEO", ct);
+        if (existing is not null)
         {
+            // Pass 122: the seeded definition did not put the newborn's verified type on the chart. Still as seeded
+            // (version 1), it is set to; a definition the facility has changed is left alone.
+            if (!existing.ContributesToAboRhHistory && existing.Version == 1 && existing.ResultValueType == ResultValueType.AboRh)
+            {
+                existing.ContributesToAboRhHistory = true;
+                await context.SaveChangesAsync(ct);
+            }
+
             return;
         }
 
@@ -642,6 +651,7 @@ public static partial class DatabaseSeeder
             ResultValueType = ResultValueType.AboRh,
             VerificationRequired = true,
             ContributesToCompatibility = true,
+            ContributesToAboRhHistory = true,
             IsActive = true,
             IsDraft = false,
             EffectiveUtc = DateTime.UtcNow,

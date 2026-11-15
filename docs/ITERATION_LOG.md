@@ -24616,3 +24616,25 @@ The report catalog against the reviews a transfusion service runs, with the seed
 ### Tests
 
 - TEST-BB-1141 (the seeded report count is now 17). Full suite passed.
+
+## Iteration 841 — End-user testing pass 122: the newborn's type from the neonatal type and screen (2026-11-15)
+
+### How it was tested
+
+Titers, printing, then newborn typing: what a verified neonatal type and screen (TSNEO, which the seeded neonatal rule orders in place of TNS) leaves on the infant's chart.
+
+### Found and fixed
+
+1. **A verified neonatal type and screen did not put the newborn's type on the chart.** Only a result of the test coded ABORH became the patient's type; TSNEO is an ABO/Rh test, but its verified result stayed a result only, so the infant had no type on file for the neonatal rules (one admission type stands, OCD-074), for issue, or for the mother's RhIG decision. A verified result of any ABO/Rh test set to contribute to the ABO/Rh history now records the type as ABORH does, with the same check against the type on file, and the seeded TSNEO is set to; an existing TSNEO still at its seeded version is updated on start-up (a definition the facility has changed is left alone).
+
+### Retested live
+
+- After restart, TSNEO in the development database contributes to the ABO/Rh history (Admin › Tests). No neonatal result was entered live; the recording is covered by TEST-BB-1142.
+
+### Not changed
+
+- TSNEO has no subtests of its own, so it is entered as an interpreted type; a forward-only panel for infants (reverse grouping optional) is configuration for the facility on Admin › Tests.
+
+### Tests
+
+- TEST-BB-1142. Full suite passed.
