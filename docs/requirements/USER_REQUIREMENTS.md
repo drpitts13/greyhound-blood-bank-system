@@ -884,3 +884,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-876 | Instrument messages can be searched by specimen, patient id or message text, older ones included. | P2 | FRS-BB-994 |
 | URS-BB-877 | A deviation records its owner and due date, and overdue deviations are shown and counted. | P2 | FRS-BB-995 |
 | URS-BB-878 | The patient search takes a name as written (last, first) and a date of birth. | P2 | FRS-BB-996 |
+| URS-BB-879 | The top-bar lookup finds a patient by name and date of birth. | P2 | FRS-BB-997 |

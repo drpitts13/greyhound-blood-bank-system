@@ -534,6 +534,22 @@ public sealed class UniversalLookupService
         var aliasOwners = await PatientsByIdAsync(aliasOwnerIds.Where(id => direct.All(p => p.Id != id)), ct);
 
         var all = direct.Concat(aliasOwners.Values).ToList();
+
+        // Pass 100: nothing for the whole text, but several words ("Kline, Nora", "nora 1966-09-03"): every word must
+        // match the MRN, a name or the date of birth. Candidates come from the first word that is not a date.
+        var words = PatientSearchMatch.Words(term);
+        if (all.Count == 0 && words.Count > 1 && words.FirstOrDefault(w => !PatientSearchMatch.IsDateWord(w)) is { } nameWord)
+        {
+            var nameUpper = nameWord.ToUpperInvariant();
+            all = (await _patients.ListAsync(p => p.MedicalRecordNumber.ToUpper().Contains(nameUpper)
+                    || p.LastName.ToUpper().Contains(nameUpper)
+                    || p.FirstName.ToUpper().Contains(nameUpper), ct))
+                .Where(p => PatientSearchMatch.MatchesAll(words, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName, p.DateOfBirth))
+                .OrderBy(p => p.LastName).ThenBy(p => p.FirstName).ThenBy(p => p.Id)
+                .Take(PartialLimit + 1)
+                .ToList();
+        }
+
         var hits = new List<LookupHitDto>();
         foreach (var patient in all.Take(PartialLimit))
         {

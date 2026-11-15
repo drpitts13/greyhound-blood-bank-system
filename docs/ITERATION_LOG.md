@@ -24219,3 +24219,21 @@ Patients: the directory search, as a technologist identifies a patient from a re
 ### Tests
 
 - TEST-BB-1113. Full suite passed.
+
+## Iteration 819 — End-user testing pass 100: the top-bar lookup by name and date of birth (2026-11-15)
+
+### How it was tested
+
+Following pass 99, the lookup in the top bar (any page): *Kline, Nora* and *nora 1966-09-03*.
+
+### Found and fixed
+
+1. **The top-bar lookup took a name, not a name and date of birth.** *Kline, Nora* found her, but *nora 1966-09-03* said nothing matched. When the whole text finds no patient and has several words, the lookup now takes patients matching the first word that is not a date and keeps those matching every word (MRN, name, date of birth). The matching is shared with the patient list (pass 99), so both read a date of birth the same way.
+
+### Retested live
+
+- *nora 1966-09-03* lists MRN0010 Kline, Nora to choose.
+
+### Tests
+
+- TEST-BB-1114. Full suite passed.

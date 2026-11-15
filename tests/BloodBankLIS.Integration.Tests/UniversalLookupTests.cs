@@ -326,6 +326,25 @@ public class UniversalLookupTests : IDisposable
         Assert.All(result.Hits, h => Assert.False(h.Exact));
     }
 
+    // TEST-BB-1114 (end-user testing pass 100): a name with a date of birth finds the one patient, in either order and with
+    // the date written either way; a date that is not theirs finds nobody.
+    [Fact]
+    public async Task NameAndDateOfBirth_FindTheOnePatient()
+    {
+        await using var c = _factory.Create();
+        await SeedAsync(c);
+        c.Patients.Add(new Patient
+        {
+            MedicalRecordNumber = "MRN-LOOK3", LastName = "Lookup", FirstName = "Cleo", DateOfBirth = new DateOnly(1980, 2, 2), Sex = Sex.Female
+        });
+        await c.SaveChangesAsync();
+
+        var hit = Assert.Single((await Lookup(c).LookupAsync("cleo 1980-02-02")).Hits, h => h.Kind == LookupHitKind.Patient);
+        Assert.Contains("Cleo", hit.Title);
+        Assert.Single((await Lookup(c).LookupAsync("02/02/1980 lookup cleo")).Hits, h => h.Kind == LookupHitKind.Patient);
+        Assert.DoesNotContain((await Lookup(c).LookupAsync("cleo 1981-02-02")).Hits, h => h.Kind == LookupHitKind.Patient);
+    }
+
     [Fact]
     public async Task OnePartialMatch_StillDoesNotOpen()
     {
