@@ -45,7 +45,7 @@ public static class LateReactionReportRule
             if (transfusionStartUtc is { } start && onset < start)
             {
                 return RuleResult.HardStop(Code,
-                    $"The onset is before the transfusion started at {start:yyyy-MM-dd HH:mm} UTC. Check the time.");
+                    $"The onset is before the transfusion started at {ClinicalTimeText.Local(start)}. Check the time.");
             }
 
             if (onset > nowUtc + IssueTimeRule.ClockAllowance)

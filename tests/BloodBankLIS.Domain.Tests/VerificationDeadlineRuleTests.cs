@@ -15,7 +15,7 @@ public class VerificationDeadlineRuleTests
     public void PendingResult_WithSpecimenExpiringInsideTheWindow_GetsTheDeadline(ResultStatus status)
     {
         var notice = VerificationDeadlineRule.Notice(status, Now.AddHours(3), Now, Window);
-        Assert.Equal("Verify before 2026-11-02 15:00 UTC, when the specimen expires. After that this result cannot be verified.", notice);
+        Assert.Equal($"Verify before {ClinicalTimeText.Local(Now.AddHours(3))}, when the specimen expires. After that this result cannot be verified.", notice);
     }
 
     [Fact]

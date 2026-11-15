@@ -142,7 +142,7 @@ public static class ShipOutRule
         }
 
         return expiresUtc <= nowUtc
-            ? RuleResult.HardStop(Code, $"The unit expired at {expiresUtc:yyyy-MM-dd HH:mm} UTC; an expired unit is not shipped.")
+            ? RuleResult.HardStop(Code, $"The unit expired at {ClinicalTimeText.Local(expiresUtc)}; an expired unit is not shipped.")
             : RuleResult.Pass(Code);
     }
 }

@@ -19,11 +19,11 @@ public static class BloodOrderPreparationRule
 
     /// <summary>
     /// The downtime sheet line for an order still to prepare: "ORD-1 (Stat): 2 × Red cells, 2 still needed, needed by
-    /// 2026-11-08 10:00 UTC".
+    /// 2026-11-08 05:00" (local time, end-user testing pass 128).
     /// </summary>
     public static string DowntimeLine(string orderNumber, string priority, string products, int remaining, DateTime? neededByUtc) =>
         $"{orderNumber} ({priority}): {products}, {remaining} still needed"
-        + (neededByUtc is DateTime needed ? $", needed by {needed:yyyy-MM-dd HH:mm} UTC" : string.Empty);
+        + (neededByUtc is DateTime needed ? $", needed by {ClinicalTimeText.Local(needed)}" : string.Empty);
 
     /// <summary>
     /// Where the next step opens on the patient's chart: the specimens with the accession form open to collect one (also

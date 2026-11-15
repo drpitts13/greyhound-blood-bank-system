@@ -105,7 +105,7 @@ public static class DowntimeBackEntryRule
         if (received < issuedUtc)
         {
             return RuleResult.HardStop(ReceiptTimeCode,
-                $"The receipt time is before the unit was issued at {issuedUtc:yyyy-MM-dd HH:mm} UTC. Check the paper record.");
+                $"The receipt time is before the unit was issued at {ClinicalTimeText.Local(issuedUtc)}. Check the paper record.");
         }
 
         return received > nowUtc + IssueTimeRule.ClockAllowance

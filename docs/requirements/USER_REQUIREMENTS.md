@@ -912,3 +912,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-904 | A merge is refused while both charts have an active massive transfusion protocol. | P2 | FRS-BB-1022 |
 | URS-BB-905 | A unit that has left the blood bank is not shown as being in its last storage location. | P2 | FRS-BB-1023 |
 | URS-BB-906 | One alert per storage location says how many units are still quarantined after an excursion, not one per quarantine run. | P2 | FRS-BB-1024 |
+| URS-BB-907 | Messages shown on screen and the printed downtime sheet give times in local time, as the pages do; text saved with a record keeps UTC and says so. | P2 | FRS-BB-1025 |

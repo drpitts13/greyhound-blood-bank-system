@@ -24736,3 +24736,21 @@ Where a unit's last storage location still drives behaviour (excursion quarantin
 ### Tests
 
 - TEST-BB-1148. Full suite passed.
+
+## Iteration 847 — End-user testing pass 128: on-screen times in local time (2026-11-15)
+
+### How it was tested
+
+Following pass 127's note, every message that writes a time was checked against the rule the application already has (Cycle 605): a message shown on screen and not kept gives the local time, as the pages do; text saved with a record (alerts, status reasons, deviation notes) gives UTC and says so.
+
+### Found and fixed
+
+1. **Refusals, warnings and the downtime sheet gave times in UTC.** The expired-specimen refusal at crossmatch, the reaction-workup specimen checks, the transfusion start and expiry checks, the downtime receipt check, the late-reaction onset check, the ship-out expiry refusal, the tube-discard refusals, the *Verify before* notice on the Test Worklist and the needed-by time on the printed downtime sheet all said *… HH:mm UTC*, five hours off the times on the same screen. They now give the local time; alerts and other saved text keep UTC as designed. A source test keeps these messages from going back to UTC.
+
+### Retested live
+
+- Riley Demo-Multi's downtime sheet: *ORD-SURG-DEMO … needed by 2026-11-10 04:50*, the same time Blood orders to prepare shows (was *09:50 UTC*).
+
+### Tests
+
+- TEST-BB-1149; the three rule tests that named UTC now expect the local time. Full suite passed.

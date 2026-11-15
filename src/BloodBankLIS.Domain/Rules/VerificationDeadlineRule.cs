@@ -28,6 +28,6 @@ public static class VerificationDeadlineRule
             return null;
         }
 
-        return $"Verify before {expires:yyyy-MM-dd HH:mm} UTC, when the specimen expires. After that this result cannot be verified.";
+        return $"Verify before {ClinicalTimeText.Local(expires)}, when the specimen expires. After that this result cannot be verified.";
     }
 }

@@ -26,7 +26,7 @@ public static class SpecimenDiscardRule
     {
         if (discardedUtc is DateTime discarded)
         {
-            return RuleResult.HardStop(Code, $"The tube was already discarded on {discarded:yyyy-MM-dd HH:mm} UTC.");
+            return RuleResult.HardStop(Code, $"The tube was already discarded on {ClinicalTimeText.Local(discarded)}.");
         }
 
         if (onOpenInvestigation)
@@ -54,7 +54,7 @@ public static class SpecimenDiscardRule
         if (why.Length == 0)
         {
             return RuleResult.HardStop(Code, keepUntilUtc is DateTime keep
-                ? $"The tube is kept until {keep:yyyy-MM-dd HH:mm} UTC; give a reason to discard it early."
+                ? $"The tube is kept until {ClinicalTimeText.Local(keep)}; give a reason to discard it early."
                 : "No retention period is set (Facility policy: Specimen retention days); give a reason to discard the tube.");
         }
 

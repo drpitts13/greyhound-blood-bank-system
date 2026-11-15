@@ -33,10 +33,10 @@ public static class CrossmatchSpecimenRule
         return retrospectiveOnPreTransfusionSpecimen
             ? RuleResult.Warning(
                 RetrospectiveCode,
-                $"{name} expired at {expires:yyyy-MM-dd HH:mm} UTC. It is the pre-transfusion specimen, so the retrospective crossmatch may be recorded on it as an exception: give the reason and who authorized it.")
+                $"{name} expired at {ClinicalTimeText.Local(expires)}. It is the pre-transfusion specimen, so the retrospective crossmatch may be recorded on it as an exception: give the reason and who authorized it.")
             : RuleResult.HardStop(
                 Code,
-                $"{name} expired at {expires:yyyy-MM-dd HH:mm} UTC. Collect a new specimen and crossmatch on it.");
+                $"{name} expired at {ClinicalTimeText.Local(expires)}. Collect a new specimen and crossmatch on it.");
     }
 
     public static bool IsPreTransfusionSpecimen(DateTime specimenCollectedUtc, DateTime issuedUtc) =>

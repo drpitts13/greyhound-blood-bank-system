@@ -1157,5 +1157,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1146 | I | `MotherInfantTests.Merge_MovesLookbackAndMtp_AndUnmergeMovesThemBack` | URS-BB-904 / FRS-BB-1022 |
 | TEST-BB-1147 | U | `StorageLocationStatusTests.WithStatus` | URS-BB-905 / FRS-BB-1023 |
 | TEST-BB-1148 | U | `ExcursionQuarantineAlertTests.NowOncePerLocation_KeepsOneAlertPerLocation` | URS-BB-906 / FRS-BB-1024 |
+| TEST-BB-1149 | U | `OnScreenMessageTimeTests.OnScreenRuleMessages_UseLocalTime` | URS-BB-907 / FRS-BB-1025 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

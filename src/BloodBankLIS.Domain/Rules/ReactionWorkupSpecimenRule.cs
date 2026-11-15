@@ -35,7 +35,7 @@ public static class ReactionWorkupSpecimenRule
         return CrossmatchSpecimenRule.IsPreTransfusionSpecimen(collectedUtc, issuedUtc)
             ? RuleResult.Pass(PreCode)
             : RuleResult.HardStop(PreCode,
-                $"Specimen {accessionNumber} was collected at {collectedUtc:yyyy-MM-dd HH:mm} UTC, after the unit was issued at {issuedUtc:yyyy-MM-dd HH:mm} UTC; it is not a pre-transfusion specimen.");
+                $"Specimen {accessionNumber} was collected at {ClinicalTimeText.Local(collectedUtc)}, after the unit was issued at {ClinicalTimeText.Local(issuedUtc)}; it is not a pre-transfusion specimen.");
     }
 
     public static RuleResult EvaluatePost(
@@ -63,7 +63,7 @@ public static class ReactionWorkupSpecimenRule
         return collectedUtc >= transfusionStartUtc
             ? RuleResult.Pass(PostCode)
             : RuleResult.HardStop(PostCode,
-                $"Specimen {accessionNumber} was collected at {collectedUtc:yyyy-MM-dd HH:mm} UTC, before the transfusion began at {transfusionStartUtc:yyyy-MM-dd HH:mm} UTC; it is not a post-transfusion specimen.");
+                $"Specimen {accessionNumber} was collected at {ClinicalTimeText.Local(collectedUtc)}, before the transfusion began at {ClinicalTimeText.Local(transfusionStartUtc)}; it is not a post-transfusion specimen.");
     }
 
     private static RuleResult? Common(

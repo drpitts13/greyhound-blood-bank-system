@@ -59,13 +59,13 @@ public static class TransfusionDocumentationRule
         if (startUtc < issuedUtc - ClockAllowance)
         {
             results.Add(RuleResult.HardStop(Code,
-                $"The start time ({startUtc:yyyy-MM-dd HH:mm} UTC) is before the unit was issued ({issuedUtc:yyyy-MM-dd HH:mm} UTC). Enter when the transfusion actually started."));
+                $"The start time ({ClinicalTimeText.Local(startUtc)}) is before the unit was issued ({ClinicalTimeText.Local(issuedUtc)}). Enter when the transfusion actually started."));
         }
 
         if (startUtc >= unitExpiresUtc)
         {
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentExpired,
-                $"{IsbtErrorCodes.ComponentExpired}: The unit had expired ({unitExpiresUtc:yyyy-MM-dd HH:mm} UTC) before the transfusion started."));
+                $"{IsbtErrorCodes.ComponentExpired}: The unit had expired ({ClinicalTimeText.Local(unitExpiresUtc)}) before the transfusion started."));
         }
 
         if (results.Count == 0)

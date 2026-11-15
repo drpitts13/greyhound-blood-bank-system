@@ -15,7 +15,8 @@ public class CrossmatchSpecimenRuleTests
 
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
         Assert.Equal(CrossmatchSpecimenRule.Code, result.Code);
-        Assert.Contains("Specimen ACC-1 expired at 2026-11-02 11:59 UTC", result.Message);
+        // Pass 128: on-screen messages give the local time, as the pages do.
+        Assert.Contains($"Specimen ACC-1 expired at {ClinicalTimeText.Local(Now.AddMinutes(-1))}.", result.Message);
         Assert.Contains("Collect a new specimen", result.Message);
     }
 
