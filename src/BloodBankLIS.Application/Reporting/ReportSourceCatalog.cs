@@ -86,7 +86,9 @@ public static class ReportSourceCatalog
             Field("reason", "Reason"),
             Field("actor", "Actor"),
             Field("unit_number", "Unit number"),
-            Field("mrn", "MRN")),
+            Field("mrn", "MRN"),
+            // Pass 120: for a release before testing was complete, whether the physician's statement was received.
+            Field("physician_statement", "Physician statement")),
         Source(CrossmatchTransfusion, "Crossmatch and transfusion activity", ReportViewCatalog.CrossmatchTransfusion,
             Field("occurred_utc", "Occurred", ReportValueKind.Date),
             Field("occurred_month", "Month"),

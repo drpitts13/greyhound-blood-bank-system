@@ -258,7 +258,10 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 issue.EmergencyReleaseDetails,
                 issue.IssuedBy,
                 unit.UnitNumber,
-                patient.MedicalRecordNumber
+                patient.MedicalRecordNumber,
+                issue.TestsIncompleteAtIssue,
+                issue.UrgencyStatementReceivedUtc,
+                issue.UrgencyStatementSignedBy
             }).ToListAsync(cancellationToken);
 
         var rows = overrides.Select(row => ReportValueFormat.Row(
@@ -268,7 +271,8 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("reason", ReportValueFormat.Text(row.Reason)),
             ("actor", ReportValueFormat.Text(row.AuthorizedBy)),
             ("unit_number", null),
-            ("mrn", null))).ToList();
+            ("mrn", null),
+            ("physician_statement", null))).ToList();
 
         rows.AddRange(emergencies.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.IssuedUtc)),
@@ -277,7 +281,8 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("reason", ReportValueFormat.Text(row.EmergencyReleaseDetails)),
             ("actor", ReportValueFormat.Text(row.IssuedBy)),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
-            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)))));
+            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+            ("physician_statement", UrgencyStatementRule.ReportText(row.TestsIncompleteAtIssue, row.UrgencyStatementReceivedUtc, row.UrgencyStatementSignedBy)))));
 
         return rows;
     }

@@ -13,6 +13,15 @@ public static class UrgencyStatementRule
 
     public static bool Applies(bool testsIncompleteAtIssue) => testsIncompleteAtIssue;
 
+    public const string NotNeeded = "Not needed";
+    public const string NotReceived = "Not received";
+
+    /// <summary>How the overrides report states it (pass 120): not needed, not received, or "Received from Dr. Lee".</summary>
+    public static string ReportText(bool testsIncompleteAtIssue, DateTime? receivedUtc, string? signedBy) =>
+        !Applies(testsIncompleteAtIssue) ? NotNeeded
+        : receivedUtc is null ? NotReceived
+        : $"Received from {signedBy}";
+
     public static bool Outstanding(bool testsIncompleteAtIssue, DateTime? receivedUtc) =>
         Applies(testsIncompleteAtIssue) && receivedUtc is null;
 

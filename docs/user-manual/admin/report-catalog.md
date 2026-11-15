@@ -15,3 +15,5 @@ routes:
 Open a report to edit it, or create one. Unfinished drafts should stay unpublished so the run list does not offer a query you have not checked. A published report with a broken query fails at run time for the technologist. Run it yourself after you publish.
 
 Deleting or replacing a published report does not delete files people already exported. It changes the next run.
+
+System reports (those that came with the system) cannot be edited; clone one to change it. Their columns follow the catalog, so when a system report gains a column it appears in existing installations at the next start. For example, **Emergency releases and overrides** now has **Physician statement** for each emergency or massive transfusion issue: *Not needed* when testing was complete at issue, *Not received*, or *Received from* the physician who signed it (recorded on the Retrospective board). The SQL view `rpt_overrides` has the same column, `physician_statement`.

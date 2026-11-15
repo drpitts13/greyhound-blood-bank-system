@@ -24580,3 +24580,21 @@ Following pass 118's ordered volume, the HL7 order path: what an ORM/OML from th
 ### Tests
 
 - TEST-BB-1138, TEST-BB-1139. Full suite passed.
+
+## Iteration 839 — End-user testing pass 120: the physician statement on the emergency releases report (2026-11-15)
+
+### How it was tested
+
+The Supervisor queue, then the report catalog for what a quality review of emergency releases needs after pass 117.
+
+### Found and fixed
+
+1. **The emergency releases report could not show whether the physician's statement was received.** *Emergency releases and overrides*, the report a quality review of emergency releases uses, listed each emergency and massive transfusion issue with its reason and who issued it, but not the signed statement now recorded on the Retrospective board, so outstanding statements could not be reviewed for a period. The report and its SQL view now carry **Physician statement**: *Not needed*, *Not received*, or *Received from* the signer. System reports cannot be edited, so their layout now follows the catalog at start-up, which is how the column reached the existing report.
+
+### Retested live
+
+- Running *Emergency releases and overrides*: W0001230001004 (John Doe Trauma's emergency release), W0001230009101 and W0001230009102 *Not received*; W0001230009103 and W0001230009104 (massive transfusion issued after testing was complete) *Not needed*.
+
+### Tests
+
+- TEST-BB-1140. Full suite passed.

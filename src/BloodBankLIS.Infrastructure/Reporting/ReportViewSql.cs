@@ -187,7 +187,8 @@ public static class ReportViewSql
                 o.Reason AS reason,
                 o.AuthorizedBy AS actor,
                 CAST(NULL AS {TextType(sqlServer)}) AS unit_number,
-                CAST(NULL AS {TextType(sqlServer)}) AS mrn
+                CAST(NULL AS {TextType(sqlServer)}) AS mrn,
+                CAST(NULL AS {TextType(sqlServer)}) AS physician_statement
             FROM Overrides o
             UNION ALL
             SELECT
@@ -197,7 +198,12 @@ public static class ReportViewSql
                 i.EmergencyReleaseDetails AS reason,
                 i.IssuedBy AS actor,
                 u.UnitNumber AS unit_number,
-                p.MedicalRecordNumber AS mrn
+                p.MedicalRecordNumber AS mrn,
+                CASE
+                    WHEN i.TestsIncompleteAtIssue = 0 THEN '{UrgencyStatementRule.NotNeeded}'
+                    WHEN i.UrgencyStatementReceivedUtc IS NULL THEN '{UrgencyStatementRule.NotReceived}'
+                    ELSE {(sqlServer ? "'Received from ' + i.UrgencyStatementSignedBy" : "'Received from ' || i.UrgencyStatementSignedBy")}
+                END AS physician_statement
             FROM Issues i
             INNER JOIN BloodProducts u ON u.Id = i.BloodProductId
             INNER JOIN Patients p ON p.Id = i.PatientId

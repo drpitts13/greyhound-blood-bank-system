@@ -358,6 +358,52 @@ public class ReportServiceTests : IDisposable
         Assert.Equal(("Stat", "75"), (sqlRun.Value.Rows[2][1], sqlRun.Value.Rows[2][3]));
     }
 
+    // TEST-BB-1140: the emergency releases report says, for each release before testing was complete, whether the
+    // physician's statement was received and from whom; a release with testing complete says it was not needed; the SQL
+    // view gives the same (end-user testing pass 120).
+    [Fact]
+    public async Task OverridesReport_SaysWhetherThePhysicianStatementWasReceived()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-URG", LastName = "Urgent", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        var product = new ProductType { ProductCode = "RBC-URG", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        db.AddRange(patient, product);
+        await db.SaveChangesAsync();
+        var units = Enumerable.Range(1, 3).Select(i => new BloodUnit { UnitNumber = $"W-URG-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Issued }).ToList();
+        db.BloodUnits.AddRange(units);
+        await db.SaveChangesAsync();
+        Issue Emergency(BloodUnit unit, bool incomplete, string? signedBy) => new()
+        {
+            BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-2), IssuedBy = "tech",
+            IssueType = IssueType.EmergencyRelease, TestsIncompleteAtIssue = incomplete,
+            UrgencyStatementSignedBy = signedBy, UrgencyStatementReceivedUtc = signedBy is null ? null : _factory.Clock.UtcNow
+        };
+        db.Issues.AddRange(Emergency(units[0], true, "Dr. Amy Lee"), Emergency(units[1], true, null), Emergency(units[2], false, null));
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-OVERRIDES").Id, new Dictionary<string, string?>());
+        Assert.True(visual.Succeeded, visual.Error);
+        var columns = visual.Value!.Columns.ToList();
+        string? Statement(string unit) => visual.Value.Rows.Single(r => r[columns.IndexOf("unit_number")] == unit)[columns.IndexOf("physician_statement")];
+        Assert.Equal(("Received from Dr. Amy Lee", "Not received", "Not needed"), (Statement("W-URG-1"), Statement("W-URG-2"), Statement("W-URG-3")));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-URG-SQL",
+            Name = "SQL physician statements",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT unit_number, physician_statement FROM rpt_overrides WHERE mrn = 'MRN-URG' ORDER BY unit_number"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "Received from Dr. Amy Lee", "Not received", "Not needed" }, sqlRun.Value!.Rows.Select(r => r[1] ?? "").ToArray());
+    }
+
     // TEST-BB-641: blood order turnaround has one row per blood order (cancelled ones left out) with the minutes from
     // order to the first unit reserved (released reservations count) and the first issued, and whether a unit was ready
     // by the needed-by time; the by-priority report averages them; the SQL view gives the same values.
