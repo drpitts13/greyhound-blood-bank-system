@@ -24039,3 +24039,21 @@ Inventory search, all units, read against Administration › Inventory locations
 ### Tests
 
 - TEST-BB-1103. Full suite passed.
+
+## Iteration 809 — End-user testing pass 90: mother and baby, bedside records, and missing units (2026-11-14)
+
+### How it was tested
+
+Baby Girl Maya (MRN0027, seven days old, linked to her mother MRN0025): the chart shows the mother, her type and, when she has any, her antibodies with a note that they may be in the infant. The transfusion record keeps pre- and post-transfusion vitals. Both already covered. Then the Supervisor queue's missing unit.
+
+### Found and fixed
+
+1. **A missing unit did not say since when.** W000123MISS001, not found in a physical inventory count, read the same whether missing an hour or a week; it had been missing more than eight days. Missing and damaged rows now say since when (from the unit's status history) and the longest outstanding comes first, as quarantined units do since pass 88.
+
+### Retested live
+
+- The queue reads *Missing 8 days 12 hours (since 2026-11-06 09:50)* for W000123MISS001.
+
+### Tests
+
+- TEST-BB-1104. Full suite passed.

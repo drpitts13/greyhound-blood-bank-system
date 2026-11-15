@@ -172,10 +172,10 @@ public sealed class SupervisorQueueService
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindDiscrepancy,
                     $"{(missing ? "Missing" : "Damaged")} — {u.UnitNumber}",
-                    $"{product} {u.Abo} {u.RhD}. {reason}. Last recorded at {u.LocationLabel}.",
+                    $"{product} {u.Abo} {u.RhD}. {reason}." + (u.SinceText is null ? "" : $" {u.SinceText}.") + $" Last recorded at {u.LocationLabel}.",
                     $"/inventory/units/{u.UnitId}",
                     missing ? "Locate" : "Inspect",
-                    ContextId: u.UnitId));
+                    ContextId: u.UnitId) { SortUtc = u.SinceUtc });
             }
         }
 

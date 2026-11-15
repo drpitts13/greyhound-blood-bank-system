@@ -7,6 +7,10 @@ namespace BloodBankLIS.Domain.Rules;
 /// </summary>
 public static class QuarantineHoldText
 {
+    /// <summary>"Missing 50 hours (since 2026-11-12 13:59)" for a missing or damaged unit (end-user testing pass 90).</summary>
+    public static string Since(string what, DateTime sinceUtc, DateTime nowUtc) =>
+        $"{what} {RhigEvaluationRule.AgeText(nowUtc - sinceUtc)} (since {ClinicalTimeText.Local(sinceUtc)})";
+
     public static string For(DateTime heldSinceUtc, DateTime expiresUtc, DateTime nowUtc) =>
         $"Held {RhigEvaluationRule.AgeText(nowUtc - heldSinceUtc)} (since {ClinicalTimeText.Local(heldSinceUtc)}); "
         + (expiresUtc <= nowUtc

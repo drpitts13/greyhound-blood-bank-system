@@ -1112,5 +1112,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1101 | U, I | `TemperatureReadingDueRuleTests.IsDue_OnlyWithAnIntervalAndARange`, `StorageTemperatureServiceTests.Locations_MarkAReadingDue_UnderTheFacilityInterval`, `FacilityPolicyAwaitsEntryTests.AwaitsEntry_OnlyForDecidedSettingsStillAtTheirDefault` | URS-BB-866 / FRS-BB-984 |
 | TEST-BB-1102 | I | `InventoryServiceTests.Quarantine_SaysHowLongHeld_AndWhenItExpires`, `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesQuarantineUnit` | URS-BB-867 / FRS-BB-985 |
 | TEST-BB-1103 | U | `WrongStorageRuleTests.WrongStorage_NamesAComponentTheShelfDoesNotTake` | URS-BB-868 / FRS-BB-986 |
+| TEST-BB-1104 | I | `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesMissingUnit_UntilLocated` | URS-BB-869 / FRS-BB-987 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

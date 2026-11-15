@@ -382,7 +382,7 @@ public sealed class InventoryService
         var rows = missing.Concat(damaged).Where(u => u.TransfusionReportedUtc is null).ToList();
         var products = await LoadProductsAsync(rows, ct);
         var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
-        return rows
+        var items = rows
             .OrderBy(u => u.Status)
             .ThenBy(u => u.UnitNumber)
             .Select(u =>
@@ -397,6 +397,30 @@ public sealed class InventoryService
                 return DiscrepancyWorkItemDto.From(u, product?.ProductCode, locationName);
             })
             .ToList();
+        return await WithDiscrepancySinceAsync(items, rows, ct);
+    }
+
+    // Pass 90: when each missing or damaged unit was recorded so, from its status history.
+    private async Task<IReadOnlyList<DiscrepancyWorkItemDto>> WithDiscrepancySinceAsync(
+        IReadOnlyList<DiscrepancyWorkItemDto> items, IReadOnlyList<BloodUnit> units, CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+        var byId = units.ToDictionary(u => u.Id);
+        var result = new List<DiscrepancyWorkItemDto>(items.Count);
+        foreach (var item in items)
+        {
+            var since = (await _repository.GetHistoryAsync(item.UnitId, ct))
+                .Where(h => h.ToStatus == item.Status)
+                .Select(h => (DateTime?)h.ChangedUtc)
+                .Max() ?? byId[item.UnitId].ModifiedUtc ?? byId[item.UnitId].CreatedUtc;
+            result.Add(item with
+            {
+                SinceUtc = since,
+                SinceText = QuarantineHoldText.Since(item.Status == UnitStatus.Missing ? "Missing" : "Damaged", since, now)
+            });
+        }
+
+        return result;
     }
 
     /// <summary>

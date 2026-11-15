@@ -201,6 +201,9 @@ public class SupervisorQueueServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal($"Missing — {unitNumber}", row.Title);
         Assert.Contains("Not found in stock count at FRIDGE-1", row.Detail, StringComparison.Ordinal);
         Assert.Contains("Last recorded at", row.Detail, StringComparison.Ordinal);
+        // TEST-BB-1104 (pass 90): and since when it has been missing, from its status history.
+        Assert.Contains($"Missing 0 hours (since {ClinicalTimeText.Local(_factory.Clock.UtcNow)}).", row.Detail, StringComparison.Ordinal);
+        Assert.Equal(_factory.Clock.UtcNow, row.SortUtc);
 
         var verifyOnly = await CreateService(
                 _factory.CurrentUser,

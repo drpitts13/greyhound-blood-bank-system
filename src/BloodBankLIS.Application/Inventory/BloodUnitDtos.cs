@@ -241,6 +241,12 @@ public sealed record DiscrepancyWorkItemDto(
     string? ProductCode = null,
     string? CurrentLocationName = null)
 {
+    /// <summary>When the unit was recorded missing or damaged (its latest move to that status); pass 90.</summary>
+    public DateTime? SinceUtc { get; init; }
+
+    /// <summary>"Missing 50 hours (since …)"; pass 90.</summary>
+    public string? SinceText { get; init; }
+
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 
     public static DiscrepancyWorkItemDto From(BloodUnit u, string? productCode = null, string? locationName = null) => new(
