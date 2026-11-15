@@ -159,6 +159,19 @@ public class SupervisorQueueServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Release", row.NextAction);
         Assert.Contains(unitNumber, row.Title, StringComparison.Ordinal);
         Assert.Equal($"/inventory/units/{received.Unit.Id}", row.Href);
+
+        // TEST-BB-1102 (pass 88): each held unit says how long it has been held and when it expires; the soonest to
+        // expire comes first.
+        Assert.Contains("Held ", row.Detail, StringComparison.Ordinal);
+        Assert.Contains("; expires ", row.Detail, StringComparison.Ordinal);
+        var sooner = await inventory.ReceiveUnitAsync(NewUnitRequest($"U-SUPS{Guid.NewGuid():N}"[..16], productTypeId) with { ExpiresUtc = _factory.Clock.UtcNow.AddDays(2) });
+        Assert.True(sooner.Succeeded, sooner.Error);
+        var ordered = (await CreateService(
+                _factory.CurrentUser,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.InventoryRelease),
+                inventory: inventory)
+            .ListAsync()).Value!.Where(i => i.ContextId == received.Unit.Id || i.ContextId == sooner.Unit!.Id).Select(i => i.ContextId).ToList();
+        Assert.Equal([sooner.Unit!.Id, received.Unit.Id], ordered);
     }
 
     // TEST-BB-464: a missing unit waits on the supervisor queue to be located, with its reason and last location; it

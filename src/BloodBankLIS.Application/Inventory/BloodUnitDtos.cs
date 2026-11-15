@@ -193,6 +193,12 @@ public sealed record QuarantineWorkItemDto(
     string? NextStep = null,
     bool CanRelease = true)
 {
+    /// <summary>When the unit went into quarantine (its latest move there, else when it was received); pass 88.</summary>
+    public DateTime? QuarantinedSinceUtc { get; init; }
+
+    /// <summary>"Held 2 days 10 hours (since …); expires …, in …" for the supervisor queue; pass 88.</summary>
+    public string? HeldText { get; init; }
+
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 
     public string VolumeLabel =>

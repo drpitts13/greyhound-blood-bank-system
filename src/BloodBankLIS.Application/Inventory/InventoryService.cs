@@ -331,6 +331,17 @@ public sealed class InventoryService
         }
 
         var now = _clock.UtcNow;
+        // Pass 88: when each unit went into quarantine, from its status history.
+        var heldSince = new Dictionary<long, DateTime>();
+        foreach (var u in rows)
+        {
+            var entered = (await _repository.GetHistoryAsync(u.Id, ct))
+                .Where(h => h.ToStatus == UnitStatus.Quarantine)
+                .Select(h => (DateTime?)h.ChangedUtc)
+                .Max();
+            heldSince[u.Id] = entered ?? u.CreatedUtc;
+        }
+
         return rows
             .OrderBy(u => u.CreatedUtc)
             .Select(u =>
@@ -348,7 +359,13 @@ public sealed class InventoryService
                     u.CurrentLocationId is long at ? outOfRange.GetValueOrDefault(at) : null);
                 return QuarantineWorkItemDto.From(
                     u, product?.ProductCode, latest, locationName, modificationResultIds.Contains(u.Id))
-                    with { NextStep = release.NextStep, CanRelease = release.CanRelease };
+                    with
+                    {
+                        NextStep = release.NextStep,
+                        CanRelease = release.CanRelease,
+                        QuarantinedSinceUtc = heldSince[u.Id],
+                        HeldText = QuarantineHoldText.For(heldSince[u.Id], u.ExpiresUtc, now)
+                    };
             })
             .ToList();
     }

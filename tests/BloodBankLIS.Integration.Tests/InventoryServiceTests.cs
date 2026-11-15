@@ -275,6 +275,36 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-1102 (end-user testing pass 88): a quarantined unit says how long it has been held, from its latest move into
+    // quarantine, and when it expires.
+    [Fact]
+    public async Task Quarantine_SaysHowLongHeld_AndWhenItExpires()
+    {
+        var now = _factory.Clock.UtcNow;
+        var (unitId, _) = await SeedQuarantinedAsync("U-QR-HELD", UnitQuarantineReason.VisualDefect, now.AddDays(3).AddHours(5));
+        await using (var c = _factory.Create())
+        {
+            c.InventoryStatusHistory.Add(new InventoryStatusHistory
+            {
+                BloodProductId = unitId, FromStatus = UnitStatus.Available, ToStatus = UnitStatus.Quarantine,
+                Reason = "Visual defect", ChangedBy = "tech", ChangedUtc = now.AddHours(-30)
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var row = (await CreateService(c).ListQuarantineAsync()).Single(r => r.UnitId == unitId);
+            Assert.True(row.QuarantinedSinceUtc >= now.AddHours(-30));
+            Assert.StartsWith("Held ", row.HeldText);
+            Assert.EndsWith(", in 3 days 5 hours", row.HeldText);
+            Assert.Equal($"Held 30 hours (since {ClinicalTimeText.Local(now.AddHours(-30))}); expires {ClinicalTimeText.Local(now.AddDays(3).AddHours(5))}, in 3 days 5 hours",
+                QuarantineHoldText.For(now.AddHours(-30), now.AddDays(3).AddHours(5), now));
+            Assert.StartsWith("Held 2 hours", QuarantineHoldText.For(now.AddHours(-2), now.AddHours(-1), now));
+            Assert.Contains("; expired ", QuarantineHoldText.For(now.AddHours(-2), now.AddHours(-1), now));
+        }
+    }
+
     [Fact]
     public async Task QuarantineRelease_FollowsWhyTheUnitIsHeld()
     {

@@ -17,7 +17,11 @@ public sealed record SupervisorQueueItemDto(
     long? PatientId = null,
     long? ContextId = null,
     string? Mrn = null,
-    bool DueSoon = false);
+    bool DueSoon = false)
+{
+    /// <summary>Within its kind, the item to deal with first sorts first (a quarantined unit by its expiry; pass 88).</summary>
+    public DateTime? SortUtc { get; init; }
+}
 
 /// <summary>
 /// Aggregates supervisor-scoped work already owned by ABID review, result
@@ -138,6 +142,7 @@ public sealed class SupervisorQueueService
 
         if (SupervisorQueueRule.IncludeQuarantineRelease(release) && _inventory is not null)
         {
+            // Pass 88: each says how long it has been held and when it expires; the soonest to expire sorts first.
             var quarantine = await _inventory.ListQuarantineAsync(ct);
             foreach (var u in quarantine)
             {
@@ -150,10 +155,10 @@ public sealed class SupervisorQueueService
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindQuarantineRelease,
                     $"Quarantine release — {u.UnitNumber}",
-                    $"{product} {u.Abo} {u.RhD}. {reason}." + (string.IsNullOrWhiteSpace(u.NextStep) ? "" : $" {u.NextStep}"),
+                    $"{product} {u.Abo} {u.RhD}. {reason}." + (u.HeldText is null ? "" : $" {u.HeldText}.") + (string.IsNullOrWhiteSpace(u.NextStep) ? "" : $" {u.NextStep}"),
                     $"/inventory/units/{u.UnitId}",
                     u.CanRelease ? "Release" : "Open",
-                    ContextId: u.UnitId));
+                    ContextId: u.UnitId) { SortUtc = u.ExpiresUtc });
             }
         }
 
@@ -213,6 +218,7 @@ public sealed class SupervisorQueueService
             items
                 .OrderBy(i => SupervisorQueueRule.KindSortOrder(i.Kind))
                 .ThenBy(i => i.DueSoon ? 0 : 1)
+                .ThenBy(i => i.SortUtc ?? DateTime.MaxValue)
                 .ThenBy(i => i.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList());
     }

@@ -23999,3 +23999,21 @@ Storage temps: the open excursions (OR-FRIDGE and FRIDGE-1, back in range) and t
 ### Tests
 
 - TEST-BB-1101. Full suite passed.
+
+## Iteration 807 — End-user testing pass 88: the supervisor queue's quarantined units (2026-11-14)
+
+### How it was tested
+
+RhIG (the open evaluation for Noor, with the give-within setting not entered, already says so), then the Supervisor queue: eight quarantined units, one missing unit and one emergency release to review.
+
+### Found and fixed
+
+1. **Held units showed neither how long they had waited nor when they expired.** The eight quarantine rows were in title order with the reason and the next step only, so two thawed plasmas expiring 2026-11-17 looked no different from red cells good until December, and nothing showed a red cell unit with a visual defect had been held more than eight days. Each row now says how long the unit has been held (from its latest move into quarantine) and when it expires, and the rows are listed soonest to expire first.
+
+### Retested live
+
+- The queue lists W0001230001002-M01 and W0001230001005-M01 (thawed plasma, expiring 2026-11-17) first, each *Held 6x hours (since 2026-11-12 …); expires 2026-11-17 …, in 5x hours*, and the December red cells last.
+
+### Tests
+
+- TEST-BB-1102. Full suite passed.
