@@ -42,6 +42,10 @@ public sealed class PatientMergeService
     private readonly IRepository<PatientMergeMove>? _mergeMoves;
     private readonly IClock? _clock;
     private readonly IRepository<RhigEvaluation>? _rhig;
+    // Pass 124: records that named the patient but did not follow a merge.
+    private readonly IRepository<LookbackNotification>? _lookback;
+    private readonly IRepository<MtpActivation>? _mtpActivations;
+    private readonly IRepository<SupplierOrderLine>? _supplierOrderLines;
 
     /// <summary>Merge ledger entity type for an infant whose mother link moved to the surviving chart.</summary>
     private const string MotherLinkMove = "PatientMotherLink";
@@ -75,8 +79,14 @@ public sealed class PatientMergeService
         IRepository<PatientMerge>? mergeLedger = null,
         IRepository<PatientMergeMove>? mergeMoves = null,
         IClock? clock = null,
-        IRepository<RhigEvaluation>? rhig = null)
+        IRepository<RhigEvaluation>? rhig = null,
+        IRepository<LookbackNotification>? lookback = null,
+        IRepository<MtpActivation>? mtpActivations = null,
+        IRepository<SupplierOrderLine>? supplierOrderLines = null)
     {
+        _lookback = lookback;
+        _mtpActivations = mtpActivations;
+        _supplierOrderLines = supplierOrderLines;
         _rhig = rhig;
         _patients = patients;
         _identifiers = identifiers;
@@ -365,6 +375,22 @@ public sealed class PatientMergeService
         if (_rhig is not null)
         {
             moves.AddRange(await ReassignAsync(_rhig, r => r.PatientId == duplicate.Id, r => r.PatientId = survivor.Id, nameof(RhigEvaluation), ct));
+        }
+
+        // Pass 124: lookback recipient notifications, massive transfusion activations and special-order lines follow too.
+        if (_lookback is not null)
+        {
+            moves.AddRange(await ReassignAsync(_lookback, n => n.PatientId == duplicate.Id, n => n.PatientId = survivor.Id, nameof(LookbackNotification), ct));
+        }
+
+        if (_mtpActivations is not null)
+        {
+            moves.AddRange(await ReassignAsync(_mtpActivations, m => m.PatientId == duplicate.Id, m => m.PatientId = survivor.Id, nameof(MtpActivation), ct));
+        }
+
+        if (_supplierOrderLines is not null)
+        {
+            moves.AddRange(await ReassignAsync(_supplierOrderLines, l => l.PatientId == duplicate.Id, l => l.PatientId = survivor.Id, nameof(SupplierOrderLine), ct));
         }
 
         // Infants linked to the duplicate (as their mother) are linked to the surviving chart.
@@ -858,6 +884,9 @@ public sealed class PatientMergeService
             nameof(PtagIdentifier) => _ptags is null || await ChangedPatientAsync(_ptags, move.EntityId, survivorId, mergedUtc, p => p.PatientId, ct),
             nameof(BloodComponentCompatibilityDecision) => _decisions is null || await ChangedPatientAsync(_decisions, move.EntityId, survivorId, mergedUtc, d => d.PatientId, ct),
             nameof(RhigEvaluation) => _rhig is null || await ChangedPatientAsync(_rhig, move.EntityId, survivorId, mergedUtc, r => r.PatientId, ct),
+            nameof(LookbackNotification) => _lookback is null || await ChangedNullablePatientAsync(_lookback, move.EntityId, survivorId, mergedUtc, n => n.PatientId, ct),
+            nameof(MtpActivation) => _mtpActivations is null || await ChangedPatientAsync(_mtpActivations, move.EntityId, survivorId, mergedUtc, m => m.PatientId, ct),
+            nameof(SupplierOrderLine) => _supplierOrderLines is null || await ChangedNullablePatientAsync(_supplierOrderLines, move.EntityId, survivorId, mergedUtc, l => l.PatientId, ct),
             MotherLinkMove => await ChangedNullablePatientAsync(_patients, move.EntityId, survivorId, mergedUtc, p => p.MotherPatientId, ct),
             _ => true
         };
@@ -980,6 +1009,24 @@ public sealed class PatientMergeService
                 if (_rhig is not null)
                 {
                     await AssignAsync(_rhig, move.EntityId, row => row.PatientId = duplicateId, ct);
+                }
+                break;
+            case nameof(LookbackNotification):
+                if (_lookback is not null)
+                {
+                    await AssignAsync(_lookback, move.EntityId, row => row.PatientId = duplicateId, ct);
+                }
+                break;
+            case nameof(MtpActivation):
+                if (_mtpActivations is not null)
+                {
+                    await AssignAsync(_mtpActivations, move.EntityId, row => row.PatientId = duplicateId, ct);
+                }
+                break;
+            case nameof(SupplierOrderLine):
+                if (_supplierOrderLines is not null)
+                {
+                    await AssignAsync(_supplierOrderLines, move.EntityId, row => row.PatientId = duplicateId, ct);
                 }
                 break;
             case MotherLinkMove:

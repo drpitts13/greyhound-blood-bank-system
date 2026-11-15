@@ -908,3 +908,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-900 | A report lists RhIG evaluations and doses given (lot, vials, who, hours from the event) for a period. | P2 | FRS-BB-1018 |
 | URS-BB-901 | A verified neonatal type and screen (or any ABO/Rh test set to contribute to the type history) puts the type on the patient's chart. | P1 | FRS-BB-1019 |
 | URS-BB-902 | A neonatal type is flagged when it disagrees with the type on file and cannot be verified by the person who entered it, as ABO/Rh is. | P1 | FRS-BB-1020 |
+| URS-BB-903 | Merging charts moves lookback notifications, massive transfusion activations and special-order lines to the surviving chart, and undoing it moves them back. | P1 | FRS-BB-1021 |

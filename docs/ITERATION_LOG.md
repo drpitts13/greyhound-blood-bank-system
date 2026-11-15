@@ -24660,3 +24660,21 @@ Following pass 122, every place the application treats ABO/Rh specially was chec
 ### Tests
 
 - TEST-BB-1143, TEST-BB-1144. Full suite passed.
+
+## Iteration 843 — End-user testing pass 124: records that did not follow a chart merge (2026-11-15)
+
+### How it was tested
+
+Unit pickers (soonest-expiring first, as expected), the FHIR result mapping, then patient merge: every record that names a patient, against what the merge moves.
+
+### Found and fixed
+
+1. **Three kinds of record stayed on the merged-away chart.** The merge moved visits, orders, specimens, results, types, antibodies, requirements, reservations, issues, transfusions, reactions and RhIG evaluations, but not lookback recipient notifications, massive transfusion activations, or the patient on a special-order line. After a merge, Lookback would name the duplicate MRN for a notification still to make, an activation would sit on a chart nobody uses, and a special order would point at the losing chart. They now move to the surviving chart with the rest, in the merge ledger, and move back when the merge is undone (unless changed since).
+
+### Retested live
+
+- Not merged live: a merge would rewrite the demonstration charts. Covered by TEST-BB-1145 (merge and undo).
+
+### Tests
+
+- TEST-BB-1145. Full suite passed.

@@ -52,6 +52,8 @@ Update demographics from the chart when your permission allows it. Race and ethn
 
 Merging is for a confirmed duplicate. It requires supervisor permission. You merge into the surviving chart. The losing MRN remains as a pointer and cannot be used for new work. Unmerge is available only when nothing has been recorded on the surviving chart because of the merge. If orders, results, or issues exist after the merge, do not unmerge. Correct the clinical record instead, and record a deviation if the merge was wrong.
 
+The merge moves the duplicate chart's records to the surviving chart: visits, orders, specimens, results, types and antibodies, requirements, reservations, issues and transfusions, reaction investigations, RhIG evaluations, and also its lookback recipient notifications, massive transfusion activations and special-order lines on supplier orders. Undoing the merge moves each back unless it has changed since.
+
 > Hard stop. Work entered on a merged-away MRN is rejected. Reprint labels and requisitions so the surviving MRN is what the bench and the ward scan.
 
 ## Special requirements

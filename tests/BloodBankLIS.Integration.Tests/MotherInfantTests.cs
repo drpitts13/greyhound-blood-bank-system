@@ -30,7 +30,9 @@ public class MotherInfantTests
             new EfRepository<ReactionInvestigation>(c), new EfRepository<AntigenProfile>(c), new EfRepository<BillingEvent>(c),
             new EfRepository<TestResult>(c), c,
             audit: new AuditWriter(c, f.Clock, f.CurrentUser), currentUser: f.CurrentUser,
-            mergeLedger: new EfRepository<PatientMerge>(c), mergeMoves: new EfRepository<PatientMergeMove>(c), clock: f.Clock);
+            mergeLedger: new EfRepository<PatientMerge>(c), mergeMoves: new EfRepository<PatientMergeMove>(c), clock: f.Clock,
+            lookback: new EfRepository<LookbackNotification>(c), mtpActivations: new EfRepository<MtpActivation>(c),
+            supplierOrderLines: new EfRepository<SupplierOrderLine>(c));
 
     // TEST-BB-1127: an infant's family lists the mother's clinically significant antibodies the infant has no antigen-negative
     // cover for; a not clinically significant one is not listed; once the requirement is added, or the infant has the
@@ -74,6 +76,39 @@ public class MotherInfantTests
         c.AntibodyHistory.Add(new AntibodyHistory { PatientId = infant.Id, AntibodySpecificity = "anti-Jka", IsActive = true });
         await c.SaveChangesAsync();
         Assert.Empty((await Service().GetFamilyAsync(infant.Id))!.MaternalAntigenNegative);
+    }
+
+    // TEST-BB-1145: a merge moves the duplicate's lookback notifications and massive transfusion activations to the
+    // surviving chart, and undoing it moves them back (end-user testing pass 124: they stayed on the merged-away chart).
+    [Fact]
+    public async Task Merge_MovesLookbackAndMtp_AndUnmergeMovesThemBack()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var duplicate = new Patient { MedicalRecordNumber = "MRN-DUP-LB", LastName = "Trace", FirstName = "Dee", DateOfBirth = new DateOnly(1980, 2, 2), Sex = Sex.Female };
+        var survivor = new Patient { MedicalRecordNumber = "MRN-KEEP-LB", LastName = "Trace", FirstName = "Dee", DateOfBirth = new DateOnly(1980, 2, 2), Sex = Sex.Female };
+        var product = new ProductType { ProductCode = "RBC-LB", Name = "Red cells", ComponentClass = ComponentClass.RedBloodCells };
+        c.Patients.AddRange(duplicate, survivor);
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "W-LB-1", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = factory.Clock.UtcNow.AddDays(-30), Status = UnitStatus.Transfused };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        var note = new LookbackNotification { Din = "W000000000001", BloodProductId = unit.Id, PatientId = duplicate.Id, Reason = "Donor reactive" };
+        var mtp = new MtpActivation { PatientId = duplicate.Id, RequestedBy = "Dr. Lee", Reason = "Trauma", ActivatedUtc = factory.Clock.UtcNow, ActivatedBy = "tech", Status = MtpActivationStatus.Closed, ClosedUtc = factory.Clock.UtcNow, ClosedBy = "tech", CloseReason = "Done" };
+        c.LookbackNotifications.Add(note);
+        c.MtpActivations.Add(mtp);
+        await c.SaveChangesAsync();
+
+        var merged = await Merge(factory, c).MergeAsync(survivor.Id, duplicate.Id, "Same person");
+        Assert.True(merged.Succeeded, merged.Error);
+        Assert.Equal(survivor.Id, (await c.LookbackNotifications.AsNoTracking().SingleAsync(n => n.Id == note.Id)).PatientId);
+        Assert.Equal(survivor.Id, (await c.MtpActivations.AsNoTracking().SingleAsync(m => m.Id == mtp.Id)).PatientId);
+
+        var undone = await Merge(factory, c).UnmergeAsync(duplicate.Id, "Wrong merge");
+        Assert.True(undone.Succeeded, undone.Error);
+        Assert.Equal(duplicate.Id, (await c.LookbackNotifications.AsNoTracking().SingleAsync(n => n.Id == note.Id)).PatientId);
+        Assert.Equal(duplicate.Id, (await c.MtpActivations.AsNoTracking().SingleAsync(m => m.Id == mtp.Id)).PatientId);
     }
 
     [Fact]
