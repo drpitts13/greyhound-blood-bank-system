@@ -159,6 +159,12 @@ public sealed record PatientDto(
                 return string.Join(" · ", parts);
             }
 
+            // Pass 108: a death recorded by the EHR is seen before the patient is chosen.
+            if (Deceased)
+            {
+                parts.Add(DeceasedUtc is DateTime died ? $"DECEASED {died.ToLocalTime():yyyy-MM-dd}" : "DECEASED");
+            }
+
             if (CurrentVisitNumber is not null)
             {
                 var where = string.IsNullOrEmpty(CurrentVisitWhere) ? $"visit {CurrentVisitNumber}" : CurrentVisitWhere;

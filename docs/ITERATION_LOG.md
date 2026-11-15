@@ -24363,3 +24363,21 @@ The HL7 ADT handling (admit, update, visit cancel, merge, newborn's mother) agai
 ### Tests
 
 - TEST-BB-1123, TEST-BB-1124. Full suite passed.
+
+## Iteration 827 — End-user testing pass 108: a deceased patient where staff choose patients (2026-11-15)
+
+### How it was tested
+
+Following pass 107: a patient registered and then recorded as deceased through the HL7 inbound endpoint, looked for on Patients and chosen on the Issue form.
+
+### Found and fixed
+
+1. **Only the chart header said the patient had died.** The patient list, and the pickers where staff choose a patient to issue, crossmatch or reserve for, showed the patient like any other, so the death recorded by the EHR was missed exactly where blood is sent. The list now shows a red **Deceased** badge, every picker reads *DECEASED* with the date after the name, and choosing the patient on the Issue form shows a notice to confirm with the care team before issuing and release units no longer needed. Nothing is blocked: the issue gate is unchanged.
+
+### Retested live
+
+- Test patient TEST-DTH-108 (registered by ADT^A01, death by ADT^A08 PID-29/PID-30 Y): the Patients row showed **Deceased**; the Issue picker read *Testpass, Pickerdeath (TEST-DTH-108) · DECEASED 2026-11-15 · no type on file*; choosing him showed *Recorded as deceased by the EHR (2026-11-15 06:00). Confirm with the care team before issuing; release units no longer needed.* The test patient and alert were then removed.
+
+### Tests
+
+- TEST-BB-1125. Full suite passed.

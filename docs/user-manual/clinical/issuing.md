@@ -150,6 +150,8 @@ When you return a unit, answer **Temperature**, **Seal**, and **Visual inspectio
 
 > Unidentified patient. When an emergency patient has no identification yet, choose **Unidentified patient…** under Patient on the issue form (you need patient registration and emergency release permissions). Enter sex and estimated age; the patient is registered with a temporary MRN (for example UNK-20261108-01), chosen, and the issue type becomes Emergency release unless Massive transfusion is chosen. Record the emergency reason and authorizer as usual. Merge the chart into the identified patient's once known (Patients help).
 
+> Deceased patient. When the patient chosen on the issue form has been recorded as deceased by the EHR, a red notice under Patient says so with the time: confirm with the care team before issuing, and release units no longer needed. It is a notice only; the issue gate is unchanged.
+
 > Issued under an earlier MRN. When a patient's chart changes MRN after a unit was issued (for example an unidentified patient identified and merged), the In transit and Issued units rows show **Issued under** the earlier MRN, and the transfusion form warns that the wristband or unit tag may still show it. Make sure they agree before transfusing; the bedside check uses the current MRN.
 
 A unit whose transfusion has already been documented (for example entered after a downtime, without the ward's receipt) has reached the patient and is not listed **In transit**.

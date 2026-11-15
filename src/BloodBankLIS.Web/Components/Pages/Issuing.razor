@@ -926,6 +926,14 @@
                     SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
                     Clearable="true"
                     Placeholder="Search MRN or name" />
+                @if (IssuePatient is { Deceased: true } deceasedPatient)
+                {
+                    @* Pass 108: the EHR recorded this patient's death (pass 107). *@
+                    <div class="text-error" data-issue-deceased>
+                        <strong>Recorded as deceased by the EHR@(deceasedPatient.DeceasedUtc is DateTime died ? $" ({died.ToLocalTime():yyyy-MM-dd HH:mm})" : "").</strong>
+                        Confirm with the care team before issuing; release units no longer needed.
+                    </div>
+                }
                 @if (CanRegisterUnidentified && !_showUnidentified)
                 {
                     <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showUnidentified = true" data-issue-unidentified

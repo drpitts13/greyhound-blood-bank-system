@@ -1133,5 +1133,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1122 | I | `TestWorklistTests.PendingWorklist_MarksRushTestsPastTheTurnaroundTarget` | URS-BB-885 / FRS-BB-1003 |
 | TEST-BB-1123 | U | `PatientDeathRuleTests.Indicator_ReadsPid30_ThenPid29` | URS-BB-886 / FRS-BB-1004 |
 | TEST-BB-1124 | I | `Phase5Hl7Tests.AdtDeath_IsRecorded_AndRaisedWithTheReservedUnits` | URS-BB-886 / FRS-BB-1004 |
+| TEST-BB-1125 | U | `PatientPickerLabelTests.PickerLabel_MarksADeceasedPatient` | URS-BB-887 / FRS-BB-1005 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

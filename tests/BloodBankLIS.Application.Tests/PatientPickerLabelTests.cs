@@ -30,6 +30,18 @@ public class PatientPickerLabelTests
         Assert.Equal("Kellerman, Diane (MRN0004) · merged into another record", merged.PickerLabel);
     }
 
+    // TEST-BB-1125: a patient the EHR recorded as deceased is marked right after the name, with the date when known; a
+    // merged-away record still says only that (end-user testing pass 108).
+    [Fact]
+    public void PickerLabel_MarksADeceasedPatient()
+    {
+        Assert.Equal("Kellerman, Diane (MRN0004) · DECEASED · O+", (Patient() with { CurrentBloodType = "O+", Deceased = true }).PickerLabel);
+        var dated = Patient() with { Deceased = true, DeceasedUtc = new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc) };
+        Assert.StartsWith("Kellerman, Diane (MRN0004) · DECEASED 2026-06-1", dated.PickerLabel);
+        Assert.Equal("Kellerman, Diane (MRN0004) · merged into another record",
+            (dated with { Status = PatientStatus.Merged, MergedIntoPatientId = 9 }).PickerLabel);
+    }
+
     // TEST-BB-506: pickers say where the patient is after the name; a second open visit is flagged; a visit with no
     // recorded place gives its number; no open visit adds nothing; a merged-away record still says only that.
     [Fact]
