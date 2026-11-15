@@ -53,6 +53,21 @@ public class ShiftHandoffItemsTests
         Assert.DoesNotContain("antibody workups", Handoff().QueueSummary);
     }
 
+    // TEST-BB-1117 (end-user testing pass 103): storage temperature reaches the handoff: a location still out of range is
+    // urgent, excursions back in range and readings due are routine; overdue deviations are named on open deviations.
+    [Fact]
+    public void StorageTemperature_AndOverdueDeviations_AreHandoffItems()
+    {
+        var handoff = Handoff() with { TemperatureExcursionsOpen = 1, TemperatureExcursionsToClose = 2, TemperatureReadingsDue = 4, OpenDeviations = 3, DeviationsOverdue = 1 };
+        var items = ShiftHandoffItems.For(handoff).ToDictionary(i => i.Label);
+        Assert.Equal((1, "/storage-temps", true), (items["Temperature out of range"].Count, items["Temperature out of range"].Href, items["Temperature out of range"].Urgent));
+        Assert.Equal((2, false), (items["Excursions back in range"].Count, items["Excursions back in range"].Urgent));
+        Assert.Equal(4, items["Temperature readings due"].Count);
+        Assert.Equal("1 overdue", items["Open deviations"].Detail);
+        Assert.Contains("TEMPERATURE OUT OF RANGE 1", handoff.QueueSummary);
+        Assert.Contains("deviations open 3, 1 overdue", handoff.QueueSummary);
+    }
+
     // TEST-BB-841: outbound HL7 messages not sent are a handoff item linked to the HL7 page and in the summary line;
     // none, no item.
     [Fact]

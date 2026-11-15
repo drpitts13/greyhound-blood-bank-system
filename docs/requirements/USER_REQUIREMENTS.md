@@ -887,3 +887,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-879 | The top-bar lookup finds a patient by name and date of birth. | P2 | FRS-BB-997 |
 | URS-BB-880 | An issue charge for a unit returned unused is flagged in the billing review queue. | P2 | FRS-BB-998 |
 | URS-BB-881 | A component label is not printed or reprinted for a unit that has expired or is no longer in stock. | P1 | FRS-BB-999 |
+| URS-BB-882 | The shift handoff hands over storage temperature (out of range, back in range to close, readings due) and overdue deviations. | P1 | FRS-BB-1000 |

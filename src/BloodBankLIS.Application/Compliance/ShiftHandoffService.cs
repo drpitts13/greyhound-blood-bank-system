@@ -75,7 +75,12 @@ public sealed record ShiftHandoffDto(
     int ReagentLotsQcDue = 0,
     int ReagentQcUnreviewed = 0,
     int SecondAboRhDue = 0,
-    int SupervisorQueueOpen = 0)
+    int SupervisorQueueOpen = 0,
+    // Pass 103: storage temperature, and deviations past their due date.
+    int TemperatureExcursionsOpen = 0,
+    int TemperatureExcursionsToClose = 0,
+    int TemperatureReadingsDue = 0,
+    int DeviationsOverdue = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -121,7 +126,10 @@ public sealed record ShiftHandoffDto(
             : "") +
         (EquipmentOutOfService > 0 ? $"; equipment out of service {EquipmentOutOfService}" : "") +
         (ProductsBelowMinimum > 0 ? $"; BELOW MINIMUM STOCK {ProductsBelowMinimum} {(ProductsBelowMinimum == 1 ? "product" : "products")}" : "") +
-        (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" : "") +
+        (TemperatureExcursionsOpen > 0 ? $"; TEMPERATURE OUT OF RANGE {TemperatureExcursionsOpen}" : "") +
+        (TemperatureExcursionsToClose > 0 ? $"; excursions back in range to close {TemperatureExcursionsToClose}" : "") +
+        (TemperatureReadingsDue > 0 ? $"; temperature readings due {TemperatureReadingsDue}" : "") +
+        (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" + (DeviationsOverdue > 0 ? $", {DeviationsOverdue} overdue" : "") : "") +
         (InstrumentFailuresOpen > 0
             ? $"; instrument failures {InstrumentFailuresOpen}" + (InstrumentResultsHeld > 0 ? $", {InstrumentResultsHeld} held for review" : "")
             : "") +
@@ -157,7 +165,8 @@ public sealed record ShiftHandoffDto(
         h.AntibodyWorkupsOpen, h.AntibodyWorkupsToReview, h.Hl7OutboundNotSent, h.OutagesOpen,
         h.DispositionOverdue, h.OutsideAntibodiesToConfirm, h.RecalledToPull,
         h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
-        h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen);
+        h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen,
+        h.TemperatureExcursionsOpen, h.TemperatureExcursionsToClose, h.TemperatureReadingsDue, h.DeviationsOverdue);
 }
 
 /// <summary>
@@ -184,6 +193,7 @@ public sealed class ShiftHandoffService
     private readonly CoolerCheckService? _coolers;
     // Read directly, like the other counts: whoever hands off sees open deviations without deviation.manage.
     private readonly IRepository<Deviation>? _deviations;
+    private readonly BloodBankLIS.Application.Inventory.StorageTemperatureService? _storageTemperatures;
     // Read without admin.config.edit: minimum stock levels are configuration, the shortage is shift work.
     private readonly MinimumStockService? _minimumStock;
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
@@ -235,8 +245,10 @@ public sealed class ShiftHandoffService
         BloodBankLIS.Application.Issuing.FinalDispositionBoardService? dispositions = null,
         IRepository<AntibodyHistory>? antibodyHistory = null,
         BloodBankLIS.Application.Inventory.EquipmentService? equipment = null,
-        SupervisorQueueService? supervisorQueue = null)
+        SupervisorQueueService? supervisorQueue = null,
+        BloodBankLIS.Application.Inventory.StorageTemperatureService? storageTemperatures = null)
     {
+        _storageTemperatures = storageTemperatures;
         _equipment = equipment;
         _supervisorQueue = supervisorQueue;
         _dispositions = dispositions;
@@ -398,6 +410,10 @@ public sealed class ShiftHandoffService
             ? []
             : await _instrumentMessages.ListAsync(m => m.Status == InstrumentMessageStatus.Failed && m.ResolvedUtc == null, ct);
         var reagentWork = _reagentQc is null ? [] : await _reagentQc.ListWorkAsync(ct);
+        // Pass 103: storage temperature for the next shift.
+        var excursions = _storageTemperatures is null ? [] : await _storageTemperatures.ListOpenExcursionsAsync(ct);
+        var locations = _storageTemperatures is null ? [] : await _storageTemperatures.ListLocationsAsync(ct);
+        var facilityToday = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(now, DateTimeKind.Utc), TimeZoneInfo.Local));
         var failedLots = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Failed).GroupBy(w => w.LotId).Select(g => g.First()).ToList();
         // Results still to review include a lot whose repeat QC has since passed (end-user testing pass 26).
         var reagentResultsToReview = reagentWork
@@ -485,7 +501,11 @@ public sealed class ShiftHandoffService
             EquipmentChecksToDo = equipmentDue.Count,
             EquipmentChecksFailedOrOverdue = equipmentDue.Count(d =>
                 d.State is nameof(EquipmentCheckRule.State.Failed) or nameof(EquipmentCheckRule.State.Overdue)),
-            EquipmentOutOfService = equipment.Count(e => e.IsActive && e.OutOfServiceUtc is not null)
+            EquipmentOutOfService = equipment.Count(e => e.IsActive && e.OutOfServiceUtc is not null),
+            TemperatureExcursionsOpen = excursions.Where(r => !r.BackInRange).Select(r => r.LocationId).Distinct().Count(),
+            TemperatureExcursionsToClose = excursions.Where(r => r.BackInRange).Select(r => r.LocationId).Distinct().Count(),
+            TemperatureReadingsDue = locations.Count(l => l.ReadingDue is not null),
+            DeviationsOverdue = openDeviations.Count(d => DeviationDueRule.IsOverdue(d.Status, d.DueOn, facilityToday))
         };
     }
 
@@ -583,7 +603,11 @@ public sealed class ShiftHandoffService
         ReagentLotsQcDue = row.ReagentLotsQcDue,
         ReagentQcUnreviewed = row.ReagentQcUnreviewed,
         SecondAboRhDue = row.SecondAboRhDue,
-        SupervisorQueueOpen = row.SupervisorQueueOpen
+        SupervisorQueueOpen = row.SupervisorQueueOpen,
+        TemperatureExcursionsOpen = row.TemperatureExcursionsOpen,
+        TemperatureExcursionsToClose = row.TemperatureExcursionsToClose,
+        TemperatureReadingsDue = row.TemperatureReadingsDue,
+        DeviationsOverdue = row.DeviationsOverdue
     };
 
     /// <summary>

@@ -24273,3 +24273,21 @@ Printing: specimen labels, compatibility tags (only for an issued unit, as desig
 ### Tests
 
 - TEST-BB-1116. Full suite passed.
+
+## Iteration 822 — End-user testing pass 103: storage temperature on the shift handoff (2026-11-15)
+
+### How it was tested
+
+Printing (compatibility tags, only for an issued unit) and the Shift handoff's counts, compared with what the dashboard and Storage temps show.
+
+### Found and fixed
+
+1. **The handoff said nothing about storage temperature.** Two refrigerator excursions (FRIDGE-1, OR-FRIDGE) were back in range with their deviations still open, and the handoff listed open deviations but nothing about a refrigerator, though one still out of range is what the next shift most needs to hear. The handoff now counts locations still out of range (urgent), excursions back in range to close, and temperature readings due (pass 87), and names overdue deviations (pass 98) on open deviations; all are in the summary line kept with the handoff.
+
+### Retested live
+
+- The handoff lists *Excursions back in range: 2 (close their deviations)*; readings due are not listed, the interval being unset in the development data.
+
+### Tests
+
+- TEST-BB-1117. Full suite passed.

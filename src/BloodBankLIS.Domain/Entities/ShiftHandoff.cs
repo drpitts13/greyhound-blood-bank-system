@@ -157,6 +157,18 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Equipment out of service, so the next shift does not use it (Cycle 710).</summary>
     public int EquipmentOutOfService { get; set; }
 
+    /// <summary>Storage locations still out of range (end-user testing pass 103).</summary>
+    public int TemperatureExcursionsOpen { get; set; }
+
+    /// <summary>Excursions back in range whose deviation is still open (pass 103).</summary>
+    public int TemperatureExcursionsToClose { get; set; }
+
+    /// <summary>Storage locations whose temperature reading is due (pass 103).</summary>
+    public int TemperatureReadingsDue { get; set; }
+
+    /// <summary>Open deviations past their due date (pass 103).</summary>
+    public int DeviationsOverdue { get; set; }
+
     /// <summary>Units a ward has asked to be sent and not yet issued (end-user testing pass 21).</summary>
     public int WardRequestsWaiting { get; set; }
 

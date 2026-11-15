@@ -65,7 +65,11 @@ public static class ShiftHandoffItems
         Add(h.EquipmentOutOfService, "Equipment out of service", "/equipment", detail: "do not use");
         Add(h.NearExpiryUnits, "Near expiry", "/inventory?board=near", detail: Note((h.NearExpiryReserved, "reserved")));
         Add(h.ProductsBelowMinimum, "Below minimum stock", "/inventory/minimum-stock");
-        Add(h.OpenDeviations, "Open deviations", "/deviations");
+        // Pass 103: a refrigerator or freezer out of range comes first for the next shift.
+        Add(h.TemperatureExcursionsOpen, "Temperature out of range", "/storage-temps", urgent: true, detail: "check the units stored there");
+        Add(h.TemperatureExcursionsToClose, "Excursions back in range", "/storage-temps", detail: "close their deviations");
+        Add(h.TemperatureReadingsDue, "Temperature readings due", "/storage-temps");
+        Add(h.OpenDeviations, "Open deviations", "/deviations", detail: Note((h.DeviationsOverdue, "overdue")));
         Add(h.InstrumentFailuresOpen, "Instrument failures", "/instruments?show=open",
             detail: Note((h.InstrumentResultsHeld, "held for review")));
         Add(h.Hl7ErrorsOpen, "HL7 errors", "/hl7");
