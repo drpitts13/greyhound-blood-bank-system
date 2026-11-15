@@ -44,6 +44,9 @@ public class TestResult : BaseEntity
 
     public DateTime? EnteredUtc { get; set; }
 
+    /// <summary>When a hand-entered result was tested, if earlier than entered (pass 85; OCD-091).</summary>
+    public DateTime? TestedUtc { get; set; }
+
     public string? VerifiedBy { get; set; }
 
     public DateTime? VerifiedUtc { get; set; }

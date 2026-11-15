@@ -41,6 +41,7 @@ public sealed class ResultService
     private readonly CompatibilityService? _compatibility;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IRepository<DowntimeEpisode>? _outages;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IRepository<TestDefinition>? _testDefinitions;
@@ -100,8 +101,10 @@ public sealed class ResultService
         IRepository<OrderSpecimen>? orderSpecimens = null,
         ReagentQcService? reagentQc = null,
         IResultReleasePublisher? releases = null,
-        EquipmentService? equipment = null)
+        EquipmentService? equipment = null,
+        IRepository<DowntimeEpisode>? outages = null)
     {
+        _outages = outages;
         _equipment = equipment;
         _ruleEngine = ruleEngine;
         _allocations = allocations;
@@ -206,6 +209,26 @@ public sealed class ResultService
             }
         }
 
+        // OCD-091: a result tested on paper while the specimen was acceptable, entered after it expired.
+        string? expiredSpecimenReason = null;
+        if (!gate.Succeeded && expiredError is null && request.TestedUtc is DateTime paperTested && request.Source == ResultSource.Manual)
+        {
+            var expiredGate = await ValidateSpecimenForEntryAsync(request.SpecimenId, request.TestCode, ct, allowExpired: true);
+            if (expiredGate.Succeeded)
+            {
+                var kind = await BackEntryKindAsync(request.TestCode, ct);
+                var backEntry = ExpiredSpecimenBackEntryRule.Evaluate(
+                    kind, paperTested, expiredGate.Value!.ExpiresUtc, await OutagesAsync(ct), request.ExpiredSpecimenReason);
+                if (backEntry.Severity == RuleSeverity.HardStop)
+                {
+                    return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([backEntry]));
+                }
+
+                gate = expiredGate;
+                expiredSpecimenReason = request.ExpiredSpecimenReason!.Trim();
+            }
+        }
+
         if (!gate.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(gate.Error!);
@@ -227,7 +250,7 @@ public sealed class ResultService
                 return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([tested]));
             }
 
-            request = request with { SourceReference = ResultTestedTimeRule.SourceReference(testedUtc) };
+            request = request with { SourceReference = ResultTestedTimeRule.SourceReference(testedUtc, expiredSpecimenReason) };
         }
 
         var normalizedCode = request.TestCode.Trim().ToUpperInvariant();
@@ -306,6 +329,13 @@ public sealed class ResultService
         if (saveResult.Warnings is { Count: > 0 })
         {
             allWarnings.AddRange(saveResult.Warnings);
+        }
+
+        if (request.TestedUtc is DateTime keptTested && request.Source == ResultSource.Manual && saveResult.Value is { } savedResult)
+        {
+            savedResult.TestedUtc = keptTested;
+            _results.Update(savedResult);
+            await _unitOfWork.SaveChangesAsync(ct);
         }
 
         var savedValueType = await ResolveResultValueTypeAsync(normalizedCode, ct);
@@ -803,6 +833,18 @@ public sealed class ResultService
             result.TestCode,
             ct,
             allowExpired: result.Status == ResultStatus.Corrected || await IsReactionWorkupOrderAsync(result.OrderId, ct));
+        if (!specimenGate.Succeeded && result.TestedUtc is DateTime verifyTested)
+        {
+            // OCD-091: a result entered on paper's word on a since-expired specimen is verified on the same terms.
+            var expiredGate = await ValidateSpecimenForEntryAsync(result.SpecimenId, result.TestCode, ct, allowExpired: true);
+            if (expiredGate.Succeeded
+                && ExpiredSpecimenBackEntryRule.EvaluateTime(
+                    await BackEntryKindAsync(result.TestCode, ct), verifyTested, expiredGate.Value!.ExpiresUtc, await OutagesAsync(ct)).Severity != RuleSeverity.HardStop)
+            {
+                specimenGate = expiredGate;
+            }
+        }
+
         if (!specimenGate.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(specimenGate.Error!);
@@ -2273,6 +2315,18 @@ public sealed class ResultService
             : null;
     }
 
+    private async Task<ExpiredSpecimenBackEntryRule.Kind> BackEntryKindAsync(string testCode, CancellationToken ct)
+    {
+        var code = testCode.Trim().ToUpperInvariant();
+        return string.Equals(code, CrossmatchTestCode, StringComparison.OrdinalIgnoreCase)
+            || TestDefinitionValidator.IsCrossmatchResultType(await ResolveResultValueTypeAsync(code, ct))
+            ? ExpiredSpecimenBackEntryRule.Kind.Crossmatch
+            : ExpiredSpecimenBackEntryRule.Kind.PatientTest;
+    }
+
+    private async Task<IReadOnlyList<DowntimeEpisode>> OutagesAsync(CancellationToken ct) =>
+        _outages is null ? [] : await _outages.ListAsync(ct);
+
     private async Task<OperationResult<TestResult>> RecordCrossmatchForResultAsync(
         SaveTestResultRequest request, Specimen specimen, TestResult result, CancellationToken ct)
     {
@@ -2295,7 +2349,8 @@ public sealed class ResultService
             request.CrossmatchMethod!.Value,
             request.CrossmatchResult!.Value,
             request.AntibodyScreenNegative ?? true,
-            result.Interpretation), ct);
+            result.Interpretation,
+            PerformedUtc: request.Source == ResultSource.Manual ? request.TestedUtc : null), ct);
 
         if (!xm.Succeeded)
         {

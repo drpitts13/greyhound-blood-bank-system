@@ -65,6 +65,12 @@ public sealed record TestWorkItemDto(
     // What the instrument or interface said with the current result (analyzer, completion time, flags for the verifier).
     string? CurrentResultSourceDetail = null)
 {
+    /// <summary>
+    /// OCD-091: entry is blocked only because the specimen has expired; a result tested on paper before it expired can
+    /// still be entered with the time tested and a reason.
+    /// </summary>
+    public bool SpecimenExpiredOnly { get; init; }
+
     /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
     public string ReactionHref => $"/reactions?patientId={PatientId}";
 

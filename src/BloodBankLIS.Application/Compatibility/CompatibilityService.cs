@@ -171,11 +171,24 @@ public sealed class CompatibilityService
             return EvaluationResult<Crossmatch>.Fail("Specimen not found.");
         }
 
+        // OCD-091 (option B): a crossmatch performed earlier (read on paper) is judged, and recorded, at that time.
+        var performedUtc = _clock.UtcNow;
+        if (request.PerformedUtc is DateTime performed)
+        {
+            var time = ResultTestedTimeRule.Evaluate(performed, specimen.CollectedUtc, _clock.UtcNow);
+            if (time.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([time]));
+            }
+
+            performedUtc = performed;
+        }
+
         var retroIssue = await OpenRetrospectiveIssueAsync(unit.Id, request.PatientId, ct);
         var specimenCheck = CrossmatchSpecimenRule.Evaluate(
             specimen.AccessionNumber,
             specimen.ExpiresUtc,
-            _clock.UtcNow,
+            performedUtc,
             retroIssue is not null && CrossmatchSpecimenRule.IsPreTransfusionSpecimen(specimen.CollectedUtc, retroIssue.IssuedUtc));
         if (specimenCheck.Severity == RuleSeverity.HardStop)
         {
@@ -216,7 +229,7 @@ public sealed class CompatibilityService
             Method = request.Method,
             Result = result,
             ClinicalStatus = CrossmatchValidityRule.ClinicalStatusFor(result),
-            PerformedUtc = _clock.UtcNow,
+            PerformedUtc = performedUtc,
             PerformedBy = _currentUser.UserName,
             ExpiresUtc = specimen.ExpiresUtc ?? _clock.UtcNow.AddHours(DefaultCrossmatchValidityHours),
             Comment = request.Comment,

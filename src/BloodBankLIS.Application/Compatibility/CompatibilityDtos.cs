@@ -12,7 +12,9 @@ public sealed record RecordCrossmatchRequest(
     bool AntibodyScreenNegative = true,
     string? Comment = null,
     string? OverrideReason = null,
-    string? AuthorizedBy = null);
+    string? AuthorizedBy = null,
+    // OCD-091 (option B): a crossmatch read on paper is recorded, and its specimen judged, at the time it was performed.
+    DateTime? PerformedUtc = null);
 
 public sealed record AllocateUnitRequest(
     long BloodUnitId,

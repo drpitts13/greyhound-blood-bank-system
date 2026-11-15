@@ -1108,5 +1108,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1097 | U, I | `InstrumentQcSampleTests.IsQc_MatchesTheInstrumentsPrefixes`, `InstrumentInterfaceTests.QcSample_IsFiledAsQc_NotAFailure` | URS-BB-862 / FRS-BB-980 |
 | TEST-BB-1098 | U, I | `ResultTestedTimeRuleTests.Evaluate_KeepsTheTimeBetweenCollectionAndNow`, `TestWorklistTests.Save_TestedEarlier_KeepsTheTimeTested` | URS-BB-863 / FRS-BB-981 |
 | TEST-BB-1099 | I | `ReactionInvestigationServiceTests.ImputabilityAndHemovigilanceReport_AreRecorded` | URS-BB-864 / FRS-BB-982 |
+| TEST-BB-1100 | U, I | `ExpiredSpecimenBackEntryRuleTests.Evaluate_PatientTestsNeedAnOutage_CrossmatchesDoNot`, `TestWorklistTests.ExpiredSpecimen_PatientTest_BackEntered_OnlyForARecordedOutage`, `PatientAllocationTests.Crossmatch_PerformedEarlier_OnASinceExpiredSpecimen_IsRecordedAtThatTime`, `Phase4IssuingTests.DowntimeBackEntry_JudgesExpiryAsOfThePaperTime_AndIsControlledByRole`, `TestResultEntryPanelTests.ExpiredSpecimenOnly_OffersBackEntry_WithTimeAndReason` | URS-BB-865 / FRS-BB-983 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

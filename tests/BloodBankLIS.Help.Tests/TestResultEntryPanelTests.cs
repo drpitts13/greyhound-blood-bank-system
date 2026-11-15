@@ -109,4 +109,28 @@ public class TestResultEntryPanelTests : BunitContext
 
         panel.WaitForAssertion(() => Assert.Contains("Choose the interpreted ABO and Rh(D).", panel.Markup));
     }
+
+    // TEST-BB-1100 (OCD-091): an entry blocked only because the specimen expired opens for a result tested before it
+    // expired, asking for the time tested and the reason; blocked for another reason, it stays closed.
+    [Fact]
+    public void ExpiredSpecimenOnly_OffersBackEntry_WithTimeAndReason()
+    {
+        var definition = new TestDefinitionForEntryDto(
+            "ABORH", "ABO/Rh type", ResultValueType.AboRh, null,
+            [new ResolvedPanelSubtestDto("ANTI-D", "Anti-D", SubtestResultType.GradedReaction, Grades, true, 1)],
+            [], [], null, false);
+        CannedApi.Register(this, new Dictionary<string, object> { ["/api/reference/test-definitions/ABORH"] = definition });
+        var expired = WorkItem() with { CanEnterResults = false, BlockReason = "Specimen ACC-1 has expired.", SpecimenExpiredOnly = true };
+        var panel = Render<TestResultEntryPanel>(p => p.Add(x => x.WorkItem, expired));
+        panel.WaitForAssertion(() => Assert.Contains("Anti-D", panel.Markup));
+
+        Assert.Contains("Only a result tested before the specimen expired can be entered now", panel.Find("[data-expired-backentry-note]").TextContent);
+        Assert.NotNull(panel.Find("[data-result-tested-at]").GetAttribute("open"));
+        Assert.Contains("Time tested (required)", panel.Markup);
+        Assert.NotNull(panel.Find("[data-expired-specimen-reason]"));
+
+        var held = Render<TestResultEntryPanel>(p => p.Add(x => x.WorkItem, expired with { SpecimenExpiredOnly = false }));
+        Assert.Empty(held.FindAll("[data-expired-specimen-reason]"));
+        Assert.Contains("Specimen ACC-1 has expired.", held.Markup);
+    }
 }

@@ -55,7 +55,17 @@
         }
     }
 
-    @if (!WorkItem.CanEnterResults)
+    @if (!WorkItem.CanEnterResults && WorkItem.SpecimenExpiredOnly && Session.Has(PermissionCodes.ResultEnter))
+    {
+        @* OCD-091: a result read on paper before the specimen expired can still be entered, with the time tested and why. *@
+        <div class="alert alert-warning" data-expired-backentry-note>
+            @WorkItem.BlockReason Only a result tested before the specimen expired can be entered now: give the time tested
+            and the reason. A patient test must have been tested during a recorded outage; a crossmatch need not (OCD-091).
+            Nothing new can be done on this specimen.
+        </div>
+    }
+
+    @if (!WorkItem.CanEnterResults && !(WorkItem.SpecimenExpiredOnly && Session.Has(PermissionCodes.ResultEnter)))
     {
         <div class="alert alert-warning">
             @WorkItem.BlockReason
@@ -427,13 +437,20 @@
             }
 
             @* Pass 85: results read on paper (an outage) keep when they were tested, not only when they were entered. *@
-            <details style="margin-top:.5rem;" data-result-tested-at open="@(_testedLocal is not null)">
+            <details style="margin-top:.5rem;" data-result-tested-at open="@(_testedLocal is not null || WorkItem.SpecimenExpiredOnly)">
                 <summary class="muted">Tested earlier (paper or downtime result)?</summary>
                 <div class="field" style="max-width:16rem;">
-                    <label>Time tested</label>
+                    <label>Time tested@(WorkItem.SpecimenExpiredOnly ? " (required)" : "")</label>
                     <input type="datetime-local" @bind="_testedLocal" data-result-tested-time />
                     <span class="sub">Leave blank when testing now. Kept with the result as "tested … (entered later)".</span>
                 </div>
+                @if (WorkItem.SpecimenExpiredOnly)
+                {
+                    <div class="field" style="max-width:36rem;">
+                        <label>Why enter it now, after the specimen expired? (required)</label>
+                        <input @bind="_expiredSpecimenReason" maxlength="@ExpiredSpecimenBackEntryRule.MaxReasonLength" placeholder="e.g. Read on paper during the outage; system down until after expiry" data-expired-specimen-reason />
+                    </div>
+                }
             </details>
 
             @if (WorkItem.CurrentResultStatus == ResultStatus.Verified && _showSavePrompt)
@@ -531,6 +548,7 @@
     private CrossmatchResult? _xmResult;
     private string _correctionReason = string.Empty;
     private DateTime? _testedLocal;
+    private string? _expiredSpecimenReason;
     private bool _showSavePrompt;
     private bool _showDeltaOverride;
     private bool _postedVerifyDelta;
@@ -547,7 +565,7 @@
     private bool CanOverrideDelta => Session.SecurityLevel >= _deltaMinLevel;
 
     private bool CanVerifyPostedResult =>
-        WorkItem.CanEnterResults
+        (WorkItem.CanEnterResults || WorkItem.SpecimenExpiredOnly)
         && WorkItem.CurrentResultId is > 0
         && WorkItem.CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
         && Session.Has(PermissionCodes.ResultVerify)
@@ -1059,7 +1077,8 @@
             includeOverride ? _historyResolution : null,
             signatureId,
             TiterReadings: _definition?.ResultValueType == ResultValueType.Titer ? TiterReadings() : null,
-            TestedUtc: _testedLocal is DateTime testedLocal ? LocalEntry.ToUtc(testedLocal) : null);
+            TestedUtc: _testedLocal is DateTime testedLocal ? LocalEntry.ToUtc(testedLocal) : null,
+            ExpiredSpecimenReason: WorkItem.SpecimenExpiredOnly ? _expiredSpecimenReason : null);
 
         var r = await Api.SaveTestResultAsync(req, signatureId);
         _busy = false;
@@ -1090,6 +1109,7 @@
             _correctionReason = string.Empty;
             _overrideReason = string.Empty;
             _testedLocal = null;
+            _expiredSpecimenReason = null;
             await OnSaved.InvokeAsync();
         }
     }

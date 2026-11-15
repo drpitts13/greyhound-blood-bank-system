@@ -280,9 +280,12 @@ public sealed class TestWorklistService
                 specimenTypeDefs,
                 VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status)
                     || ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType));
+            var expiredOnly = !canEnter && specimen is not null && EvaluateEntryGate(
+                specimen, line.TestCode!, testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType, specimenTypeDefs, allowExpired: true).CanEnter;
             if (OrderControlRule.BlocksResultEntry(order.Status))
             {
                 canEnter = false;
+                expiredOnly = false;
                 blockReason = OrderControlRule.ResultEntryHoldMessage(order.OrderNumber);
             }
             currentTypes.TryGetValue(order.PatientId, out var currentType);
@@ -338,7 +341,7 @@ public sealed class TestWorklistService
                 ReflexFrom: TestWorklistView.ReflexLabel(line.ReflexFromTestCode, line.ReflexFromValue),
                 ReflexTriggerNotice: line.ReflexFromResultId is long triggerId
                     ? ReflexTriggerChangeRule.Notice(triggerId, line.ReflexFromTestCode, line.ReflexFromValue, line.TestCode, resultVersions)
-                    : null));
+                    : null) { SpecimenExpiredOnly = expiredOnly });
         }
 
         // The verifier sees the reagent lots a hand-entered result was tested with.

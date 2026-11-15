@@ -48,7 +48,8 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
             new EfRepository<UnitBloodAttribute>(c), new EfRepository<SpecimenTypeDefinition>(c),
             allocations: new EfRepository<Allocation>(c),
             orderSpecimens: requireOrderSpecimen ? new EfRepository<OrderSpecimen>(c) : null,
-            phaseDefinitions: withPhases ? new EfRepository<PhaseDefinition>(c) : null);
+            phaseDefinitions: withPhases ? new EfRepository<PhaseDefinition>(c) : null,
+            outages: new EfRepository<DowntimeEpisode>(c));
 
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
@@ -310,6 +311,45 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Equal($"Manual · tested {ClinicalTimeText.Local(tested)} (entered later)", saved.Value.SourceReference);
         var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.All));
         Assert.Equal($"tested {ClinicalTimeText.Local(tested)} (entered later)", item.CurrentResultSourceDetail);
+    }
+
+    // TEST-BB-1100 (OCD-091, option C for patient testing): a screen read on paper before its specimen expired is entered
+    // afterwards only with the time tested in a recorded outage and a reason; the worklist offers it, the result keeps the
+    // time and the reason, and it can be verified on the same terms.
+    [Fact]
+    public async Task ExpiredSpecimen_PatientTest_BackEntered_OnlyForARecordedOutage()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var now = _factory.Clock.UtcNow;
+        var specimen = await c.Specimens.SingleAsync(s => s.Id == seed.specimen!.Id);
+        specimen.CollectedUtc = now.AddDays(-400);
+        specimen.ExpiresUtc = now.AddDays(-397);
+        specimen.Status = SpecimenStatus.Expired;
+        await c.SaveChangesAsync();
+        var tested = now.AddDays(-399);
+        SaveTestResultRequest Request(string? reason) => new(
+            specimen.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null, TestedUtc: tested, ExpiredSpecimenReason: reason);
+
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.All));
+        Assert.False(item.CanEnterResults);
+        Assert.True(item.SpecimenExpiredOnly);
+
+        var noOutage = await Results(c).SaveTestResultAsync(Request("Read on paper"));
+        Assert.Contains("recorded outage", string.Join(" ", noOutage.Evaluation!.HardStops.Select(h => h.Message)));
+        Assert.Contains("is Expired", (await Results(c).SaveTestResultAsync(Request("x") with { TestedUtc = null })).Error);
+
+        c.DowntimeEpisodes.Add(new DowntimeEpisode { StartedUtc = tested.AddHours(-1), EndedUtc = tested.AddHours(1), Description = "OCD-091 test outage" });
+        await c.SaveChangesAsync();
+        Assert.Contains("Give the reason", string.Join(" ", (await Results(c).SaveTestResultAsync(Request(" "))).Evaluation!.HardStops.Select(h => h.Message)));
+        Assert.False(await c.TestResults.AnyAsync(r => r.SpecimenId == specimen.Id));
+
+        var saved = await Results(c).SaveTestResultAsync(Request(" Read on paper during the outage "));
+        Assert.True(saved.Succeeded, saved.Error);
+        Assert.Equal(tested, saved.Value!.TestedUtc);
+        Assert.Equal($"Manual · tested {ClinicalTimeText.Local(tested)} (entered later; specimen expired since: Read on paper during the outage)", saved.Value.SourceReference);
     }
 
     [Fact]

@@ -30,6 +30,7 @@ public static class ResultTestedTimeRule
     }
 
     /// <summary>The source reference a hand-entered result carries: "Manual · tested 2026-11-12 04:00 (entered later)".</summary>
-    public static string SourceReference(DateTime testedUtc) =>
-        $"Manual · tested {ClinicalTimeText.Local(testedUtc)} (entered later)";
+    public static string SourceReference(DateTime testedUtc, string? expiredSpecimenReason = null) =>
+        $"Manual · tested {ClinicalTimeText.Local(testedUtc)} (entered later"
+        + (string.IsNullOrWhiteSpace(expiredSpecimenReason) ? ")" : $"; specimen expired since: {expiredSpecimenReason.Trim()})");
 }

@@ -23960,3 +23960,24 @@ Reactions: the two open investigations (Febrile, Marcus, under review; Demo-Mult
 ### Tests
 
 - TEST-BB-1099. Full suite passed.
+
+## Iteration 805 — OCD-091 decided: results, crossmatches and issues entered after the specimen expired (2026-11-14)
+
+### Decision (product owner)
+
+Option C for patient testing, option B for entering crossmatches and issuing units.
+
+### Built
+
+- **Patient tests:** a result read on paper on a specimen that has expired since is entered only with a time tested before the specimen expired, inside an outage recorded on the Downtime page, and a reason. The result keeps the time (new `TestResult.TestedUtc`) and the reason, and is verified on the same terms.
+- **Crossmatches:** the time tested before expiry and a reason, outage or not; the crossmatch is judged against its specimen, and recorded as performed, at that time.
+- **Issues:** a downtime back-entry counts a specimen the sweep has since marked Expired when it was acceptable at the paper issue time (before, only a specimen still marked Accepted counted, so the sweep stopped the back-entry).
+- **Test worklist:** a line blocked only by the specimen's expiry opens for this, saying so, with the time tested and the reason required. Nothing new can be done on the expired specimen.
+
+### Retested
+
+- No line in the development data is blocked only by expiry, and a demo specimen was not expired to make one; the panel is covered by a rendered test and the rules by the integration tests.
+
+### Tests
+
+- TEST-BB-1100. Full suite passed.

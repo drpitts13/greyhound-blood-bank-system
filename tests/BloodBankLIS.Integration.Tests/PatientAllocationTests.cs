@@ -435,6 +435,40 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.Null(Assert.Single(blankChoices.Value!, u => u.BloodUnitId == openUnit.Id).LatestCrossmatchResult);
     }
 
+    // TEST-BB-1100 (OCD-091, option B for crossmatches): a crossmatch read on paper is judged, and recorded, at the time it
+    // was performed, so a specimen that has expired since can carry it; without that time it is refused as expired.
+    [Fact]
+    public async Task Crossmatch_PerformedEarlier_OnASinceExpiredSpecimen_IsRecordedAtThatTime()
+    {
+        await using var c = _factory.Create();
+        var (patient, unit) = await SeedAvailableUnitAsync(c, "XM-091");
+        var now = _factory.Clock.UtcNow;
+        var specimen = new Specimen
+        {
+            AccessionNumber = $"ACC-{Guid.NewGuid():N}"[..12],
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = now.AddDays(-4),
+            ReceivedUtc = now.AddDays(-4),
+            ExpiresUtc = now.AddDays(-1),
+            Status = SpecimenStatus.Expired
+        };
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+
+        var refused = await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+            unit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+        Assert.False(refused.Succeeded);
+
+        var performed = now.AddDays(-2);
+        var xm = await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+            unit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible, PerformedUtc: performed));
+        Assert.True(xm.Succeeded, xm.Error ?? string.Join(" ", xm.Evaluation?.HardStops.Select(h => h.Message) ?? []));
+        Assert.Equal(performed, (await c.Crossmatches.AsNoTracking().SingleAsync(x => x.Id == xm.Value!.Id)).PerformedUtc);
+        Assert.False((await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+            unit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible, PerformedUtc: now.AddMinutes(10)))).Succeeded);
+    }
+
     [Fact]
     public async Task Allocate_WithoutCompatibilityAllocate_IsHardStopped()
     {

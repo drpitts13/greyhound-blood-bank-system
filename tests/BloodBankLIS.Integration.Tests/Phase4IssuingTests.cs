@@ -897,6 +897,9 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             var specimen = await c.Specimens.SingleAsync(x => x.Id == s.SpecimenId);
             specimen.CollectedUtc = now.AddHours(-6);
             specimen.ExpiresUtc = now.AddMinutes(-30);
+            // TEST-BB-1100 (OCD-091, option B for issuing): the sweep marked the specimen Expired; acceptable at the paper
+            // time, it still carries the back-entry.
+            specimen.Status = SpecimenStatus.Expired;
             foreach (var xm in await c.Crossmatches.Where(x => x.BloodProductId == s.UnitId).ToListAsync())
             {
                 xm.PerformedUtc = now.AddHours(-5);

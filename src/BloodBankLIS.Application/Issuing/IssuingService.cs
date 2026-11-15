@@ -316,8 +316,13 @@ public sealed class IssuingService
         var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
         var bloodType = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
         var specimen = backEntry
-            ? SelectCurrentSpecimen(await _specimens.ListAsync(
-                s => s.PatientId == request.PatientId && s.Status == SpecimenStatus.Accepted && s.CollectedUtc <= gateTime, ct))
+            ? (await _specimens.ListAsync(
+                // OCD-091 (option B): a specimen that has expired since still counts when it was acceptable at the paper time.
+                s => s.PatientId == request.PatientId && s.CollectedUtc <= gateTime
+                    && (s.Status == SpecimenStatus.Accepted
+                        || (s.Status == SpecimenStatus.Expired && (s.ExpiresUtc == null || s.ExpiresUtc > gateTime))), ct))
+                .OrderByDescending(s => s.CollectedUtc)
+                .FirstOrDefault()
             : await GetCurrentSpecimenAsync(request.PatientId, ct);
         var allocationId = (await _allocations.ListAsync(
                 a => a.BloodProductId == unit.Id && a.PatientId == request.PatientId

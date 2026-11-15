@@ -62,7 +62,9 @@ public sealed record SaveTestResultRequest(
     // Titer tests: the grade read at each dilution (1:n).
     IReadOnlyList<TiterReading>? TiterReadings = null,
     // Pass 85: when a hand-entered result was tested, if earlier than now (paper results after an outage).
-    DateTime? TestedUtc = null);
+    DateTime? TestedUtc = null,
+    // OCD-091: why a result tested while its specimen was acceptable is entered after the specimen expired.
+    string? ExpiredSpecimenReason = null);
 
 public sealed record TestResultDto(
     long Id,
