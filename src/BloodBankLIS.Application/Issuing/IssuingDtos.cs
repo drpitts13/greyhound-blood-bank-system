@@ -85,7 +85,9 @@ public sealed record StartTransfusionRequest(
     string? OverrideReason = null,
     string? AuthorizedBy = null,
     /// <summary>Vital signs before the transfusion, all optional (end-user testing, 2026-11-12).</summary>
-    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PreVitals = null);
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PreVitals = null,
+    /// <summary>Pass 115: consent to transfusion confirmed on the chart (required when the facility turns it on).</summary>
+    bool? ConsentConfirmed = null);
 
 /// <summary>Completes a started transfusion: when it stopped, how much was given, and the outcome.</summary>
 public sealed record CompleteTransfusionRequest(
@@ -121,7 +123,9 @@ public sealed record DocumentTransfusionRequest(
     string? AuthorizedBy = null,
     /// <summary>Vital signs before and after, all optional (end-user testing, 2026-11-12).</summary>
     BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PreVitals = null,
-    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PostVitals = null);
+    BloodBankLIS.Domain.ValueObjects.TransfusionVitals? PostVitals = null,
+    /// <summary>Pass 115: consent to transfusion confirmed on the chart (required when the facility turns it on).</summary>
+    bool? ConsentConfirmed = null);
 
 public sealed record IssueDto(
     long Id,

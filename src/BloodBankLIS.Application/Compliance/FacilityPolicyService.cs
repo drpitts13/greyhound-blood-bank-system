@@ -135,6 +135,9 @@ public sealed class FacilityPolicyService
     public Task<int> GetBloodOrderNeededBySoonMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.BloodOrderNeededBySoonMinutes, 0, ct);
 
+    public Task<bool> GetRequireTransfusionConsentAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireTransfusionConsent, false, ct);
+
     public Task<bool> GetRequireSpecimenCollectorAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireSpecimenCollector, false, ct);
 

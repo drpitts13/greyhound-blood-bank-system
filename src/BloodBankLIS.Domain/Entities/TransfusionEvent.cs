@@ -36,6 +36,9 @@ public class TransfusionEvent : BaseEntity
 
     public string? SecondVerifier { get; set; }
 
+    /// <summary>The bedside confirmed the patient's consent is on the chart; null when not asked (pass 115).</summary>
+    public bool? ConsentConfirmed { get; set; }
+
     public string? Location { get; set; }
 
     public string? PreTransfusionVitalsJson { get; set; }

@@ -1512,6 +1512,14 @@
                     <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@_txPatientIdentifier2" Patient="_txPatient" />
                 </div>
             </div>
+            @if (_txStartedUtc is null)
+            {
+                @* Pass 115: consent to transfusion, confirmed at the bedside; required when the facility turns it on. *@
+                <label class="checkbox" style="display:block;margin:.4rem 0;" data-tx-consent>
+                    <input type="checkbox" @bind="_txConsentConfirmed" />
+                    The patient's consent to transfusion is on the chart@(_requireConsent ? " (required)" : "")
+                </label>
+            }
             @* Optional vitals: before, while the transfusion is not yet started; after, when it is finished or documented. *@
             @if (_txStartedUtc is null)
             {
@@ -1781,6 +1789,8 @@
     // A finished unit leaves the form (Cycle 624): the next scan or Next button chooses another; the patient, the
     // transfusionist, and the identifiers entered at this bedside stay. Unit number takes the focus.
     private readonly TransfusionVitalsFields.VitalsDraft _txPreVitals = new();
+    private bool _txConsentConfirmed;
+    private bool _requireConsent;
     private readonly TransfusionVitalsFields.VitalsDraft _txPostVitals = new();
 
     private void ClearTransfusionUnit()
@@ -1790,6 +1800,7 @@
         _txStopLocal = null;
         _txPreVitals.Clear();
         _txPostVitals.Clear();
+        _txConsentConfirmed = false;
         // Each unit is its own decision to continue (OCD-078).
         _txOverrideReason = null;
         _txAuthorizedBy = null;
@@ -2346,6 +2357,8 @@
 
         var prefill = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.PrefillPatientIdentifiers);
         _prefillIdentifiers = prefill.Succeeded && prefill.Value?.Enabled == true;
+        var consentPolicy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireTransfusionConsent);
+        _requireConsent = consentPolicy.Succeeded && consentPolicy.Value?.Enabled == true;
         var inspectionDefault = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.InspectionDefaultAcceptable);
         _inspectionDefault = inspectionDefault.Succeeded && inspectionDefault.Value?.Enabled == true;
 
@@ -3165,7 +3178,8 @@
             BackEntryDin: string.IsNullOrWhiteSpace(_txBackEntryDin) ? null : _txBackEntryDin.Trim(),
             OverrideReason: TxOverride.Reason,
             AuthorizedBy: TxOverride.AuthorizedBy,
-            PreVitals: _txPreVitals.ToVitals()));
+            PreVitals: _txPreVitals.ToVitals(),
+            ConsentConfirmed: _txConsentConfirmed ? true : null));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion started. Complete it here when it ends.");
         if (r.Succeeded && r.Value is not null)
@@ -3244,7 +3258,8 @@
             OverrideReason: TxOverride.Reason,
             AuthorizedBy: TxOverride.AuthorizedBy,
             PreVitals: _txPreVitals.ToVitals(),
-            PostVitals: _txPostVitals.ToVitals()));
+            PostVitals: _txPostVitals.ToVitals(),
+            ConsentConfirmed: _txConsentConfirmed ? true : null));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
         _openedReactionId = null;

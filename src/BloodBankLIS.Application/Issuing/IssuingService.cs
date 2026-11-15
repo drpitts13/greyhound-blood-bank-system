@@ -1747,6 +1747,12 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Blocked(reactionCheck);
         }
 
+        var documentConsent = TransfusionConsentRule.Evaluate(await _policy.GetRequireTransfusionConsentAsync(ct), request.ConsentConfirmed);
+        if (documentConsent.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([documentConsent]));
+        }
+
         var now = _clock.UtcNow;
 
         var transfusion = new TransfusionEvent
@@ -1771,7 +1777,8 @@ public sealed class IssuingService
             WorkstationId = _currentUser.Workstation,
             BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan),
             PreTransfusionVitalsJson = request.PreVitals?.ToJson(),
-            VitalsJson = request.PostVitals?.ToJson()
+            VitalsJson = request.PostVitals?.ToJson(),
+            ConsentConfirmed = request.ConsentConfirmed
         };
         await _transfusions.AddAsync(transfusion, ct);
 
@@ -1928,6 +1935,12 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Blocked(reactionCheck);
         }
 
+        var startConsent = TransfusionConsentRule.Evaluate(await _policy.GetRequireTransfusionConsentAsync(ct), request.ConsentConfirmed);
+        if (startConsent.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([startConsent]));
+        }
+
         var now = _clock.UtcNow;
         var transfusion = new TransfusionEvent
         {
@@ -1944,7 +1957,8 @@ public sealed class IssuingService
                 : request.BedsideScan is null ? null : "BedsideScan",
             WorkstationId = _currentUser.Workstation,
             BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan),
-            PreTransfusionVitalsJson = request.PreVitals?.ToJson()
+            PreTransfusionVitalsJson = request.PreVitals?.ToJson(),
+            ConsentConfirmed = request.ConsentConfirmed
         };
         await _transfusions.AddAsync(transfusion, ct);
         AppendStatus(unit, UnitStatus.TransfusionStarted, "Transfusion started at the bedside", now, nameof(TransfusionEvent), issue.Id);
@@ -1953,7 +1967,7 @@ public sealed class IssuingService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = UnitStatus.Issued },
-            newValue: new { Status = UnitStatus.TransfusionStarted, StartUtc = startUtc, request.SecondVerifier },
+            newValue: new { Status = UnitStatus.TransfusionStarted, StartUtc = startUtc, request.SecondVerifier, request.ConsentConfirmed },
             reason: "Transfusion started.");
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TransfusionEvent>.Ok(transfusion);

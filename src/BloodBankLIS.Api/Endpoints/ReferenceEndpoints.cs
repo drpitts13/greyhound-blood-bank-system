@@ -24,6 +24,8 @@ public static class ReferenceEndpoints
         FacilityPolicyKeys.PrefillPatientIdentifiers,
         FacilityPolicyKeys.RequireSpecimenReceiptByScan,
         FacilityPolicyKeys.InspectionDefaultAcceptable,
+        // The transfusion form marks consent confirmation required (end-user testing pass 115).
+        FacilityPolicyKeys.RequireTransfusionConsent,
         FacilityPolicyKeys.BlockAboSelfVerify,
         // The test worklist shows the reagent QC result block before anything is keyed.
         FacilityPolicyKeys.BlockResultsWhenReagentQcOpen,

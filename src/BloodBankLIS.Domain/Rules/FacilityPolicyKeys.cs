@@ -19,6 +19,9 @@ public static class FacilityPolicyKeys
 
     /// <summary>Hours after a bedside start when an uncompleted transfusion is raised as a reminder (0 = off).</summary>
     public const string TransfusionCompletionReminderHours = "Transfusion.CompletionReminderHours";
+
+    /// <summary>Require the bedside to confirm consent is on the chart before a transfusion starts (pass 115). Off by default.</summary>
+    public const string RequireTransfusionConsent = "Transfusion.RequireConsentConfirmation";
     public const string RequireQuarantineReleaseVerifier = "Inventory.RequireQuarantineReleaseVerifier";
     public const string RequireReceiveVisualInspection = "Inventory.RequireReceiveVisualInspection";
     public const string RequireReceiveVerifier = "Inventory.RequireReceiveVerifier";

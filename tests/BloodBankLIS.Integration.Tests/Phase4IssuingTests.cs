@@ -1433,6 +1433,35 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("UNK-20260530-01", row.IssuedUnderEarlierMrn);
     }
 
+    // TEST-BB-1131: with the facility's consent confirmation on, starting a transfusion without confirming consent is
+    // refused (TXN-CONSENT) and nothing is recorded; confirmed, it starts and the confirmation is kept (pass 115).
+    [Fact]
+    public async Task StartTransfusion_NeedsConsentConfirmation_WhenTheFacilityRequiresIt()
+    {
+        var s = await SeedAsync("TX-CONSENT");
+        var issueId = await IssuedAndReceivedAsync(s);
+        await using var c = _factory.Create();
+        var setting = new SystemSetting { Key = FacilityPolicyKeys.RequireTransfusionConsent, Value = "true" };
+        c.SystemSettings.Add(setting);
+        await c.SaveChangesAsync();
+        try
+        {
+            var refused = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s));
+            Assert.False(refused.Succeeded);
+            Assert.Contains(refused.Evaluation!.Results, r => r.Code == TransfusionConsentRule.Code);
+            Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+
+            var started = await Issuing(c).StartTransfusionAsync(issueId, StartReq(s) with { ConsentConfirmed = true });
+            Assert.True(started.Succeeded, started.Error);
+            Assert.True((await c.TransfusionEvents.SingleAsync(t => t.IssueId == issueId)).ConsentConfirmed);
+        }
+        finally
+        {
+            c.SystemSettings.Remove(setting);
+            await c.SaveChangesAsync();
+        }
+    }
+
     // TEST-BB-922 (Cycle 691): a unit recalled after it was issued is not started at the bedside (the refusal says it was
     // recalled), is flagged on the issued list, cannot be returned to stock, and comes back to quarantine for the recall
     // even when the inspection passes; before, a passing inspection returned it to Available.

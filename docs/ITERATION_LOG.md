@@ -24490,3 +24490,21 @@ Following pass 113's *Unknown* on supplier orders, every ABO and Rh choice in th
 ### Tests
 
 - TEST-BB-1130. Full suite passed.
+
+## Iteration 834 — End-user testing pass 115: consent confirmation at the bedside (2026-11-15)
+
+### How it was tested
+
+The Antibody ID worklist, then the bedside checks on Issue & Transfuse against a modern pre-transfusion checklist.
+
+### Found and fixed
+
+1. **Consent to transfusion was not part of the bedside checks.** Starting or documenting a transfusion checked both identifiers, the unit scan and a second verifier, but nothing anywhere asked whether the patient's consent was on the chart. The transfusion form now has *The patient's consent to transfusion is on the chart*, recorded with the transfusion whenever ticked. A new facility setting, *Require consent confirmation at the bedside*, shipped off, makes it required (TXN-CONSENT): whether and how consent is checked at the bedside is the facility's procedure. Transfusions reported by the EHR are not affected.
+
+### Retested live
+
+- The Transfusion form shows the consent box; with the setting turned on for the check it read *(required)*, and off again it did not. Starting a transfusion through the API is refused first by earlier checks in the development data (ward receipt; a second verifier), which were not bypassed; the consent refusal itself is covered by TEST-BB-1131. The setting was set back to off and no transfusion was recorded.
+
+### Tests
+
+- TEST-BB-1131, TEST-BB-1132. Full suite passed.
