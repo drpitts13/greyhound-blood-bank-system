@@ -1121,5 +1121,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1110 | I | `Hl7MessageSearchTests.Filter_FindsByTextTypeDirectionAndStatus` | URS-BB-875 / FRS-BB-993 |
 | TEST-BB-1111 | I | `InstrumentMessageSearchTests.Filter_FindsBySpecimenPatientOrMessageText` | URS-BB-876 / FRS-BB-994 |
 | TEST-BB-1112 | U, I | `DashboardQueueCatalogTests.Deviations_ForManagers_CountOpenAndNameCritical`, `DeviationServiceTests.OwnerAndDueDate_AreKept` | URS-BB-877 / FRS-BB-995 |
+| TEST-BB-1113 | U | `PatientSearchTests.MatchesSearch_NameAsWritten_AndDateOfBirth` | URS-BB-878 / FRS-BB-996 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

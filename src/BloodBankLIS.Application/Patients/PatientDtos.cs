@@ -184,15 +184,35 @@ public sealed record PatientDto(
             return true;
         }
 
-        if (MedicalRecordNumber.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || LastName.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || FirstName.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || (!string.IsNullOrWhiteSpace(MiddleName)
-                && MiddleName.Contains(filter, StringComparison.OrdinalIgnoreCase)))
+        if (MatchesTerm(filter.Trim()))
         {
             return true;
         }
 
-        return Aliases?.Any(a => a.Value.Contains(filter, StringComparison.OrdinalIgnoreCase)) == true;
+        // End-user testing pass 99: "Kline, Nora" or "nora 1966-09-03" (name as written on a requisition, or name and date
+        // of birth) found nothing. Every word must match the MRN, a name, an alias or the date of birth.
+        var words = filter.Split([' ', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return words.Length > 1 && words.All(MatchesTerm);
+    }
+
+    private bool MatchesTerm(string term) =>
+        MedicalRecordNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || LastName.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || FirstName.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || (!string.IsNullOrWhiteSpace(MiddleName) && MiddleName.Contains(term, StringComparison.OrdinalIgnoreCase))
+        || Aliases?.Any(a => a.Value.Contains(term, StringComparison.OrdinalIgnoreCase)) == true
+        || MatchesBirthDate(term);
+
+    /// <summary>A date of birth typed as 1966-09-03, 09/03/1966 (month first) or the year alone.</summary>
+    private bool MatchesBirthDate(string term)
+    {
+        if (term.Length == 4 && int.TryParse(term, out var year))
+        {
+            return DateOfBirth.Year == year;
+        }
+
+        string[] formats = ["yyyy-MM-dd", "M/d/yyyy", "MM/dd/yyyy", "yyyyMMdd"];
+        return DateOnly.TryParseExact(term, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date)
+            && date == DateOfBirth;
     }
 }

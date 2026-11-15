@@ -24201,3 +24201,21 @@ Deviations: the three open ones (a unit on the wrong shelf, open nine days; the 
 ### Tests
 
 - TEST-BB-1112. Full suite passed.
+
+## Iteration 818 — End-user testing pass 99: finding a patient by name and date of birth (2026-11-15)
+
+### How it was tested
+
+Patients: the directory search, as a technologist identifies a patient from a requisition (two patients are named Nora: Kline, born 1966-09-03, and Rhesus, born 1992-09-03).
+
+### Found and fixed
+
+1. **The search took one name or an MRN, nothing more.** "Kline, Nora", as a requisition writes it, found nobody (no single field contains it), and a date of birth could not be searched at all, so the two Noras could only be told apart by scrolling. Now every word typed must match the MRN, a name, a former name or the date of birth (yyyy-mm-dd, mm/dd/yyyy, or the year), so *Kline, Nora* and *nora 1966-09-03* each find Nora Kline alone.
+
+### Retested live
+
+- *nora 1966-09-03* lists MRN0010 Kline, Nora only.
+
+### Tests
+
+- TEST-BB-1113. Full suite passed.

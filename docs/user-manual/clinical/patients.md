@@ -11,7 +11,7 @@ routes:
 
 ![Patients](figures/patients.png)
 
-**Patients** is the directory. Search with the medical record number or the name. Historical names remain searchable after a legal name change, so a former name can still find the chart.
+**Patients** is the directory. Search with the medical record number, the name, or the date of birth. A name can be typed as it is written on a requisition (*Kline, Nora*) or in any order, and a name with a date of birth narrows to one person (*nora 1966-09-03*, *nora 09/03/1966*, or *nora 1966*): every word must match the MRN, a name, a former name or the date of birth. Historical names remain searchable after a legal name change, so a former name can still find the chart.
 
 Each row shows the patient's **Location**: the type and place of the current open visit (for example "Inpatient · ICU 4"), the same visit the chart header shows. **+1 more open** in amber means another visit is open too; check which one the work belongs to. **No open visit** means none is open. Use it to tell similar names apart and to confirm where blood is going.
 
