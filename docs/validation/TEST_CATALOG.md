@@ -1162,5 +1162,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1151 | I | `Hl7OutboundWaitingTests.ResultsInterfaceOnly_DoesNotTakeCharges` | URS-BB-908 / FRS-BB-1026 |
 | TEST-BB-1152 | I | `Hl7OutboundWaitingTests.DisabledInterface_StopsSending` | URS-BB-909 / FRS-BB-1027 |
 | TEST-BB-1153 | U | `EquipmentTestNoticeTests.ForResult_LeavesOutOfServiceEquipmentOut` | URS-BB-910 / FRS-BB-1028 |
+| TEST-BB-1154 | U | `RetypeQueueOrderTests.Sort_PutsSoonestExpiringFirst_AndOutdatedLast`, `RetypeQueueOrderTests.Notes_SayTimeLeftAndTimeWaiting` | URS-BB-911 / FRS-BB-1029 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

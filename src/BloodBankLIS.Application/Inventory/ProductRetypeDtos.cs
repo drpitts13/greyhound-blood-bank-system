@@ -21,6 +21,12 @@ public sealed record ProductRetypeWorkItemDto(
     DateTime? ExpiresUtc = null,
     bool Expired = false)
 {
+    /// <summary>"expires in 5 h", "expires in 3 d" or "outdated" (pass 132).</summary>
+    public string ExpiryNote { get; init; } = string.Empty;
+
+    /// <summary>"waiting 2 d" since the unit was received (pass 132).</summary>
+    public string WaitingNote { get; init; } = string.Empty;
+
     public static ProductRetypeWorkItemDto From(
         BloodUnit unit,
         ProductRetypeResult? latest = null,
@@ -39,7 +45,11 @@ public sealed record ProductRetypeWorkItemDto(
         testName,
         latest?.Status,
         unit.ExpiresUtc,
-        asOfUtc is DateTime asOf && BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, asOf));
+        asOfUtc is DateTime asOf && BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, asOf))
+    {
+        ExpiryNote = asOfUtc is DateTime at ? RetypeQueueOrder.ExpiryNote(unit.ExpiresUtc, at) : string.Empty,
+        WaitingNote = asOfUtc is DateTime since ? RetypeQueueOrder.WaitingNote(unit.CreatedUtc, since) : string.Empty
+    };
 }
 
 public sealed record ProductRetypeSubtestDto(string Code, string Label, bool Required);

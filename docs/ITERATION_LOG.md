@@ -24808,3 +24808,21 @@ Disabled instrument interfaces (the ASTM listener and client already skip them),
 ### Tests
 
 - TEST-BB-1153; *ManualResult_RecordsEquipmentUsed_AndWarnsWhenOutOfService* updated. Full suite passed.
+
+## Iteration 851 — End-user testing pass 132: the retype board's order and expiry (2026-11-15)
+
+### How it was tested
+
+Worked the Inventory Retype board (`/inventory?board=retype`) as the front-type bench would with the 23 seeded units waiting for an ABO/Rh retype.
+
+### Found and fixed
+
+1. **The retype board showed no expiry and listed units by when they were received.** A unit hours from outdating sat below units received earlier with weeks left, and nothing on the row said how long a unit had waited. The board now has an **Expires** column ("expires in 6 d"), shows "waiting 9 d" under Received, and lists units in date soonest-expiring first, outdated units last (their retype only records the type before they move to Expired), ties by received time.
+
+### Retested live
+
+- `/api/inventory/retypes/pending` returns the 23 units in expiry order with the notes; the board shows W000123DMG0001 (expires 2026-11-22, "expires in 6 d", "waiting 9 d") first, ahead of W0001230000001 (received earlier, expires 2026-12-06).
+
+### Tests
+
+- TEST-BB-1154. Full suite passed.

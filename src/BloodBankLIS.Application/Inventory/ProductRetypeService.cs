@@ -72,7 +72,8 @@ public sealed class ProductRetypeService
             : (await _tests.ListAsync(t => testIds.Contains(t.Id), ct)).ToDictionary(t => t.Id);
 
         var now = _clock.UtcNow;
-        return units.Select(unit =>
+        // Pass 132: soonest-expiring first, outdated units last.
+        var items = units.Select(unit =>
         {
             latestByUnit.TryGetValue(unit.Id, out var latest);
             string? testName = null;
@@ -82,7 +83,8 @@ public sealed class ProductRetypeService
             }
 
             return ProductRetypeWorkItemDto.From(unit, latest, testName, now);
-        }).ToList();
+        });
+        return RetypeQueueOrder.Sort(items, i => i.ExpiresUtc, i => i.ReceivedUtc, now);
     }
 
     /// <summary>

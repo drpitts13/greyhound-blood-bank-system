@@ -225,6 +225,7 @@
                         <th>Test</th>
                         <th>Labeled ABO/Rh</th>
                         <th>Received</th>
+                        <th>Expires</th>
                         <th>Status</th>
                         <th></th>
                     </tr>
@@ -250,7 +251,26 @@
                                 }
                             </td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
-                            <td class="nowrap">@row.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@row.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                @if (!string.IsNullOrEmpty(row.WaitingNote))
+                                {
+                                    <div class="sub muted" data-retype-waiting>@row.WaitingNote</div>
+                                }
+                            </td>
+                            <td class="nowrap" data-retype-expires>
+                                @if (row.ExpiresUtc is DateTime retypeExpires)
+                                {
+                                    @retypeExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                    @if (!row.Expired && !string.IsNullOrEmpty(row.ExpiryNote))
+                                    {
+                                        <div class="sub muted">@row.ExpiryNote</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
                             <td>
                                 <span class="@Ui.Badge(row.Status)">@Ui.StatusLabel(row.Status)</span>
                                 @if (row.Expired)
@@ -271,7 +291,7 @@
                         @if (_expandedRetypeUnitId == row.UnitId && Session.HasAny(PermissionCodes.ResultEnter, PermissionCodes.ResultVerify))
                         {
                             <tr>
-                                <td colspan="7">
+                                <td colspan="8">
                                     @if (_boardRetypeDetail?.UnitId == row.UnitId)
                                     {
                                         <ProductRetypeEntryPanel Detail="_boardRetypeDetail" OnSaved="OnBoardRetypeSaved" />
