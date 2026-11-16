@@ -15,6 +15,28 @@ public class LoadingStateSourceTests
         Assert.Contains("_loaded = true;", page);
     }
 
+    // TEST-BB-1193: the issue desk's work lists say Loading… until read and name a failed read, instead of saying there
+    // is nothing waiting (end-user testing pass 170).
+    [Fact]
+    public void IssuingWorklists_DoNotShowEmptyBeforeTheyAreRead()
+    {
+        Assert.Equal(("Loading…", false), BloodBankLIS.Web.Services.WorklistEmptyText.For(false, null, "No units currently in transit."));
+        Assert.Equal(("No units currently in transit.", false), BloodBankLIS.Web.Services.WorklistEmptyText.For(true, null, "No units currently in transit."));
+        var failed = BloodBankLIS.Web.Services.WorklistEmptyText.For(true, "Timed out.", "No units currently in transit.");
+        Assert.True(failed.IsError);
+        Assert.StartsWith("This list could not be loaded: Timed out.", failed.Text);
+
+        var page = File.ReadAllText(Path.Combine(RepoRoot(), "src", "BloodBankLIS.Web", "Components", "Pages", "Issuing.razor"));
+        foreach (var key in new[] { "second", "ready", "retro", "urgency", "transit", "outstanding", "disposition" })
+        {
+            Assert.Contains($"@EmptyList(\"{key}\", ", page);
+            Assert.Contains($"NoteWorklist(\"{key}\", ", page);
+        }
+
+        Assert.DoesNotContain("<div class=\"muted\">No reserved units waiting to issue.</div>", page);
+        Assert.Contains("_worklistsLoaded = true;", page);
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

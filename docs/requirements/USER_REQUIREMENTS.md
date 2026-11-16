@@ -955,3 +955,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-947 | Blood orders to prepare say how long each order has waited since it was placed. | P3 | FRS-BB-1065 |
 | URS-BB-948 | The Test Worklist says how long each pending test has waited since it was ordered. | P3 | FRS-BB-1066 |
 | URS-BB-949 | Minimum stock says it is loading, or that loading failed, instead of saying no levels are configured. | P3 | FRS-BB-1067 |
+| URS-BB-950 | The issue desk's work lists say they are loading, or that a list could not be read, instead of saying nothing is waiting. | P2 | FRS-BB-1068 |

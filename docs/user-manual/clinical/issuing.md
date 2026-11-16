@@ -13,6 +13,8 @@ routes:
 
 **Issue and Transfuse** is the desk for blood that is leaving the bank and for blood that is coming back. One board is open at a time: Ready to issue, Second ABO/Rh, Retrospective, In transit, Issued units, Issue, Ward receipt, Return, and Document transfusion. The issue gate runs on every routine issue. It checks identity, the specimen, ABO and Rh, allocation, crossmatch, special requirements, appearance, autologous or directed restrictions, and whether the chart you are using was merged away. Storage-location rules and remote electronic issue are part of the same gate.
 
+Each board says *Loading…* until its list has been read. If a list could not be read it says so in red (*This list could not be loaded: …*): refresh the page before taking it as empty.
+
 ## Ready to issue
 
 > Scan first. Opening **Ward receipt**, **Return**, or **Transfusion** from its button puts the cursor in **Unit number**, so scan the unit straight away. Opened from a row, the unit is already filled. After a receipt or a return is recorded, **Unit number** empties and takes the next scan; who received the cooler and the return reason stay for the rest of it. The button stays off until the next unit is chosen. On **Transfusion**, Start keeps the unit on the form for Complete; after Complete or Document the unit leaves the form and Unit number takes the next scan, keeping the patient identifiers and transfusionist entered at this bedside for the same patient. A reserved unit whose ABO/Rh retype is not confirmed yet (still **Received**) is marked **Retype**, with **Open retype desk**: routine issue refuses it until the retype is recorded; emergency release can still issue it.

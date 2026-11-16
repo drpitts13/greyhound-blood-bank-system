@@ -177,7 +177,7 @@
         <p class="muted">Patients with reserved units who still need a concordant historical or second-sample type before routine red-cell issue (AABB 5.14 / CAP TRM.40650). The second type must come from a separately collected specimen. Each row says whether an ABO/Rh is already ordered, or orders one.</p>
         @if (_secondAboItems.Count == 0)
         {
-            <div class="muted">No reserved units waiting on a second ABO/Rh.</div>
+            @EmptyList("second", "No reserved units waiting on a second ABO/Rh.")
         }
         else
         {
@@ -230,7 +230,7 @@
         <p class="muted">Reserved units waiting to issue. Issue on the row fills the issue form with the unit and patient. Scan or type the two patient identifiers from the wristband or requisition, unless your facility pre-fills them. Marks on the row are repeated on that form.</p>
         @if (_readyItems.Count == 0)
         {
-            <div class="muted">No reserved units waiting to issue.</div>
+            @EmptyList("ready", "No reserved units waiting to issue.")
         }
         else
         {
@@ -500,7 +500,7 @@
         <p class="muted">Emergency and massive-transfusion issues stay here until a compatible crossmatch is recorded. An incompatible result is listed first and raises a critical alert.</p>
         @if (_retroItems.Count == 0)
         {
-            <div class="muted">No retrospective crossmatches pending.</div>
+            @EmptyList("retro", "No retrospective crossmatches pending.")
         }
         else
         {
@@ -589,7 +589,7 @@
         <Outcome Value="_urgencyFb" />
         @if (_urgencyItems.Count == 0)
         {
-            <div class="muted">No physician statement is outstanding.</div>
+            @EmptyList("urgency", "No physician statement is outstanding.")
         }
         else
         {
@@ -624,7 +624,7 @@
         <p class="muted">Issued units stay here until the receiving location acknowledges custody.</p>
         @if (_inTransitItems.Count == 0)
         {
-            <div class="muted">No units currently in transit.</div>
+            @EmptyList("transit", "No units currently in transit.")
         }
         else
         {
@@ -723,7 +723,7 @@
         }
         @if (_outstandingItems.Count == 0)
         {
-            <div class="muted">No outstanding issued units.</div>
+            @EmptyList("outstanding", "No outstanding issued units.")
         }
         else
         {
@@ -842,7 +842,7 @@
         }
         @if (_dispositionItems.Count == 0)
         {
-            <div class="muted">No issued units are past the final-disposition window.</div>
+            @EmptyList("disposition", "No issued units are past the final-disposition window.")
         }
         else
         {
@@ -2882,6 +2882,26 @@
         }
     }
 
+    // Pass 170: whether the work lists have been read, and which failed, so an empty list is not shown as nothing to do.
+    private bool _worklistsLoaded;
+    private readonly Dictionary<string, string> _worklistErrors = new();
+
+    private void NoteWorklist(string key, bool succeeded, string? error)
+    {
+        if (succeeded) _worklistErrors.Remove(key);
+        else _worklistErrors[key] = error ?? "the server did not answer.";
+    }
+
+    private RenderFragment EmptyList(string key, string emptyText) => builder =>
+    {
+        var (text, isError) = WorklistEmptyText.For(_worklistsLoaded, _worklistErrors.GetValueOrDefault(key), emptyText);
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", isError ? "text-danger" : "muted");
+        builder.AddAttribute(2, "data-worklist-empty", key);
+        builder.AddContent(3, text);
+        builder.CloseElement();
+    };
+
     private async Task LoadWorklistsAsync()
     {
         await LoadActiveMtpAsync();
@@ -2889,25 +2909,34 @@
         {
             var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
             if (retro.Succeeded) _retroItems = retro.Value ?? new();
+            NoteWorklist("retro", retro.Succeeded, retro.Error);
             var urgency = await Api.GetUrgencyStatementsOutstandingAsync();
             if (urgency.Succeeded) _urgencyItems = urgency.Value ?? new();
+            NoteWorklist("urgency", urgency.Succeeded, urgency.Error);
             var transit = await Api.GetInTransitIssuesAsync();
             if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
+            NoteWorklist("transit", transit.Succeeded, transit.Error);
             var coolers = await Api.GetOpenCoolersAsync();
             _openCoolers = coolers.Succeeded ? coolers.Value ?? new() : null;
             var secondAbo = await Api.GetPendingSecondAboAsync();
             if (secondAbo.Succeeded) _secondAboItems = secondAbo.Value ?? new();
+            NoteWorklist("second", secondAbo.Succeeded, secondAbo.Error);
             var ready = await Api.GetReadyToIssueAllocationsAsync();
             if (ready.Succeeded) _readyItems = ready.Value ?? new();
+            NoteWorklist("ready", ready.Succeeded, ready.Error);
         }
 
         if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument))
         {
             var outstanding = await Api.GetOutstandingIssuesAsync();
             if (outstanding.Succeeded) _outstandingItems = outstanding.Value ?? new();
+            NoteWorklist("outstanding", outstanding.Succeeded, outstanding.Error);
             var disposition = await Api.GetOverdueDispositionAsync();
             if (disposition.Succeeded) _dispositionItems = disposition.Value ?? new();
+            NoteWorklist("disposition", disposition.Succeeded, disposition.Error);
         }
+
+        _worklistsLoaded = true;
     }
 
     private IssueUnitRequest BuildRequest(string? overrideReason, string? authorizedBy) => new(

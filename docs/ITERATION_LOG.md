@@ -25539,3 +25539,25 @@ Worked Inventory › Discard expired (ten expired units still on a shelf, oldest
 ### Tests
 
 - TEST-BB-1192. Full suite passed.
+
+## Iteration 890 — End-user testing pass 170: the issue desk said nothing was waiting before it looked (2026-11-16)
+
+### How it was tested
+
+Followed up pass 169 on Transfusion › Issue & Transfuse. The page reads the facility settings, the user directory and the patient list before its work lists, so for that time every desk read as empty.
+
+### Found and fixed
+
+1. **Issue desk lists said nothing was waiting before they were read, and after a failed read.** *No reserved units waiting to issue*, *No units currently in transit*, *No outstanding issued units* and the four other lists showed while the page was still loading, and stayed so if the server did not answer, so a tech could take a failed read for nothing to issue or receive. Each list now says *Loading…* until read, and *This list could not be loaded: … Refresh the page before relying on it.* in red if the read failed.
+
+### Retested live
+
+- Ready to issue read *Loading…* for about six seconds, then its seven reserved units (*0 can be issued now. 7 need attention first*). Nothing was issued or received.
+
+### Noted for a later pass
+
+- The issue desk reads the whole patient list and the user directory before its work lists, so the lists take several seconds to appear on the dev data.
+
+### Tests
+
+- TEST-BB-1193. Full suite passed.
