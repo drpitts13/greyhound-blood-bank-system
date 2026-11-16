@@ -22,6 +22,7 @@ public static class ReportSourceCatalog
     public const string BloodOrderTurnaround = "blood_order_turnaround";
     public const string Rhig = "rhig";
     public const string ReagentQc = "reagent_qc";
+    public const string EquipmentChecks = "equipment_checks";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -94,6 +95,18 @@ public static class ReportSourceCatalog
             Field("performed_by", "Performed by"),
             Field("reviewed_by", "Reviewed by"),
             Field("reviewed_utc", "Reviewed", ReportValueKind.Date)),
+        // Pass 140: every equipment check recorded, for the maintenance record of a period across all equipment.
+        Source(EquipmentChecks, "Equipment checks", ReportViewCatalog.EquipmentChecks,
+            Field("performed_utc", "Performed", ReportValueKind.Date),
+            Field("equipment_code", "Equipment"),
+            Field("equipment_name", "Equipment name"),
+            Field("kind", "Kind"),
+            Field("location", "Location"),
+            Field("serial_number", "Serial number"),
+            Field("check_name", "Check"),
+            Field("result", "Result"),
+            Field("performed_by", "Performed by"),
+            Field("note", "Note")),
         Source(Lookback, "Lookback notifications", ReportViewCatalog.Lookback,
             Field("din", "DIN"),
             Field("status", "Status"),

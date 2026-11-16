@@ -24961,3 +24961,21 @@ Checked equipment checks due and upcoming, then the report catalog, as the super
 ### Tests
 
 - TEST-BB-1161; the seeded report count is 18. Full suite passed.
+
+## Iteration 859 — End-user testing pass 140: the month's maintenance record (2026-11-15)
+
+### How it was tested
+
+Continued the inspection preparation from pass 139 with the equipment records: the Equipment page, each item's History and CSV log, and the report catalog.
+
+### Found and fixed
+
+1. **Equipment checks could only be pulled one piece of equipment at a time.** Each item's History lists and downloads its own checks (latest 500), but the month's maintenance record across the centrifuges, cell washers and heat blocks meant opening and downloading each one, and no report covered checks. A system report, **Equipment check record** (RPT-EQUIPMENT-CHECKS), and its SQL view `rpt_equipment_checks` now list every check across equipment, filtered by when it was performed: equipment code, name, kind, location and serial number, the check, Pass or Fail, who and the note. It prints and exports like every report; the Equipment help points to it.
+
+### Retested live
+
+- Running the report returns the 3 seeded checks newest first (HB-01's failed temperature check with its note, CW-01's daily check, CENT-01's timer and speed check), times in local time; `rpt_equipment_checks` in the dev database has the same 3 rows.
+
+### Tests
+
+- TEST-BB-1162; the seeded report count is 19. Full suite passed.

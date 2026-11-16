@@ -39,6 +39,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.Lookback => LookbackAsync(cancellationToken),
             ReportSourceCatalog.Rhig => RhigAsync(cancellationToken),
             ReportSourceCatalog.ReagentQc => ReagentQcAsync(cancellationToken),
+            ReportSourceCatalog.EquipmentChecks => EquipmentChecksAsync(cancellationToken),
             ReportSourceCatalog.Deviations => DeviationsAsync(cancellationToken),
             ReportSourceCatalog.Overrides => OverridesAsync(cancellationToken),
             ReportSourceCatalog.CrossmatchTransfusion => ActivityAsync(cancellationToken),
@@ -256,6 +257,28 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("performed_by", ReportValueFormat.Text(row.PerformedBy)),
             ("reviewed_by", ReportValueFormat.Text(row.ReviewedBy)),
             ("reviewed_utc", ReportValueFormat.Date(row.ReviewedUtc)))).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> EquipmentChecksAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from r in _db.EquipmentCheckRecords.AsNoTracking()
+            join e in _db.Equipment.AsNoTracking() on r.EquipmentId equals e.Id
+            join c in _db.EquipmentChecks.AsNoTracking() on r.EquipmentCheckId equals c.Id
+            select new { r.PerformedUtc, e.Code, e.Name, e.Kind, e.Location, e.SerialNumber, CheckName = c.Name, r.Passed, r.PerformedBy, r.Note })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("performed_utc", ReportValueFormat.Date(row.PerformedUtc)),
+            ("equipment_code", ReportValueFormat.Text(row.Code)),
+            ("equipment_name", ReportValueFormat.Text(row.Name)),
+            ("kind", ReportValueFormat.Text(row.Kind)),
+            ("location", ReportValueFormat.Text(row.Location)),
+            ("serial_number", ReportValueFormat.Text(row.SerialNumber)),
+            ("check_name", ReportValueFormat.Text(row.CheckName)),
+            ("result", row.Passed ? "Pass" : "Fail"),
+            ("performed_by", ReportValueFormat.Text(row.PerformedBy)),
+            ("note", ReportValueFormat.Text(row.Note)))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> LookbackAsync(CancellationToken cancellationToken)

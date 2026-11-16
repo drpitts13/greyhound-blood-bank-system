@@ -51,7 +51,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(18, list.Value!.Count);
+        Assert.Equal(19, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)
@@ -356,6 +356,50 @@ public class ReportServiceTests : IDisposable
         Assert.True(sqlRun.Succeeded, sqlRun.Error);
         Assert.Equal(new[] { "40", "60", "90" }, sqlRun.Value!.Rows.Select(r => r[2] ?? "").ToArray());
         Assert.Equal(("Stat", "75"), (sqlRun.Value.Rows[2][1], sqlRun.Value.Rows[2][3]));
+    }
+
+    // TEST-BB-1162: the equipment check record lists every check recorded across equipment, with the check, pass or
+    // fail, who performed it and the note; the SQL view gives the same (end-user testing pass 140: checks were listed one
+    // piece of equipment at a time, the last 50).
+    [Fact]
+    public async Task EquipmentCheckReport_ListsEveryCheck()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var block = new Equipment { Code = "HB-RQ", Name = "Heat block (report)", Kind = "Heat block", Location = "Bench 9", SerialNumber = "SN-RQ" };
+        db.Equipment.Add(block);
+        await db.SaveChangesAsync();
+        var check = new EquipmentCheck { EquipmentId = block.Id, Name = "Temperature check", IntervalDays = 1 };
+        db.EquipmentChecks.Add(check);
+        await db.SaveChangesAsync();
+        var t0 = new DateTime(2026, 9, 3, 12, 0, 0, DateTimeKind.Utc);
+        db.EquipmentCheckRecords.AddRange(
+            new EquipmentCheckRecord { EquipmentCheckId = check.Id, EquipmentId = block.Id, PerformedUtc = t0, PerformedBy = "tech", Passed = false, Note = "33.0 C" },
+            new EquipmentCheckRecord { EquipmentCheckId = check.Id, EquipmentId = block.Id, PerformedUtc = t0.AddDays(1), PerformedBy = "tech2", Passed = true });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-EQUIPMENT-CHECKS").Id, new Dictionary<string, string?>());
+        Assert.True(visual.Succeeded, visual.Error);
+        var columns = visual.Value!.Columns.ToList();
+        var failed = visual.Value.Rows.Single(r => r[columns.IndexOf("equipment_code")] == "HB-RQ" && r[columns.IndexOf("result")] == "Fail");
+        Assert.Equal(("Temperature check", "tech", "33.0 C"),
+            (failed[columns.IndexOf("check_name")], failed[columns.IndexOf("performed_by")], failed[columns.IndexOf("note")]));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-EQUIPMENT-SQL",
+            Name = "SQL equipment checks",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT equipment_code, check_name, result, performed_by, serial_number FROM rpt_equipment_checks WHERE equipment_code = 'HB-RQ' ORDER BY performed_utc"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "HB-RQ", "Temperature check", "Fail", "tech", "SN-RQ" }, sqlRun.Value!.Rows[0].ToArray());
+        Assert.Equal("Pass", sqlRun.Value.Rows[1][2]);
     }
 
     // TEST-BB-1161: the reagent QC record lists every reading with its reagent, lot, control, expected and observed

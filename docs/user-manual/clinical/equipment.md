@@ -26,7 +26,7 @@ A check is due again its interval after it last **passed**, counted in days: a d
 
 ## History and the log
 
-**History** on a piece of equipment lists every check performed on it, newest first: when, which check (including checks no longer scheduled), passed or failed, who, and the reading or note. **Download log (CSV)** saves the same list with times in UTC and local time, for an inspection or the equipment file. The latest 500 records are shown and downloaded.
+**History** on a piece of equipment lists every check performed on it, newest first: when, which check (including checks no longer scheduled), passed or failed, who, and the reading or note. **Download log (CSV)** saves the same list with times in UTC and local time, for an inspection or the equipment file. The latest 500 records are shown and downloaded. For every piece of equipment together over a period (a month's maintenance record), run the **Equipment check record** report on Reports.
 
 ## On the home screen and in modifications
 

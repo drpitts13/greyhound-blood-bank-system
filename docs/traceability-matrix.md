@@ -1030,6 +1030,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-916 / FRS-BB-1034 | End-user testing pass 137: operational holds on the supervisor queue | `SupervisorQueueRule.cs`, `SupervisorQueueService.cs`, `DashboardQueueCatalog.cs`, `SupervisorQueue.razor` | TEST-BB-1159 | I, U | |
 | URS-BB-917 / FRS-BB-1035 | End-user testing pass 138: the recent pregnancy's date | `RecentPregnancyRule.cs`, `PatientService.cs`, `PatientChartOverviewTab.razor`, `PatientDetail.razor` | TEST-BB-1160 | U, I | |
 | URS-BB-918 / FRS-BB-1036 | End-user testing pass 139: the reagent QC record for a period | `ReportSourceCatalog.cs`, `ReportSeedCatalog.cs`, `ReportViewCatalog.cs`, `ReportViewSql.cs`, `EfReportSourceReader.cs`, `20270206000000_ReagentQcReport.cs` | TEST-BB-1161 | I | |
+| URS-BB-919 / FRS-BB-1037 | End-user testing pass 140: the equipment check record across equipment | `ReportSourceCatalog.cs`, `ReportSeedCatalog.cs`, `ReportViewCatalog.cs`, `ReportViewSql.cs`, `EfReportSourceReader.cs`, `20270207000000_EquipmentCheckReport.cs` | TEST-BB-1162 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -193,6 +193,24 @@ public static class ReportViewSql
             INNER JOIN Reagents r ON r.Id = l.ReagentId
             """);
 
+        // Pass 140: every equipment check recorded, with its equipment and check.
+        yield return (ReportViewCatalog.EquipmentChecks, """
+            SELECT
+                r.PerformedUtc AS performed_utc,
+                e.Code AS equipment_code,
+                e.Name AS equipment_name,
+                e.Kind AS kind,
+                e.Location AS location,
+                e.SerialNumber AS serial_number,
+                c.Name AS check_name,
+                CASE WHEN r.Passed = 1 THEN 'Pass' ELSE 'Fail' END AS result,
+                r.PerformedBy AS performed_by,
+                r.Note AS note
+            FROM EquipmentCheckRecords r
+            INNER JOIN Equipment e ON e.Id = r.EquipmentId
+            INNER JOIN EquipmentChecks c ON c.Id = r.EquipmentCheckId
+            """);
+
         yield return (ReportViewCatalog.Lookback, $"""
             SELECT
                 n.Din AS din,
