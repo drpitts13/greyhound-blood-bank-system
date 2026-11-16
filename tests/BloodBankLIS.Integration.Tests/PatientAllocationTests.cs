@@ -206,6 +206,40 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(($"U-UNT-O-{key}", ProductSelectionOrder.UntypedPatientCue), (offered.UnitNumber, offered.SelectionCue));
     }
 
+    // TEST-BB-1178: a unit that reads Available but is still reserved for another patient is not offered to this one
+    // (end-user testing pass 156).
+    [Fact]
+    public async Task ListCompatibleUnits_OmitsUnitStillReservedForAnotherPatient()
+    {
+        await using var c = _factory.Create();
+        await SeedCrossmatchCatalogAsync(c);
+        var key = Guid.NewGuid().ToString("N")[..8];
+        var patient = new Patient { MedicalRecordNumber = $"MRN-RFO-{key}", LastName = "Offer", FirstName = "Pat", DateOfBirth = new DateOnly(1980, 1, 1) };
+        var other = new Patient { MedicalRecordNumber = $"MRN-RFX-{key}", LastName = "Holder", FirstName = "Al", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.AddRange(patient, other);
+        var rbc = new ProductType { ProductCode = $"RBC-{key}", Name = "RBC", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.TestResult, IsCurrent = true });
+        BloodUnit Unit(string prefix) => new()
+        {
+            UnitNumber = $"{prefix}-{key}", ProductTypeId = rbc.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Available
+        };
+        var free = Unit("U-RF-FREE");
+        var held = Unit("U-RF-HELD");
+        c.BloodUnits.AddRange(free, held);
+        await c.SaveChangesAsync();
+        c.Allocations.Add(new Allocation { BloodProductId = held.Id, PatientId = other.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddDays(-9), AllocatedBy = "tech" });
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains(result.Value!, u => u.BloodUnitId == free.Id);
+        Assert.DoesNotContain(result.Value!, u => u.BloodUnitId == held.Id);
+    }
+
     [Fact]
     public async Task ListCompatibleUnits_ExcludesAboIncompatible()
     {

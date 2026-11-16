@@ -940,3 +940,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-932 | Supplier orders not yet sent, or sent and past their arrival time, are on the home dashboard, naming drafts for a patient. | P2 | FRS-BB-1050 |
 | URS-BB-933 | For a patient with no current ABO/Rh, only group O red cells/whole blood and group AB or A plasma can be reserved. | P1 | FRS-BB-1051 |
 | URS-BB-934 | For a patient with no ABO/Rh on file, the compatible-units list offers only units that suit any recipient, says why, and still applies special requirements and antibodies. | P2 | FRS-BB-1052 |
+| URS-BB-935 | The compatible-units list does not offer a unit still reserved for another patient, whatever its status. | P2 | FRS-BB-1053 |

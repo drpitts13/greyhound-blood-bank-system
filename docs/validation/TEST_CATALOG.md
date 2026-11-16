@@ -1186,5 +1186,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1175 | U | `ShiftHandoffItemsTests.SupplierOrders_NotSentOrLate_AreAHomeCard` | URS-BB-932 / FRS-BB-1050 |
 | TEST-BB-1176 | U | `UntypedPatientAllocationRuleTests.Evaluate_AllowsOnlyUnitsThatSuitAnyRecipient` | URS-BB-933 / FRS-BB-1051 |
 | TEST-BB-1177 | I, U | `PatientAllocationTests.ListCompatibleUnits_UntypedPatient_OffersGroupORedCellsOnly`, `CompatibleUnitSummaryTests.Note_UntypedPatient_SaysTheUnitsSuitAnyRecipient` | URS-BB-934 / FRS-BB-1052 |
+| TEST-BB-1178 | I | `PatientAllocationTests.ListCompatibleUnits_OmitsUnitStillReservedForAnotherPatient` | URS-BB-935 / FRS-BB-1053 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

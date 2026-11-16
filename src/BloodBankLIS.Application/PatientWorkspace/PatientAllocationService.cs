@@ -363,10 +363,22 @@ public sealed class PatientAllocationService
         var crossmatchedUnitIds = crossmatchExpires.Keys.ToHashSet();
         var incompatibleUnitIds = await IncompatibleCrossmatchUnitIdsAsync(patientId, ct);
         var locationNames = await StorageLocationNamesAsync(available.Select(u => u.CurrentLocationId), ct);
+        // Pass 156: a unit still reserved for another patient is not offered, whatever its status says (units released
+        // from quarantine before pass 28 read Available while their reservation stayed open; reserving one is refused).
+        var availableIds = available.Select(u => u.Id).ToList();
+        var reservedForOthers = (await _allocations.ListAsync(
+                a => availableIds.Contains(a.BloodProductId) && a.Status == AllocationStatus.Reserved && a.PatientId != patientId, ct))
+            .Select(a => a.BloodProductId)
+            .ToHashSet();
 
         foreach (var unit in available)
         {
             if (!productTypes.TryGetValue(unit.ProductTypeId, out var product) || !unit.BloodType.IsKnown)
+            {
+                continue;
+            }
+
+            if (reservedForOthers.Contains(unit.Id))
             {
                 continue;
             }

@@ -25254,3 +25254,25 @@ Followed pass 154 on the Compatibility page for the untyped newborn MRN0029.
 ### Tests
 
 - TEST-BB-1177. Full suite passed.
+
+## Iteration 875 — End-user testing pass 156: units reserved for someone else offered as compatible (2026-11-16)
+
+### How it was tested
+
+Followed up the note from pass 155: four group O red cells offered to every patient (W000123UAG0001/0002, W0001230009201/9202) still hold open reservations for Kline, Nora (MRN0010) and Demo-Multi, Riley (MRN0022).
+
+### What it was
+
+- The units' history shows them quarantined after the FRIDGE-1 excursion on 2026-11-12 and released at 17:53 and 18:59 UTC, before pass 28's fix (19:30 UTC the same day) that returns a reserved unit to its reserved status; they came back as Available while their reservations stayed open. The release path is correct now; the dev data keeps the earlier state.
+
+### Found and fixed
+
+1. **A unit still reserved for another patient was offered as compatible.** The compatible list took any unit reading Available, so these four were offered to every O-compatible patient, and choosing one was refused at Reserve (*Unit already has an active allocation*). The list now leaves out a unit with an open reservation for another patient, whatever its status says; the patient it is reserved for still sees it.
+
+### Retested live
+
+- MRN0029 and MRN0004 are now offered W0001230009207/9208 only among red cells; MRN0010 still sees her own W000123UAG0001/0002. Nothing was reserved or released.
+
+### Tests
+
+- TEST-BB-1178. Full suite passed.
