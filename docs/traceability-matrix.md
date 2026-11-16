@@ -1023,6 +1023,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-909 / FRS-BB-1027 | End-user testing pass 130: a disabled interface stops sending | `Hl7OutboundSender.cs` | TEST-BB-1152 | I | |
 | URS-BB-910 / FRS-BB-1028 | End-user testing pass 131: out-of-service equipment not recorded as used | `EquipmentTestNotice.cs`, `EquipmentService.cs` | TEST-BB-1153 | U | |
 | URS-BB-911 / FRS-BB-1029 | End-user testing pass 132: retype board expiry, waiting time and order | `RetypeQueueOrder.cs`, `ProductRetypeService.cs`, `Inventory.razor` | TEST-BB-1154 | U | |
+| URS-BB-912 / FRS-BB-1030 | End-user testing pass 133: reagent QC worklist says what is being reviewed | `ReagentQcRules.cs`, `ReagentQcService.cs` | TEST-BB-1155 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

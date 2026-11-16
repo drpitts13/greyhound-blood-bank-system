@@ -25,6 +25,26 @@ public class CompetitorGapRuleTests
         Assert.Contains(items, item => item.Kind == ReagentQcWorklistRule.Unreviewed);
     }
 
+    // TEST-BB-1155: an unreviewed QC row says its day, what was expected and read, and whether it passed; an overdue lot
+    // says when it last had QC (end-user testing pass 133: every unreviewed row read "QC has not been reviewed.").
+    [Fact]
+    public void Worklist_SaysWhatEachUnreviewedQcWas_AndWhenTheLotLastHadQc()
+    {
+        var now = new DateTime(2026, 11, 15, 15, 0, 0, DateTimeKind.Utc);
+        var items = ReagentQcWorklistRule.Evaluate(
+            [new ReagentQcLotFact(3, "AD-24092", ReagentLotState.Opened, now.AddDays(60)), new ReagentQcLotFact(4, "NEW-1", ReagentLotState.Opened, now.AddDays(60))],
+            [new ReagentQcFact(5, 3, new DateTime(2026, 11, 12), false, null, Expected: "3+", Observed: "0"),
+             new ReagentQcFact(8, 3, new DateTime(2026, 11, 12), true, null, Control: "D+ cells", Expected: "3+", Observed: "3+")],
+            now,
+            new DateTime(2026, 11, 15));
+
+        var unreviewed = items.Where(i => i.Kind == ReagentQcWorklistRule.Unreviewed).ToDictionary(i => i.QcId!.Value, i => i.Message);
+        Assert.Equal("QC of 2026-11-12 not reviewed: expected 3+, read 0 (failed).", unreviewed[5]);
+        Assert.Equal("QC with D+ cells of 2026-11-12 not reviewed: expected 3+, read 3+ (passed).", unreviewed[8]);
+        Assert.Contains(items, i => i.Kind == ReagentQcWorklistRule.Overdue && i.Message == "Lot AD-24092 has no QC for 2026-11-15. Last QC 2026-11-12.");
+        Assert.Contains(items, i => i.Kind == ReagentQcWorklistRule.Overdue && i.Message == "Lot NEW-1 has no QC for 2026-11-15. No QC recorded yet.");
+    }
+
     // TEST-BB-1048: daily reagent QC is counted on the facility's day when it is given: QC on the bench's yesterday is
     // overdue today though the UTC dates match (end-user testing pass 35).
     [Fact]

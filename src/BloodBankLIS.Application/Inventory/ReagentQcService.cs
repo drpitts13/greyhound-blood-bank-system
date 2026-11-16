@@ -714,7 +714,8 @@ public sealed class ReagentQcService
             .Select(l => new ReagentQcLotFact(l.Id, l.LotNumber, l.State, l.ExpiresUtc, l.ReagentId,
                 reagentRows.GetValueOrDefault(l.ReagentId)?.Code, ReagentQcControls.Parse(reagentRows.GetValueOrDefault(l.ReagentId)?.QcControls)))
             .ToList();
-        var qcFacts = rows.Select(q => new ReagentQcFact(q.Id, q.ReagentLotId, LocalDay(q.PerformedUtc), q.Passed, q.ReviewedBy, q.Control)).ToList();
+        var qcFacts = rows.Select(q => new ReagentQcFact(q.Id, q.ReagentLotId, LocalDay(q.PerformedUtc), q.Passed, q.ReviewedBy, q.Control,
+            q.ExpectedResult, q.ObservedResult)).ToList();
         var lotNumbers = lots.ToDictionary(l => l.Id, l => l.LotNumber);
         var items = ReagentQcWorklistRule.Evaluate(facts, qcFacts, _clock.UtcNow, LocalDay(_clock.UtcNow))
             .Select(item => new ReagentQcWorkItemDto(

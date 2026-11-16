@@ -39,7 +39,10 @@ public readonly record struct ReagentQcFact(
     DateTime QcDateUtc,
     bool Passed,
     string? ReviewedBy,
-    string? Control = null);
+    string? Control = null,
+    // Pass 133: what was expected and read, so a worklist row says what is being reviewed.
+    string? Expected = null,
+    string? Observed = null);
 
 public readonly record struct ReagentQcWorkItem(string Kind, long LotId, long? QcId, string Message);
 
@@ -108,6 +111,10 @@ public static class ReagentQcWorklistRule
             }
 
             var todays = qcRows.Where(row => row.LotId == lot.LotId && row.QcDateUtc.Date == today).ToList();
+            // Pass 133: an overdue row says when the lot last had QC, so days without QC show.
+            var lastQc = qcRows.Where(row => row.LotId == lot.LotId && row.QcDateUtc.Date < today)
+                .Select(row => (DateTime?)row.QcDateUtc.Date).DefaultIfEmpty().Max();
+            var lastText = lastQc is DateTime last ? $" Last QC {last:yyyy-MM-dd}." : " No QC recorded yet.";
             if (lot.Controls is { Count: > 0 } controls)
             {
                 // Pass 93: every control of the reagent needs its reading for the day.
@@ -121,7 +128,7 @@ public static class ReagentQcWorklistRule
                         lot.LotId,
                         null,
                         missing.Count == controls.Count
-                            ? $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd}."
+                            ? $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd}.{lastText}"
                             : $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd} with {string.Join(", ", missing)}."));
                 }
             }
@@ -131,7 +138,7 @@ public static class ReagentQcWorklistRule
                     Overdue,
                     lot.LotId,
                     null,
-                    $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd}."));
+                    $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd}.{lastText}"));
             }
         }
 
@@ -151,12 +158,28 @@ public static class ReagentQcWorklistRule
 
             if (string.IsNullOrWhiteSpace(row.ReviewedBy))
             {
-                items.Add(new ReagentQcWorkItem(Unreviewed, row.LotId, row.Id, "QC has not been reviewed."));
+                items.Add(new ReagentQcWorkItem(Unreviewed, row.LotId, row.Id, UnreviewedText(row)));
             }
         }
 
         return items;
     }
+
+    /// <summary>
+    /// The unreviewed row's detail (end-user testing pass 133: every row read "QC has not been reviewed.", so a failed
+    /// anti-D reading from three days earlier looked the same as a passing one, and Review signed off on a row that did
+    /// not say what it was): "QC of 2026-11-12 not reviewed: expected 3+, read 0 (failed)."
+    /// </summary>
+    public static string UnreviewedText(ReagentQcFact row)
+    {
+        var control = string.IsNullOrWhiteSpace(row.Control) ? string.Empty : $" with {row.Control.Trim()}";
+        var reading = string.IsNullOrWhiteSpace(row.Expected) && string.IsNullOrWhiteSpace(row.Observed)
+            ? string.Empty
+            : $": expected {Shown(row.Expected)}, read {Shown(row.Observed)}";
+        return $"QC{control} of {row.QcDateUtc:yyyy-MM-dd} not reviewed{reading} ({(row.Passed ? "passed" : "failed")}).";
+    }
+
+    private static string Shown(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
 }
 
 public static class ReagentQcResultGate

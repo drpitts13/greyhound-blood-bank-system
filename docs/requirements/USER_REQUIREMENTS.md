@@ -917,3 +917,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-909 | Disabling an outbound interface stops sending on it; queued messages wait until it is enabled. | P1 | FRS-BB-1027 |
 | URS-BB-910 | Equipment out of service is not recorded as used for a new result; when none of a kind named for the test is in service, the result says so. | P2 | FRS-BB-1028 |
 | URS-BB-911 | The pending ABO/Rh retype board shows each unit's expiry and time waiting, and lists units soonest-expiring first with outdated units last. | P3 | FRS-BB-1029 |
+| URS-BB-912 | A reagent QC worklist row to review shows the QC day, expected and observed reactions and pass/fail; an overdue lot shows its last QC day. | P2 | FRS-BB-1030 |

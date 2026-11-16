@@ -24826,3 +24826,22 @@ Worked the Inventory Retype board (`/inventory?board=retype`) as the front-type 
 ### Tests
 
 - TEST-BB-1154. Full suite passed.
+
+## Iteration 852 — End-user testing pass 133: reviewing reagent QC blind (2026-11-15)
+
+### How it was tested
+
+Worked the Reagent QC worklist as the supervisor reviewing the seeded daily QC (seven lots, last run 2026-11-12; anti-D lot AD-24092 failed then passed on repeat).
+
+### Found and fixed
+
+1. **Every QC row to review read "QC has not been reviewed."** The row gave no day, no reading and no pass/fail, so the failed anti-D reading (expected 3+, read 0) looked the same as the passing ones, and **Review** signed off on a row that did not say what it was. Rows now read *QC of 2026-11-12 not reviewed: expected 3+, read 0 (failed).* (with the control when the reagent has controls).
+2. **An overdue lot did not say when it last had QC.** Three days without QC read the same as a missed morning. Overdue rows now end *Last QC 2026-11-12.* (or *No QC recorded yet.*).
+
+### Retested live
+
+- `/api/reagents/worklist` and the Reagents page show the seven overdue lots with *Last QC 2026-11-12.* and the eight rows to review with their readings; AD-24092's failed reading reads *(failed)*. Nothing was reviewed or entered live.
+
+### Tests
+
+- TEST-BB-1155. Full suite passed.
