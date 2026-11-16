@@ -1056,6 +1056,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-942 / FRS-BB-1060 | End-user testing pass 162: reaction workup progress on the board | `ReactionWorkupProgress.cs`, `Reactions.razor` | TEST-BB-1185 | U | |
 | URS-BB-943 / FRS-BB-1061 | End-user testing pass 163: reaction ABO check with no type on file | `ReactionInvestigationService.cs` | TEST-BB-1186 | I | |
 | URS-BB-944 / FRS-BB-1062 | End-user testing pass 164: what an open RhIG evaluation needs | `RhigEvaluationService.cs`, `RhigQueue.razor` | TEST-BB-1187 | I | |
+| URS-BB-945 / FRS-BB-1063 | End-user testing pass 165: how long a cooler is overdue | `CoolerCheckService.cs`, `CoolerCheck.razor` | TEST-BB-1188 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -1376,7 +1376,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Issue>(context), new InventoryRepository(context), new EfRepository<BloodUnit>(context),
             new EfRepository<ProductType>(context), new EfRepository<Patient>(context),
             new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate), _factory.CurrentUser,
-            new AuditWriter(context, _factory.Clock, _factory.CurrentUser), context, new AuditQuery(context));
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser), context, new AuditQuery(context), _factory.Clock);
 
         // The cooler id matches regardless of case and spacing; a unit already received on the ward is not expected.
         var scans = new[] { $"U-CLRA-{key}", $"U-CLRA-{key}", $"U-CLRC-{key}", $"U-CLRD-{key}", $"U-NOPE-{key}" };
@@ -1429,6 +1429,12 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var late = Assert.Single((await service.ListOpenAsync()).Value!, o => o.CoolerId.Equals(cooler, StringComparison.OrdinalIgnoreCase));
         Assert.True(late.Overdue);
         Assert.Equal(issueB.InTransitDueUtc, late.ReceiptDueUtc);
+        Assert.Equal("5 min", late.OverdueFor);
+
+        // TEST-BB-1188: how long overdue is said, so a cooler days late is not read like one minutes late (pass 165).
+        issueB.InTransitDueUtc = _factory.Clock.UtcNow.AddHours(-245);
+        await context.SaveChangesAsync();
+        Assert.Equal("10 days 5 hours", Assert.Single((await service.ListOpenAsync()).Value!, o => o.CoolerId.Equals(cooler, StringComparison.OrdinalIgnoreCase)).OverdueFor);
 
         // Nothing to finish for a cooler with no issues in transit, and the check needs issue.create.
         Assert.False((await service.CheckAsync(new CoolerCheckRequest($"CLR-EMPTY-{key}", [], Finish: true))).Succeeded);

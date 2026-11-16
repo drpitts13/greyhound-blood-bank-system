@@ -25441,3 +25441,21 @@ Worked the mother/baby RhIG queue (Patients & testing › RhIG) with the seeded 
 ### Tests
 
 - TEST-BB-1187. Full suite passed.
+
+## Iteration 885 — End-user testing pass 165: how long a cooler is overdue (2026-11-16)
+
+### How it was tested
+
+Worked Reagent QC (overdue lots and unreviewed QC on the worklist; a lot with no passed QC today already warns at result entry), Equipment (overdue checks; out-of-service equipment is listed apart from checks to do), Supplier orders (an overdue order names its promised date), the HL7 interface error queue and outbound queue, then Issuing › Cooler check with the seeded coolers.
+
+### Found and fixed
+
+1. **An overdue cooler did not say how long.** Cooler 1 (Demo-Massive, Morgan, Trauma Bay 1) and Cooler M2 (Demo-Multi, Riley, ICU 4) were due on the ward 2026-11-06 and read only **Overdue**, the same as a cooler a few minutes late. The badge now says how long: *Overdue 10 days 1 hour* (minutes under an hour).
+
+### Retested live
+
+- Both seeded coolers show how long they are overdue. Nothing was checked or received.
+
+### Tests
+
+- TEST-BB-1188. Full suite passed.

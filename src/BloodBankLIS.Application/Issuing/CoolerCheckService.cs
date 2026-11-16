@@ -69,7 +69,14 @@ public sealed record OpenCoolerDto(
     // What the last finished check found and who did it (end-user testing pass 72: "Cooler differences" opened a new
     // check with nothing to say which differences were recorded).
     string? LastCheckSummary = null,
-    string? LastCheckedBy = null);
+    string? LastCheckedBy = null)
+{
+    /// <summary>
+    /// How long past its receipt due time an overdue cooler is ("10 days 5 hours"; end-user testing pass 165: coolers
+    /// ten days past due read only "Overdue", the same as one ten minutes late).
+    /// </summary>
+    public string? OverdueFor { get; init; }
+}
 
 /// <summary>
 /// Checks a cooler before it leaves the blood bank: the units scanned into it against the units issued under its id
@@ -155,6 +162,7 @@ public sealed class CoolerCheckService
             var (checkedUtc, ready, summary, checkedBy) = await LastCheckAsync(group.ToList(), ct);
             var due = group.Where(i => i.InTransitDueUtc is not null).Select(i => i.InTransitDueUtc).Min();
             var now = _clock?.UtcNow ?? DateTime.UtcNow;
+            var overdue = group.Any(i => !i.DowntimeBackEntry && InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning);
             result.Add(new OpenCoolerDto(
                 group.First().CoolerId!.Trim(),
                 group.Count(),
@@ -164,9 +172,14 @@ public sealed class CoolerCheckService
                 checkedUtc,
                 ready,
                 due,
-                group.Any(i => !i.DowntimeBackEntry && InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning),
+                overdue,
                 summary,
-                checkedBy));
+                checkedBy)
+            {
+                OverdueFor = overdue && due is DateTime dueUtc
+                    ? now - dueUtc < TimeSpan.FromHours(1) ? $"{Math.Max(1, (int)(now - dueUtc).TotalMinutes)} min" : RhigEvaluationRule.AgeText(now - dueUtc)
+                    : null
+            });
         }
 
         return result.OrderBy(c => c.FirstIssuedUtc).ToList();

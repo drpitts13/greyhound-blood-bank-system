@@ -157,7 +157,7 @@ else
                                     }
                                     @if (o.Overdue)
                                     {
-                                        <span class="badge badge-red" title="Not received on the ward by its due time. Find the cooler; units out past their validated time need assessment before use." data-cooler-overdue>Overdue</span>
+                                        <span class="badge badge-red" title="Not received on the ward by its due time. Find the cooler; units out past their validated time need assessment before use." data-cooler-overdue>Overdue@(o.OverdueFor is null ? "" : $" {o.OverdueFor}")</span>
                                     }
                                 </td>
                                 <td>
