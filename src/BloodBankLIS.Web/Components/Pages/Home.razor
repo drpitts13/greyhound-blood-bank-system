@@ -550,6 +550,17 @@
                     ? (card.Key, result.Value.Count, DashboardQueueCatalog.TubesToStoreNote(result.Value, DateTime.UtcNow))
                     : (card.Key, null, null);
             }
+            case DashboardQueueCatalog.SupplierOrders:
+            {
+                var result = await Api.GetSupplierOrdersAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var (count, note) = DashboardQueueCatalog.SupplierOrdersCard(result.Value, DateTime.UtcNow);
+                return (card.Key, count, note);
+            }
             case DashboardQueueCatalog.OpenDeliveries:
             {
                 var result = await Api.GetOpenDeliveriesAsync();

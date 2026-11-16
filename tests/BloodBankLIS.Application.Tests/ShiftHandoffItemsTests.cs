@@ -88,6 +88,24 @@ public class ShiftHandoffItemsTests
         Assert.Equal("oldest collected 30 d ago", DashboardQueueCatalog.TubesToStoreNote([Tube(10), Tube(30)], now));
     }
 
+    // TEST-BB-1175: supplier orders not sent, or sent and past their arrival time, are a home card for those who receive
+    // stock, naming the drafts for a patient (end-user testing pass 153).
+    [Fact]
+    public void SupplierOrders_NotSentOrLate_AreAHomeCard()
+    {
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.InventoryReceive), c => c.Key == DashboardQueueCatalog.SupplierOrders && c.Href == "/inventory/orders");
+        var now = new DateTime(2026, 11, 16, 12, 0, 0, DateTimeKind.Utc);
+        BloodBankLIS.Application.Inventory.SupplierOrderDto Order(BloodBankLIS.Domain.Rules.SupplierOrderStatus status, int daysOld, bool overdue = false, long? patientId = null) =>
+            new(1, "SO-1", 1, "ARC", status, null, now.AddDays(-daysOld), "tech", null, null, null, null, null, 1,
+                [new BloodBankLIS.Application.Inventory.SupplierOrderLineDto(1, 1, "RBC-LR", "Red cells", null, 1) { PatientId = patientId }],
+                ArrivalOverdue: overdue);
+        Assert.Equal((0, null), DashboardQueueCatalog.SupplierOrdersCard([Order(BloodBankLIS.Domain.Rules.SupplierOrderStatus.Received, 9)], now));
+        Assert.Equal((2, "1 not sent (oldest 4 d); 1 for a patient; 1 past its arrival time"), DashboardQueueCatalog.SupplierOrdersCard(
+            [Order(BloodBankLIS.Domain.Rules.SupplierOrderStatus.Draft, 4, patientId: 13),
+             Order(BloodBankLIS.Domain.Rules.SupplierOrderStatus.Submitted, 9, overdue: true),
+             Order(BloodBankLIS.Domain.Rules.SupplierOrderStatus.Submitted, 1)], now));
+    }
+
     // TEST-BB-1166: deliveries with every unit entered are a handoff item linked to Open deliveries and in the summary;
     // the home card is for those who receive stock and names those ready to complete and the oldest (end-user testing
     // pass 144).

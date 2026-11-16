@@ -1043,6 +1043,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-929 / FRS-BB-1047 | End-user testing pass 150: reserved units on the retype board | `ProductRetypeService.cs`, `ProductRetypeDtos.cs`, `Inventory.razor` | TEST-BB-1172 | I | |
 | URS-BB-930 / FRS-BB-1048 | End-user testing pass 151: the worklist's retype tab matches the board | `TestWorklist.razor` | TEST-BB-1173 | U | |
 | URS-BB-931 / FRS-BB-1049 | End-user testing pass 152: reserved units named on the Units to retype card | `DashboardQueueCatalog.cs` | TEST-BB-1174 | U | |
+| URS-BB-932 / FRS-BB-1050 | End-user testing pass 153: supplier orders left in draft | `DashboardQueueCatalog.cs`, `DashboardHomeLayout.cs`, `Home.razor` | TEST-BB-1175 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

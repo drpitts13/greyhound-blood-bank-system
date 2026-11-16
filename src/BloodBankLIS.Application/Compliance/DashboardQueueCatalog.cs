@@ -57,6 +57,7 @@ public static class DashboardQueueCatalog
     public const string Retypes = "retypes";
     public const string OpenDeliveries = "open-deliveries";
     public const string TubesToStore = "tubes-to-store";
+    public const string SupplierOrders = "supplier-orders";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -86,6 +87,9 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.ResultEnter), Retypes, "Units to retype", "/inventory?board=retype");
         // Pass 144: supplier deliveries still open, seen only on Inventory's Open deliveries board before.
         Add(cards, has(PermissionCodes.InventoryReceive), OpenDeliveries, "Open deliveries", "/inventory?board=deliveries");
+        // Pass 153: supplier orders still to send, or sent and past their arrival time (a patient's special order sat
+        // in draft from 2026-11-12, never sent).
+        Add(cards, has(PermissionCodes.InventoryReceive), SupplierOrders, "Supplier orders to follow up", "/inventory/orders");
         // Daily reagent QC is bench work: whoever enters results records and reviews it.
         Add(cards, has(PermissionCodes.ResultEnter), ReagentQc, "Reagent QC", "/reagents");
         // Equipment checks failed, overdue, due today or never done, on equipment in service (Cycle 709): bench work.
@@ -467,6 +471,29 @@ public static class DashboardQueueCatalog
             AttentionNote(all.Count(i => i.Expired), "outdated", "outdated")
         };
         return string.Join("; ", parts.Where(p => p is not null));
+    }
+
+    /// <summary>
+    /// The Supplier orders card (pass 153): drafts not yet sent to the supplier and sent orders past their arrival time,
+    /// naming the drafts for a patient and the oldest draft.
+    /// </summary>
+    public static (int Count, string? Note) SupplierOrdersCard(IEnumerable<BloodBankLIS.Application.Inventory.SupplierOrderDto> orders, DateTime nowUtc)
+    {
+        var all = orders.ToList();
+        var drafts = all.Where(o => o.Status == SupplierOrderStatus.Draft).ToList();
+        var late = all.Count(o => o.Status == SupplierOrderStatus.Submitted && o.ArrivalOverdue);
+        if (drafts.Count + late == 0)
+        {
+            return (0, null);
+        }
+
+        var parts = new[]
+        {
+            drafts.Count == 0 ? null : $"{drafts.Count} not sent (oldest {AlertInboxView.OpenFor(drafts.Min(o => o.CreatedUtc), nowUtc)})",
+            AttentionNote(drafts.Count(o => o.Lines.Any(l => l.PatientId is not null)), "for a patient", "for patients"),
+            AttentionNote(late, "past its arrival time", "past their arrival time")
+        };
+        return (drafts.Count + late, string.Join("; ", parts.Where(p => p is not null)));
     }
 
     /// <summary>The Tubes to store card note (pass 145): how long the oldest tube has waited since it was collected.</summary>

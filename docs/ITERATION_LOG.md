@@ -25196,3 +25196,21 @@ Read the home dashboard's **Units to retype** card after passes 149–151, as th
 ### Tests
 
 - TEST-BB-1174 (`UnitsToRetype_AreAHandoffItem_AndAHomeCard` extended). Full suite passed.
+
+## Iteration 872 — End-user testing pass 153: a patient's supplier order left in draft (2026-11-16)
+
+### How it was tested
+
+Checked a reserved unit on the chart (MRN0001's W0001230000001 shows *Pending Retype*, as it should), then the supplier ordering side: Minimum stock and Supplier orders.
+
+### Found and fixed
+
+1. **A supplier order for a patient sat in draft, never sent, with nothing to say so.** SO-20261112-001, two irradiated CMV-negative red cells for Demo-Special, Avery (MRN0023), was created on 2026-11-12 and never submitted; the dashboard's Below minimum stock card counts par shortfalls, and an overdue sent order shows there only through its product, so a draft for a patient was seen only by opening Supplier orders. A home card, **Supplier orders to follow up** (for those who receive stock, on the Issue desk), now counts drafts not yet sent and sent orders past their arrival time, naming the drafts for a patient and the oldest: *1 not sent (oldest 3 d); 1 for a patient; 1 past its arrival time*.
+
+### Retested live
+
+- The dashboard shows *Supplier orders to follow up 2 — 1 not sent (oldest 3 d); 1 for a patient; 1 past its arrival time* (SO-20261112-001 in draft; SO-DEMO-002 sent and overdue). No order was submitted live.
+
+### Tests
+
+- TEST-BB-1175. Full suite passed.
