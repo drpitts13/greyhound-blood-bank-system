@@ -962,3 +962,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-954 | Record crossmatch does not offer the electronic method while the facility has electronic crossmatch turned off, and says why. | P3 | FRS-BB-1072 |
 | URS-BB-955 | Every facility policy a bench page reads can be read from the bench, so a page never acts as if a policy were unset because its read was refused. | P2 | FRS-BB-1073 |
 | URS-BB-956 | The billing queue says, under each charge whose DFT has not gone, how long it has been queued and why. | P3 | FRS-BB-1074 |
+| URS-BB-957 | Failed and unreviewed reagent QC, and results tested with a failing lot, wait on the supervisor queue for a verifier. | P2 | FRS-BB-1075 |

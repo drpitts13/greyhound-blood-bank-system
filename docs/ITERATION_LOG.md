@@ -25671,3 +25671,21 @@ Worked Reports & billing › Billing with the ten seeded pending charges (Demo, 
 ### Tests
 
 - TEST-BB-1199. Full suite passed.
+
+## Iteration 897 — End-user testing pass 177: reagent QC on the supervisor queue (2026-11-16)
+
+### How it was tested
+
+Worked Quality & review › Supervisor queue with the seeded data: eight quarantined units soonest to expire first (two thawed plasmas due in 12 hours), a missing unit, an operational hold and an emergency-release override, then compared it with Reagent QC.
+
+### Found and fixed
+
+1. **Failed and unreviewed QC never reached the supervisor.** The anti-D lot AD-24092 failed QC on 2026-11-12 (expected 3+, read 0) before passing later that day, all eight QC rows from that day were unreviewed, and five results tested with the lot while it was failing still needed review; all of it was on Reagent QC only. The supervisor queue now lists failed QC (marked), unreviewed QC and results to review as **Reagent QC**, after result verification, for users who verify results; each row opens Reagent QC. Overdue daily QC stays bench work on Reagent QC.
+
+### Retested live
+
+- The supervisor queue shows nine **Reagent QC** rows: *results to review — lot AD-24092* (5 results; its QC failed and has since passed, so no failed row stands) and eight unreviewed QC rows, the failed anti-D reading among them. Nothing was reviewed or released.
+
+### Tests
+
+- TEST-BB-1200. Full suite passed.

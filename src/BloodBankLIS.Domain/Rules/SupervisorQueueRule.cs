@@ -22,6 +22,16 @@ public static class SupervisorQueueRule
     public const string KindRhigComplete = "RhigComplete";
     /// <summary>OCD-083: a transfusion the EHR reported for a unit recalled, quarantined, damaged or missing (Cycle 700).</summary>
     public const string KindTransfusionReported = "TransfusionReported";
+    /// <summary>
+    /// Reagent QC that failed, is not yet reviewed, or left results tested with a failing lot to review (end-user testing
+    /// pass 177: a failed anti-D QC, eight unreviewed QC rows and results to review were on Reagent QC only, never on the supervisor queue).
+    /// Waits on result.verify; overdue QC stays bench work on Reagent QC.
+    /// </summary>
+    public const string KindReagentQc = "ReagentQcReview";
+
+    /// <summary>The reagent QC worklist kinds a supervisor sees: failed, unreviewed, results to review.</summary>
+    public static bool IsSupervisorReagentQc(string worklistKind) =>
+        worklistKind is ReagentQcWorklistRule.Failed or ReagentQcWorklistRule.Unreviewed or ReagentQcWorklistRule.ReviewResults;
 
     /// <summary>A reported transfusion waits on whoever releases stock or reviews overrides.</summary>
     public static bool IncludeTransfusionReported(bool hasInventoryRelease, bool hasOverrideApprove) => hasInventoryRelease || hasOverrideApprove;
@@ -52,7 +62,7 @@ public static class SupervisorQueueRule
     public static bool IncludeOperationalHold(bool hasInventoryRelease) => hasInventoryRelease;
 
     public static readonly IReadOnlyList<string> Kinds =
-        [KindAntibodyReview, KindResultVerify, KindQuarantineRelease, KindDiscrepancy, KindOperationalHold, KindTransfusionReported, KindOverrideReview];
+        [KindAntibodyReview, KindResultVerify, KindReagentQc, KindQuarantineRelease, KindDiscrepancy, KindOperationalHold, KindTransfusionReported, KindOverrideReview];
 
     /// <summary>The queue kind a link names (<c>?kind=</c>), matched without regard to case; null when it names none.</summary>
     public static string? KindFromQuery(string? value) =>
@@ -62,11 +72,12 @@ public static class SupervisorQueueRule
     {
         KindAntibodyReview => 0,
         KindResultVerify => 1,
-        KindQuarantineRelease => 2,
-        KindDiscrepancy => 3,
-        KindOperationalHold => 4,
-        KindTransfusionReported => 5,
-        KindOverrideReview => 6,
+        KindReagentQc => 2,
+        KindQuarantineRelease => 3,
+        KindDiscrepancy => 4,
+        KindOperationalHold => 5,
+        KindTransfusionReported => 6,
+        KindOverrideReview => 7,
         _ => 99
     };
 }

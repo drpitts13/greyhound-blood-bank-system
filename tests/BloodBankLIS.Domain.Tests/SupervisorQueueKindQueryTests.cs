@@ -13,8 +13,10 @@ public class SupervisorQueueKindQueryTests
         Assert.Null(SupervisorQueueRule.KindFromQuery("Something"));
         Assert.Null(SupervisorQueueRule.KindFromQuery(""));
         Assert.Null(SupervisorQueueRule.KindFromQuery(null));
-        // Cycle 700 (OCD-083): the reported-transfusion kind is linkable like the rest; pass 137 added operational hold (seven).
-        Assert.Equal(7, SupervisorQueueRule.Kinds.Distinct().Count());
+        // Cycle 700 (OCD-083): the reported-transfusion kind is linkable like the rest; pass 137 added operational hold, and
+        // pass 177 reagent QC (eight).
+        Assert.Equal(8, SupervisorQueueRule.Kinds.Distinct().Count());
+        Assert.Equal(SupervisorQueueRule.KindReagentQc, SupervisorQueueRule.KindFromQuery("reagentqcreview"));
         Assert.Equal(SupervisorQueueRule.KindTransfusionReported, SupervisorQueueRule.KindFromQuery("transfusionreported"));
     }
 }

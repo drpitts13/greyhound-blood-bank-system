@@ -36,6 +36,7 @@ public sealed class SupervisorQueueService
     private readonly IPermissionEvaluator? _permissions;
     private readonly OverrideReviewService? _overrides;
     private readonly RhigEvaluationService? _rhig;
+    private readonly BloodBankLIS.Application.Inventory.ReagentQcService? _reagentQc;
     private readonly BloodBankLIS.Application.Issuing.TransfusionReportReviewService? _reported;
 
     /// <summary>A code name in words: "ReactionRemainder" reads "Reaction remainder".</summary>
@@ -53,8 +54,10 @@ public sealed class SupervisorQueueService
         IPermissionEvaluator? permissions = null,
         OverrideReviewService? overrides = null,
         RhigEvaluationService? rhig = null,
-        BloodBankLIS.Application.Issuing.TransfusionReportReviewService? reported = null)
+        BloodBankLIS.Application.Issuing.TransfusionReportReviewService? reported = null,
+        BloodBankLIS.Application.Inventory.ReagentQcService? reagentQc = null)
     {
+        _reagentQc = reagentQc;
         _reported = reported;
         _rhig = rhig;
         _overrides = overrides;
@@ -119,6 +122,22 @@ public sealed class SupervisorQueueService
                     row.CurrentResultId,
                     row.Mrn,
                     DueSoon: row.VerificationDeadlineNotice is not null));
+            }
+        }
+
+        // Pass 177: failed and unreviewed reagent QC, and results tested with a failing lot, wait on a verifier.
+        if (SupervisorQueueRule.IncludeResultVerify(verify) && _reagentQc is not null)
+        {
+            foreach (var w in (await _reagentQc.ListWorkAsync(ct)).Where(w => SupervisorQueueRule.IsSupervisorReagentQc(w.Kind)))
+            {
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindReagentQc,
+                    $"Reagent QC {ReagentQcWorklistRule.KindText(w.Kind)} — lot {w.LotNumber}",
+                    w.Message,
+                    "/reagents",
+                    w.Kind == ReagentQcWorklistRule.ReviewResults ? $"{w.ResultsToReview} results to review" : "Review",
+                    ContextId: w.QcId ?? w.LotId,
+                    DueSoon: w.Kind == ReagentQcWorklistRule.Failed));
             }
         }
 
