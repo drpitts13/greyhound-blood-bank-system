@@ -206,6 +206,22 @@ public sealed class InterfaceUnmappedValueService
         return OperationResult<InterfaceUnmappedValueDto>.Ok((await ListAsync(false, ct)).First(v => v.Id == row.Id));
     }
 
+    /// <summary>
+    /// Resolves an open inbound value that a message has just used as it came, because it is already an LIS code (pass
+    /// 147), from any interface: an LIS code is valid on all of them. The caller saves.
+    /// </summary>
+    public async Task ResolveUsedAsIsAsync(string dataItemKey, string value, CancellationToken ct = default)
+    {
+        var trimmed = value.Trim();
+        var open = await _values.ListAsync(v => v.ResolvedUtc == null && v.InstrumentInterfaceId == null && v.DataItemKey == dataItemKey
+            && v.Direction == InterfaceTranslationDirection.Inbound, ct);
+        foreach (var row in open.Where(v => string.Equals(v.Value, trimmed, StringComparison.OrdinalIgnoreCase)))
+        {
+            var tracked = await _values.GetByIdAsync(row.Id, ct) ?? row;
+            Resolve(tracked, "Used as it came: it is already an LIS code.");
+        }
+    }
+
     /// <summary>Resolves the open values a newly saved translation now covers. The caller saves.</summary>
     public async Task ResolveCoveredAsync(string dataItemKey, long? endpointId, IReadOnlyList<InterfaceValueTranslation> rows, CancellationToken ct = default)
     {

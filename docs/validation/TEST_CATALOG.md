@@ -1177,5 +1177,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1166 | U | `ShiftHandoffItemsTests.DeliveriesToComplete_AreAHandoffItem_AndOpenDeliveriesAHomeCard` | URS-BB-923 / FRS-BB-1041 |
 | TEST-BB-1167 | U | `ShiftHandoffItemsTests.TubesToStore_AreAHandoffItem_AndAHomeCard` | URS-BB-924 / FRS-BB-1042 |
 | TEST-BB-1168 | U | `MaternalDeliveryRuleTests.Unrecorded_NamesALinkedBirthWithNoPregnancyRecorded` | URS-BB-925 / FRS-BB-1043 |
+| TEST-BB-1169 | I | `InterfaceTestCodeTranslationTests.LisOwnOrderCode_FilesAsItCame_AndIsNotListedAsUnmapped` | URS-BB-926 / FRS-BB-1044 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

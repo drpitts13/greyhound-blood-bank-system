@@ -142,6 +142,22 @@ public sealed class InterfaceValueTranslator
         return new TranslationOutcome(value, false, null, false);
     }
 
+    /// <summary>
+    /// Takes back a miss for a value that was then used as it came (end-user testing pass 147: order codes such as TNS, XM
+    /// and RBC-LR, which are the LIS's own codes, were listed as unmapped because the field had translations for other
+    /// codes, though each order filed; the real misses were lost among them).
+    /// </summary>
+    public void ForgetMiss(string dataItemKey, string value)
+    {
+        if (string.IsNullOrWhiteSpace(dataItemKey) || string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        _misses.RemoveAll(m => string.Equals(m.DataItemKey, dataItemKey, StringComparison.Ordinal)
+            && string.Equals(m.Value, value.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>Records a value that could not be used (for example an order code that names no test or grouper).</summary>
     public void RecordMiss(string dataItemKey, string value, InterfaceTranslationDirection direction)
     {

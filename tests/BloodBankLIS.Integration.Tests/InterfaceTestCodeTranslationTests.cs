@@ -158,6 +158,33 @@ public class InterfaceTestCodeTranslationTests : IDisposable
         Assert.Equal((InterfaceDataItemKeys.OrderTestCode, 2, "XL-10"), (unmapped.DataItemKey, unmapped.Count, unmapped.LastMessageControlId));
     }
 
+    // TEST-BB-1169: an order code that is already the LIS's own code (DAT) files as it came and is not listed as
+    // unmapped, though the field has translations for other codes; an open row listed for it earlier is resolved; an
+    // unknown code is still listed (end-user testing pass 147).
+    [Fact]
+    public async Task LisOwnOrderCode_FilesAsItCame_AndIsNotListedAsUnmapped()
+    {
+        await SeedAsync();
+        await using (var c = _factory.Create())
+        {
+            c.InterfaceUnmappedValues.Add(new InterfaceUnmappedValue
+            {
+                DataItemKey = InterfaceDataItemKeys.OrderTestCode, Value = "DAT", Direction = InterfaceTranslationDirection.Inbound,
+                FirstSeenUtc = _factory.Clock.UtcNow, LastSeenUtc = _factory.Clock.UtcNow, Count = 1
+            });
+            await c.SaveChangesAsync();
+            var processed = await Processor(c).ProcessAsync(Orm("XL-OWN", "ORD-XL-OWN", "DAT"));
+            Assert.True(processed.Accepted, processed.Log?.ErrorDetail);
+        }
+
+        await using var verify = _factory.Create();
+        var order = await verify.Orders.SingleAsync(o => o.OrderNumber == "ORD-XL-OWN");
+        Assert.Equal("DAT", (await verify.OrderLines.SingleAsync(l => l.OrderId == order.Id)).TestCode);
+        var dat = Assert.Single(await verify.InterfaceUnmappedValues.Where(u => u.Value == "DAT").ToListAsync());
+        Assert.NotNull(dat.ResolvedUtc);
+        Assert.Equal("Used as it came: it is already an LIS code.", dat.ResolvedNote);
+    }
+
     // TEST-BB-527: an ADT message stores the translated race and ethnicity and opens the visit as its patient class; a
     // later message without them keeps them; the chart accepts only listed codes, and blank clears.
     [Fact]

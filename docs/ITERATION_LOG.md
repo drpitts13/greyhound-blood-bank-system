@@ -25088,3 +25088,21 @@ Walked the seeded mother/baby pairs from the mothers' side: MRN0028 (anti-K, inf
 ### Tests
 
 - TEST-BB-1168. Full suite passed.
+
+## Iteration 866 — End-user testing pass 147: LIS codes listed as unmapped (2026-11-16)
+
+### How it was tested
+
+Walked Issue & Transfuse (Ready to issue, the active MTP), RhIG, Lookback, the antibody card for MRN0004 and the antibody ID worklist, then the interface team's Unmapped values list (10 entries).
+
+### Found and fixed
+
+1. **Order codes the LIS already knows were listed as unmapped.** TNS, XM and RBC-LR are the LIS's own grouper, test and product codes; their orders filed, but because the order-code field has translations for other codes (LAB10117 → TNS), each was also listed as unmapped, and the interface team could not tell them from the codes that really failed (LAB99999, RBC). An order code used as it came because it is an LIS code is no longer listed, and an entry listed for it earlier is cleared, with a note, when the next message uses it.
+
+### Retested live
+
+- An ORM for XM (test patient TEST-UNM-147, removed afterwards) filed and cleared the open XM entry (*Used as it came: it is already an LIS code.*, count unchanged). TNS and RBC-LR stay listed until a message uses them again, or are dismissed; LAB99999, RBC, LAB10117 and the patient class *I* remain, as they should.
+
+### Tests
+
+- TEST-BB-1169. Full suite passed.

@@ -855,6 +855,13 @@ public sealed class Hl7InboundProcessor
                 map.Translator.RecordMiss(InterfaceDataItemKeys.OrderTestCode, data.TestCode.Trim(), InterfaceTranslationDirection.Inbound);
                 throw new Hl7MappingException(TestCodeTranslationRule.UnknownOrderCodeMessage(data.TestCode.Trim()));
             }
+
+            // Pass 147: the code is the LIS's own test, grouper or product code, used as it came: not unmapped.
+            map.Translator.ForgetMiss(InterfaceDataItemKeys.OrderTestCode, data.TestCode.Trim());
+            if (_unmapped is not null)
+            {
+                await _unmapped.ResolveUsedAsIsAsync(InterfaceDataItemKeys.OrderTestCode, data.TestCode.Trim(), ct);
+            }
         }
         // Pass 119: a code that is a blood product (and not a test or grouper) is a transfusion request: product lines,
         // one per unit, or one line for a volume in mL.
