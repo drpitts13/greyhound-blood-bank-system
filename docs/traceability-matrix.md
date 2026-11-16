@@ -1060,6 +1060,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-946 / FRS-BB-1064 | End-user testing pass 166: QC sample patient column | `InstrumentMessagePatientText.cs`, `Instruments.razor` | TEST-BB-1189 | U | |
 | URS-BB-947 / FRS-BB-1065 | End-user testing pass 167: how long a blood order has waited | `BloodOrderWaitText.cs`, `BloodOrders.razor` | TEST-BB-1190 | U | |
 | URS-BB-948 / FRS-BB-1066 | End-user testing pass 168: how long a pending test has waited | `BloodOrderWaitText.cs`, `TestWorklist.razor` | TEST-BB-1191 | U | |
+| URS-BB-949 / FRS-BB-1067 | End-user testing pass 169: Minimum stock while loading | `MinimumStock.razor` | TEST-BB-1192 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

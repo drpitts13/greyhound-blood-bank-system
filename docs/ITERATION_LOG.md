@@ -25517,3 +25517,25 @@ Worked Patients & testing › Test Worklist with the seeded tests: the reaction 
 ### Tests
 
 - TEST-BB-1191. Full suite passed.
+
+## Iteration 889 — End-user testing pass 169: Minimum stock said none were set while loading (2026-11-16)
+
+### How it was tested
+
+Worked Inventory › Discard expired (ten expired units still on a shelf, oldest first) and Inventory › Minimum stock with the seeded levels (RBC-LR A 0 of 4, PLT-A 0 of 2, FFP 6 of 4, RBC-LR O 6 of 6). Storage locations already carry which components each may hold (the seeded refrigerator allows platelets; that is configuration, not changed).
+
+### Found and fixed
+
+1. **Minimum stock said no levels were configured.** Opened from the menu, the page read *No minimum stock levels are configured* until the levels arrived, and would have kept saying so if reading them failed, while the home card counted two below minimum. It now says *Loading…* until the levels are read, and the error if they could not be.
+
+### Noted for later passes
+
+- The same pattern (an empty-list message shown before the list is read) is on other pages, among them Issuing, Inventory, Reactions and Deviations; each is to be checked in turn.
+
+### Retested live
+
+- Minimum stock shows the four levels, *2 below minimum*, without the empty message (the brief loading state itself was not caught live; the order of checks is covered by TEST-BB-1192). No level was changed.
+
+### Tests
+
+- TEST-BB-1192. Full suite passed.

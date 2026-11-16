@@ -13,7 +13,16 @@
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>On hand</h3></div>
-    @if (_rows.Count == 0)
+    @* Pass 169: the page said no levels were configured while it was still loading them, or when loading failed. *@
+    @if (!_loaded)
+    {
+        <div class="muted" data-min-stock-loading>Loading…</div>
+    }
+    else if (_loadError is not null)
+    {
+        <div class="text-danger" data-min-stock-error>Minimum stock levels could not be loaded: @_loadError</div>
+    }
+    else if (_rows.Count == 0)
     {
         <div class="muted">No minimum stock levels are configured.</div>
     }
@@ -120,6 +129,8 @@
 
 @code {
     private List<MinimumStockRowDto> _rows = new();
+    private bool _loaded;
+    private string? _loadError;
 
     // The same search the board counts with (Available, product, ABO when set), so the number opens its units.
     private static string OnHandUrl(MinimumStockRowDto row) =>
@@ -142,6 +153,8 @@
     {
         var rows = await Api.GetMinimumStockAsync();
         if (rows.Succeeded) _rows = rows.Value ?? new();
+        _loadError = rows.Succeeded ? null : rows.Error ?? "the server did not answer.";
+        _loaded = true;
     }
 
     private int ShortCount => _rows.Count(r => r.Shortfall > 0);

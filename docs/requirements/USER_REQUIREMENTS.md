@@ -954,3 +954,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-946 | The instrument message list does not show a QC sample's instrument patient ID as a patient. | P3 | FRS-BB-1064 |
 | URS-BB-947 | Blood orders to prepare say how long each order has waited since it was placed. | P3 | FRS-BB-1065 |
 | URS-BB-948 | The Test Worklist says how long each pending test has waited since it was ordered. | P3 | FRS-BB-1066 |
+| URS-BB-949 | Minimum stock says it is loading, or that loading failed, instead of saying no levels are configured. | P3 | FRS-BB-1067 |

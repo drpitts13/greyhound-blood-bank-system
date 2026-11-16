@@ -1031,6 +1031,7 @@
 | FRS-BB-1064 | `InstrumentMessagePatientText.For`: a QualityControl message's Patient column reads "— QC" with the instrument's patient ID in the tooltip; used on `Instruments.razor`. |
 | FRS-BB-1065 | `BloodOrderWaitText.Text` (order time and `AlertInboxView.OpenFor` age) on each row of `BloodOrders.razor`. |
 | FRS-BB-1066 | `BloodOrderWaitText.Waiting` under the priority on `TestWorklist.razor` when no turnaround notice applies. |
+| FRS-BB-1067 | `MinimumStock.razor`: Loading… until the levels are read, the load error if reading failed, and only then the empty message. |
 | FRS-BB-070 | Configuration catalogs are versioned where modeled and write `ConfigurationChangeHistory`. Runtime uses the single live row (`IsActive && !IsDraft`). As-of dating, scheduled activation, and overlapping versions are not implemented (OCD-033). | URS-BB-012 | Admin services | Admin catalog tests |
 | FRS-BB-080 | HL7 inbound stores raw message, parse status, ACK, and error-queue entries. ADT/ORM follow a merged MRN to the survivor and do not write demographics onto the loser. ADT A18/A40 apply <c>PatientMergeService</c> when configured. | URS-BB-013, URS-BB-015 | `Hl7InboundProcessor`; `PatientMergeFollow` | Phase 5 HL7 merge tests |
 | FRS-BB-090 | Downtime recovery is documented; duplicate prevention uses unique keys listed in `docs/DOWNTIME_PLAN.md`. The post-recovery snapshot is FRS-BB-190. | URS-BB-014 | Downtime plan; `DowntimeReconciliationService` | Operational checklist; TEST-BB-018; TEST-BB-019 |

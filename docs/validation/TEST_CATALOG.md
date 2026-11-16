@@ -1200,5 +1200,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1189 | U | `InstrumentMessagePatientTextTests.For_QcSampleIsNotShownAsAPatient` | URS-BB-946 / FRS-BB-1064 |
 | TEST-BB-1190 | U | `BloodOrderWaitTextTests.Text_SaysHowLongTheOrderHasWaited` | URS-BB-947 / FRS-BB-1065 |
 | TEST-BB-1191 | U | `BloodOrderWaitTextTests.Text_SaysHowLongTheOrderHasWaited` | URS-BB-948 / FRS-BB-1066 |
+| TEST-BB-1192 | U | `LoadingStateSourceTests.MinimumStock_SaysLoadingBeforeSayingNoneConfigured` | URS-BB-949 / FRS-BB-1067 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
