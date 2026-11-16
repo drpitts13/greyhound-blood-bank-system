@@ -31,7 +31,8 @@ else
         <Outcome Value="_fb" />
         @if (_rows.Count == 0)
         {
-            <div class="empty">No reaction investigations.</div>
+            var emptyState = WorklistEmptyText.For(_loaded, _loadError, "No reaction investigations.");
+            <div class="@(emptyState.IsError ? "empty text-danger" : "empty")" data-worklist-empty="reactions">@emptyState.Text</div>
         }
         else if (!VisibleRows.Any())
         {
@@ -478,6 +479,8 @@ else
     public long? PatientId { get; set; }
 
     private List<ReactionInvestigationDto> _rows = new();
+    private bool _loaded;
+    private string? _loadError;
     private ReactionInvestigationDto? _selected;
 
     private bool _showClosed;
@@ -744,6 +747,9 @@ else
             await LoadWorkupOptionsAsync();
         }
         else _fb = r.ToFeedback();
+        // Pass 171: the list said there were none before it was read, and beside a failed read.
+        _loadError = r.Succeeded ? null : r.Error ?? "the server did not answer.";
+        _loaded = true;
     }
 
     private void ApplyQuerySelection()

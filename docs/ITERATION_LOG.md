@@ -25556,8 +25556,26 @@ Followed up pass 169 on Transfusion › Issue & Transfuse. The page reads the fa
 
 ### Noted for a later pass
 
-- The issue desk reads the whole patient list and the user directory before its work lists, so the lists take several seconds to appear on the dev data.
+- The six-second wait was the first page after the web server restarted. Measured again in pass 171, each of the desk's API reads takes under 25 ms and the warm page shows Ready to issue within about 0.2 s, so nothing was changed for it.
 
 ### Tests
 
 - TEST-BB-1193. Full suite passed.
+
+## Iteration 891 — End-user testing pass 171: Reactions and Deviations said there were none before reading (2026-11-16)
+
+### How it was tested
+
+Measured the issue desk's first load noted in pass 170: each of its API reads (ready to issue, issued, in transit, final disposition, second ABO/Rh, physician statements, coolers, active MTP, patients, users) answers in under 25 ms, and the warm page shows Ready to issue within about 0.2 s. The six seconds seen in pass 170 was the first page after the web server restarted; nothing was changed for it. Then continued the pass 169 follow-up on the Reactions board and Deviations.
+
+### Found and fixed
+
+1. **Reactions and Deviations said there were none before reading.** *No reaction investigations.* and *No deviations recorded.* showed while the boards were loading, and beside the error if reading failed. Both now say *Loading…* until read and that the list could not be loaded if the read failed.
+
+### Retested live
+
+- The Reactions board lists its two seeded investigations and Deviations its three seeded deviations once read. Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1194. Full suite passed.

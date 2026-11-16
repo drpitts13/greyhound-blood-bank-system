@@ -37,6 +37,19 @@ public class LoadingStateSourceTests
         Assert.Contains("_worklistsLoaded = true;", page);
     }
 
+    // TEST-BB-1194: the Reactions board and Deviations do not say there are none before reading them, or beside a failed
+    // read (end-user testing pass 171).
+    [Theory]
+    [InlineData("Reactions.razor", "No reaction investigations.")]
+    [InlineData("Deviations.razor", "No deviations recorded.")]
+    public void EmptyBoards_SayLoadingBeforeNone(string file, string emptyText)
+    {
+        var page = File.ReadAllText(Path.Combine(RepoRoot(), "src", "BloodBankLIS.Web", "Components", "Pages", file));
+        Assert.Contains($"WorklistEmptyText.For(_loaded, _loadError, \"{emptyText}\")", page);
+        Assert.DoesNotContain($"<div class=\"empty\">{emptyText}</div>", page);
+        Assert.Contains("_loaded = true;", page);
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
