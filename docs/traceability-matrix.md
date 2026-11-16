@@ -1063,6 +1063,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-949 / FRS-BB-1067 | End-user testing pass 169: Minimum stock while loading | `MinimumStock.razor` | TEST-BB-1192 | U | |
 | URS-BB-950 / FRS-BB-1068 | End-user testing pass 170: issue desk lists before they are read | `WorklistEmptyText.cs`, `Issuing.razor` | TEST-BB-1193 | U | |
 | URS-BB-951 / FRS-BB-1069 | End-user testing pass 171: Reactions and Deviations before they are read | `Reactions.razor`, `Deviations.razor` | TEST-BB-1194 | U | |
+| URS-BB-952 / FRS-BB-1070 | End-user testing pass 172: Inventory boards before they are read | `Inventory.razor` | TEST-BB-1195 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

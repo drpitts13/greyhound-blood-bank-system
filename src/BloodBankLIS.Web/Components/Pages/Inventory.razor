@@ -65,7 +65,7 @@
         </details>
         @if (_expectedItems.Count == 0)
         {
-            <div class="muted">No expected inbound units.</div>
+            @BoardEmpty("expected", "No expected inbound units.")
         }
         else
         {
@@ -324,7 +324,7 @@
         <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Use them first: issue one reserved for a patient, or allocate it to an open order for its product. Discard only a unit that cannot be used, with a coded reason and a second verifier, as on the unit page.</p>
         @if (_nearExpiryItems.Count == 0)
         {
-            <div class="muted">No units near expiry.</div>
+            @BoardEmpty("near", "No units near expiry.")
         }
         else
         {
@@ -466,7 +466,7 @@
         }
         @if (_quarantineItems.Count == 0)
         {
-            <div class="muted">No units in quality quarantine.</div>
+            @BoardEmpty("quarantine", "No units in quality quarantine.")
         }
         else
         {
@@ -586,7 +586,7 @@
         <p class="muted">Missing and damaged units awaiting locate or inspect (SoftBank/SafeTrace physical inventory). They cannot be issued.</p>
         @if (_discrepancyItems.Count == 0)
         {
-            <div class="muted">No missing or damaged units.</div>
+            @BoardEmpty("discrepancy", "No missing or damaged units.")
         }
         else
         {
@@ -655,7 +655,7 @@
         <p class="muted">Units that cannot be issued until hold is released (paperwork or pending review — not quality quarantine). Release needs the same permission as Manage.</p>
         @if (_onHoldItems.Count == 0)
         {
-            <div class="muted">No units on operational hold.</div>
+            @BoardEmpty("hold", "No units on operational hold.")
         }
         else
         {
@@ -736,7 +736,7 @@
         }
         @if (_recalledItems.Count == 0)
         {
-            <div class="muted">No recalled units waiting to be pulled.</div>
+            @BoardEmpty("recalled", "No recalled units waiting to be pulled.")
         }
         else
         {
@@ -778,7 +778,7 @@
         <p class="muted">Open a delivery to review it, or enter the units that arrived. Each delivery has one supplier and expected counts by product, such as RBC or FFP.</p>
         @if (_openDeliveries.Count == 0)
         {
-            <div class="muted">No open deliveries.</div>
+            @BoardEmpty("deliveries", "No open deliveries.")
         }
         else
         {
@@ -1180,22 +1180,46 @@
         else _topFb = r.ToFeedback();
     }
 
+    // Pass 172: which boards have been read and which failed, so an unread or failed board is not shown as empty.
+    private readonly HashSet<string> _boardsRead = new();
+    private readonly Dictionary<string, string> _boardErrors = new();
+
+    private void NoteBoard(string key, bool succeeded = true, string? error = null)
+    {
+        _boardsRead.Add(key);
+        if (succeeded) _boardErrors.Remove(key);
+        else _boardErrors[key] = error ?? "the server did not answer.";
+    }
+
+    private RenderFragment BoardEmpty(string key, string emptyText) => builder =>
+    {
+        var (text, isError) = WorklistEmptyText.For(_boardsRead.Contains(key), _boardErrors.GetValueOrDefault(key), emptyText);
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", isError ? "text-danger" : "muted");
+        builder.AddAttribute(2, "data-worklist-empty", key);
+        builder.AddContent(3, text);
+        builder.CloseElement();
+    };
+
     private async Task LoadExpectedAsync()
     {
         if (!Session.Has(PermissionCodes.InventoryReceive))
         {
             _expectedItems = new();
+            NoteBoard("expected");
             return;
         }
 
         var r = await Api.GetExpectedInboundAsync();
         if (r.Succeeded) _expectedItems = r.Value ?? new();
+        NoteBoard("expected", r.Succeeded, r.Error);
     }
 
     private async Task LoadNearExpiryAsync()
     {
         var r = await Api.GetNearExpiryUnitsAsync();
         if (r.Succeeded) _nearExpiryItems = r.Value ?? new();
+        NoteBoard("near", r.Succeeded, r.Error);
 
         // The next step for each row: a reserved unit's issue, or open orders an unreserved one could fill.
         _nearReady = Session.Has(PermissionCodes.IssueCreate) && _nearExpiryItems.Any(u => u.IsReserved)
@@ -1216,6 +1240,7 @@
     {
         var r = await Api.GetQuarantineUnitsAsync();
         if (r.Succeeded) _quarantineItems = r.Value ?? new();
+        NoteBoard("quarantine", r.Succeeded, r.Error);
     }
 
     private async Task LoadDiscrepancyAsync()
@@ -1223,11 +1248,13 @@
         if (!Session.Has(PermissionCodes.InventoryRelease))
         {
             _discrepancyItems = new();
+            NoteBoard("discrepancy");
             return;
         }
 
         var r = await Api.GetDiscrepancyUnitsAsync();
         if (r.Succeeded) _discrepancyItems = r.Value ?? new();
+        NoteBoard("discrepancy", r.Succeeded, r.Error);
     }
 
     private string _recalledScan = string.Empty;
@@ -1260,6 +1287,7 @@
     {
         var r = await Api.GetRecalledUnitsAsync();
         _recalledItems = r.Succeeded ? r.Value ?? new() : new();
+        NoteBoard("recalled", r.Succeeded, r.Error);
     }
 
     private async Task LoadOnHoldAsync()
@@ -1267,11 +1295,13 @@
         if (!Session.Has(PermissionCodes.InventoryRelease))
         {
             _onHoldItems = new();
+            NoteBoard("hold");
             return;
         }
 
         var r = await Api.GetOnHoldUnitsAsync();
         if (r.Succeeded) _onHoldItems = r.Value ?? new();
+        NoteBoard("hold", r.Succeeded, r.Error);
     }
 
     private async Task LoadRetypesAsync()
@@ -1429,6 +1459,7 @@
     {
         var r = await Api.GetOpenDeliveriesAsync();
         _openDeliveries = r.Succeeded ? r.Value ?? new() : new();
+        NoteBoard("deliveries", r.Succeeded, r.Error);
         if (!r.Succeeded) _topFb = r.ToFeedback();
     }
 

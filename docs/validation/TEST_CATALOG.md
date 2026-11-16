@@ -1203,5 +1203,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1192 | U | `LoadingStateSourceTests.MinimumStock_SaysLoadingBeforeSayingNoneConfigured` | URS-BB-949 / FRS-BB-1067 |
 | TEST-BB-1193 | U | `LoadingStateSourceTests.IssuingWorklists_DoNotShowEmptyBeforeTheyAreRead` | URS-BB-950 / FRS-BB-1068 |
 | TEST-BB-1194 | U | `LoadingStateSourceTests.EmptyBoards_SayLoadingBeforeNone` | URS-BB-951 / FRS-BB-1069 |
+| TEST-BB-1195 | U | `LoadingStateSourceTests.InventoryBoards_DoNotShowEmptyBeforeTheyAreRead` | URS-BB-952 / FRS-BB-1070 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

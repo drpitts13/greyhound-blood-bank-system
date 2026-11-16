@@ -25579,3 +25579,21 @@ Measured the issue desk's first load noted in pass 170: each of its API reads (r
 ### Tests
 
 - TEST-BB-1194. Full suite passed.
+
+## Iteration 892 — End-user testing pass 172: Inventory boards said there were none before reading (2026-11-16)
+
+### How it was tested
+
+Continued the pass 169 follow-up on Inventory, the page a tech opens to pull recalled, quarantined and near-expiry units.
+
+### Found and fixed
+
+1. **Inventory boards said there were no such units before reading, and after a failed read.** *No recalled units waiting to be pulled*, *No units in quality quarantine*, *No units near expiry* and the four other boards showed while the page loaded its products, locations, users and patients, and the Recalled board read empty if the server did not answer. Each board now says *Loading…* until read, and in red that it could not be loaded if the read failed.
+
+### Retested live
+
+- Quarantine lists its seeded units; Recalled, with none in the seeded data, reads *No recalled units waiting to be pulled.* once read. Nothing was moved, released or pulled.
+
+### Tests
+
+- TEST-BB-1195. Full suite passed.

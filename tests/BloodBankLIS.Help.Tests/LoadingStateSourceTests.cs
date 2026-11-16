@@ -50,6 +50,21 @@ public class LoadingStateSourceTests
         Assert.Contains("_loaded = true;", page);
     }
 
+    // TEST-BB-1195: the Inventory boards say Loading… until read and name a failed read, instead of saying there are no
+    // such units (end-user testing pass 172).
+    [Fact]
+    public void InventoryBoards_DoNotShowEmptyBeforeTheyAreRead()
+    {
+        var page = File.ReadAllText(Path.Combine(RepoRoot(), "src", "BloodBankLIS.Web", "Components", "Pages", "Inventory.razor"));
+        foreach (var key in new[] { "expected", "near", "quarantine", "discrepancy", "hold", "recalled", "deliveries" })
+        {
+            Assert.Contains($"@BoardEmpty(\"{key}\", ", page);
+            Assert.Contains($"NoteBoard(\"{key}\"", page);
+        }
+
+        Assert.DoesNotContain("<div class=\"muted\">No recalled units waiting to be pulled.</div>", page);
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

@@ -957,3 +957,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-949 | Minimum stock says it is loading, or that loading failed, instead of saying no levels are configured. | P3 | FRS-BB-1067 |
 | URS-BB-950 | The issue desk's work lists say they are loading, or that a list could not be read, instead of saying nothing is waiting. | P2 | FRS-BB-1068 |
 | URS-BB-951 | The Reactions board and Deviations say they are loading, or that the list could not be read, instead of saying there are none. | P3 | FRS-BB-1069 |
+| URS-BB-952 | The Inventory boards say they are loading, or that a board could not be read, instead of saying there are no such units. | P2 | FRS-BB-1070 |
