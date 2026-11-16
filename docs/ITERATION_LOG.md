@@ -25294,3 +25294,21 @@ Searched Inventory's stock list for the units held in passes 149–156. (The web
 ### Tests
 
 - TEST-BB-1179. Full suite passed.
+
+## Iteration 877 — End-user testing pass 158: units awaiting retype on the downtime sheet (2026-11-16)
+
+### How it was tested
+
+Checked a reserved unit's page (W000123UAG0001 already says *Reserved for Kline, Nora*), the PBM review (empty: no transfusion criteria are configured, which is the facility's to decide), then printed the Downtime patient summary as for an outage.
+
+### Found and fixed
+
+1. **The downtime sheet did not say a reserved unit's retype was not confirmed.** W0001230000001 (Demo, Patricia) and W000123RXN0001 (Febrile, Marcus) were listed as *Reserved* like any other unit, though their ABO/Rh retype is not recorded; on paper, with the system down, nothing stops the bench issuing one routinely. Their lines now end **ABO/Rh retype not confirmed: retype before issue**.
+
+### Retested live
+
+- The Downtime patient summary shows the mark on W0001230000001 and W000123RXN0001 only. Nothing was printed or issued.
+
+### Tests
+
+- TEST-BB-1180. Full suite passed.

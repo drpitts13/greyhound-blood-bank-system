@@ -171,6 +171,10 @@ else
                                             {
                                                 <text> &middot; reservation @(ends <= _summary.GeneratedUtc ? "ended" : "ends") @ends.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(ends <= _summary.GeneratedUtc ? " (lapsed)" : "")</text>
                                             }
+                                            @if (u.RetypePending)
+                                            {
+                                                <text> &middot; </text><strong data-downtime-retype>@DowntimeUnitLine.RetypePendingText</strong>
+                                            }
                                         </div>
                                     </div>
                                 }

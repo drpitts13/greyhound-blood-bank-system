@@ -16,7 +16,12 @@ public sealed record DowntimeUnitLine(
     // Reserved for the patient, or issued and not yet returned or transfused.
     bool Issued,
     DateTime? ReservationEndsUtc = null,
-    string? IssuedToLocation = null);
+    string? IssuedToLocation = null,
+    // Pass 158: reserved while still Received, its ABO/Rh retype not confirmed: not to be issued routinely on paper.
+    bool RetypePending = false)
+{
+    public const string RetypePendingText = "ABO/Rh retype not confirmed: retype before issue";
+}
 
 /// <summary>
 /// A transfusion reaction on the patient's record (end-user testing pass 104: the downtime sheet and the one-patient
@@ -202,7 +207,8 @@ public sealed class DowntimePatientSummaryService
                     u.ExpiresUtc,
                     isIssued,
                     reservationEnds,
-                    location)
+                    location,
+                    RetypePending: !isIssued && u.Status == UnitStatus.Received)
                 : null;
 
         // ABO/Rh results entered but not verified, on the patients' current specimens.

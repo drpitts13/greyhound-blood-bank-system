@@ -309,6 +309,39 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
             });
     }
 
+    // TEST-BB-1180: a reserved unit whose ABO/Rh retype is not confirmed (still Received) says so on the downtime sheet; a
+    // reserved unit released to stock does not (end-user testing pass 158).
+    [Fact]
+    public async Task ReservedUnit_AwaitingRetype_IsMarkedOnTheSheet()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patient = NewPatient(key, "Retype");
+        c.Patients.Add(patient);
+        var product = new ProductType { ProductCode = $"RBC-DTT-{key}", Name = "Retype RBC", ComponentClass = ComponentClass.RedBloodCells };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        BloodUnit Unit(string suffix, UnitStatus status) => new()
+        {
+            UnitNumber = $"W-DTT-{suffix}-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(10), Status = status
+        };
+        var notRetyped = Unit("RCV", UnitStatus.Received);
+        var released = Unit("ASG", UnitStatus.Assigned);
+        c.BloodUnits.AddRange(notRetyped, released);
+        await c.SaveChangesAsync();
+        c.Allocations.AddRange(
+            new Allocation { BloodProductId = notRetyped.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now.AddHours(-1) },
+            new Allocation { BloodProductId = released.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now.AddHours(-1) });
+        await c.SaveChangesAsync();
+
+        var row = (await Service(c).GetAsync()).Patients.Single(p => p.PatientId == patient.Id);
+
+        Assert.True(row.Units.Single(u => u.UnitNumber == notRetyped.UnitNumber).RetypePending);
+        Assert.False(row.Units.Single(u => u.UnitNumber == released.UnitNumber).RetypePending);
+    }
+
     // TEST-BB-434: from the chart, one patient's sheet: that patient only, even with nothing current; the print names them.
     [Fact]
     public async Task OnePatient_IsOnTheSheetEvenWithNothingCurrent_AndThePrintIsAuditedAgainstThem()
