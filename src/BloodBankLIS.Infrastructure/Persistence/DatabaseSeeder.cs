@@ -42,6 +42,7 @@ public static partial class DatabaseSeeder
         await EnsureAntibodyIdentificationPoliciesAsync(context, cancellationToken);
         await EnsureCatalogPoliciesStoredAsync(context, cancellationToken);
         await EnsureLookbackNotifyDecidedAsync(context, cancellationToken);
+        await EnsureIsbtExpirationCenturyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedCodedCommentDefinitionsAsync(context, cancellationToken);
@@ -453,6 +454,29 @@ public static partial class DatabaseSeeder
     /// OCD-089 decided 2026-11-14: lookback notify-within is 84 days for every lookback type. A database that stored the
     /// earlier "not set" (0) is moved to 84 once, with a configuration-history row; any other entered value is kept.
     /// </summary>
+    /// <summary>
+    /// OCD-092 (decided 2026-11-16): stored ISBT 128 expiration codes written with century 2 (the old encoder) or in the demo
+    /// seeder's prefixed form are rewritten once in the ICCBBA form (century 0 for the 2000s), so a label scan matches them.
+    /// </summary>
+    private static async Task EnsureIsbtExpirationCenturyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var units = await context.BloodUnits.Where(u => u.ExpirationEncoded != null).ToListAsync(ct);
+        var changed = 0;
+        foreach (var unit in units)
+        {
+            if (BloodBankLIS.Domain.Isbt128.Parsing.ExpirationParser.RepairStoredEncoding(unit.ExpirationEncoded) is { } repaired)
+            {
+                unit.ExpirationEncoded = repaired;
+                changed++;
+            }
+        }
+
+        if (changed > 0)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
     private static async Task EnsureLookbackNotifyDecidedAsync(BloodBankDbContext context, CancellationToken ct)
     {
         var row = await context.SystemSettings.FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.LookbackNotifyWithinDays, ct);

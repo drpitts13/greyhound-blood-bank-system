@@ -1192,5 +1192,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1181 | U | `ShiftHandoffItemsTests.UnitsToRetype_AreAHandoffItem_AndAHomeCard` | URS-BB-938 / FRS-BB-1056 |
 | TEST-BB-1182 | I | `Phase4IssuingTests.ReactionList_CountsThePatientsUnitsOutOrReserved` | URS-BB-939 / FRS-BB-1057 |
 | TEST-BB-1183 | U | `ExpirationPlausibilityRuleTests.Evaluate_RefusesAnImplausibleYear`, `ExpirationPlausibilityRuleTests.LabelExpiration_ResolvingToTheLastCentury_IsRefused` | URS-BB-940 / FRS-BB-1058 |
+| TEST-BB-1184 | U | `ExpirationProductParserTests.Expiration_CenturyDigit_ZeroIs2000s_NineIs1900s`, `ExpirationProductParserTests.RepairStoredEncoding_RewritesCenturyTwoAndTheDemoForm`, `ExpirationPlausibilityRuleTests.LabelExpiration_ReadWithTheIccbbaCentury_IsPlausible` | URS-BB-941 / FRS-BB-1059 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

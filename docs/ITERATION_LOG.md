@@ -25366,3 +25366,24 @@ Recipient traceback for MRN0022 and the merged MRN0024 (resolves to MRN0022 with
 ### Tests
 
 - TEST-BB-1183. Full suite passed.
+
+## Iteration 881 — OCD-092 decided: the ISBT 128 century digit (2026-11-16)
+
+### Decision
+
+The product owner checked the ICCBBA standard: in expiration codes (`=>cyyjjj`, `&>cyyjjjhhmm`) the century digit is **0 for the 2000s and 9 for the 1900s**.
+
+### Changed
+
+1. **Reading labels.** `&>0263312359` now reads as 2026-11-27 23:59 (before: 1926). A 9 reads as the 1900s; any other digit is refused (*Century digit 2 is not used: 0 is the 2000s and 9 the 1900s (ICCBBA)*), since no ICCBBA label carries one.
+2. **Writing codes.** Manual component entry now encodes the 2000s with 0 (before: 2), so codes the system writes match labels.
+3. **Stored codes.** Units stored with a code written by the old encoder (century 2) are rewritten once at startup in the ICCBBA form, so a label scanned at issue matches them; the demo seeder's malformed `=yyjjj` is repaired the same way, and the seeder now writes `0yyjjj`.
+4. **Safety net kept.** The year plausibility check from pass 161 still refuses an expiration more than 2 years before or 11 after today, now pointing to the decided rule.
+
+### Retested live
+
+- `/api/isbt/parse`: `&>0263312359` and `=>026331` read 2026-11-27 23:59; `=>226331` is refused with the century message; `=>926331` reads 1926 and is refused as implausible. No unit was received.
+
+### Tests
+
+- TEST-BB-1184; the parser tests use century 0. Full suite passed.

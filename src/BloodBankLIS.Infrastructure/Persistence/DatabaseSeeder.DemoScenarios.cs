@@ -2510,8 +2510,8 @@ public static partial class DatabaseSeeder
         const string productCode = "E0336";
         var expires = now.AddDays(35);
 
-        // ISBT 128 encodes expiration as two-digit year plus day of year.
-        var encodedExpiration = $"{expires:yy}{expires.DayOfYear:D3}";
+        // ISBT 128 expiration date (=>cyyjjj): century digit 0 for the 2000s (OCD-092), two-digit year, day of year.
+        var encodedExpiration = $"0{expires:yy}{expires.DayOfYear:D3}";
 
         var unit = new BloodUnit
         {
@@ -2537,7 +2537,7 @@ public static partial class DatabaseSeeder
             ComponentIdentity = $"{donationId}|{productCode}|00",
             ComponentIdentityKey = $"{donationId}:{productCode}:00",
             DivisionCode = "00",
-            ExpirationEncoded = $"={encodedExpiration}",
+            ExpirationEncoded = encodedExpiration,
             ExpirationLocal = expires,
             ExpirationHasExplicitTime = false
         };
@@ -2548,7 +2548,7 @@ public static partial class DatabaseSeeder
             RawScan(unit.Id, IsbtDataStructureKind.DonationIdentificationNumber, "=W1234 22 123456", donationId, now.AddMinutes(-12)),
             RawScan(unit.Id, IsbtDataStructureKind.ProductCode, $"={productCode}00", $"{productCode}00", now.AddMinutes(-11)),
             RawScan(unit.Id, IsbtDataStructureKind.AboRhd, "=%61", "61", now.AddMinutes(-10)),
-            RawScan(unit.Id, IsbtDataStructureKind.ExpirationDate, $"&>{encodedExpiration}", encodedExpiration, now.AddMinutes(-9)));
+            RawScan(unit.Id, IsbtDataStructureKind.ExpirationDate, $"=>{encodedExpiration}", encodedExpiration, now.AddMinutes(-9)));
 
         var session = new BloodComponentScanSession
         {
@@ -2569,7 +2569,7 @@ public static partial class DatabaseSeeder
             SessionLine(session.Id, IsbtDataStructureKind.DonationIdentificationNumber, "=W1234 22 123456", donationId, now.AddMinutes(-12)),
             SessionLine(session.Id, IsbtDataStructureKind.ProductCode, $"={productCode}00", $"{productCode}00", now.AddMinutes(-11)),
             SessionLine(session.Id, IsbtDataStructureKind.AboRhd, "=%61", "61", now.AddMinutes(-10)),
-            SessionLine(session.Id, IsbtDataStructureKind.ExpirationDate, $"&>{encodedExpiration}", encodedExpiration, now.AddMinutes(-9)));
+            SessionLine(session.Id, IsbtDataStructureKind.ExpirationDate, $"=>{encodedExpiration}", encodedExpiration, now.AddMinutes(-9)));
 
         context.BloodComponentSpecialTests.Add(new BloodComponentSpecialTest
         {

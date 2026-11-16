@@ -27,13 +27,13 @@ public class ExpirationPlausibilityRuleTests
         }
     }
 
-    // The label code that started it: ICCBBA labels in use read &>0263312359 as 2026 day 331; under the century mapping
-    // awaiting confirmation it resolves to 1926, which the rule refuses.
+    // The label code that started it: &>0263312359 now reads as 2026 (OCD-092 decided) and passes; a 1900s code is refused.
     [Fact]
-    public void LabelExpiration_ResolvingToTheLastCentury_IsRefused()
+    public void LabelExpiration_ReadWithTheIccbbaCentury_IsPlausible()
     {
         var parsed = ExpirationParser.Parse("&>0263312359");
         Assert.True(parsed.Success);
-        Assert.Equal(RuleSeverity.HardStop, ExpirationPlausibilityRule.Evaluate(parsed.Value!.Year, Now).Severity);
+        Assert.Equal(RuleSeverity.Pass, ExpirationPlausibilityRule.Evaluate(parsed.Value!.Year, Now).Severity);
+        Assert.Equal(RuleSeverity.HardStop, ExpirationPlausibilityRule.Evaluate(ExpirationParser.Parse("=>926331").Value!.Year, Now).Severity);
     }
 }
