@@ -960,3 +960,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-952 | The Inventory boards say they are loading, or that a board could not be read, instead of saying there are no such units. | P2 | FRS-BB-1070 |
 | URS-BB-953 | The Reagent QC worklist, the equipment checks due, the storage temperature locations and the supplier orders say they are loading, or that the list could not be read, instead of saying there is nothing. | P2 | FRS-BB-1071 |
 | URS-BB-954 | Record crossmatch does not offer the electronic method while the facility has electronic crossmatch turned off, and says why. | P3 | FRS-BB-1072 |
+| URS-BB-955 | Every facility policy a bench page reads can be read from the bench, so a page never acts as if a policy were unset because its read was refused. | P2 | FRS-BB-1073 |

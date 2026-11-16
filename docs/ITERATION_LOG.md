@@ -25635,3 +25635,21 @@ Walked the newborn chart DEMO-MATAB, Baby Boy Lena (MRN0029, born 2026-11-13, mo
 ### Tests
 
 - TEST-BB-1197. Full suite passed.
+
+## Iteration 895 — End-user testing pass 175: every bench policy read is readable (2026-11-16)
+
+### How it was tested
+
+Followed up the pass 174 finding (Compatibility read a facility policy the bench may not read, got 404, and behaved as if it were unknown). Listed every policy the web pages read through the reference endpoint: twelve keys on eight pages and components, among them the second ABO/Rh for issue, the specimen collector, receipt by scan, the reagent QC result block, the discard verifier and the antibody identification review settings. Then walked Patients › Possible duplicates (one pair, Demo-Multi, Riley MRN0022 and MRN9022, with why it is listed and which chart holds the history) and Billing (ten pending charges with their DFTs).
+
+### Found
+
+- All twelve keys are on the readable list now; the one that was not (electronic crossmatch) was added in pass 174. Nothing else was missing.
+
+### Changed
+
+- A test now fails if a page reads a policy that is not on the readable list, so this cannot recur silently.
+
+### Tests
+
+- TEST-BB-1198. Full suite passed.
