@@ -18,6 +18,7 @@ public static class IssueRun
         var blocks = new List<string>();
         if (row.SpecimenBlocksIssue) blocks.Add(row.SpecimenBlockReason ?? "The specimen does not allow issue.");
         if (row.UnitOutdated) blocks.Add(row.UnitBlockReason ?? "The unit is outdated.");
+        if (!string.IsNullOrWhiteSpace(row.RetypeNotice)) blocks.Add(row.RetypeNotice!);
         if (!string.IsNullOrWhiteSpace(row.SpecialRequirementNotice)) blocks.Add(row.SpecialRequirementNotice!);
         if (row.AboRhDiscrepancyBlocksIssue) blocks.Add(row.AboRhDiscrepancyNotice ?? "An ABO/Rh discrepancy is unresolved.");
         if (row.NeedsSecondAbo) blocks.Add(ReadyToIssueFormCue.SecondAbo);

@@ -25124,3 +25124,21 @@ Continued pass 147 on the instrument side of Unmapped values: the ImmuLINK Echo'
 ### Tests
 
 - TEST-BB-1170. Full suite passed.
+
+## Iteration 868 — End-user testing pass 149: reserved units awaiting retype (2026-11-16)
+
+### How it was tested
+
+Ran all 19 system reports (each returns rows or an empty result without error), looked at the stale unmapped patient class *I* (the seeded translation covers it; an ADT with *I* in pass 147 did not list it again), then compared Inventory on hand against Ready to issue.
+
+### Found and fixed
+
+1. **A reserved unit still waiting for its ABO/Rh retype was not marked on Ready to issue.** W0001230000001 (Demo, Patricia) and W000123RXN0001 (Febrile, Marcus) are reserved and on the board but still **Received**: their retype is not recorded, so routine issue refuses them (*the unit is received but not released to stock*), yet the row said nothing about it and the board would have counted them issuable once their crossmatch and specimen were fixed. The row now carries a **Retype** mark (shown whatever else the row needs) with **Open retype desk**, and the retype counts as a reason the row is not offered for routine issue; emergency release is unchanged.
+
+### Retested live
+
+- `/api/issues/ready-to-issue` gives the retype notice for W0001230000001 and W000123RXN0001 only; the Ready to issue board shows *Retype* and *Open retype desk* on both rows. Nothing was issued or retyped live.
+
+### Tests
+
+- TEST-BB-1171. Full suite passed.

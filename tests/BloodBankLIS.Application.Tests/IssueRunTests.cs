@@ -29,6 +29,23 @@ public class IssueRunTests
         Assert.Equal([12L, 13L, 11L], IssueRun.NextForPatient(ready, 1, null, []).Select(r => r.BloodUnitId));
     }
 
+    // TEST-BB-1171: a reserved unit still waiting for its ABO/Rh retype is marked on Ready to issue and is not offered for
+    // routine issue; other statuses carry no retype notice (end-user testing pass 149).
+    [Fact]
+    public void UnitAwaitingRetype_IsNotOfferedForRoutineIssue_AndSaysWhy()
+    {
+        var notice = BloodBankLIS.Domain.Rules.IssueGate.RetypeNotice(UnitStatus.Received);
+        Assert.NotNull(notice);
+        Assert.Contains("retype is not confirmed", notice);
+        Assert.Null(BloodBankLIS.Domain.Rules.IssueGate.RetypeNotice(UnitStatus.Available));
+        Assert.Null(BloodBankLIS.Domain.Rules.IssueGate.RetypeNotice(UnitStatus.Assigned));
+
+        var row = Row(1, 11, 0) with { RetypeNotice = notice };
+        Assert.False(IssueRun.OffersRoutineIssue(row));
+        Assert.Contains(notice, IssueRun.RoutineIssueBlocks(row));
+        Assert.True(IssueRun.OffersRoutineIssue(Row(1, 12, 0)));
+    }
+
     [Fact]
     public void UnitsTheBoardWouldNotIssueRoutinely_AreNotOffered_ButCounted()
     {

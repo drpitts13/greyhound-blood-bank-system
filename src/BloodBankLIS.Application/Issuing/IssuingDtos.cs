@@ -404,7 +404,9 @@ public sealed record ReadyToIssueWorkItemDto(
     // The patient's latest transfusion reaction investigation still open or under review (Cycle 627): said before the
     // unit leaves the bank (OCD-078; a warning, not a block).
     long? OpenReactionInvestigationId = null,
-    DateTime? OpenReactionReportedUtc = null);
+    DateTime? OpenReactionReportedUtc = null,
+    // Pass 149: the reserved unit is still Received, its ABO/Rh retype not confirmed, so routine issue refuses it.
+    string? RetypeNotice = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,

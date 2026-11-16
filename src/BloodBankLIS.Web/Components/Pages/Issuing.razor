@@ -423,6 +423,12 @@
                                 {
                                     <span class="badge badge-amber" title="@row.AboRhDiscrepancyNotice">ABO discrepancy</span>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(row.RetypeNotice))
+                                {
+                                    @* Pass 149: reserved before its ABO/Rh retype was confirmed; shown whatever else the row needs. *@
+                                    <span class="badge badge-amber" title="@row.RetypeNotice" data-ready-retype>Retype</span>
+                                    <a class="btn btn-ghost btn-sm" href="@($"/inventory?board=retype&unitId={row.BloodUnitId}#pending-retype")">Open retype desk</a>
+                                }
                                 @if (row.SpecimenBlocksIssue)
                                 {
                                     <span class="badge badge-red" title="@row.SpecimenBlockReason">Specimen</span>

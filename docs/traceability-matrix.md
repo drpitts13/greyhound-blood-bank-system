@@ -1039,6 +1039,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-925 / FRS-BB-1043 | End-user testing pass 146: a newborn's delivery not recorded on the mother's chart | `MaternalDeliveryRule.cs`, `PatientChartHeader.razor`, `PatientDetail.razor` | TEST-BB-1168 | U | |
 | URS-BB-926 / FRS-BB-1044 | End-user testing pass 147: LIS codes listed as unmapped | `InterfaceValueTranslator.cs`, `Hl7InboundProcessor.cs`, `InterfaceUnmappedValueService.cs` | TEST-BB-1169 | I | |
 | URS-BB-927 / FRS-BB-1045 | End-user testing pass 148: instrument interpretations listed as unmapped | `InstrumentInterpretationValue.cs`, `AstmInboundProcessor.cs`, `InterfaceUnmappedValueService.cs` | TEST-BB-1170 | U, I | |
+| URS-BB-928 / FRS-BB-1046 | End-user testing pass 149: reserved units awaiting retype on Ready to issue | `IssueGate.cs`, `IssuingDtos.cs`, `IssuingService.cs`, `IssueRun.cs`, `Issuing.razor` | TEST-BB-1171 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

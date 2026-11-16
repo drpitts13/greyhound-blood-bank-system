@@ -1273,7 +1273,8 @@ public sealed class IssuingService
                         expires),
                     forOrder?.NeededByUtc, now),
                 OpenReactionInvestigationId = openReactions.TryGetValue(allocation.PatientId, out var reaction) ? reaction.Id : null,
-                OpenReactionReportedUtc = openReactions.TryGetValue(allocation.PatientId, out var reported) ? reported.ReportedUtc : null
+                OpenReactionReportedUtc = openReactions.TryGetValue(allocation.PatientId, out var reported) ? reported.ReportedUtc : null,
+                RetypeNotice = unit is null ? null : IssueGate.RetypeNotice(unit.Status)
             });
         }
 

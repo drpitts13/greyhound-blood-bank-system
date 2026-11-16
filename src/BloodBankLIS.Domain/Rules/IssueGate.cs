@@ -347,6 +347,16 @@ public static class IssueGate
     /// Cycle 697: the refusal for a status that cannot be issued says why and what to do next, after the status itself
     /// (the wording "Unit status X is not issuable" is kept at the start).
     /// </summary>
+    /// <summary>
+    /// The Ready to issue notice for a reserved unit still waiting for its ABO/Rh confirmation retype (end-user testing
+    /// pass 149: two such units were on the board with no mark, the retype missing only from routine issue's refusal at
+    /// the desk); null for any other status.
+    /// </summary>
+    public static string? RetypeNotice(UnitStatus status) =>
+        status == UnitStatus.Received
+            ? "The unit's ABO/Rh retype is not confirmed: record the retype before routine issue (emergency release can still issue it)."
+            : null;
+
     public static string NotIssuableMessage(UnitStatus status) =>
         $"Unit status {status} is not issuable" + status switch
         {

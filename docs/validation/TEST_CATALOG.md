@@ -1179,5 +1179,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1168 | U | `MaternalDeliveryRuleTests.Unrecorded_NamesALinkedBirthWithNoPregnancyRecorded` | URS-BB-925 / FRS-BB-1043 |
 | TEST-BB-1169 | I | `InterfaceTestCodeTranslationTests.LisOwnOrderCode_FilesAsItCame_AndIsNotListedAsUnmapped` | URS-BB-926 / FRS-BB-1044 |
 | TEST-BB-1170 | U, I | `InstrumentInterpretationValueTests.IsLocal_RecognisesLisInterpretations`, `InstrumentInterfaceTests.ScreenInterpretation_InLisForm_IsNotListedAsUnmapped` | URS-BB-927 / FRS-BB-1045 |
+| TEST-BB-1171 | U | `IssueRunTests.UnitAwaitingRetype_IsNotOfferedForRoutineIssue_AndSaysWhy` | URS-BB-928 / FRS-BB-1046 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
