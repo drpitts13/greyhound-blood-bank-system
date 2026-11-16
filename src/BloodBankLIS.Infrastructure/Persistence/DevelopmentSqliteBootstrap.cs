@@ -305,6 +305,7 @@ public static class DevelopmentSqliteBootstrap
         ("Issues", "UrgencyStatementRecordedBy", """ALTER TABLE "Issues" ADD COLUMN "UrgencyStatementRecordedBy" TEXT NULL"""),
         ("ShiftHandoffs", "LookbackDue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "LookbackDue" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "LookbackPastNotifyBy", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "LookbackPastNotifyBy" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "RetypesPending", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RetypesPending" INTEGER NOT NULL DEFAULT 0"""),
         ("TransfusionEvents", "ConsentConfirmed", """ALTER TABLE "TransfusionEvents" ADD COLUMN "ConsentConfirmed" INTEGER NULL"""),
         ("StockParLevels", "RhD", """ALTER TABLE "StockParLevels" ADD COLUMN "RhD" INTEGER NULL"""),
         ("ShiftHandoffs", "TemperatureExcursionsOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TemperatureExcursionsOpen" INTEGER NOT NULL DEFAULT 0"""),

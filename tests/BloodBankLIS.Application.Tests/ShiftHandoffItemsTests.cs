@@ -68,6 +68,28 @@ public class ShiftHandoffItemsTests
         Assert.Contains("deviations open 3, 1 overdue", handoff.QueueSummary);
     }
 
+    // TEST-BB-1165: units waiting for their ABO/Rh confirmation retype are a handoff item linked to the Retype board and
+    // in the summary; the home card is for those who enter results and says how long the oldest has waited, the next
+    // expiry and how many outdated (end-user testing pass 143).
+    [Fact]
+    public void UnitsToRetype_AreAHandoffItem_AndAHomeCard()
+    {
+        var handoff = Handoff() with { RetypesPending = 23 };
+        var item = Assert.Single(ShiftHandoffItems.For(handoff));
+        Assert.Equal(("Units to retype", 23, "/inventory?board=retype"), (item.Label, item.Count, item.Href));
+        Assert.Contains("units to retype 23", handoff.QueueSummary);
+
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.ResultEnter), c => c.Key == DashboardQueueCatalog.Retypes && c.Href == "/inventory?board=retype");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.IssueCreate), c => c.Key == DashboardQueueCatalog.Retypes);
+        var now = new DateTime(2026, 11, 16, 12, 0, 0, DateTimeKind.Utc);
+        BloodBankLIS.Application.Inventory.ProductRetypeWorkItemDto Unit(int receivedDaysAgo, double expiresInDays, bool expired = false) =>
+            new(1, "W1", "RBC", "Red cells", BloodBankLIS.Domain.Enums.AboGroup.O, BloodBankLIS.Domain.Enums.RhType.Positive, "O+",
+                now.AddDays(-receivedDaysAgo), BloodBankLIS.Domain.Enums.UnitStatus.Received, ExpiresUtc: now.AddDays(expiresInDays), Expired: expired);
+        Assert.Null(DashboardQueueCatalog.RetypeNote([], now));
+        Assert.Equal("oldest waiting 9 d; next expires in 6 d; 1 outdated",
+            DashboardQueueCatalog.RetypeNote([Unit(9, 20), Unit(3, 6.5), Unit(4, -1, expired: true)], now));
+    }
+
     // TEST-BB-1133: lookback notifications still due are a handoff item linked to Lookback, naming those past notify-by,
     // and in the summary line; the home card names those past notify-by and is for lookback staff only; none, no item
     // (end-user testing pass 116).

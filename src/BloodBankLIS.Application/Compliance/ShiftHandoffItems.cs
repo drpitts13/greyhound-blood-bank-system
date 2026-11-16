@@ -72,6 +72,8 @@ public static class ShiftHandoffItems
         Add(h.OpenDeviations, "Open deviations", "/deviations", detail: Note((h.DeviationsOverdue, "overdue")));
         // Pass 116: recipients still to notify for a lookback.
         Add(h.LookbackDue, "Lookback notifications", "/lookback", detail: Note((h.LookbackPastNotifyBy, "past notify-by")));
+        // Pass 143: received units that cannot be stock until their ABO/Rh is confirmed.
+        Add(h.RetypesPending, "Units to retype", "/inventory?board=retype");
         Add(h.InstrumentFailuresOpen, "Instrument failures", "/instruments?show=open",
             detail: Note((h.InstrumentResultsHeld, "held for review")));
         Add(h.Hl7ErrorsOpen, "HL7 errors", "/hl7");

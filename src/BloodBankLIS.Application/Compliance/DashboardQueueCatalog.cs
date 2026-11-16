@@ -54,6 +54,7 @@ public static class DashboardQueueCatalog
     public const string PanelLotsToReplace = "panel-lots";
     public const string EquipmentChecks = "equipment-checks";
     public const string LookbackDue = "lookback-due";
+    public const string Retypes = "retypes";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -77,6 +78,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.SpecimenAccession), PendingSpecimens, "Pending specimens", "/test-worklist?tab=specimens");
         // Stored tubes past the facility's retention date (OCD-070): whoever stores tubes pulls and discards them.
         Add(cards, has(PermissionCodes.SpecimenAccession), TubesDueForDiscard, "Tubes due for discard", "/specimens/store");
+        // Pass 143: received units waiting for their ABO/Rh confirmation retype, seen only on the Retype board before.
+        Add(cards, has(PermissionCodes.ResultEnter), Retypes, "Units to retype", "/inventory?board=retype");
         // Daily reagent QC is bench work: whoever enters results records and reviews it.
         Add(cards, has(PermissionCodes.ResultEnter), ReagentQc, "Reagent QC", "/reagents");
         // Equipment checks failed, overdue, due today or never done, on equipment in service (Cycle 709): bench work.
@@ -434,6 +437,28 @@ public static class DashboardQueueCatalog
             AttentionNote(statementsOutstanding, "physician statement to collect", "physician statements to collect")
         }.Where(p => p is not null).ToList();
         return parts.Count == 0 ? null : string.Join("; ", parts);
+    }
+
+    /// <summary>
+    /// The Units to retype card note (pass 143): how long the oldest has waited and the soonest in-date expiry (the
+    /// board lists them in that order), and how many have outdated while waiting.
+    /// </summary>
+    public static string? RetypeNote(IEnumerable<BloodBankLIS.Application.Inventory.ProductRetypeWorkItemDto> pending, DateTime nowUtc)
+    {
+        var all = pending.ToList();
+        if (all.Count == 0)
+        {
+            return null;
+        }
+
+        var soonest = all.Where(i => !i.Expired && i.ExpiresUtc is not null).Select(i => i.ExpiresUtc).Min();
+        var parts = new List<string?>
+        {
+            $"oldest waiting {AlertInboxView.OpenFor(all.Min(i => i.ReceivedUtc), nowUtc)}",
+            soonest is DateTime next ? $"next {RetypeQueueOrder.ExpiryNote(next, nowUtc)}" : null,
+            AttentionNote(all.Count(i => i.Expired), "outdated", "outdated")
+        };
+        return string.Join("; ", parts.Where(p => p is not null));
     }
 
     /// <summary>The Lookback notifications card note: those past the facility's notify-by date (pass 116).</summary>

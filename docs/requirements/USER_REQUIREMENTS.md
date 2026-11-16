@@ -927,3 +927,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-919 | Equipment checks across all equipment for any period can be listed, printed and exported. | P3 | FRS-BB-1037 |
 | URS-BB-920 | The instrument message list shows each open failure's reason and patient on the row and marks a failure repeated for the same specimen and reason. | P3 | FRS-BB-1038 |
 | URS-BB-921 | The open deliveries board says how many units are still to enter or that a delivery is ready to complete, how long it has been open, and offers Review and complete. | P3 | FRS-BB-1039 |
+| URS-BB-922 | Units waiting for their ABO/Rh confirmation retype are counted on the home dashboard (Bench) and the shift handoff, with the oldest wait and next expiry. | P2 | FRS-BB-1040 |

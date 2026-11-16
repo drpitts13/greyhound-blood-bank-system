@@ -83,7 +83,9 @@ public sealed record ShiftHandoffDto(
     int DeviationsOverdue = 0,
     // Pass 116: lookback recipient notifications still due.
     int LookbackDue = 0,
-    int LookbackPastNotifyBy = 0)
+    int LookbackPastNotifyBy = 0,
+    // Pass 143: received units waiting for their ABO/Rh confirmation retype.
+    int RetypesPending = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -134,6 +136,7 @@ public sealed record ShiftHandoffDto(
         (TemperatureReadingsDue > 0 ? $"; temperature readings due {TemperatureReadingsDue}" : "") +
         (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" + (DeviationsOverdue > 0 ? $", {DeviationsOverdue} overdue" : "") : "") +
         (LookbackDue > 0 ? $"; lookback notifications due {LookbackDue}" + (LookbackPastNotifyBy > 0 ? $", {LookbackPastNotifyBy} past notify-by" : "") : "") +
+        (RetypesPending > 0 ? $"; units to retype {RetypesPending}" : "") +
         (InstrumentFailuresOpen > 0
             ? $"; instrument failures {InstrumentFailuresOpen}" + (InstrumentResultsHeld > 0 ? $", {InstrumentResultsHeld} held for review" : "")
             : "") +
@@ -171,7 +174,7 @@ public sealed record ShiftHandoffDto(
         h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
         h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen,
         h.TemperatureExcursionsOpen, h.TemperatureExcursionsToClose, h.TemperatureReadingsDue, h.DeviationsOverdue,
-        h.LookbackDue, h.LookbackPastNotifyBy);
+        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending);
 }
 
 /// <summary>
@@ -200,6 +203,7 @@ public sealed class ShiftHandoffService
     private readonly IRepository<Deviation>? _deviations;
     private readonly BloodBankLIS.Application.Inventory.StorageTemperatureService? _storageTemperatures;
     private readonly IRepository<LookbackNotification>? _lookback;
+    private readonly BloodBankLIS.Application.Inventory.ProductRetypeService? _retypes;
     // Read without admin.config.edit: minimum stock levels are configuration, the shortage is shift work.
     private readonly MinimumStockService? _minimumStock;
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
@@ -253,8 +257,10 @@ public sealed class ShiftHandoffService
         BloodBankLIS.Application.Inventory.EquipmentService? equipment = null,
         SupervisorQueueService? supervisorQueue = null,
         BloodBankLIS.Application.Inventory.StorageTemperatureService? storageTemperatures = null,
-        IRepository<LookbackNotification>? lookback = null)
+        IRepository<LookbackNotification>? lookback = null,
+        BloodBankLIS.Application.Inventory.ProductRetypeService? retypes = null)
     {
+        _retypes = retypes;
         _lookback = lookback;
         _storageTemperatures = storageTemperatures;
         _equipment = equipment;
@@ -521,7 +527,8 @@ public sealed class ShiftHandoffService
             TemperatureReadingsDue = locations.Count(l => l.ReadingDue is not null),
             DeviationsOverdue = openDeviations.Count(d => DeviationDueRule.IsOverdue(d.Status, d.DueOn, facilityToday)),
             LookbackDue = lookbackDue.Count,
-            LookbackPastNotifyBy = lookbackPast
+            LookbackPastNotifyBy = lookbackPast,
+            RetypesPending = _retypes is null ? 0 : (await _retypes.ListPendingAsync(ct)).Count
         };
     }
 
@@ -625,7 +632,8 @@ public sealed class ShiftHandoffService
         TemperatureReadingsDue = row.TemperatureReadingsDue,
         DeviationsOverdue = row.DeviationsOverdue,
         LookbackDue = row.LookbackDue,
-        LookbackPastNotifyBy = row.LookbackPastNotifyBy
+        LookbackPastNotifyBy = row.LookbackPastNotifyBy,
+        RetypesPending = row.RetypesPending
     };
 
     /// <summary>

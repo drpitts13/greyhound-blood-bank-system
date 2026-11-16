@@ -25016,3 +25016,21 @@ Walked the HL7 page (error queue, waiting outbound, log), billing charges (an is
 ### Tests
 
 - TEST-BB-1164. Full suite passed.
+
+## Iteration 862 — End-user testing pass 143: units to retype on the home page and handoff (2026-11-16)
+
+### How it was tested
+
+Allocated for the anti-K patient (MRN0004: every red cell is flagged K-untested, as it should be), then compared the shift handoff preview and the home dashboard against the bench's real work.
+
+### Found and fixed
+
+1. **Units waiting for their ABO/Rh confirmation retype were on no home card or handoff.** 23 received red cells cannot become stock until retyped, the oldest received 9 days ago and one expiring in 6 days, yet the dashboard and the shift handoff never mentioned them; the bench found them only by opening Inventory's Retype board. A home card, **Units to retype** (for those who enter results, on the Bench desk), now counts them with *oldest waiting 9 d; next expires in 6 d* (and how many outdated while waiting), opening the Retype board; the shift handoff counts them too, in its items and summary.
+
+### Retested live
+
+- The dashboard shows *Units to retype 23 — oldest waiting 9 d; next expires in 6 d*; the handoff preview has 23 and *units to retype 23* in its summary. No handoff was recorded live.
+
+### Tests
+
+- TEST-BB-1165. Full suite passed.
