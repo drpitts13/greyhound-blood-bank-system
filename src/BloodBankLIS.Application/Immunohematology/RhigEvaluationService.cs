@@ -64,6 +64,12 @@ public sealed record RhigQueueItemDto(RhigEvaluationDto Evaluation, string Patie
     /// pass 52: a delivery six days old showed "—", which read as no deadline.
     /// </summary>
     public string? GiveByNote { get; init; }
+
+    /// <summary>
+    /// What an open evaluation still needs before it can be completed (end-user testing pass 164: the queue said
+    /// "Needs entries" without saying which).
+    /// </summary>
+    public string? NeedsText { get; init; }
 }
 
 /// <summary>A patient who was given an RhIG lot (recall trace).</summary>
@@ -172,9 +178,8 @@ public sealed class RhigEvaluationService
 
             var (motherRh, antiD, variant) = await PatientFactsAsync(e.PatientId, ct);
             var dose = await DoseSettingsAsync(ct);
-            var ready = e.CompletedUtc is null
-                && RhigEvaluationRule.EvaluateComplete(e.Decision, e.VialsRecommended, e.DecisionNote, e.FetalBleedScreen, e.FetalBleedPercent)
-                    .Severity != RuleSeverity.HardStop;
+            var completeCheck = RhigEvaluationRule.EvaluateComplete(e.Decision, e.VialsRecommended, e.DecisionNote, e.FetalBleedScreen, e.FetalBleedPercent);
+            var ready = e.CompletedUtc is null && completeCheck.Severity != RuleSeverity.HardStop;
             var giveBy = RhigEvaluationRule.GiveBy(e.EventUtc, windowHours, e.Decision, e.GivenUtc is not null);
             items.Add(new RhigQueueItemDto(
                 ToDto(e, motherRh, antiD, variant, dose),
@@ -184,6 +189,7 @@ public sealed class RhigEvaluationService
             {
                 GiveByUtc = giveBy,
                 PastGiveBy = giveBy is DateTime by && now > by,
+                NeedsText = e.CompletedUtc is null && !ready ? completeCheck.Message : null,
                 GiveByNote = windowHours <= 0 && e.Decision != RhigDecision.NotCandidate && e.GivenUtc is null
                     ? $"Not shown: the facility's RhIG window is not set (Admin › Facility policies › RhIG: give within). The event was {RhigEvaluationRule.AgeText(now - e.EventUtc)} ago."
                     : null

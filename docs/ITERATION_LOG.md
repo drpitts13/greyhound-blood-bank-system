@@ -25423,3 +25423,21 @@ Read reaction investigation 1 (Febrile, Marcus, MRN0006) through the API: no cur
 ### Tests
 
 - TEST-BB-1186. Full suite passed.
+
+## Iteration 884 — End-user testing pass 164: what an open RhIG evaluation needs (2026-11-16)
+
+### How it was tested
+
+Worked the mother/baby RhIG queue (Patients & testing › RhIG) with the seeded data: DEMO-RHIG, Noor (MRN0026), delivery 2026-11-07, decision not yet made.
+
+### Found and fixed
+
+1. **"Needs entries" did not say which.** The queue marked the evaluation **Needs entries** and the tech had to open the chart and try to complete it to learn what was missing. The badge now carries the entry still needed, from the same check that completing applies: *Record whether the patient is a candidate for RhIG.*, *Record the vials recommended.*, the quantitation for a positive fetal bleed screen, or why the patient is not a candidate.
+
+### Retested live
+
+- Noor's row reads *Needs entries — Record whether the patient is a candidate for RhIG.* Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1187. Full suite passed.

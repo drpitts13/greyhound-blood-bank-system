@@ -185,6 +185,10 @@ else
                             else
                             {
                                 <span class="badge badge-amber">Needs entries</span>
+                                @if (!string.IsNullOrWhiteSpace(item.NeedsText))
+                                {
+                                    <div class="sub" data-rhig-needs>@item.NeedsText</div>
+                                }
                             }
                         </td>
                     </tr>

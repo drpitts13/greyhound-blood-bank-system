@@ -99,6 +99,8 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
         var queued = Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id);
         Assert.False(queued.ReadyToComplete);
         Assert.Equal("Mother, Ann", queued.PatientName);
+        // TEST-BB-1187: the queue says what the evaluation still needs (end-user testing pass 164).
+        Assert.Equal("The fetal bleed screen is positive: record the quantitation the dose is based on.", queued.NeedsText);
 
         var future = await recorder.SaveAsync(patient.Id, new SaveRhigEvaluationRequest(
             saved.Value.Id, RhigContext.Postpartum, _factory.Clock.UtcNow.AddDays(1), RhType.Positive, FetalBleedScreen.Positive, 0.6m, RhigDecision.Candidate, 2, null));
@@ -107,7 +109,9 @@ public class RhigEvaluationServiceTests : IClassFixture<SqliteContextFactory>
             saved.Value.Id, RhigContext.Postpartum, delivery, RhType.Positive, FetalBleedScreen.Positive, 0.6m, RhigDecision.Candidate, 2, "Per procedure"));
         Assert.True(edited.Succeeded, edited.Error);
 
-        Assert.True(Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id).ReadyToComplete);
+        var ready = Assert.Single(await Service(c).ListOpenAsync(), i => i.Evaluation.Id == saved.Value.Id);
+        Assert.True(ready.ReadyToComplete);
+        Assert.Null(ready.NeedsText);
         // TEST-BB-585: a verifier's Supervisor queue lists the evaluation ready to complete; without result.verify it is not there.
         var queue = await new SupervisorQueueService(_factory.CurrentUser,
             permissions: new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify), rhig: Service(c)).ListAsync();
