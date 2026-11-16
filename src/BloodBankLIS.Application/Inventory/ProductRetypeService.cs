@@ -29,6 +29,9 @@ public sealed class ProductRetypeService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    // Pass 150: who a waiting unit is reserved for.
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<Patient>? _patients;
 
     public ProductRetypeService(
         IInventoryRepository inventory,
@@ -38,8 +41,12 @@ public sealed class ProductRetypeService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<Patient>? patients = null)
     {
+        _allocations = allocations;
+        _patients = patients;
         _inventory = inventory;
         _results = results;
         _tests = tests;
@@ -84,7 +91,43 @@ public sealed class ProductRetypeService
 
             return ProductRetypeWorkItemDto.From(unit, latest, testName, now);
         });
-        return RetypeQueueOrder.Sort(items, i => i.ExpiresUtc, i => i.ReceivedUtc, now);
+        var sorted = RetypeQueueOrder.Sort(items, i => i.ExpiresUtc, i => i.ReceivedUtc, now);
+
+        // Pass 150: a unit reserved for a patient says for whom and is retyped first (OrderBy keeps the expiry order).
+        var reserved = await ReservedForAsync(unitIds, ct);
+        return sorted
+            .Select(i => reserved.TryGetValue(i.UnitId, out var who) ? i with { ReservedPatientId = who.Id, ReservedFor = who.Label } : i)
+            .OrderBy(i => i.ReservedFor is null ? 1 : 0)
+            .ToList();
+    }
+
+    private async Task<Dictionary<long, (long Id, string Label)>> ReservedForAsync(IReadOnlyList<long> unitIds, CancellationToken ct)
+    {
+        var result = new Dictionary<long, (long Id, string Label)>();
+        if (_allocations is null || unitIds.Count == 0)
+        {
+            return result;
+        }
+
+        var reserved = await _allocations.ListAsync(a => unitIds.Contains(a.BloodProductId) && a.Status == AllocationStatus.Reserved, ct);
+        var patientIds = reserved.Select(a => a.PatientId).Distinct().ToList();
+        var patients = _patients is null || patientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        foreach (var allocation in reserved.OrderByDescending(a => a.AllocatedUtc))
+        {
+            if (result.ContainsKey(allocation.BloodProductId))
+            {
+                continue;
+            }
+
+            var label = patients.TryGetValue(allocation.PatientId, out var patient)
+                ? $"{patient.LastName}, {patient.FirstName} ({patient.MedicalRecordNumber})"
+                : $"patient {allocation.PatientId}";
+            result[allocation.BloodProductId] = (allocation.PatientId, label);
+        }
+
+        return result;
     }
 
     /// <summary>

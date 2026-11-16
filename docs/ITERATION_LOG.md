@@ -25142,3 +25142,21 @@ Ran all 19 system reports (each returns rows or an empty result without error), 
 ### Tests
 
 - TEST-BB-1171. Full suite passed.
+
+## Iteration 869 — End-user testing pass 150: reserved units on the retype board (2026-11-16)
+
+### How it was tested
+
+Followed pass 149 to the other side: from Ready to issue's *Open retype desk* to Inventory's Retype board, looking for the two reserved units.
+
+### Found and fixed
+
+1. **The retype board did not say a waiting unit was reserved for a patient.** W000123RXN0001 (Febrile, Marcus) and W0001230000001 (Demo, Patricia) were listed among the 23 waiting units by expiry alone, with nothing to say a patient was waiting on them. A reserved unit now says **Reserved for** with the patient (linked to their products) and is listed first; the rest keep the soonest-expiring order.
+
+### Retested live
+
+- `/api/inventory/retypes/pending` lists W000123RXN0001 and W0001230000001 first with their patients; the Retype board shows *Reserved for Febrile, Marcus (MRN0006)* and *Reserved for Demo, Patricia (MRN0001)*. Nothing was retyped live.
+
+### Tests
+
+- TEST-BB-1172. Full suite passed.

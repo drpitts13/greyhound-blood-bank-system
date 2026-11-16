@@ -234,7 +234,13 @@
                     @foreach (var row in _retypeItems)
                     {
                         <tr>
-                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
+                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" />
+                                @if (row.ReservedFor is { } reservedFor)
+                                {
+                                    @* Pass 150: a patient is waiting on this unit; it is listed first. *@
+                                    <span class="sub" data-retype-reserved>Reserved for <a href="@($"/patients/{row.ReservedPatientId}?tab=products")">@reservedFor</a></span>
+                                }
+                            </td>
                             <td>
                                 <span class="mono">@row.ProductCode</span>
                                 <span class="muted">@row.ProductName</span>

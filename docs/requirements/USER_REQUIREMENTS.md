@@ -934,3 +934,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-926 | An inbound order code that is already an LIS test, grouper or product code is not listed as unmapped, and an earlier listing is cleared when it is next used. | P3 | FRS-BB-1044 |
 | URS-BB-927 | An instrument interpretation already in the LIS's form is not listed as unmapped, and an earlier listing is cleared when it is next received. | P3 | FRS-BB-1045 |
 | URS-BB-928 | Ready to issue marks a reserved unit whose ABO/Rh retype is not confirmed, links to the retype desk, and does not offer it for routine issue. | P2 | FRS-BB-1046 |
+| URS-BB-929 | The retype board names the patient a waiting unit is reserved for and lists reserved units first. | P2 | FRS-BB-1047 |

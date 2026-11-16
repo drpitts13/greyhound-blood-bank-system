@@ -27,6 +27,11 @@ public sealed record ProductRetypeWorkItemDto(
     /// <summary>"waiting 2 d" since the unit was received (pass 132).</summary>
     public string WaitingNote { get; init; } = string.Empty;
 
+    /// <summary>The patient the unit is reserved for, "Name (MRN)", when it is (pass 150): retype it first.</summary>
+    public string? ReservedFor { get; init; }
+
+    public long? ReservedPatientId { get; init; }
+
     public static ProductRetypeWorkItemDto From(
         BloodUnit unit,
         ProductRetypeResult? latest = null,

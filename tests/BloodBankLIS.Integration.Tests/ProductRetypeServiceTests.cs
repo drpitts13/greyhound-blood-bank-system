@@ -45,7 +45,9 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             _factory.Clock,
             user ?? _factory.CurrentUser,
             new AuditWriter(context, _factory.Clock, user ?? _factory.CurrentUser),
-            permissions: permissions);
+            permissions: permissions,
+            allocations: new EfRepository<Allocation>(context),
+            patients: new EfRepository<Patient>(context));
 
     private static RecordProductRetypeRequest MatchOPos() => new(
         AboGroup.O,
@@ -182,6 +184,29 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
                 .Where(a => a.EventType == AuditEventType.ProductStatus && a.EntityType == nameof(BloodUnit) && a.EntityId == unitId)
                 .ToListAsync(),
             a => a.Reason != null && a.Reason.Contains("retype", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // TEST-BB-1172: a unit waiting for its retype that is reserved for a patient says for whom and is listed before units
+    // not reserved, whatever their expiry (end-user testing pass 150).
+    [Fact]
+    public async Task PendingRetype_ReservedUnit_SaysForWhom_AndComesFirst()
+    {
+        var (_, freeId) = await SeedReceivedUnitAsync("RT-FREE", AboGroup.O, RhType.Positive);
+        var (_, reservedId) = await SeedReceivedUnitAsync("RT-RES", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        (await context.BloodUnits.SingleAsync(u => u.Id == freeId)).ExpiresUtc = _factory.Clock.UtcNow.AddDays(2);
+        (await context.BloodUnits.SingleAsync(u => u.Id == reservedId)).ExpiresUtc = _factory.Clock.UtcNow.AddDays(30);
+        var patient = new Patient { MedicalRecordNumber = $"MRN-RT-{Guid.NewGuid():N}"[..14], LastName = "Waiting", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1) };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+        context.Allocations.Add(new Allocation { BloodProductId = reservedId, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow, AllocatedBy = "tech" });
+        await context.SaveChangesAsync();
+
+        var pending = (await Retype(context).ListPendingAsync()).ToList();
+        var reserved = Assert.Single(pending, p => p.UnitId == reservedId);
+        Assert.Equal(($"Waiting, Pat ({patient.MedicalRecordNumber})", patient.Id), (reserved.ReservedFor, reserved.ReservedPatientId));
+        Assert.Null(Assert.Single(pending, p => p.UnitId == freeId).ReservedFor);
+        Assert.True(pending.FindIndex(p => p.UnitId == reservedId) < pending.FindIndex(p => p.UnitId == freeId));
     }
 
     [Fact]
