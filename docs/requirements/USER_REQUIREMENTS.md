@@ -925,3 +925,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-917 | A recent pregnancy is recorded with its actual date (not the day it is entered), can be cleared, and an impossible date is refused. | P2 | FRS-BB-1035 |
 | URS-BB-918 | Reagent QC for any period can be listed, printed and exported (reagent, lot, control, expected/observed, pass/fail, performer, reviewer). | P2 | FRS-BB-1036 |
 | URS-BB-919 | Equipment checks across all equipment for any period can be listed, printed and exported. | P3 | FRS-BB-1037 |
+| URS-BB-920 | The instrument message list shows each open failure's reason and patient on the row and marks a failure repeated for the same specimen and reason. | P3 | FRS-BB-1038 |

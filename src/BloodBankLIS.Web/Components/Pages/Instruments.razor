@@ -128,8 +128,9 @@
         {
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>When</th><th>Kind</th><th>Status</th><th>Specimen</th><th></th></tr></thead>
+                <thead><tr><th>When</th><th>Kind</th><th>Status</th><th>Specimen</th><th>Patient</th><th></th></tr></thead>
                 <tbody>
+                    @{ var repeats = InstrumentFailureRows.RepeatOf(_messages); }
                     @foreach (var msg in VisibleMessages)
                     {
                         <tr class="@(_detail?.Message.Id == msg.Id ? "row-active" : null)">
@@ -147,8 +148,17 @@
                                 {
                                     <span class="badge badge-amber" title="An instrument error code held this result: review it, then release it or re-run the sample" data-inst-held>Held</span>
                                 }
+                                @if (InstrumentFailureRows.Reason(msg) is { } reason)
+                                {
+                                    <div class="sub" title="@msg.ErrorDetail" data-inst-reason>@reason</div>
+                                }
+                                @if (repeats.TryGetValue(msg.Id, out var firstId))
+                                {
+                                    <div class="sub" data-inst-repeat>Repeats message @firstId (same specimen and reason).</div>
+                                }
                             </td>
                             <td class="mono">@msg.SpecimenId</td>
+                            <td class="mono">@msg.PatientId</td>
                             <td><button class="btn btn-ghost btn-sm" @onclick="() => OpenAsync(msg.Id)">View</button></td>
                         </tr>
                     }

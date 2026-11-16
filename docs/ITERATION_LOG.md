@@ -24979,3 +24979,22 @@ Continued the inspection preparation from pass 139 with the equipment records: t
 ### Tests
 
 - TEST-BB-1162; the seeded report count is 19. Full suite passed.
+
+## Iteration 860 — End-user testing pass 141: why an instrument message failed (2026-11-16)
+
+### How it was tested
+
+Worked the instrument failures queue (Instruments, Open failures) as the bench tech, with the three seeded failures from the ImmuLINK Echo.
+
+### Found and fixed
+
+1. **A failure's row did not say why it failed or whose it was.** The message list gave the time, kind, status and specimen; each failure had to be opened to learn that one was a patient mismatch (MRN0022 sent for UAT0001's tube) and two were a DAT not ordered on ACC-DEMO-RCV1. Rows now give the reason (shortened, full text on hover) and a **Patient** column.
+2. **The same failure sent twice looked like two problems.** Messages 8 and 9 are the same DAT for the same tube with the same reason; the later row now says *Repeats message 8 (same specimen and reason)*, so one fix covers both.
+
+### Retested live
+
+- Instruments › Open failures shows the three rows with their reasons and MRN0022, and message 9 marked as repeating message 8. No message was replayed or resolved live.
+
+### Tests
+
+- TEST-BB-1163. Full suite passed.
