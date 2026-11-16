@@ -66,6 +66,10 @@ public static class SpecimenEndpoints
         group.MapGet("/stored", async (string? location, SpecimenStorageService service, CancellationToken ct) =>
             Results.Ok(await service.ListInPlaceAsync(location, ct)));
 
+        // Received tubes never put away (pass 135).
+        group.MapGet("/not-stored", async (SpecimenStorageService service, CancellationToken ct) =>
+            Results.Ok(await service.ListNotStoredAsync(ct)));
+
         group.MapPost("/store", async (StoreSpecimenRequest request, SpecimenStorageService service, CancellationToken ct) =>
             EndpointResults.From(await service.StoreAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.SpecimenAccession);

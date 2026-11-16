@@ -85,6 +85,35 @@ else
         }
     </div>
 
+    @if (_notStored.Count > 0)
+    {
+        <div class="bb-card" data-tubes-not-stored>
+            <div class="bb-card-title"><h3>Received, not yet stored (@_notStored.Count)</h3></div>
+            <p class="muted">Tubes received in the laboratory with no storage place recorded, oldest first. Put each away (scan its place, then the tube) or, when it is no longer needed, discard it; the list shortens as you go. <strong>Store</strong> puts the tube in the Tube field.</p>
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Tube</th><th>Patient</th><th>Collected</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var t in _notStored.Take(NotStoredShown))
+                    {
+                        <tr data-not-stored-tube="@t.AccessionNumber">
+                            <td class="mono">@t.AccessionNumber <span class="sub">@t.SpecimenType</span></td>
+                            <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
+                            <td class="nowrap">@t.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@Ui.EnumText(t.Status)</td>
+                            <td class="right"><button type="button" class="btn btn-secondary btn-sm" @onclick="() => PickTubeAsync(t.AccessionNumber)">Store</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            @if (_notStored.Count > NotStoredShown)
+            {
+                <p class="muted">The oldest @NotStoredShown of @_notStored.Count are shown.</p>
+            }
+        </div>
+    }
+
     @if (_due.Count > 0)
     {
         <div class="bb-card" data-due-for-discard>
@@ -204,6 +233,9 @@ else
     private Feedback? _discardFb;
     private readonly List<DiscardedSpecimenDto> _discarded = new();
     private List<TubeInPlaceDto> _due = new();
+    // Pass 135: received tubes with no place recorded.
+    private List<TubeInPlaceDto> _notStored = new();
+    private const int NotStoredShown = 50;
 
     // From the worklist's "Store tube": the tube is waiting; scan or choose its place first.
     [SupplyParameterFromQuery(Name = "tube")] public string? TubeQuery { get; set; }
@@ -225,6 +257,18 @@ else
     {
         var due = await Api.GetTubesDueForDiscardAsync();
         _due = due.Succeeded ? due.Value ?? new() : new();
+        var notStored = await Api.GetTubesNotStoredAsync();
+        _notStored = notStored.Succeeded ? notStored.Value ?? new() : new();
+    }
+
+    // Store on a not-yet-stored row: the tube waits in Tube; with a place already scanned, Enter in Tube stores it.
+    private async Task PickTubeAsync(string accession)
+    {
+        _tube = accession;
+        _fb = Feedback.Succeed(string.IsNullOrWhiteSpace(_location)
+            ? $"Tube {accession} is ready to store: scan or choose its place, then press Enter in Tube."
+            : $"Tube {accession} is ready to store in {_location}: press Enter in Tube.");
+        await Js.FocusSelectAsync(string.IsNullOrWhiteSpace(_location) ? "store-location" : "store-tube", preventScroll: true);
     }
 
     // Scan the tube being thrown away; the reason stays for the next tube only when it was needed.
@@ -297,6 +341,7 @@ else
             _fb = Feedback.Succeed(stored.PreviousLocation is null
                 ? $"{stored.AccessionNumber} stored in {stored.Location}."
                 : $"{stored.AccessionNumber} moved from {stored.PreviousLocation} to {stored.Location}.");
+            _notStored.RemoveAll(t => t.SpecimenId == stored.SpecimenId);
             await LoadInPlaceAsync();
         }
         else

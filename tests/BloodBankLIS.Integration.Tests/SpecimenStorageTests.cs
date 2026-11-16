@@ -23,6 +23,37 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         new(new EfRepository<Specimen>(c), new EfRepository<SpecimenStorageEvent>(c), new EfRepository<Patient>(c), c,
             _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions);
 
+    // TEST-BB-1157: received tubes with no storage place are listed, oldest received first, until stored or discarded;
+    // tubes not yet received and cancelled tubes are not (end-user testing pass 135: no list showed tubes never put away).
+    [Fact]
+    public async Task ReceivedTubes_NotYetStored_AreListedUntilStored()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patient = new Patient { MedicalRecordNumber = $"MRN-NST-{key}", LastName = "Unfiled", FirstName = "Tube", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        Specimen Tube(string suffix, SpecimenStatus status, DateTime? received) => new()
+        {
+            PatientId = patient.Id, AccessionNumber = $"ACC-NST-{suffix}-{key}", SpecimenType = "EDTA",
+            CollectedUtc = now.AddHours(-5), ReceivedUtc = received, Status = status
+        };
+        var older = Tube("OLD", SpecimenStatus.Expired, now.AddHours(-4));
+        var newer = Tube("NEW", SpecimenStatus.Accepted, now.AddHours(-1));
+        var notReceived = Tube("COL", SpecimenStatus.Collected, null);
+        var cancelled = Tube("CXL", SpecimenStatus.Cancelled, now.AddHours(-2));
+        c.Specimens.AddRange(newer, older, notReceived, cancelled);
+        await c.SaveChangesAsync();
+
+        var service = Service(c, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession));
+        var mine = (await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id).Select(t => t.AccessionNumber).ToList();
+        Assert.Equal([older.AccessionNumber, newer.AccessionNumber], mine);
+
+        Assert.True((await service.StoreAsync(new StoreSpecimenRequest(older.AccessionNumber, "Rack 3"))).Succeeded);
+        Assert.Equal([newer.AccessionNumber], (await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id).Select(t => t.AccessionNumber));
+    }
+
     [Fact]
     public async Task Tube_IsStoredByScan_AndAMoveKeepsWhereItWas()
     {

@@ -147,6 +147,23 @@ public sealed class SpecimenStorageService
             .ToList();
     }
 
+    /// <summary>
+    /// Received tubes with no storage place and not discarded, received first first (pass 135), so the bench can put
+    /// each away or discard it.
+    /// </summary>
+    public async Task<IReadOnlyList<TubeInPlaceDto>> ListNotStoredAsync(CancellationToken ct = default)
+    {
+        var tubes = (await _specimens.ListAsync(s => s.ReceivedUtc != null && s.StorageLocation == null && s.DiscardedUtc == null, ct))
+            .Where(s => SpecimenStorageRule.AwaitingStorage(s.Status, s.ReceivedUtc, s.StorageLocation, s.DiscardedUtc))
+            .ToList();
+        var received = tubes.ToDictionary(t => t.Id, t => t.ReceivedUtc);
+        var rows = await ToRowsAsync(tubes, await RetentionDaysAsync(ct), ct);
+        return rows
+            .OrderBy(t => received[t.SpecimenId])
+            .ThenBy(t => t.AccessionNumber, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private async Task<int> RetentionDaysAsync(CancellationToken ct) =>
         _policy is null ? 0 : Math.Max(0, await _policy.GetSpecimenRetentionDaysAsync(ct));
 

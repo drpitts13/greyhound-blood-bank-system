@@ -11,6 +11,14 @@ public static class SpecimenStorageRule
     public const string Code = "SPECIMEN-STORE";
     public const int MaxLocationLength = 100;
 
+    /// <summary>
+    /// A tube received in the laboratory that has no storage place and was not discarded (end-user testing pass 135:
+    /// Store tubes listed tubes already put away, but nothing listed tubes never put away, so 19 of the 21 received tubes in
+    /// the seeded laboratory had no place and were on no list to store or discard). Cancelled tubes are not stored.
+    /// </summary>
+    public static bool AwaitingStorage(SpecimenStatus status, DateTime? receivedUtc, string? storageLocation, DateTime? discardedUtc) =>
+        receivedUtc is not null && status != SpecimenStatus.Cancelled && string.IsNullOrWhiteSpace(storageLocation) && discardedUtc is null;
+
     public static RuleResult Evaluate(SpecimenStatus status, string? currentLocation, string? location)
     {
         var place = location?.Trim() ?? string.Empty;

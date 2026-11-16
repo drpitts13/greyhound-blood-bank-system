@@ -24863,3 +24863,21 @@ Worked the issued-unit boards (Ready to issue, In transit, Issued units, Coolers
 ### Tests
 
 - TEST-BB-1156. Full suite passed.
+
+## Iteration 854 — End-user testing pass 135: tubes never put away (2026-11-15)
+
+### How it was tested
+
+Walked the specimen boards (pending receipt, stored, due for discard, Store tubes) as the specimen processing bench, with the seeded tubes.
+
+### Found and fixed
+
+1. **Received tubes that were never put away were on no list.** Store tubes listed the tubes in a scanned place and the stored tubes due for discard, but nothing listed tubes received with no place recorded: 19 of the 21 received tubes in the seeded laboratory (all expired, some from October) had no place, so they could not be found for a reaction workup or a repeat test, and never became due for discard. Store tubes now has **Received, not yet stored**, oldest received first, with **Store** on each row (puts the tube in the Tube field, ready for its place); a tube leaves the list when it is stored or discarded. Tubes not yet received and cancelled tubes are not listed.
+
+### Retested live
+
+- `GET /api/specimens/not-stored` returns the 19 tubes, ACC0012-T1 (received 2026-10-17) first; Store tubes shows the card, and Store on ACC0012-T1 fills Tube and moves to Storage place. No tube was stored or discarded live.
+
+### Tests
+
+- TEST-BB-1157. Full suite passed.
