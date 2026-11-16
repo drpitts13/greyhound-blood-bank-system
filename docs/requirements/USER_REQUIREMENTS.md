@@ -951,3 +951,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-943 | A reaction investigation for a patient with no ABO/Rh on file before the transfusion checks the repeat patient ABO/Rh against the transfused unit and flags an incompatible unit. | P1 | FRS-BB-1061 |
 | URS-BB-944 | The open RhIG evaluations queue says what each evaluation not ready to complete still needs. | P3 | FRS-BB-1062 |
 | URS-BB-945 | Coolers in transit say how long an overdue cooler is past its ward receipt due time. | P3 | FRS-BB-1063 |
+| URS-BB-946 | The instrument message list does not show a QC sample's instrument patient ID as a patient. | P3 | FRS-BB-1064 |

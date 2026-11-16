@@ -158,7 +158,9 @@
                                 }
                             </td>
                             <td class="mono">@msg.SpecimenId</td>
-                            <td class="mono">@msg.PatientId</td>
+                            @* Pass 166: a QC sample is not a patient specimen; the instrument's patient field (often a fixed test ID) is not a patient. *@
+                            @{ var patientCell = InstrumentMessagePatientText.For(msg.Status, msg.PatientId); }
+                            <td class="@(patientCell.IsQc ? "muted" : "mono")" title="@patientCell.Title" data-instrument-qc-patient="@patientCell.IsQc">@patientCell.Text</td>
                             <td><button class="btn btn-ghost btn-sm" @onclick="() => OpenAsync(msg.Id)">View</button></td>
                         </tr>
                     }

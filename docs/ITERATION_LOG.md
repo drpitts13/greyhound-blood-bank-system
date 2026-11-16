@@ -25459,3 +25459,25 @@ Worked Reagent QC (overdue lots and unreviewed QC on the worklist; a lot with no
 ### Tests
 
 - TEST-BB-1188. Full suite passed.
+
+## Iteration 886 — End-user testing pass 166: a QC sample shown with a patient (2026-11-16)
+
+### How it was tested
+
+Worked Interfaces › Instrument status & logs with the seeded ImmuLINK Echo messages: status, session logs, open failures (DAT not ordered on ACC-DEMO-RCV1, a patient ID mismatch on ACC-UAT-010) and the analyzer's QC sample runs.
+
+### Found and fixed
+
+1. **QC samples were listed with a patient.** The analyzer's QC runs on QC-ABSC-POS showed patient *1171984* in the Patient column, the fixed test ID the analyzer puts on its QC runs, so the list read as if a patient had been tested. The column now reads *— QC* for a QC sample, with what the instrument sent in the tooltip.
+
+### Noted, not changed
+
+- The analyzer's QC results are not judged pass or fail by the system: Reagent QC shows what each QC sample read for the tech to check against the control's expected reactions and record (by design, pass 109). The seeded QC-ABSC-POS run of 2026-11-14 19:43 read *Screen: Negative* for a sample whose ID suggests a positive control; whether that is a failure depends on the control, which is for the tech to judge.
+
+### Retested live
+
+- The two QC-ABSC-POS messages read *— QC*; patient messages still show their MRN. Nothing was replayed or resolved.
+
+### Tests
+
+- TEST-BB-1189. Full suite passed.
