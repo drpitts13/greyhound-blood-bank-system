@@ -469,6 +469,11 @@ public class DashboardQueueCatalogTests
         // TEST-BB-1159 (pass 137): units on operational hold are named.
         Assert.Equal("2 units on operational hold",
             DashboardQueueCatalog.SupervisorNote([Item(SupervisorQueueRule.KindOperationalHold), Item(SupervisorQueueRule.KindOperationalHold)]));
+        // TEST-BB-1201 (pass 178): failed reagent QC and lots with results to review are named; unreviewed QC is counted only.
+        Assert.Equal("1 failed reagent QC; 1 lot with results to review", DashboardQueueCatalog.SupervisorNote([
+            Item(SupervisorQueueRule.KindReagentQc, dueSoon: true),
+            new SupervisorQueueItemDto(SupervisorQueueRule.KindReagentQc, "t", "d", "/reagents", "5 results to review"),
+            new SupervisorQueueItemDto(SupervisorQueueRule.KindReagentQc, "t", "d", "/reagents", "Review")]));
     }
 
     // TEST-BB-490: deviation managers see Open deviations (everything not closed), with critical ones named; the card
@@ -517,6 +522,10 @@ public class DashboardQueueCatalogTests
         Assert.Equal("1 overdue; 2 lots expired", DashboardQueueCatalog.ReagentQcNote([
             Work(ReagentQcWorklistRule.Overdue), Work(ReagentQcWorklistRule.Expired), Work(ReagentQcWorklistRule.Expired)]));
         Assert.Equal("1 lot to replace", DashboardQueueCatalog.ReagentQcNote([Work(ReagentQcWorklistRule.Replace)]));
+        // TEST-BB-1201 (pass 178): results tested with a lot while its QC was failing are named with their number.
+        Assert.Equal("7 overdue; 5 results tested while QC was failing to review", DashboardQueueCatalog.ReagentQcNote([
+            .. Enumerable.Range(0, 7).Select(_ => Work(ReagentQcWorklistRule.Overdue)),
+            Work(ReagentQcWorklistRule.ReviewResults) with { ResultsToReview = 5 }, Work(ReagentQcWorklistRule.Unreviewed)]));
     }
 
     // TEST-BB-727: the Second ABO/Rh card names patients with no ABO/Rh ordered and leads under Needs attention after

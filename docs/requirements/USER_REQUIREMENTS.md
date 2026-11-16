@@ -963,3 +963,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-955 | Every facility policy a bench page reads can be read from the bench, so a page never acts as if a policy were unset because its read was refused. | P2 | FRS-BB-1073 |
 | URS-BB-956 | The billing queue says, under each charge whose DFT has not gone, how long it has been queued and why. | P3 | FRS-BB-1074 |
 | URS-BB-957 | Failed and unreviewed reagent QC, and results tested with a failing lot, wait on the supervisor queue for a verifier. | P2 | FRS-BB-1075 |
+| URS-BB-958 | The home Reagent QC and Supervisor queue cards name patient results tested with a lot while its QC was failing, and the Supervisor card names failed reagent QC. | P2 | FRS-BB-1076 |

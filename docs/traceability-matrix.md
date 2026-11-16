@@ -1069,6 +1069,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-955 / FRS-BB-1073 | End-user testing pass 175: bench policy reads are readable | `ReferenceEndpoints.cs` | TEST-BB-1198 | U | |
 | URS-BB-956 / FRS-BB-1074 | End-user testing pass 176: why a charge's DFT has not gone | `BillingEndpoints.cs`, `BillingDftWaitingNote.cs`, `Billing.razor` | TEST-BB-1199 | I | |
 | URS-BB-957 / FRS-BB-1075 | End-user testing pass 177: reagent QC on the supervisor queue | `SupervisorQueueRule.cs`, `SupervisorQueueService.cs`, `SupervisorQueue.razor` | TEST-BB-1200 | I | |
+| URS-BB-958 / FRS-BB-1076 | End-user testing pass 178: QC results to review on the home cards | `DashboardQueueCatalog.cs` | TEST-BB-1201 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

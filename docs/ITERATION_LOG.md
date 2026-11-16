@@ -25689,3 +25689,21 @@ Worked Quality & review › Supervisor queue with the seeded data: eight quarant
 ### Tests
 
 - TEST-BB-1200. Full suite passed.
+
+## Iteration 898 — End-user testing pass 178: QC results to review on the home cards (2026-11-16)
+
+### How it was tested
+
+Read every card on the home dashboard against its queue after pass 177.
+
+### Found and fixed
+
+1. **Neither card named the results tested with a failing lot.** Five patient results were tested with anti-D lot AD-24092 while its QC was failing and still needed review, but the Reagent QC card read only *7 overdue* and the Supervisor queue card named only a missing unit, an operational hold and an override. The Reagent QC card now also names *5 results tested while QC was failing to review*; the Supervisor card names *lots with results to review* and *failed reagent QC*. Unreviewed QC stays in the counts only, as before.
+
+### Retested live
+
+- Reagent QC reads *7 overdue; 5 results tested while QC was failing to review*; the Supervisor queue card adds *1 lot with results to review*. Nothing was reviewed.
+
+### Tests
+
+- TEST-BB-1201. Full suite passed.

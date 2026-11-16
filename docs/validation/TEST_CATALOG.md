@@ -1209,5 +1209,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1198 | U | `ReadablePolicyKeysTests.EveryPolicyThePagesRead_IsReadable` | URS-BB-955 / FRS-BB-1073 |
 | TEST-BB-1199 | I | `Hl7OutboundWaitingTests.BillingQueue_SaysWhyAChargesDftHasNotGone` | URS-BB-956 / FRS-BB-1074 |
 | TEST-BB-1200 | I | `SupervisorQueueReagentQcTests.FailedAndUnreviewedQc_WaitOnTheSupervisorQueue`, `SupervisorQueueKindQueryTests.KindFromQuery_MatchesAKnownKind_AnyCase` | URS-BB-957 / FRS-BB-1075 |
+| TEST-BB-1201 | U | `DashboardQueueCatalogTests.SupervisorNote_NamesTheItemsWithADeadlineOrAReview`, `DashboardQueueCatalogTests.ReagentQc_ForResultEntry_NamesFailedAndOverdue` | URS-BB-958 / FRS-BB-1076 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
