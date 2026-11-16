@@ -1050,6 +1050,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-936 / FRS-BB-1054 | End-user testing pass 157: who a unit is reserved for, on the stock list | `BloodUnitDtos.cs`, `InventoryService.cs`, `InventoryEndpoints.cs`, `Inventory.razor` | TEST-BB-1179 | U | |
 | URS-BB-937 / FRS-BB-1055 | End-user testing pass 158: units awaiting retype on the downtime sheet | `DowntimePatientSummaryService.cs`, `DowntimePatients.razor` | TEST-BB-1180 | I | |
 | URS-BB-938 / FRS-BB-1056 | End-user testing pass 159: reserved units to retype on the handoff | `ShiftHandoff.cs`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs` | TEST-BB-1181 | U | |
+| URS-BB-939 / FRS-BB-1057 | End-user testing pass 160: units out or reserved on one investigation | `ReactionInvestigationService.cs` | TEST-BB-1182 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

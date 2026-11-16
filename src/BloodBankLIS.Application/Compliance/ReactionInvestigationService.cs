@@ -409,7 +409,16 @@ public sealed class ReactionInvestigationService
 
         var context = await LoadDisplayContextAsync([row], ct);
         var issuedWhileOpen = await IssuedWhileOpenAsync([row.Id], ct);
-        return context.ToDto(row) with { IssuedWhileOpen = issuedWhileOpen.GetValueOrDefault(row.Id) ?? [] };
+        var dto = context.ToDto(row) with { IssuedWhileOpen = issuedWhileOpen.GetValueOrDefault(row.Id) ?? [] };
+        if (row.Status == ReactionInvestigationStatus.Closed)
+        {
+            return dto;
+        }
+
+        // Pass 160: the same count as the list, so one investigation (after an edit, on its report) still says the
+        // patient has units out or reserved (it read 0 while the list said 4).
+        var unitsOut = await UnitsOutOrReservedByPatientAsync([row.PatientId], ct);
+        return dto with { PatientUnitsOutOrReserved = unitsOut.GetValueOrDefault(row.PatientId) };
     }
 
     /// <summary>Per investigation, the issues recorded as made while it was open (Cycle 634's record), oldest first.</summary>

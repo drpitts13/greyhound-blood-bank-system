@@ -1297,6 +1297,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         // The issued unit (received on the ward, still out) and the reserved one.
         Assert.Equal(2, (await Reactions().ListDtosAsync()).Single(r => r.Id == investigation.Id).PatientUnitsOutOrReserved);
+        // TEST-BB-1182 (pass 160): one investigation on its own (its detail, after an edit, its report) gives the same count.
+        Assert.Equal(2, (await Reactions().GetDtoAsync(investigation.Id))!.PatientUnitsOutOrReserved);
 
         // TEST-BB-765: the chart's lookup returns the open case with its number and report time, and nothing once closed.
         var forChart = Assert.Single(await Reactions().OpenForPatientAsync(s.PatientId));
@@ -1305,6 +1307,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         investigation.Status = ReactionInvestigationStatus.Closed;
         await c.SaveChangesAsync();
         Assert.Equal(0, (await Reactions().ListDtosAsync()).Single(r => r.Id == investigation.Id).PatientUnitsOutOrReserved);
+        Assert.Equal(0, (await Reactions().GetDtoAsync(investigation.Id))!.PatientUnitsOutOrReserved);
         Assert.Empty(await Reactions().OpenForPatientAsync(s.PatientId));
     }
 

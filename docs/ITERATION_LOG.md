@@ -25330,3 +25330,21 @@ Read the shift handoff preview as the outgoing technologist.
 ### Tests
 
 - TEST-BB-1181. Full suite passed.
+
+## Iteration 879 — End-user testing pass 160: units out on one reaction investigation (2026-11-16)
+
+### How it was tested
+
+Opened reaction investigation 2 (Demo-Multi, Riley, MRN0022) on its own and as its report, and compared it with the Reactions board.
+
+### Found and fixed
+
+1. **One investigation read on its own said the patient had no units out.** The board said *4 units out or reserved* for investigation 2 (and 1 for investigation 1), but `GET /api/reaction-investigations/2` and the report's data gave 0: only the list counted them. Reading one open investigation now counts the patient's units issued and still out or reserved, the same as the list; a closed one still gives none.
+
+### Retested live
+
+- Investigation 1 reads 1 and investigation 2 reads 4, on its own and in its report, as on the board. Nothing was changed on either investigation.
+
+### Tests
+
+- TEST-BB-1182 (the units-out test now also reads the investigation on its own, open and closed). Full suite passed.

@@ -944,3 +944,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-936 | The Inventory search list names the patient each reserved unit is held for. | P3 | FRS-BB-1054 |
 | URS-BB-937 | The downtime patient summary marks a reserved unit whose ABO/Rh retype is not confirmed. | P2 | FRS-BB-1055 |
 | URS-BB-938 | The shift handoff names how many units to retype are reserved for patients. | P3 | FRS-BB-1056 |
+| URS-BB-939 | An open reaction investigation read on its own gives the same count of the patient's units out or reserved as the list. | P3 | FRS-BB-1057 |

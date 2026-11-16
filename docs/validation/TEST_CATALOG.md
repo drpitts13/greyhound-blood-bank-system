@@ -1190,5 +1190,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1179 | U | `BloodUnitSupplierLabelTests.WithReservation_NamesThePatient` | URS-BB-936 / FRS-BB-1054 |
 | TEST-BB-1180 | I | `DowntimePatientSummaryTests.ReservedUnit_AwaitingRetype_IsMarkedOnTheSheet` | URS-BB-937 / FRS-BB-1055 |
 | TEST-BB-1181 | U | `ShiftHandoffItemsTests.UnitsToRetype_AreAHandoffItem_AndAHomeCard` | URS-BB-938 / FRS-BB-1056 |
+| TEST-BB-1182 | I | `Phase4IssuingTests.ReactionList_CountsThePatientsUnitsOutOrReserved` | URS-BB-939 / FRS-BB-1057 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
