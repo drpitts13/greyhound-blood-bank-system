@@ -123,6 +123,19 @@
                     }
                 }
             </div>
+            @if (MaternalDeliveryRule.Unrecorded(Patient.RecentPregnancyUtc, family.Infants.Select(i => i.DateOfBirth), DateOnly.FromDateTime(DateTime.Now)) is DateOnly born)
+            {
+                @* Pass 146: a linked newborn whose delivery is not recorded here, so this chart's specimens take the standard window. *@
+                <div class="alert alert-warning" style="margin-top:.4rem;" data-delivery-unrecorded>
+                    An infant born @born.ToString("yyyy-MM-dd") is linked to this chart, but no pregnancy on or after that date is recorded,
+                    so this patient's specimens use the standard window, not the shorter window after a recent pregnancy.
+                    @if (Session.Has(PermissionCodes.PatientWrite) && Patient.Status != PatientStatus.Merged)
+                    {
+                        <button type="button" class="btn btn-secondary btn-sm" style="margin-left:.4rem;" disabled="@_familyBusy"
+                                @onclick="() => RecordDeliveryAsync(born)" data-delivery-record>Record delivery @born.ToString("yyyy-MM-dd")</button>
+                    }
+                </div>
+            }
             @if (family.Mother is { ActiveAntibodies.Count: > 0 } antibodyMother)
             {
                 <div class="alert alert-info" style="margin-top:.4rem;" data-maternal-antibodies>
@@ -521,6 +534,25 @@ else if (ReactionNotice is not null)
             await OnRequirementAdded.InvokeAsync();
         }
     }
+
+    /// <summary>Pass 146: records the delivery on the linked infant's date of birth as the chart's recent pregnancy.</summary>
+    private async Task RecordDeliveryAsync(DateOnly born)
+    {
+        _familyBusy = true;
+        var r = await Api.UpdatePatientAsync(Patient.Id, new UpdatePatientRequest(
+            Patient.LastName, Patient.FirstName, Patient.MiddleName, Patient.DateOfBirth, Patient.Sex, Patient.Status,
+            RecentPregnancyUtc: RecentPregnancyRule.ToUtc(born, DateTime.UtcNow),
+            Comment: Patient.Comment));
+        _familyBusy = false;
+        _familyFb = r.ToFeedback($"Delivery recorded ({born:yyyy-MM-dd}). New specimens use the window after a recent pregnancy.");
+        if (r.Succeeded)
+        {
+            await OnPatientChanged.InvokeAsync();
+        }
+    }
+
+    /// <summary>Raised when the header changed the patient record, so the chart reloads it.</summary>
+    [Parameter] public EventCallback OnPatientChanged { get; set; }
 
     /// <summary>Raised when a requirement was added from the header, so the chart reloads its requirements.</summary>
     [Parameter] public EventCallback OnRequirementAdded { get; set; }

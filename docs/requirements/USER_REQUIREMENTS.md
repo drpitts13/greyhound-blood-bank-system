@@ -930,3 +930,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-922 | Units waiting for their ABO/Rh confirmation retype are counted on the home dashboard (Bench) and the shift handoff, with the oldest wait and next expiry. | P2 | FRS-BB-1040 |
 | URS-BB-923 | Open supplier deliveries are on the home dashboard (Issue desk), naming those ready to complete and the oldest, and the shift handoff counts deliveries to complete. | P3 | FRS-BB-1041 |
 | URS-BB-924 | Received tubes with no storage place are counted on the home dashboard (Bench) and the shift handoff. | P3 | FRS-BB-1042 |
+| URS-BB-925 | A mother's chart flags a linked newborn whose delivery is not recorded as a recent pregnancy and offers to record it on the infant's date of birth. | P2 | FRS-BB-1043 |

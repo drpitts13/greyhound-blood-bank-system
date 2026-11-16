@@ -25070,3 +25070,21 @@ Checked possible-duplicate patients (MRN0022 and MRN9022, same name and date of 
 ### Tests
 
 - TEST-BB-1167. Full suite passed.
+
+## Iteration 865 — End-user testing pass 146: a newborn's delivery not on the mother's chart (2026-11-16)
+
+### How it was tested
+
+Walked the seeded mother/baby pairs from the mothers' side: MRN0028 (anti-K, infant MRN0029 born 2026-11-13) and MRN0025 (RhIG, infant MRN0027 born 2026-11-07).
+
+### Found and fixed
+
+1. **A linked newborn's delivery was not reflected on the mother's chart.** MRN0028's infant is linked to her chart, but no recent pregnancy was recorded, so her next specimen would take the standard window instead of the shorter window after a pregnancy in the look-back, with nothing on her chart to say so. The chart header now warns when an infant born within the look-back is linked and no pregnancy from the day before that birth on is recorded, and offers **Record delivery 2026-11-13** (the infant's date of birth), which records it and reloads the chart. Nothing is recorded by itself. A pregnancy recorded the day before the birth date counts as the same delivery (MRN0025's was recorded the evening before her infant's recorded date of birth and is not flagged).
+
+### Retested live
+
+- MRN0028's chart shows the warning with Record delivery 2026-11-13; after the tolerance fix MRN0025's does not. The delivery was not recorded live (clinical documentation).
+
+### Tests
+
+- TEST-BB-1168. Full suite passed.
