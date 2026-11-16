@@ -7,6 +7,23 @@ public class EquipmentTestNoticeTests
     private static EquipmentCheckStatusDto Check(string name, bool needsAction, string status) =>
         new(1, name, 1, null, true, needsAction ? "Overdue" : "Ok", null, needsAction, status, null, null, null, null);
 
+    // TEST-BB-1153: for a result, equipment out of service is not recorded as used; when a kind named for the test has none
+    // in service the result says so, but not when another of that kind is in service (end-user testing pass 131).
+    [Fact]
+    public void ForResult_LeavesOutOfServiceEquipmentOut()
+    {
+        var heatBlockDown = new EquipmentDto(1, "HB-01", "Heat block", "Heat block", null, null, true, DateTime.UtcNow, "Read 33.0 °C", "demo", [], "XM");
+        var centrifuge = new EquipmentDto(2, "CENT-01", "Centrifuge", "Centrifuge", null, null, true, null, null, null, [], "XM");
+        var (used, none) = EquipmentTestNotice.ForResult([heatBlockDown, centrifuge], "xm");
+        Assert.Equal(["CENT-01"], used.Select(e => e.Code));
+        Assert.Equal("No heat block for XM is in service (HB-01 is out of service): note in the result comment which heat block was used.", Assert.Single(none));
+
+        var spareHeatBlock = new EquipmentDto(3, "HB-02", "Heat block 2", "Heat block", null, null, true, null, null, null, [], "XM");
+        (used, none) = EquipmentTestNotice.ForResult([heatBlockDown, centrifuge, spareHeatBlock], "XM");
+        Assert.Equal(["CENT-01", "HB-02"], used.Select(e => e.Code).Order());
+        Assert.Empty(none);
+    }
+
     // End-user testing pass 74: equipment used for tests on the worklist is named when it is out of service or has a check
     // needing action; equipment for other tests, retired equipment, and equipment in order are not.
     [Fact]

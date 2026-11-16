@@ -171,14 +171,15 @@ public sealed class EquipmentService
             return [];
         }
 
-        var used = (await ListAsync(includeInactive: false, ct))
-            .Where(e => EquipmentTestNotice.Codes(e.TestCodes).Contains(result.TestCode.Trim().ToUpperInvariant()))
-            .ToList();
+        // Pass 131: equipment out of service is not recorded as used; a kind with none in service is said instead.
+        var (used, noneInService) = EquipmentTestNotice.ForResult(await ListAsync(includeInactive: false, ct), result.TestCode);
         var warnings = new List<RuleResult>();
         foreach (var line in EquipmentTestNotice.For(used, [result.TestCode]))
         {
             warnings.Add(RuleResult.Warning("RES-EQUIPMENT", $"{line.EquipmentCode} {line.EquipmentName}, used for {result.TestCode}, was {line.Problem}."));
         }
+
+        warnings.AddRange(noneInService.Select(text => RuleResult.Warning("RES-EQUIPMENT", text)));
 
         var problems = EquipmentTestNotice.For(used, [result.TestCode]).ToDictionary(l => l.EquipmentCode, l => l.Problem);
         foreach (var e in used)

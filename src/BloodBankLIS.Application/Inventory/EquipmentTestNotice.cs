@@ -22,6 +22,24 @@ public static class EquipmentTestNotice
             .Distinct()
             .ToList();
 
+    /// <summary>
+    /// What is recorded as used for a manual result of a test (end-user testing pass 131: an out-of-service heat block was
+    /// recorded as used for every new crossmatch, a false trace). Equipment out of service is left out; for each kind of
+    /// equipment named for the test with none in service, a warning asks for what was actually used.
+    /// </summary>
+    public static (IReadOnlyList<EquipmentDto> Used, IReadOnlyList<string> NoneInService) ForResult(IEnumerable<EquipmentDto> equipment, string testCode)
+    {
+        var code = testCode.Trim().ToUpperInvariant();
+        var named = equipment.Where(e => e.IsActive && Codes(e.TestCodes).Contains(code)).ToList();
+        var used = named.Where(e => e.InService).ToList();
+        var none = named.Where(e => !e.InService)
+            .GroupBy(e => string.IsNullOrWhiteSpace(e.Kind) ? e.Code : e.Kind.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => !used.Any(u => string.Equals(string.IsNullOrWhiteSpace(u.Kind) ? u.Code : u.Kind.Trim(), g.Key, StringComparison.OrdinalIgnoreCase)))
+            .Select(g => $"No {g.Key.ToLowerInvariant()} for {code} is in service ({string.Join(", ", g.Select(e => $"{e.Code} is out of service"))}): note in the result comment which {g.Key.ToLowerInvariant()} was used.")
+            .ToList();
+        return (used, none);
+    }
+
     public static IReadOnlyList<Line> For(IEnumerable<EquipmentDto> equipment, IEnumerable<string> worklistTestCodes)
     {
         var onList = new HashSet<string>(worklistTestCodes.Select(c => c.Trim().ToUpperInvariant()));

@@ -77,7 +77,9 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
                 patients: new EfRepository<Patient>(c), permissions: new FixedPermissionEvaluator(2), equipment: Equipment(c));
             var manual = await service.EnterResultAsync(new EnterResultRequest(specimenId, "TREQ", "2+"));
             Assert.True(manual.Succeeded, manual.Error);
-            Assert.Contains(manual.Warnings, w => w.Code == "RES-EQUIPMENT" && w.Message.Contains("EQ-DOWN") && w.Message.Contains("out of service"));
+            // Pass 131: the heat block was out of service, so it is not recorded as used; with no other heat block the
+            // result says none was in service.
+            Assert.Contains(manual.Warnings, w => w.Code == "RES-EQUIPMENT" && w.Message.StartsWith("No heat block for TREQ is in service (EQ-DOWN is out of service)"));
             manualId = manual.Value!.Id;
             var instrument = await service.EnterResultAsync(new EnterResultRequest(specimenId, "TREQ", "2+", Source: ResultSource.Instrument, SourceReference: "ECHO"));
             instrumentId = instrument.Value!.Id;
@@ -85,15 +87,18 @@ public class ReagentLotTraceabilityTests : IClassFixture<SqliteContextFactory>
 
         await using var verify = _factory.Create();
         var labels = await Equipment(verify).LabelsForResultsAsync([manualId, instrumentId]);
-        Assert.Equal(["EQ-DOWN (out of service)", "EQ-OK"], labels[manualId]);
+        Assert.Equal(["EQ-OK"], labels[manualId]);
         Assert.False(labels.ContainsKey(instrumentId));
 
-        // Pass 76: the equipment lookback lists the result with its patient, specimen and the equipment's condition then.
-        var down = await verify.Equipment.SingleAsync(e => e.Code == "EQ-DOWN");
-        var lookback = await Equipment(verify).ResultsForEquipmentAsync(down.Id);
+        // Pass 76: the equipment lookback lists the result with its patient, specimen and the equipment's condition then;
+        // the out-of-service heat block has no result recorded against it (pass 131).
+        var ok = await verify.Equipment.SingleAsync(e => e.Code == "EQ-OK");
+        var lookback = await Equipment(verify).ResultsForEquipmentAsync(ok.Id);
         var row = Assert.Single(lookback!);
         Assert.Equal((manualId, "MRN-TRACE-EQ", "ACC-TRACE-EQ", "TREQ"), (row.ResultId, row.PatientMrn, row.SpecimenAccession, row.TestCode));
-        Assert.StartsWith("out of service", row.Condition);
+        Assert.Null(row.Condition);
+        var down = await verify.Equipment.SingleAsync(e => e.Code == "EQ-DOWN");
+        Assert.Empty((await Equipment(verify).ResultsForEquipmentAsync(down.Id))!);
         Assert.Null(await Equipment(verify).ResultsForEquipmentAsync(999999));
     }
 

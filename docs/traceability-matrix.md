@@ -1021,6 +1021,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-907 / FRS-BB-1025 | End-user testing pass 128: on-screen times in local time | Domain rules listed in FRS-BB-1025 | TEST-BB-1149 | U | |
 | URS-BB-908 / FRS-BB-1026 | End-user testing pass 129: outbound messages go only to an interface of their kind | `OutboundMessageRoute.cs`, `Hl7OutboundSender.cs` | TEST-BB-1150, TEST-BB-1151 | U, I | |
 | URS-BB-909 / FRS-BB-1027 | End-user testing pass 130: a disabled interface stops sending | `Hl7OutboundSender.cs` | TEST-BB-1152 | I | |
+| URS-BB-910 / FRS-BB-1028 | End-user testing pass 131: out-of-service equipment not recorded as used | `EquipmentTestNotice.cs`, `EquipmentService.cs` | TEST-BB-1153 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

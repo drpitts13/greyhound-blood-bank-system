@@ -915,3 +915,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-907 | Messages shown on screen and the printed downtime sheet give times in local time, as the pages do; text saved with a record keeps UTC and says so. | P2 | FRS-BB-1025 |
 | URS-BB-908 | An outbound message is sent only to an interface of its kind (or one listing its message type), never to another system's interface. | P1 | FRS-BB-1026 |
 | URS-BB-909 | Disabling an outbound interface stops sending on it; queued messages wait until it is enabled. | P1 | FRS-BB-1027 |
+| URS-BB-910 | Equipment out of service is not recorded as used for a new result; when none of a kind named for the test is in service, the result says so. | P2 | FRS-BB-1028 |

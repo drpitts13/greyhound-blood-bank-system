@@ -24790,3 +24790,21 @@ Following pass 129, what happens to messages queued for an interface that is the
 ### Tests
 
 - TEST-BB-1152. Full suite passed.
+
+## Iteration 850 — End-user testing pass 131: out-of-service equipment recorded as used (2026-11-15)
+
+### How it was tested
+
+Disabled instrument interfaces (the ASTM listener and client already skip them), then the equipment recorded with a hand-entered result while HB-01 (heat block) is out of service and CENT-01 and CW-01 are overdue for checks.
+
+### Found and fixed
+
+1. **Equipment out of service was recorded as used for every new result.** Every active piece of equipment named for a test was recorded with each hand-entered result, out of service or not, so each new crossmatch would carry *HB-01 (out of service)* as used, a false trace that would also put it on HB-01's result lookback. Equipment out of service is now left out; when it is the only one of its kind named for the test (the only heat block for XM), saving the result says no heat block is in service and asks for the one used to be noted in the comment. Overdue equipment in service is recorded and warned about as before.
+
+### Retested live
+
+- No result was entered live (it would be a fabricated crossmatch); covered by TEST-BB-1153 and the updated pass 75/76 test (only the centrifuge recorded, the heat block's lookback empty).
+
+### Tests
+
+- TEST-BB-1153; *ManualResult_RecordsEquipmentUsed_AndWarnsWhenOutOfService* updated. Full suite passed.
