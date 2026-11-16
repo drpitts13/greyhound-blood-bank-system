@@ -308,6 +308,7 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "RetypesPending", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RetypesPending" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "DeliveriesToComplete", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "DeliveriesToComplete" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "TubesToStore", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TubesToStore" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "RetypesReserved", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RetypesReserved" INTEGER NOT NULL DEFAULT 0"""),
         ("TransfusionEvents", "ConsentConfirmed", """ALTER TABLE "TransfusionEvents" ADD COLUMN "ConsentConfirmed" INTEGER NULL"""),
         ("StockParLevels", "RhD", """ALTER TABLE "StockParLevels" ADD COLUMN "RhD" INTEGER NULL"""),
         ("ShiftHandoffs", "TemperatureExcursionsOpen", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TemperatureExcursionsOpen" INTEGER NOT NULL DEFAULT 0"""),

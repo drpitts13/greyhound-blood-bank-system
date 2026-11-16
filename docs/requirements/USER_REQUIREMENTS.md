@@ -943,3 +943,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-935 | The compatible-units list does not offer a unit still reserved for another patient, whatever its status. | P2 | FRS-BB-1053 |
 | URS-BB-936 | The Inventory search list names the patient each reserved unit is held for. | P3 | FRS-BB-1054 |
 | URS-BB-937 | The downtime patient summary marks a reserved unit whose ABO/Rh retype is not confirmed. | P2 | FRS-BB-1055 |
+| URS-BB-938 | The shift handoff names how many units to retype are reserved for patients. | P3 | FRS-BB-1056 |

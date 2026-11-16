@@ -25312,3 +25312,21 @@ Checked a reserved unit's page (W000123UAG0001 already says *Reserved for Kline,
 ### Tests
 
 - TEST-BB-1180. Full suite passed.
+
+## Iteration 878 — End-user testing pass 159: reserved units to retype on the handoff (2026-11-16)
+
+### How it was tested
+
+Read the shift handoff preview as the outgoing technologist.
+
+### Found and fixed
+
+1. **The handoff said 23 units to retype but not that patients were waiting on two.** The home card names them since pass 152; the handoff, which the next shift reads, gave the count alone. The item now reads *Units to retype: 23 (2 reserved for patients)*, and the recorded summary says *units to retype 23, 2 reserved for patients*; the count is stored with the handoff.
+
+### Retested live
+
+- `/api/shift-handoffs/preview` gives 23 and 2; the Shift handoff page shows the item as above. No handoff was recorded.
+
+### Tests
+
+- TEST-BB-1181. Full suite passed.

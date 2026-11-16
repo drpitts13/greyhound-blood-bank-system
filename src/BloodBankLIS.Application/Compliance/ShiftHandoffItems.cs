@@ -73,7 +73,7 @@ public static class ShiftHandoffItems
         // Pass 116: recipients still to notify for a lookback.
         Add(h.LookbackDue, "Lookback notifications", "/lookback", detail: Note((h.LookbackPastNotifyBy, "past notify-by")));
         // Pass 143: received units that cannot be stock until their ABO/Rh is confirmed.
-        Add(h.RetypesPending, "Units to retype", "/inventory?board=retype");
+        Add(h.RetypesPending, "Units to retype", "/inventory?board=retype", detail: Note((h.RetypesReserved, "reserved for patients")));
         // Pass 144: deliveries entered but not completed against their packing lists.
         Add(h.DeliveriesToComplete, "Deliveries to complete", "/inventory?board=deliveries");
         // Pass 145: received tubes with no storage place, so they cannot be found for a workup or repeat.

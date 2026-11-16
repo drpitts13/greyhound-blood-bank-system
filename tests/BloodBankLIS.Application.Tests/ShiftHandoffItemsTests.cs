@@ -138,6 +138,10 @@ public class ShiftHandoffItemsTests
         var item = Assert.Single(ShiftHandoffItems.For(handoff));
         Assert.Equal(("Units to retype", 23, "/inventory?board=retype"), (item.Label, item.Count, item.Href));
         Assert.Contains("units to retype 23", handoff.QueueSummary);
+        // TEST-BB-1181 (pass 159): those reserved for patients are named on the item and in the summary.
+        var reserved = Handoff() with { RetypesPending = 23, RetypesReserved = 2 };
+        Assert.Equal("2 reserved for patients", Assert.Single(ShiftHandoffItems.For(reserved)).Detail);
+        Assert.Contains("units to retype 23, 2 reserved for patients", reserved.QueueSummary);
 
         Assert.Contains(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.ResultEnter), c => c.Key == DashboardQueueCatalog.Retypes && c.Href == "/inventory?board=retype");
         Assert.DoesNotContain(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.IssueCreate), c => c.Key == DashboardQueueCatalog.Retypes);

@@ -177,6 +177,9 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Received units waiting for their ABO/Rh confirmation retype before they can be stock (pass 143).</summary>
     public int RetypesPending { get; set; }
 
+    /// <summary>Of those, units already reserved for patients (pass 159).</summary>
+    public int RetypesReserved { get; set; }
+
     /// <summary>Open deliveries with every expected unit entered, waiting to be completed (pass 144).</summary>
     public int DeliveriesToComplete { get; set; }
 

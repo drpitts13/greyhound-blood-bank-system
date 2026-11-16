@@ -89,7 +89,9 @@ public sealed record ShiftHandoffDto(
     // Pass 144: deliveries with every unit entered, still to complete.
     int DeliveriesToComplete = 0,
     // Pass 145: received tubes not yet put away.
-    int TubesToStore = 0)
+    int TubesToStore = 0,
+    // Pass 159: units to retype already reserved for patients.
+    int RetypesReserved = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -140,7 +142,7 @@ public sealed record ShiftHandoffDto(
         (TemperatureReadingsDue > 0 ? $"; temperature readings due {TemperatureReadingsDue}" : "") +
         (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" + (DeviationsOverdue > 0 ? $", {DeviationsOverdue} overdue" : "") : "") +
         (LookbackDue > 0 ? $"; lookback notifications due {LookbackDue}" + (LookbackPastNotifyBy > 0 ? $", {LookbackPastNotifyBy} past notify-by" : "") : "") +
-        (RetypesPending > 0 ? $"; units to retype {RetypesPending}" : "") +
+        (RetypesPending > 0 ? $"; units to retype {RetypesPending}" + (RetypesReserved > 0 ? $", {RetypesReserved} reserved for patients" : "") : "") +
         (DeliveriesToComplete > 0 ? $"; deliveries to complete {DeliveriesToComplete}" : "") +
         (TubesToStore > 0 ? $"; tubes to store {TubesToStore}" : "") +
         (InstrumentFailuresOpen > 0
@@ -180,7 +182,7 @@ public sealed record ShiftHandoffDto(
         h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
         h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen,
         h.TemperatureExcursionsOpen, h.TemperatureExcursionsToClose, h.TemperatureReadingsDue, h.DeviationsOverdue,
-        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending, h.DeliveriesToComplete, h.TubesToStore);
+        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending, h.DeliveriesToComplete, h.TubesToStore, h.RetypesReserved);
 }
 
 /// <summary>
@@ -442,6 +444,8 @@ public sealed class ShiftHandoffService
             : (await _lookback.ListAsync(n => n.Status == LookbackNotificationStatus.Pending || n.Status == LookbackNotificationStatus.Attempted, ct)).ToList();
         var notifyWithinDays = _policy is null || lookbackDue.Count == 0 ? 84 : await _policy.GetLookbackNotifyWithinDaysAsync(ct);
         var lookbackPast = lookbackDue.Count(n => LookbackNotifyRule.NotifyBy(n.CreatedUtc, notifyWithinDays, n.Status) is DateTime by && now > by);
+        // Pass 143/159: units waiting for their retype, and those already reserved for patients.
+        IReadOnlyList<BloodBankLIS.Application.Inventory.ProductRetypeWorkItemDto> retypes = _retypes is null ? [] : await _retypes.ListPendingAsync(ct);
         var facilityToday = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(now, DateTimeKind.Utc), TimeZoneInfo.Local));
         var failedLots = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Failed).GroupBy(w => w.LotId).Select(g => g.First()).ToList();
         // Results still to review include a lot whose repeat QC has since passed (end-user testing pass 26).
@@ -537,7 +541,8 @@ public sealed class ShiftHandoffService
             DeviationsOverdue = openDeviations.Count(d => DeviationDueRule.IsOverdue(d.Status, d.DueOn, facilityToday)),
             LookbackDue = lookbackDue.Count,
             LookbackPastNotifyBy = lookbackPast,
-            RetypesPending = _retypes is null ? 0 : (await _retypes.ListPendingAsync(ct)).Count,
+            RetypesPending = retypes.Count,
+            RetypesReserved = retypes.Count(r => r.ReservedFor is not null),
             DeliveriesToComplete = _deliveries is null
                 ? 0
                 : (await _deliveries.ListOpenAsync(ct)).Count(d => OpenDeliveryStatus.ReadyToComplete(d.ExpectedQuantity, d.ReceivedQuantity)),
@@ -648,7 +653,8 @@ public sealed class ShiftHandoffService
         LookbackPastNotifyBy = row.LookbackPastNotifyBy,
         RetypesPending = row.RetypesPending,
         DeliveriesToComplete = row.DeliveriesToComplete,
-        TubesToStore = row.TubesToStore
+        TubesToStore = row.TubesToStore,
+        RetypesReserved = row.RetypesReserved
     };
 
     /// <summary>
