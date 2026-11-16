@@ -45,7 +45,8 @@
     <div class="bb-card-title"><h3>Orders</h3></div>
     @if (_orders.Count == 0)
     {
-        <div class="muted">No supplier orders yet.</div>
+        var ordersEmpty = WorklistEmptyText.For(_ordersLoaded, _ordersError, "No supplier orders yet.");
+        <div class="@(ordersEmpty.IsError ? "text-danger" : "muted")" data-worklist-empty="supplier-orders">@ordersEmpty.Text</div>
     }
     else
     {
@@ -288,6 +289,8 @@
     }
 
     private List<SupplierOrderDto> _orders = new();
+    private bool _ordersLoaded;
+    private string? _ordersError;
     private List<BloodSupplierRefDto> _suppliers = new();
     private List<OpenDeliveryDto> _deliveries = new();
     private SupplierOrderDto? _selected;
@@ -326,6 +329,9 @@
     {
         var orders = await Api.GetSupplierOrdersAsync();
         if (orders.Succeeded) _orders = orders.Value ?? new();
+        // Pass 173: the page said there were no orders before reading them, and after a failed read.
+        _ordersError = orders.Succeeded ? null : orders.Error ?? "the server did not answer.";
+        _ordersLoaded = true;
         var deliveries = await Api.GetOpenDeliveriesAsync();
         if (deliveries.Succeeded) _deliveries = deliveries.Value ?? new();
         if (_selected is not null)

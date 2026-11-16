@@ -958,3 +958,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-950 | The issue desk's work lists say they are loading, or that a list could not be read, instead of saying nothing is waiting. | P2 | FRS-BB-1068 |
 | URS-BB-951 | The Reactions board and Deviations say they are loading, or that the list could not be read, instead of saying there are none. | P3 | FRS-BB-1069 |
 | URS-BB-952 | The Inventory boards say they are loading, or that a board could not be read, instead of saying there are no such units. | P2 | FRS-BB-1070 |
+| URS-BB-953 | The Reagent QC worklist, the equipment checks due, the storage temperature locations and the supplier orders say they are loading, or that the list could not be read, instead of saying there is nothing. | P2 | FRS-BB-1071 |

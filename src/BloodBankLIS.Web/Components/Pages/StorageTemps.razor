@@ -56,7 +56,8 @@
     <div class="bb-card-title"><h3>Locations</h3></div>
     @if (_locations.Count == 0)
     {
-        <div class="muted">No active storage locations.</div>
+        var locationsEmpty = WorklistEmptyText.For(_locationsLoaded, _locationsError, "No active storage locations.");
+        <div class="@(locationsEmpty.IsError ? "text-danger" : "muted")" data-worklist-empty="storage-locations">@locationsEmpty.Text</div>
     }
     else
     {
@@ -157,6 +158,8 @@
 
 @code {
     private List<StorageLocationTemperatureDto> _locations = new();
+    private bool _locationsLoaded;
+    private string? _locationsError;
     private List<StorageTemperatureReadingDto> _excursions = new();
     private List<StorageTemperatureReadingDto> _history = new();
     private long? _historyLocationId;
@@ -191,6 +194,9 @@
     {
         var locations = await Api.GetStorageTemperatureLocationsAsync();
         if (locations.Succeeded) _locations = locations.Value ?? new();
+        // Pass 173: the page said there were no storage locations before reading them, and after a failed read.
+        _locationsError = locations.Succeeded ? null : locations.Error ?? "the server did not answer.";
+        _locationsLoaded = true;
         var excursions = await Api.GetOpenTemperatureExcursionsAsync();
         if (excursions.Succeeded) _excursions = excursions.Value ?? new();
         if (_historyLocationId is long id) await LoadHistoryAsync(id);

@@ -22,7 +22,8 @@
     <div class="bb-card-title"><h3>Worklist</h3></div>
     @if (_work.Count == 0)
     {
-        <div class="muted">No overdue, failed, or unreviewed QC, and no lot to close or replace.</div>
+        var workEmpty = WorklistEmptyText.For(_workLoaded, _workError, "No overdue, failed, or unreviewed QC, and no lot to close or replace.");
+        <div class="@(workEmpty.IsError ? "text-danger" : "muted")" data-worklist-empty="reagent-qc">@workEmpty.Text</div>
     }
     else
     {
@@ -587,6 +588,8 @@
     }
     private List<ReagentLotDto> _lots = new();
     private List<ReagentQcWorkItemDto> _work = new();
+    private bool _workLoaded;
+    private string? _workError;
     private Feedback? _feedback;
     private string _code = string.Empty;
     private string _name = string.Empty;
@@ -640,6 +643,9 @@
         if (QcLots.All(l => l.Id != _qcLotId)) _qcLotId = QcLots.Count == 1 ? QcLots[0].Id : 0;
         var work = await Api.GetReagentQcWorklistAsync();
         if (work.Succeeded) _work = work.Value ?? new();
+        // Pass 173: the QC worklist said nothing was due before it was read, and after a failed read.
+        _workError = work.Succeeded ? null : work.Error ?? "the server did not answer.";
+        _workLoaded = true;
         var recent = await Api.GetRecentReagentQcAsync();
         if (recent.Succeeded) _recentQc = recent.Value ?? new();
     }

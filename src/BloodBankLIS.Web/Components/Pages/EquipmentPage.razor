@@ -32,7 +32,8 @@ else
         </div>
         @if (_due.Count == 0)
         {
-            <div class="empty">No checks due. Equipment out of service is not listed.</div>
+            var dueEmpty = WorklistEmptyText.For(true, _dueError, "No checks due. Equipment out of service is not listed.");
+            <div class="@(dueEmpty.IsError ? "empty text-danger" : "empty")" data-worklist-empty="equipment-due">@dueEmpty.Text</div>
         }
         else
         {
@@ -425,6 +426,7 @@ else
     private bool _busy;
     private List<EquipmentDto> _equipment = new();
     private List<EquipmentCheckDueDto> _due = new();
+    private string? _dueError;
     private List<EquipmentCheckDueDto> _upcoming = new();
     private int _upcomingDays = 30;
 
@@ -643,6 +645,8 @@ else
 
         var due = await Api.GetEquipmentDueAsync();
         _due = due.Value ?? new();
+        // Pass 173: a failed read of the checks due read as "No checks due".
+        _dueError = due.Succeeded ? null : due.Error ?? "the server did not answer.";
         await LoadUpcomingAsync();
         _loading = false;
     }

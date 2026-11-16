@@ -65,6 +65,19 @@ public class LoadingStateSourceTests
         Assert.DoesNotContain("<div class=\"muted\">No recalled units waiting to be pulled.</div>", page);
     }
 
+    // TEST-BB-1196: Reagent QC's worklist, Equipment's checks due, Storage temps and Supplier orders do not say there is
+    // nothing before reading, or after a failed read (end-user testing pass 173).
+    [Theory]
+    [InlineData("Reagents.razor", "WorklistEmptyText.For(_workLoaded, _workError, \"No overdue, failed, or unreviewed QC")]
+    [InlineData("EquipmentPage.razor", "WorklistEmptyText.For(true, _dueError, \"No checks due.")]
+    [InlineData("StorageTemps.razor", "WorklistEmptyText.For(_locationsLoaded, _locationsError, \"No active storage locations.")]
+    [InlineData("SupplierOrders.razor", "WorklistEmptyText.For(_ordersLoaded, _ordersError, \"No supplier orders yet.")]
+    public void QualityAndSupplyLists_SayLoadingOrFailedBeforeNone(string file, string expected)
+    {
+        var page = File.ReadAllText(Path.Combine(RepoRoot(), "src", "BloodBankLIS.Web", "Components", "Pages", file));
+        Assert.Contains(expected, page);
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

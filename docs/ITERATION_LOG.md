@@ -25597,3 +25597,23 @@ Continued the pass 169 follow-up on Inventory, the page a tech opens to pull rec
 ### Tests
 
 - TEST-BB-1195. Full suite passed.
+
+## Iteration 893 — End-user testing pass 173: QC, equipment, storage and supplier lists said there was nothing before reading (2026-11-16)
+
+### How it was tested
+
+Continued the pass 169 follow-up on Reagent QC, Equipment, Storage temps and Supplier orders.
+
+### Found and fixed
+
+1. **The Reagent QC worklist said nothing was due before it was read, and after a failed read.** *No overdue, failed, or unreviewed QC, and no lot to close or replace.* showed while the page loaded reagents and lots, and stayed if the worklist read failed, so a tech could take a failed read for QC done. It now says *Loading…* until read and in red that it could not be loaded.
+2. **Equipment said *No checks due* after a failed read** (the page already waited for its load). It now says the list could not be loaded.
+3. **Storage temps and Supplier orders said there were no locations or orders before reading them.** Both now say *Loading…*, or that the list could not be loaded.
+
+### Retested live
+
+- Reagent QC lists its seeded overdue and unreviewed QC, Storage temps its seven location rows and Supplier orders its three orders. Equipment changed only for a failed read, which was not reproduced live. Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1196. Full suite passed.
