@@ -76,6 +76,26 @@ public sealed record BloodUnitDto(
 {
     public long? BloodSupplierId { get; init; }
 
+    /// <summary>
+    /// Pass 157: the patient an open reservation holds this unit for, "Name (MRN)", on the Inventory search list (an
+    /// Assigned unit said only Assigned; a unit reserved while Received or released as Available said nothing).
+    /// </summary>
+    public long? ReservedForPatientId { get; init; }
+
+    public string? ReservedForLabel { get; init; }
+
+    /// <summary>The row with the patient an open reservation holds it for: "Name (MRN)", else the MRN, else the id.</summary>
+    public BloodUnitDto WithReservation((long Id, string? Mrn, string? Name)? reservedFor) =>
+        reservedFor is not { } who
+            ? this
+            : this with
+            {
+                ReservedForPatientId = who.Id,
+                ReservedForLabel = string.IsNullOrWhiteSpace(who.Name)
+                    ? string.IsNullOrWhiteSpace(who.Mrn) ? $"patient {who.Id}" : who.Mrn
+                    : string.IsNullOrWhiteSpace(who.Mrn) ? who.Name : $"{who.Name} ({who.Mrn})"
+            };
+
     /// <summary>True when this unit was produced by a modification and release still needs a matching label scan.</summary>
     public bool RequiresModificationLabelScan { get; init; }
 

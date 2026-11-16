@@ -25276,3 +25276,21 @@ Followed up the note from pass 155: four group O red cells offered to every pati
 ### Tests
 
 - TEST-BB-1178. Full suite passed.
+
+## Iteration 876 — End-user testing pass 157: who a unit is reserved for, on the stock list (2026-11-16)
+
+### How it was tested
+
+Searched Inventory's stock list for the units held in passes 149–156. (The web and API had stopped while idle and were restarted; nothing was lost.)
+
+### Found and fixed
+
+1. **The stock list did not say who a unit was reserved for.** W000026123460 read only *Assigned*; W000123RXN0001 and W0001230000001 read *Pending Retype* and W000123UAG0001/0002 and W0001230009201/9202 *Available*, all held by open reservations, with nothing on the row to say so; Near expiry already named the patient. Each row held by an open reservation now says **Reserved for** and the patient (linked to their products), whatever the status reads.
+
+### Retested live
+
+- The Inventory list shows *Reserved for* on the seven held units, for example *W000026123460 Assigned · Reserved for Demo-Special, Avery (MRN0023)* and *W000123UAG0001 Available · Reserved for Kline, Nora (MRN0010)*.
+
+### Tests
+
+- TEST-BB-1179. Full suite passed.

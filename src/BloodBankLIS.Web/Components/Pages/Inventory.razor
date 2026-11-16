@@ -922,6 +922,11 @@
                             }
                         </td>
                         <td><span class="@Ui.Badge(u.Status)">@Ui.StatusLabel(u.Status)</span>
+                            @if (u.ReservedForLabel is { } reservedFor)
+                            {
+                                @* Pass 157: an open reservation holds this unit. *@
+                                <span class="sub" data-unit-reserved-for>Reserved for <a href="@($"/patients/{u.ReservedForPatientId}?tab=products")">@reservedFor</a></span>
+                            }
                             @if (u.Status == UnitStatus.Expected && u.ExpectedArrivalDueUtc is DateTime due && due < DateTime.UtcNow)
                             {
                                 <span class="badge badge-amber">Overdue</span>

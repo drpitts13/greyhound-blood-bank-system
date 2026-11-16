@@ -41,7 +41,10 @@ public static class InventoryEndpoints
                 unitNumber, status, abo, rh, productTypeId, locationId, expiringBeforeUtc, statuses,
                 excludeIssuedAndTransfused == true, antigenNegative);
             var units = await service.SearchAsync(criteria, ct);
-            return Results.Ok(units.Select(BloodUnitDto.From));
+            // Pass 157: who each unit is reserved for, when an open reservation holds it.
+            var reserved = await service.ReservedPatientsAsync(units.Select(u => u.Id).ToList(), ct);
+            return Results.Ok(units.Select(u => BloodUnitDto.From(u).WithReservation(
+                reserved.TryGetValue(u.Id, out var who) ? who : null)));
         });
 
         group.MapGet("/units/expected", async (InventoryService service, CancellationToken ct) =>

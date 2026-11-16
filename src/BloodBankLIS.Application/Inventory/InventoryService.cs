@@ -202,6 +202,11 @@ public sealed class InventoryService
     }
 
     /// <summary>The patient on each unit's Reserved allocation; units without one are left out.</summary>
+    /// <summary>Pass 157: each unit's open reservation, for the Inventory search list.</summary>
+    public async Task<IReadOnlyDictionary<long, (long Id, string? Mrn, string? Name)>> ReservedPatientsAsync(
+        IReadOnlyList<long> unitIds, CancellationToken ct = default) =>
+        await LoadReservedPatientsAsync(unitIds, ct);
+
     private async Task<Dictionary<long, (long Id, string? Mrn, string? Name)>> LoadReservedPatientsAsync(
         IReadOnlyList<long> unitIds, CancellationToken ct)
     {
