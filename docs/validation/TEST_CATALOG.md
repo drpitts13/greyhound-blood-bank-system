@@ -1164,5 +1164,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1153 | U | `EquipmentTestNoticeTests.ForResult_LeavesOutOfServiceEquipmentOut` | URS-BB-910 / FRS-BB-1028 |
 | TEST-BB-1154 | U | `RetypeQueueOrderTests.Sort_PutsSoonestExpiringFirst_AndOutdatedLast`, `RetypeQueueOrderTests.Notes_SayTimeLeftAndTimeWaiting` | URS-BB-911 / FRS-BB-1029 |
 | TEST-BB-1155 | U | `CompetitorGapRuleTests.Worklist_SaysWhatEachUnreviewedQcWas_AndWhenTheLotLastHadQc` | URS-BB-912 / FRS-BB-1030 |
+| TEST-BB-1156 | U | `IssuedUnitWhereaboutsTests.Text_SaysWhereTheUnitWent_AndWhetherTheWardReceivedIt` | URS-BB-913 / FRS-BB-1031 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

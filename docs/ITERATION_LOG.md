@@ -24845,3 +24845,21 @@ Worked the Reagent QC worklist as the supervisor reviewing the seeded daily QC (
 ### Tests
 
 - TEST-BB-1155. Full suite passed.
+
+## Iteration 853 — End-user testing pass 134: chasing an overdue issued unit (2026-11-15)
+
+### How it was tested
+
+Worked the issued-unit boards (Ready to issue, In transit, Issued units, Coolers, Final disposition) with the seeded MTP and multi-unit patients: six units issued on 2026-11-06 and past the 24-hour final-disposition window.
+
+### Found and fixed
+
+1. **The Final disposition board did not say where the unit went.** Rows gave the unit, the patient and the times, but not the location, cooler, who took it, or whether the ward had received it, so the bench could not tell whom to call without opening each issue (four of the six were in Cooler 1 to Trauma Bay 1, never received on the ward). A **Sent to** column now reads *Trauma Bay 1 · Cooler 1 · to RN Demo · not received on the ward*, or *… received on the ward 2026-11-06 08:57 by RN Demo*.
+
+### Retested live
+
+- `/api/issues/overdue-disposition` returns the six units with where each went; the Final disposition desk shows the column. No issue, return or transfusion was recorded live.
+
+### Tests
+
+- TEST-BB-1156. Full suite passed.
