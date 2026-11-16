@@ -25214,3 +25214,21 @@ Checked a reserved unit on the chart (MRN0001's W0001230000001 shows *Pending Re
 ### Tests
 
 - TEST-BB-1175. Full suite passed.
+
+## Iteration 873 — End-user testing pass 154: reserving for a patient with no type (2026-11-16)
+
+### How it was tested
+
+Walked the open alerts (expired-unit alerts are already rechecked against the shelf, pass 95), the Patients list, Modify Products and print jobs, then Compatibility for the anti-K mother's newborn (MRN0029), who has no ABO/Rh on file yet.
+
+### Found and fixed
+
+1. **Any group of red cells or plasma could be reserved for a patient with no type.** For MRN0029, Compatibility shows every available unit (*Patient has no current ABO/Rh on file … Reserve still checks the unit*), but the reserve check compared ABO only when the patient had a type, so a group B plasma or a non-O red cell could be reserved for the untyped newborn and held for them until issue refused it. With no current type, reserving now allows only the groups that suit any recipient, the same groups as the pre-specimen emergency rule decided in OCD-053 (group O red cells or whole blood, group AB or A plasma), and refuses others with the reason until the patient's type is recorded. Platelets and other components are not affected. The compatibility preview gives the same answer.
+
+### Retested live
+
+- `/api/compatibility/evaluate` for MRN0029: group B plasma W0001230001014 is refused (*ALLOC-UNTYPED … only group AB or A plasma can be reserved. This unit is group B.*); AB plasma W0001230001020 and group O red cell W0001230009207 are allowed. Nothing was reserved.
+
+### Tests
+
+- TEST-BB-1176. Full suite passed (no existing test reserved a non-O unit for an untyped patient).

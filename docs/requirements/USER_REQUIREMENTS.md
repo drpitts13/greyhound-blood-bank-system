@@ -938,3 +938,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-930 | The Test worklist's product retype tab shows the reserved patient, expiry and time waiting, in the same order as the Inventory retype board. | P3 | FRS-BB-1048 |
 | URS-BB-931 | The Units to retype home card names how many waiting units are reserved for patients. | P3 | FRS-BB-1049 |
 | URS-BB-932 | Supplier orders not yet sent, or sent and past their arrival time, are on the home dashboard, naming drafts for a patient. | P2 | FRS-BB-1050 |
+| URS-BB-933 | For a patient with no current ABO/Rh, only group O red cells/whole blood and group AB or A plasma can be reserved. | P1 | FRS-BB-1051 |

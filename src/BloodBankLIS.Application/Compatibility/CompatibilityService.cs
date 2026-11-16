@@ -486,6 +486,11 @@ public sealed class CompatibilityService
             results.AddRange(await EvaluateAboRhAsync(
                 request.PatientId, bloodType.BloodType, unit.BloodType, productType, ct));
         }
+        else if ((bloodType is null || !bloodType.BloodType.IsKnown) && productType is not null && unit.BloodType.IsKnown)
+        {
+            // Pass 154: no current type on file: only units that suit any recipient may be reserved.
+            results.Add(UntypedPatientAllocationRule.Evaluate(productType.ComponentClass, unit.Abo));
+        }
 
         if (productType is not null)
         {
@@ -562,6 +567,11 @@ public sealed class CompatibilityService
         {
             results.AddRange(await EvaluateAboRhAsync(
                 request.PatientId, bloodType.BloodType, unit.BloodType, productType, ct));
+        }
+        else if ((bloodType is null || !bloodType.BloodType.IsKnown) && productType is not null && unit.BloodType.IsKnown)
+        {
+            // Pass 154: no current type on file: only units that suit any recipient may be reserved.
+            results.Add(UntypedPatientAllocationRule.Evaluate(productType.ComponentClass, unit.Abo));
         }
 
         if (productType is not null)
