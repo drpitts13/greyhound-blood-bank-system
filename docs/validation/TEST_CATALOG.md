@@ -1172,5 +1172,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1161 | I | `ReportServiceTests.ReagentQcReport_ListsEveryReading` | URS-BB-918 / FRS-BB-1036 |
 | TEST-BB-1162 | I | `ReportServiceTests.EquipmentCheckReport_ListsEveryCheck` | URS-BB-919 / FRS-BB-1037 |
 | TEST-BB-1163 | U | `InstrumentFailureRowsTests.Rows_GiveTheReason_AndNameARepeatedFailure` | URS-BB-920 / FRS-BB-1038 |
+| TEST-BB-1164 | U | `OpenDeliveryStatusTests.Text_SaysWhatIsLeft_OrThatItIsReadyToComplete` | URS-BB-921 / FRS-BB-1039 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

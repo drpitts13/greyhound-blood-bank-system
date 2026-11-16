@@ -926,3 +926,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-918 | Reagent QC for any period can be listed, printed and exported (reagent, lot, control, expected/observed, pass/fail, performer, reviewer). | P2 | FRS-BB-1036 |
 | URS-BB-919 | Equipment checks across all equipment for any period can be listed, printed and exported. | P3 | FRS-BB-1037 |
 | URS-BB-920 | The instrument message list shows each open failure's reason and patient on the row and marks a failure repeated for the same specimen and reason. | P3 | FRS-BB-1038 |
+| URS-BB-921 | The open deliveries board says how many units are still to enter or that a delivery is ready to complete, how long it has been open, and offers Review and complete. | P3 | FRS-BB-1039 |

@@ -24998,3 +24998,21 @@ Worked the instrument failures queue (Instruments, Open failures) as the bench t
 ### Tests
 
 - TEST-BB-1163. Full suite passed.
+
+## Iteration 861 — End-user testing pass 142: deliveries entered but never completed (2026-11-16)
+
+### How it was tested
+
+Walked the HL7 page (error queue, waiting outbound, log), billing charges (an issue charge is cancelled when the unit comes back unused), the reaction board, then Inventory's Open deliveries with the seeded ARC deliveries.
+
+### Found and fixed
+
+1. **A delivery with every unit entered stayed open with nothing saying so.** PL-UAT-1 (2 of 2 entered) and PL-UAT-2 (1 of 1) had been open three days; each row offered only **Enter units**, so the check against the packing list and the completion were never done. Rows now say how long the delivery has been open and where it stands (*1 of 2 still to enter*, *All entered: review and complete*, or *1 more than expected: review and complete with a note*), and a delivery ready to complete offers **Review and complete**, which opens it to complete.
+
+### Retested live
+
+- The Open deliveries board shows both deliveries as *All entered: review and complete*, *open 3 d*, with Review and complete. Neither was completed live.
+
+### Tests
+
+- TEST-BB-1164. Full suite passed.

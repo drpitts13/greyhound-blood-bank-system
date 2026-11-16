@@ -787,21 +787,45 @@
                         <th>Received</th>
                         <th>Expected</th>
                         <th>Entered</th>
+                        <th>Status</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var delivery in _openDeliveries)
                     {
+                        var ready = OpenDeliveryStatus.ReadyToComplete(delivery.ExpectedQuantity, delivery.ReceivedQuantity);
                         <tr>
                             <td class="mono"><a href="@($"/inventory/deliveries/{delivery.Id}")">@delivery.Id</a></td>
                             <td>@delivery.SupplierNameLabel</td>
                             <td class="mono">@(delivery.PackingListNumber ?? "—")</td>
                             <td>@delivery.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@delivery.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@delivery.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                <span class="sub" data-delivery-open-for>open @AlertInboxView.OpenFor(delivery.ReceivedUtc, DateTime.UtcNow)</span>
+                            </td>
                             <td>@delivery.ExpectedQuantity</td>
                             <td>@delivery.ReceivedQuantity</td>
-                            <td class="right"><a class="btn btn-primary btn-sm" href="@($"/inventory/deliveries/{delivery.Id}/receive")">Enter units</a></td>
+                            <td data-delivery-status="@delivery.Id">
+                                @if (ready)
+                                {
+                                    <span class="badge badge-amber">@OpenDeliveryStatus.Text(delivery.ExpectedQuantity, delivery.ReceivedQuantity)</span>
+                                }
+                                else
+                                {
+                                    @OpenDeliveryStatus.Text(delivery.ExpectedQuantity, delivery.ReceivedQuantity)
+                                }
+                            </td>
+                            <td class="right nowrap">
+                                @if (ready)
+                                {
+                                    <a class="btn btn-primary btn-sm" href="@($"/inventory/deliveries/{delivery.Id}")" data-delivery-complete-link>Review and complete</a>
+                                    <a class="btn btn-ghost btn-sm" href="@($"/inventory/deliveries/{delivery.Id}/receive")">Enter units</a>
+                                }
+                                else
+                                {
+                                    <a class="btn btn-primary btn-sm" href="@($"/inventory/deliveries/{delivery.Id}/receive")">Enter units</a>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>
