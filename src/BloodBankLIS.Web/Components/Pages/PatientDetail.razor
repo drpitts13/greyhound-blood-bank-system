@@ -111,6 +111,8 @@ else
             @bind-SrEndDate="_srEndDate"
             @bind-SrReason="_srReason"
             RecentPregnancyUtc="_patient?.RecentPregnancyUtc"
+            @bind-PregnancyDate="_pregnancyDate"
+            OnClearPregnancy="ClearRecentPregnancyAsync"
             DeactivateId="_deactivateId"
             DeactivatePostedByWorkup="_deactivatePostedByWorkup"
             @bind-DeactivateReason="_deactivateReason"
@@ -2716,16 +2718,32 @@ else
         }
     }
 
+    // Pass 138: the date of the pregnancy or delivery, today unless changed.
+    private DateOnly? _pregnancyDate = DateOnly.FromDateTime(DateTime.Now);
+
     private async Task MarkRecentPregnancyAsync()
+    {
+        if (_patient is null || _pregnancyDate is not DateOnly date) return;
+        _busy = true;
+        var r = await Api.UpdatePatientAsync(Id, new UpdatePatientRequest(
+            _patient.LastName, _patient.FirstName, _patient.MiddleName, _patient.DateOfBirth, _patient.Sex, _patient.Status,
+            RecentPregnancyUtc: RecentPregnancyRule.ToUtc(date, DateTime.UtcNow),
+            Comment: _patient.Comment));
+        _busy = false;
+        _srFb = r.ToFeedback($"Recent pregnancy documented ({date:yyyy-MM-dd}). Specimen validity recomputed.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private async Task ClearRecentPregnancyAsync()
     {
         if (_patient is null) return;
         _busy = true;
         var r = await Api.UpdatePatientAsync(Id, new UpdatePatientRequest(
             _patient.LastName, _patient.FirstName, _patient.MiddleName, _patient.DateOfBirth, _patient.Sex, _patient.Status,
-            RecentPregnancyUtc: DateTime.UtcNow,
+            RecentPregnancyUtc: null,
             Comment: _patient.Comment));
         _busy = false;
-        _srFb = r.ToFeedback("Recent pregnancy documented. Specimen validity recomputed.");
+        _srFb = r.ToFeedback("Recent pregnancy cleared. Specimen validity recomputed.");
         if (r.Succeeded) await LoadAsync();
     }
 

@@ -827,6 +827,13 @@ public sealed class PatientService
             return OperationResult<Patient>.Fail(identityReason.Message);
         }
 
+        // Pass 138: a recent pregnancy's date is entered, not assumed to be today; it cannot be in the future or before birth.
+        if (patient.RecentPregnancyUtc != request.RecentPregnancyUtc
+            && RecentPregnancyRule.Evaluate(request.RecentPregnancyUtc, request.DateOfBirth, _clock.UtcNow) is { Severity: RuleSeverity.HardStop } pregnancy)
+        {
+            return OperationResult<Patient>.Fail(pregnancy.Message);
+        }
+
         var previous = new
         {
             patient.LastName,

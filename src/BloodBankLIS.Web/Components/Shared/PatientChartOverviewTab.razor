@@ -271,9 +271,19 @@
         {
             <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
             <h4>Recent pregnancy (specimen window)</h4>
-            <p class="muted">When documented, accepted specimens use the 3-day alloimmunization-risk window.</p>
-            <div class="muted">Current: @(RecentPregnancyUtc?.ToString("yyyy-MM-dd") ?? "not documented")</div>
-            <button class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnMarkPregnancy">Document pregnancy in last 3 months</button>
+            <p class="muted">When documented, accepted specimens use the 3-day alloimmunization-risk window, counted from the pregnancy date. Enter the date of the pregnancy or delivery, not the date you record it.</p>
+            <div class="muted" data-pregnancy-current>Current: @(RecentPregnancyUtc?.ToLocalTime().ToString("yyyy-MM-dd") ?? "not documented")</div>
+            <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;">
+                <div class="field" style="margin:0;"><label>Pregnancy or delivery date</label>
+                    <input type="date" value="@(PregnancyDate?.ToString("yyyy-MM-dd"))" max="@DateTime.Now.ToString("yyyy-MM-dd")"
+                           @onchange="OnPregnancyDateInput" data-pregnancy-date />
+                </div>
+                <button class="btn btn-secondary btn-sm" disabled="@(Busy || PregnancyDate is null)" @onclick="OnMarkPregnancy" data-pregnancy-record>Record pregnancy date</button>
+                @if (RecentPregnancyUtc is not null)
+                {
+                    <button class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="OnClearPregnancy" data-pregnancy-clear>Clear</button>
+                }
+            </div>
         }
     </div>
 
@@ -605,6 +615,13 @@
     [Parameter] public string SrReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> SrReasonChanged { get; set; }
     [Parameter] public DateTime? RecentPregnancyUtc { get; set; }
+    // Pass 138: the pregnancy date is entered (defaults to today) and can be cleared.
+    [Parameter] public DateOnly? PregnancyDate { get; set; }
+    [Parameter] public EventCallback<DateOnly?> PregnancyDateChanged { get; set; }
+    [Parameter] public EventCallback OnClearPregnancy { get; set; }
+
+    private Task OnPregnancyDateInput(ChangeEventArgs e) =>
+        PregnancyDateChanged.InvokeAsync(DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null);
     [Parameter] public long? DeactivateId { get; set; }
     [Parameter] public bool DeactivatePostedByWorkup { get; set; }
     [Parameter] public string DeactivateReason { get; set; } = string.Empty;

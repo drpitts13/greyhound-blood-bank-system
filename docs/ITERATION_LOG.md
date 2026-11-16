@@ -24925,3 +24925,21 @@ Read the Home dashboard as the supervisor (every card and its note), then storag
 ### Tests
 
 - TEST-BB-1159. Full suite passed.
+
+## Iteration 857 — End-user testing pass 138: the pregnancy date (2026-11-15)
+
+### How it was tested
+
+Worked the mother/baby charts (MRN0028, delivered 2026-11-13 with maternal anti-K, and her newborn MRN0029) from the chart's Overview.
+
+### Found and fixed
+
+1. **A recent pregnancy could only be recorded as "now".** The chart's only control was *Document pregnancy in last 3 months*, which saved the moment the button was pressed. The alloimmunization look-back that shortens the specimen window is counted from that date, so a delivery six weeks earlier was dated today (the window ran six weeks too long), and there was no way to enter the real date or to clear one recorded in error. The Overview now has a **Pregnancy or delivery date** (today by default, no later than today), **Record pregnancy date**, and **Clear**; the server refuses a date in the future or before the patient's date of birth.
+
+### Retested live
+
+- MRN0028's chart shows the date field (2026-11-15, max today) and Record; `PUT /api/patients/23` with a date in December is refused (*The pregnancy date cannot be in the future.*) and the chart is unchanged. No pregnancy was recorded live (MRN0028 has none on file; recording one would be clinical documentation).
+
+### Tests
+
+- TEST-BB-1160. Full suite passed.

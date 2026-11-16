@@ -93,6 +93,37 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(aliases, a => a.IdentifierType == IdentityTokenType.PriorFullName);
     }
 
+    // TEST-BB-1160: a recent pregnancy is recorded with its own date (an earlier delivery, not today) and can be cleared;
+    // a date in the future or before the patient's birth is refused (end-user testing pass 138).
+    [Fact]
+    public async Task Update_RecordsThePregnancyDate_AndRefusesAnImpossibleOne()
+    {
+        var id = await EnsurePatientAsync("MRN-DEMO-PREG");
+        var dob = new DateOnly(1980, 1, 1);
+        var sixWeeksAgo = _factory.Clock.UtcNow.AddDays(-42);
+
+        await using var context = _factory.Create();
+        var service = Patients(context);
+        UpdatePatientRequest With(DateTime? pregnancy) =>
+            new("Original", "Pat", "Q", dob, Sex.Unknown, PatientStatus.Active, RecentPregnancyUtc: pregnancy);
+
+        var recorded = await service.UpdateAsync(id, With(sixWeeksAgo));
+        Assert.True(recorded.Succeeded, recorded.Error);
+        Assert.Equal(sixWeeksAgo, (await context.Patients.AsNoTracking().SingleAsync(p => p.Id == id)).RecentPregnancyUtc);
+
+        var future = await service.UpdateAsync(id, With(_factory.Clock.UtcNow.AddDays(5)));
+        Assert.False(future.Succeeded);
+        Assert.Equal("The pregnancy date cannot be in the future.", future.Error);
+
+        var beforeBirth = await service.UpdateAsync(id, With(new DateTime(1979, 6, 1, 0, 0, 0, DateTimeKind.Utc)));
+        Assert.False(beforeBirth.Succeeded);
+        Assert.Contains("before the patient's date of birth (1980-01-01)", beforeBirth.Error);
+
+        var cleared = await service.UpdateAsync(id, With(null));
+        Assert.True(cleared.Succeeded, cleared.Error);
+        Assert.Null((await context.Patients.AsNoTracking().SingleAsync(p => p.Id == id)).RecentPregnancyUtc);
+    }
+
     [Fact]
     public async Task Update_WithoutPatientWrite_IsHardStopped()
     {
