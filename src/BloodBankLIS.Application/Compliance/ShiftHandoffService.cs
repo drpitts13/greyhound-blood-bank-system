@@ -85,7 +85,9 @@ public sealed record ShiftHandoffDto(
     int LookbackDue = 0,
     int LookbackPastNotifyBy = 0,
     // Pass 143: received units waiting for their ABO/Rh confirmation retype.
-    int RetypesPending = 0)
+    int RetypesPending = 0,
+    // Pass 144: deliveries with every unit entered, still to complete.
+    int DeliveriesToComplete = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -137,6 +139,7 @@ public sealed record ShiftHandoffDto(
         (OpenDeviations > 0 ? $"; deviations open {OpenDeviations}" + (DeviationsOverdue > 0 ? $", {DeviationsOverdue} overdue" : "") : "") +
         (LookbackDue > 0 ? $"; lookback notifications due {LookbackDue}" + (LookbackPastNotifyBy > 0 ? $", {LookbackPastNotifyBy} past notify-by" : "") : "") +
         (RetypesPending > 0 ? $"; units to retype {RetypesPending}" : "") +
+        (DeliveriesToComplete > 0 ? $"; deliveries to complete {DeliveriesToComplete}" : "") +
         (InstrumentFailuresOpen > 0
             ? $"; instrument failures {InstrumentFailuresOpen}" + (InstrumentResultsHeld > 0 ? $", {InstrumentResultsHeld} held for review" : "")
             : "") +
@@ -174,7 +177,7 @@ public sealed record ShiftHandoffDto(
         h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
         h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen,
         h.TemperatureExcursionsOpen, h.TemperatureExcursionsToClose, h.TemperatureReadingsDue, h.DeviationsOverdue,
-        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending);
+        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending, h.DeliveriesToComplete);
 }
 
 /// <summary>
@@ -204,6 +207,7 @@ public sealed class ShiftHandoffService
     private readonly BloodBankLIS.Application.Inventory.StorageTemperatureService? _storageTemperatures;
     private readonly IRepository<LookbackNotification>? _lookback;
     private readonly BloodBankLIS.Application.Inventory.ProductRetypeService? _retypes;
+    private readonly BloodBankLIS.Application.Inventory.DeliveryService? _deliveries;
     // Read without admin.config.edit: minimum stock levels are configuration, the shortage is shift work.
     private readonly MinimumStockService? _minimumStock;
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
@@ -258,8 +262,10 @@ public sealed class ShiftHandoffService
         SupervisorQueueService? supervisorQueue = null,
         BloodBankLIS.Application.Inventory.StorageTemperatureService? storageTemperatures = null,
         IRepository<LookbackNotification>? lookback = null,
-        BloodBankLIS.Application.Inventory.ProductRetypeService? retypes = null)
+        BloodBankLIS.Application.Inventory.ProductRetypeService? retypes = null,
+        BloodBankLIS.Application.Inventory.DeliveryService? deliveries = null)
     {
+        _deliveries = deliveries;
         _retypes = retypes;
         _lookback = lookback;
         _storageTemperatures = storageTemperatures;
@@ -528,7 +534,10 @@ public sealed class ShiftHandoffService
             DeviationsOverdue = openDeviations.Count(d => DeviationDueRule.IsOverdue(d.Status, d.DueOn, facilityToday)),
             LookbackDue = lookbackDue.Count,
             LookbackPastNotifyBy = lookbackPast,
-            RetypesPending = _retypes is null ? 0 : (await _retypes.ListPendingAsync(ct)).Count
+            RetypesPending = _retypes is null ? 0 : (await _retypes.ListPendingAsync(ct)).Count,
+            DeliveriesToComplete = _deliveries is null
+                ? 0
+                : (await _deliveries.ListOpenAsync(ct)).Count(d => OpenDeliveryStatus.ReadyToComplete(d.ExpectedQuantity, d.ReceivedQuantity))
         };
     }
 
@@ -633,7 +642,8 @@ public sealed class ShiftHandoffService
         DeviationsOverdue = row.DeviationsOverdue,
         LookbackDue = row.LookbackDue,
         LookbackPastNotifyBy = row.LookbackPastNotifyBy,
-        RetypesPending = row.RetypesPending
+        RetypesPending = row.RetypesPending,
+        DeliveriesToComplete = row.DeliveriesToComplete
     };
 
     /// <summary>

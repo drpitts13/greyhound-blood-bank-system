@@ -55,6 +55,7 @@ public static class DashboardQueueCatalog
     public const string EquipmentChecks = "equipment-checks";
     public const string LookbackDue = "lookback-due";
     public const string Retypes = "retypes";
+    public const string OpenDeliveries = "open-deliveries";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -80,6 +81,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.SpecimenAccession), TubesDueForDiscard, "Tubes due for discard", "/specimens/store");
         // Pass 143: received units waiting for their ABO/Rh confirmation retype, seen only on the Retype board before.
         Add(cards, has(PermissionCodes.ResultEnter), Retypes, "Units to retype", "/inventory?board=retype");
+        // Pass 144: supplier deliveries still open, seen only on Inventory's Open deliveries board before.
+        Add(cards, has(PermissionCodes.InventoryReceive), OpenDeliveries, "Open deliveries", "/inventory?board=deliveries");
         // Daily reagent QC is bench work: whoever enters results records and reviews it.
         Add(cards, has(PermissionCodes.ResultEnter), ReagentQc, "Reagent QC", "/reagents");
         // Equipment checks failed, overdue, due today or never done, on equipment in service (Cycle 709): bench work.
@@ -457,6 +460,23 @@ public static class DashboardQueueCatalog
             $"oldest waiting {AlertInboxView.OpenFor(all.Min(i => i.ReceivedUtc), nowUtc)}",
             soonest is DateTime next ? $"next {RetypeQueueOrder.ExpiryNote(next, nowUtc)}" : null,
             AttentionNote(all.Count(i => i.Expired), "outdated", "outdated")
+        };
+        return string.Join("; ", parts.Where(p => p is not null));
+    }
+
+    /// <summary>The Open deliveries card note (pass 144): those with every unit entered, ready to complete, and the oldest.</summary>
+    public static string? OpenDeliveriesNote(IEnumerable<OpenDeliveryDto> open, DateTime nowUtc)
+    {
+        var all = open.ToList();
+        if (all.Count == 0)
+        {
+            return null;
+        }
+
+        var parts = new[]
+        {
+            AttentionNote(all.Count(d => OpenDeliveryStatus.ReadyToComplete(d.ExpectedQuantity, d.ReceivedQuantity)), "ready to complete", "ready to complete"),
+            $"oldest open {AlertInboxView.OpenFor(all.Min(d => d.ReceivedUtc), nowUtc)}"
         };
         return string.Join("; ", parts.Where(p => p is not null));
     }

@@ -68,6 +68,28 @@ public class ShiftHandoffItemsTests
         Assert.Contains("deviations open 3, 1 overdue", handoff.QueueSummary);
     }
 
+    // TEST-BB-1166: deliveries with every unit entered are a handoff item linked to Open deliveries and in the summary;
+    // the home card is for those who receive stock and names those ready to complete and the oldest (end-user testing
+    // pass 144).
+    [Fact]
+    public void DeliveriesToComplete_AreAHandoffItem_AndOpenDeliveriesAHomeCard()
+    {
+        var handoff = Handoff() with { DeliveriesToComplete = 2 };
+        var item = Assert.Single(ShiftHandoffItems.For(handoff));
+        Assert.Equal(("Deliveries to complete", 2, "/inventory?board=deliveries"), (item.Label, item.Count, item.Href));
+        Assert.Contains("deliveries to complete 2", handoff.QueueSummary);
+
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.InventoryReceive), c => c.Key == DashboardQueueCatalog.OpenDeliveries && c.Href == "/inventory?board=deliveries");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.ResultEnter), c => c.Key == DashboardQueueCatalog.OpenDeliveries);
+        var now = new DateTime(2026, 11, 16, 12, 0, 0, DateTimeKind.Utc);
+        BloodBankLIS.Application.Inventory.OpenDeliveryDto Delivery(int daysOpen, int expected, int entered) =>
+            new(1, 1, "ARC", "American Red Cross", "PL-1", now.AddDays(-daysOpen), now.AddDays(-daysOpen), expected, entered);
+        Assert.Null(DashboardQueueCatalog.OpenDeliveriesNote([], now));
+        Assert.Equal("2 ready to complete; oldest open 3 d",
+            DashboardQueueCatalog.OpenDeliveriesNote([Delivery(3, 2, 2), Delivery(1, 1, 1), Delivery(0, 4, 1)], now));
+        Assert.Equal("oldest open 24 h", DashboardQueueCatalog.OpenDeliveriesNote([Delivery(1, 4, 1)], now));
+    }
+
     // TEST-BB-1165: units waiting for their ABO/Rh confirmation retype are a handoff item linked to the Retype board and
     // in the summary; the home card is for those who enter results and says how long the oldest has waited, the next
     // expiry and how many outdated (end-user testing pass 143).

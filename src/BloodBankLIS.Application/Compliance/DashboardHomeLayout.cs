@@ -47,7 +47,7 @@ public static class DashboardHome
     private static readonly Dictionary<WorkFocus, string[]> Desks = new()
     {
         [WorkFocus.Bench] = [PendingSpecimens, PendingTests, Retypes, ToVerify, BloodOrders, AntibodyWorkups, OutsideAntibodies, ReagentQc, EquipmentChecks, PanelLotsToReplace, InstrumentFailures, SecondAbo, Supervisor, TubesDueForDiscard],
-        [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, RecalledToPull, ExpiredOnShelf, LowStock, OutageOpen, TemperatureReadingsDue],
+        [WorkFocus.IssueDesk] = [Ready, SecondAbo, InTransit, Outstanding, Retrospective, Disposition, NearExpiry, RecalledToPull, ExpiredOnShelf, LowStock, OpenDeliveries, OutageOpen, TemperatureReadingsDue],
         [WorkFocus.Supervisor] = [Supervisor, ToVerify, AntibodyWorkups, OutsideAntibodies, Reactions, TemperatureExcursions, Retrospective, Disposition, Handoff, Deviations, LookbackDue, Hl7Errors, Hl7OutboundWaiting, UnmappedInterfaceValues, InstrumentFailures, NearExpiry, RecalledToPull, ExpiredOnShelf, LowStock, Unidentified, OutageOpen, SettingsToEnter, PanelLotsToReplace, EquipmentChecks, TemperatureReadingsDue]
     };
 

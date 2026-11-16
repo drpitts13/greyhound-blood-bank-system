@@ -543,6 +543,13 @@
                 var open = result.Value.Where(e => e.EndedUtc is null).ToList();
                 return (card.Key, open.Count, DashboardQueueCatalog.OutageOpenNote(open.FirstOrDefault(), DateTime.UtcNow));
             }
+            case DashboardQueueCatalog.OpenDeliveries:
+            {
+                var result = await Api.GetOpenDeliveriesAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.OpenDeliveriesNote(result.Value, DateTime.UtcNow))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.Retypes:
             {
                 var result = await Api.GetPendingRetypesAsync();

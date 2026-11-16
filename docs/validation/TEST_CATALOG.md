@@ -1174,5 +1174,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1163 | U | `InstrumentFailureRowsTests.Rows_GiveTheReason_AndNameARepeatedFailure` | URS-BB-920 / FRS-BB-1038 |
 | TEST-BB-1164 | U | `OpenDeliveryStatusTests.Text_SaysWhatIsLeft_OrThatItIsReadyToComplete` | URS-BB-921 / FRS-BB-1039 |
 | TEST-BB-1165 | U | `ShiftHandoffItemsTests.UnitsToRetype_AreAHandoffItem_AndAHomeCard` | URS-BB-922 / FRS-BB-1040 |
+| TEST-BB-1166 | U | `ShiftHandoffItemsTests.DeliveriesToComplete_AreAHandoffItem_AndOpenDeliveriesAHomeCard` | URS-BB-923 / FRS-BB-1041 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

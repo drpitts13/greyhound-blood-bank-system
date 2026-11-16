@@ -25034,3 +25034,21 @@ Allocated for the anti-K patient (MRN0004: every red cell is flagged K-untested,
 ### Tests
 
 - TEST-BB-1165. Full suite passed.
+
+## Iteration 863 — End-user testing pass 144: open deliveries on the home page and handoff (2026-11-16)
+
+### How it was tested
+
+Followed up pass 142 from the issue desk's side: where would a tech learn that a supplier delivery is still open?
+
+### Found and fixed
+
+1. **Open deliveries were on no home card or handoff.** The two ARC deliveries ready to complete (pass 142) were visible only on Inventory's Open deliveries board. A home card, **Open deliveries** (for those who receive stock, on the Issue desk), now counts deliveries not yet completed, naming those ready to complete and the oldest (*2 ready to complete; oldest open 3 d*); the shift handoff counts **Deliveries to complete** in its items and summary.
+
+### Retested live
+
+- The dashboard shows *Open deliveries 2 — 2 ready to complete; oldest open 3 d*; the handoff preview has 2 and *deliveries to complete 2* in its summary. Nothing was completed or recorded live.
+
+### Tests
+
+- TEST-BB-1166. Full suite passed.
