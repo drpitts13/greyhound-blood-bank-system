@@ -71,4 +71,11 @@ public sealed record BillingEventDto(
     /// cancelled.
     /// </summary>
     public DateTime? ReturnedUnusedUtc { get; init; }
+
+    /// <summary>
+    /// Why the charge's DFT has not gone and since when ("Not sent, queued 13 d: No enabled outbound interface …"; end-user
+    /// testing pass 176: the queue showed only the control id, and only after review a tooltip saying the DFT was not
+    /// accepted, so a reviewer could not tell that nothing would leave until an interface was set up).
+    /// </summary>
+    public string? DftWaitingNote { get; init; }
 }

@@ -25653,3 +25653,21 @@ Followed up the pass 174 finding (Compatibility read a facility policy the bench
 ### Tests
 
 - TEST-BB-1198. Full suite passed.
+
+## Iteration 896 — End-user testing pass 176: why a charge's DFT has not gone (2026-11-16)
+
+### How it was tested
+
+Worked Reports & billing › Billing with the ten seeded pending charges (Demo, Patricia; Interface, Helen; and others), each with its DFT control id, against the HL7 page's Waiting to send list.
+
+### Found and fixed
+
+1. **The billing queue did not say the DFTs were not going anywhere.** All ten charges' DFTs had waited 3 to 13 days because no outbound interface is set up; the HL7 page says so, but the billing queue showed only the control id, and only after review a tooltip that the DFT was not accepted. A reviewer could review every charge and still not learn that none would leave. Each row now says under its DFT id how long it has been queued and why: *Not sent, queued 13 d: No enabled outbound interface is set up to send it. It sends once one is.*
+
+### Retested live
+
+- The ten pending charges each show how long their DFT has been queued and that no outbound interface is set up. No charge was reviewed, exported or cancelled.
+
+### Tests
+
+- TEST-BB-1199. Full suite passed.

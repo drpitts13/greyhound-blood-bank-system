@@ -14,7 +14,7 @@ Charges are captured when a result is verified, a unit is issued or transfused (
 
 ## Review and export
 
-Open the queue if you have billing review permission. Confirm the patient, the code, and the triggering event. Export sends the accepted batch. Export can stay blocked until the outbound DFT is accepted. If a row will not export, read the status rather than entering the charge in another system and exporting it here as well.
+Open the queue if you have billing review permission. Confirm the patient, the code, and the triggering event. Export sends the accepted batch. Export can stay blocked until the outbound DFT is accepted. A DFT that has not gone says so under its control id, how long it has been queued and why (*Not sent, queued 13 d: No enabled outbound interface is set up to send it…*); ask the interface administrator when the reason is the interface. If a row will not export, read the status rather than entering the charge in another system and exporting it here as well.
 
 ## Units returned unused
 

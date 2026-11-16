@@ -47,6 +47,22 @@ public class Hl7OutboundWaitingTests : IDisposable
         Assert.Equal("ORU^R01", waiting[1].MessageType);
     }
 
+    // TEST-BB-1199: the billing queue says under a charge's DFT how long it has been queued and why it has not gone
+    // (end-user testing pass 176).
+    [Fact]
+    public async Task BillingQueue_SaysWhyAChargesDftHasNotGone()
+    {
+        await using var c = _factory.Create();
+        c.Hl7Messages.Add(Outbound("DFT-OLD", Hl7MessageStatus.Received, TimeSpan.FromDays(13)));
+        await c.SaveChangesAsync();
+
+        var waiting = Assert.Single(await Sender(c).ListWaitingAsync());
+        Assert.Equal("Not sent, queued 13 d: " + OutboundMessageWaitRule.NoInterface,
+            BillingDftWaitingNote.For(waiting.QueuedUtc, _factory.Clock.UtcNow, waiting.Reason));
+        Assert.Equal("Not sent, queued 20 min: Queued; the next send attempt is within a minute.",
+            BillingDftWaitingNote.For(_factory.Clock.UtcNow.AddMinutes(-20), _factory.Clock.UtcNow, "Queued; the next send attempt is within a minute."));
+    }
+
     // TEST-BB-838: with an interface, a message whose retries are spent says so, one whose last send failed says it is
     // retried, and a queued one says it goes within a minute; a disabled or incomplete interface counts as none.
     [Fact]

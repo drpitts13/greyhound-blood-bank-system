@@ -104,6 +104,10 @@
                                 {
                                     @(c.DftControlId ?? "—")
                                 }
+                                @if (!string.IsNullOrWhiteSpace(c.DftWaitingNote) && c.Status != BillingEventStatus.Cancelled)
+                                {
+                                    <div class="sub text-danger" data-billing-dft-waiting>@c.DftWaitingNote</div>
+                                }
                             </td>
                             <td class="nowrap">@c.ServiceDateUtc.ToString("yyyy-MM-dd")</td>
                             <td class="right">@(c.Amount?.ToString("C") ?? "—")</td>

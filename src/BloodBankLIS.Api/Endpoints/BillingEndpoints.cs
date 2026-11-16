@@ -1,6 +1,8 @@
 using BloodBankLIS.Api.Auth;
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.HL7.Messaging;
 
 namespace BloodBankLIS.Api.Endpoints;
 
@@ -11,9 +13,14 @@ public static class BillingEndpoints
         var group = app.MapGroup("/api/billing").WithTags("Billing").RequireAuthenticatedUser();
 
         // Charge review queue (pending charges awaiting billing-staff action).
-        group.MapGet("/charges", async (BillingService service, CancellationToken ct) =>
+        group.MapGet("/charges", async (BillingService service, Hl7OutboundSender sender, IClock clock, CancellationToken ct) =>
         {
-            return Results.Ok(await service.ListReviewQueueDtosAsync(ct));
+            var charges = await service.ListReviewQueueDtosAsync(ct);
+            var waiting = (await sender.ListWaitingAsync(ct)).ToDictionary(w => w.Id);
+            var now = clock.UtcNow;
+            return Results.Ok(charges.Select(c => c.Hl7MessageId is long id && waiting.TryGetValue(id, out var w)
+                ? c with { DftWaitingNote = BillingDftWaitingNote.For(w.QueuedUtc, now, w.Reason) }
+                : c));
         }).RequirePermission(PermissionCodes.BillingReview);
 
         group.MapPost("/charges/{id:long}/review", async (long id, BillingService service, CancellationToken ct) =>

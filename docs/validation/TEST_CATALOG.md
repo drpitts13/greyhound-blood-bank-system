@@ -1207,5 +1207,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1196 | U | `LoadingStateSourceTests.QualityAndSupplyLists_SayLoadingOrFailedBeforeNone` | URS-BB-953 / FRS-BB-1071 |
 | TEST-BB-1197 | U | `CrossmatchMethodOptionTests.For_ElectronicIsUnavailableWhenTheFacilityHasItOff` | URS-BB-954 / FRS-BB-1072 |
 | TEST-BB-1198 | U | `ReadablePolicyKeysTests.EveryPolicyThePagesRead_IsReadable` | URS-BB-955 / FRS-BB-1073 |
+| TEST-BB-1199 | I | `Hl7OutboundWaitingTests.BillingQueue_SaysWhyAChargesDftHasNotGone` | URS-BB-956 / FRS-BB-1074 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
