@@ -25481,3 +25481,21 @@ Worked Interfaces › Instrument status & logs with the seeded ImmuLINK Echo mes
 ### Tests
 
 - TEST-BB-1189. Full suite passed.
+
+## Iteration 887 — End-user testing pass 167: how long a blood order has waited (2026-11-16)
+
+### How it was tested
+
+Worked Transfusion › Blood orders to prepare with the seeded orders: ORD-PREP-DEMO (Demo, Patricia, MRN0001, Stat, 2 red cells, no usable specimen) and ORD-SURG-DEMO (Demo-Multi, Riley, MRN0022, routine, needed by 2026-11-10, passed).
+
+### Found and fixed
+
+1. **A Stat order eight days old did not say so.** The row read only *ordered 2026-11-08 07:27*; the tech had to work out from the date that a Stat order had been waiting more than a week. Each row now says how long it has waited: *ordered 2026-11-08 07:27 · waiting 8 d*.
+
+### Retested live
+
+- Both seeded orders show how long they have waited. Nothing was reserved or collected.
+
+### Tests
+
+- TEST-BB-1190. Full suite passed.
