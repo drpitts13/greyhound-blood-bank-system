@@ -178,6 +178,34 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         await c.SaveChangesAsync();
     }
 
+    // TEST-BB-1177: a patient with no ABO/Rh on file is offered group O red cells only (not other groups), marked as
+    // suiting any recipient, instead of no list (end-user testing pass 155).
+    [Fact]
+    public async Task ListCompatibleUnits_UntypedPatient_OffersGroupORedCellsOnly()
+    {
+        await using var c = _factory.Create();
+        await SeedCrossmatchCatalogAsync(c);
+        var key = Guid.NewGuid().ToString("N")[..8];
+        var patient = new Patient { MedicalRecordNumber = $"MRN-UNT-{key}", LastName = "Untyped", FirstName = "Baby", DateOfBirth = new DateOnly(2026, 11, 13) };
+        c.Patients.Add(patient);
+        var rbc = new ProductType { ProductCode = $"RBC-{key}", Name = "RBC", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+        BloodUnit Unit(string prefix, AboGroup abo) => new()
+        {
+            UnitNumber = $"{prefix}-{key}", ProductTypeId = rbc.Id, Abo = abo, RhD = RhType.Negative,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Available
+        };
+        c.BloodUnits.AddRange(Unit("U-UNT-O", AboGroup.O), Unit("U-UNT-A", AboGroup.A));
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+
+        Assert.True(result.Succeeded, result.Error);
+        var offered = Assert.Single(result.Value!, u => u.UnitNumber.EndsWith(key, StringComparison.Ordinal));
+        Assert.Equal(($"U-UNT-O-{key}", ProductSelectionOrder.UntypedPatientCue), (offered.UnitNumber, offered.SelectionCue));
+    }
+
     [Fact]
     public async Task ListCompatibleUnits_ExcludesAboIncompatible()
     {

@@ -339,11 +339,9 @@ public sealed class PatientAllocationService
         }
 
         var bloodType = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == patientId && h.IsCurrent, ct);
-        if (bloodType is null || !bloodType.BloodType.IsKnown)
-        {
-            return OperationResult<IReadOnlyList<CompatibleUnitDto>>.Fail(
-                "Patient has no current ABO/Rh on file; compatible units cannot be listed.");
-        }
+        // Pass 155: a patient with no type on file is offered only units that suit any recipient (the units a
+        // reservation accepts for them, pass 154), instead of no list and then every unit in stock.
+        var untyped = bloodType is null || !bloodType.BloodType.IsKnown;
 
         var available = await _inventory.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Available), ct);
         var productTypes = (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id);
@@ -386,8 +384,16 @@ public sealed class PatientAllocationService
 
             var eval = new List<RuleResult>();
             aboRhPolicies.TryGetValue(product.Id, out var aboRhPolicy);
-            eval.AddRange(AboCompatibilityRule.Evaluate(
-                bloodType.BloodType, unit.BloodType, product.ComponentClass, patient.Sex, aboRhPolicy));
+            if (untyped)
+            {
+                eval.Add(UntypedPatientAllocationRule.Evaluate(product.ComponentClass, unit.Abo));
+            }
+            else
+            {
+                eval.AddRange(AboCompatibilityRule.Evaluate(
+                    bloodType!.BloodType, unit.BloodType, product.ComponentClass, patient.Sex, aboRhPolicy));
+            }
+
             var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);
             eval.AddRange(BloodAttributeCompatibilityRule.Evaluate(
                 product.ComponentClass,
@@ -420,12 +426,17 @@ public sealed class PatientAllocationService
                     unit.DonationRestriction,
                     unit.ReservedPatientId,
                     patientId,
-                    bloodType.BloodType,
+                    untyped ? unit.BloodType : bloodType!.BloodType,
                     unit.BloodType,
                     antigenFlag,
                     out var placement))
             {
                 continue;
+            }
+
+            if (untyped && placement.Cue == ProductSelectionOrder.IdenticalCue)
+            {
+                placement = placement with { Cue = ProductSelectionOrder.UntypedPatientCue };
             }
 
             var crossmatchCompatible = crossmatchedUnitIds.Contains(unit.Id);

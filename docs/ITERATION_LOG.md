@@ -25232,3 +25232,25 @@ Walked the open alerts (expired-unit alerts are already rechecked against the sh
 ### Tests
 
 - TEST-BB-1176. Full suite passed (no existing test reserved a non-O unit for an untyped patient).
+
+## Iteration 874 — End-user testing pass 155: the unit list for an untyped patient (2026-11-16)
+
+### How it was tested
+
+Followed pass 154 on the Compatibility page for the untyped newborn MRN0029.
+
+### Found and fixed
+
+1. **For a patient with no type, the unit picker offered every unit in stock.** The compatible list refused (*Patient has no current ABO/Rh on file; compatible units cannot be listed*), so the picker fell back to all available units, most of which pass 154's reservation check now refuses. The list now offers the units that suit any recipient (group O red cells, group AB or A plasma), still checked against special requirements and antibodies, each marked *Suits any recipient (patient not typed)*, and the note says *The patient has no ABO/Rh on file: 10 available units suit any recipient … Record the patient's type to see the rest.*
+
+### Noticed, for a later pass
+
+- Four group O red cells offered (W000123UAG0001/0002, W0001230009201/0202) still hold lapsed reservations for other patients; reserving one would be refused (*Unit already has an active allocation*).
+
+### Retested live
+
+- `/api/patients/24/compatible-units` lists 6 group O red cells and 4 group A or AB plasma; Compatibility shows the note above. Nothing was reserved.
+
+### Tests
+
+- TEST-BB-1177. Full suite passed.

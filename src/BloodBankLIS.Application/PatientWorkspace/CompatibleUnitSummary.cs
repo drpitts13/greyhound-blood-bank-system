@@ -15,6 +15,13 @@ public static class CompatibleUnitSummary
         var confirmed = units.Where(u => string.IsNullOrWhiteSpace(u.AntigenNegFlag)).ToList();
         var unconfirmed = units.Where(u => !string.IsNullOrWhiteSpace(u.AntigenNegFlag)).ToList();
 
+        // Pass 155: a patient with no type on file is offered only units that suit any recipient.
+        if (units.Count > 0 && units.All(u => u.SelectionCue == BloodBankLIS.Domain.Rules.ProductSelectionOrder.UntypedPatientCue))
+        {
+            return $"The patient has no ABO/Rh on file: {units.Count} available {(units.Count == 1 ? "unit suits" : "units suit")} any recipient "
+                + $"(group O red cells, group AB or A plasma) and meet the special requirements and antibodies: {Products(units)}. Record the patient's type to see the rest.";
+        }
+
         var head = confirmed.Count switch
         {
             0 => unconfirmed.Count == 0

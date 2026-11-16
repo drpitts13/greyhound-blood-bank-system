@@ -19,6 +19,17 @@ public class CompatibleUnitSummaryTests
         Assert.StartsWith("No available unit is compatible", CompatibleUnitSummary.Note([]));
     }
 
+    // TEST-BB-1177 (end-user testing pass 155): for a patient with no type, the note says so and that the units suit any
+    // recipient, not that they match the patient's type.
+    [Fact]
+    public void Note_UntypedPatient_SaysTheUnitsSuitAnyRecipient()
+    {
+        CompatibleUnitDto Any(long id, string product) => Unit(id, product) with { SelectionCue = BloodBankLIS.Domain.Rules.ProductSelectionOrder.UntypedPatientCue };
+        Assert.Equal(
+            "The patient has no ABO/Rh on file: 2 available units suit any recipient (group O red cells, group AB or A plasma) and meet the special requirements and antibodies: 1 Fresh Frozen Plasma, 1 Red Blood Cells, Leukoreduced. Record the patient's type to see the rest.",
+            CompatibleUnitSummary.Note([Any(1, "Red Blood Cells, Leukoreduced"), Any(2, "Fresh Frozen Plasma")]));
+    }
+
     // TEST-BB-1105 (end-user testing pass 91): units not confirmed antigen-negative for the patient's antibodies are not
     // counted as compatible with them; they are named apart, with why.
     [Fact]
