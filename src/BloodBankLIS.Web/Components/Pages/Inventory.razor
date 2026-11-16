@@ -674,7 +674,12 @@
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td>@row.LocationLabel</td>
-                            <td>@(row.HoldReason ?? "—")</td>
+                            <td>@(row.HoldReason ?? "—")
+                                @if (!string.IsNullOrEmpty(row.SinceText))
+                                {
+                                    <div class="sub muted" data-hold-since>@row.SinceText</div>
+                                }
+                            </td>
                             <td>@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right nowrap">
                                 @if (row.ExpiresUtc <= DateTime.UtcNow)

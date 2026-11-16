@@ -24881,3 +24881,25 @@ Walked the specimen boards (pending receipt, stored, due for discard, Store tube
 ### Tests
 
 - TEST-BB-1157. Full suite passed.
+
+## Iteration 855 — End-user testing pass 136: how long a unit has been on hold (2026-11-15)
+
+### How it was tested
+
+Checked the HL7 error queue and outbound waiting list, the active MTP, the test worklist, and the Inventory boards (Expired, Near expiry, Recalled, Operational hold) with the seeded data.
+
+### Found and fixed
+
+1. **The Operational hold board did not say how long a unit had been on hold.** W0001230001029 has been held for "Pending supplier packing slip" since 2026-11-06, nine days, and the row gave only the reason and the expiry, so a hold forgotten for days looked the same as one placed this morning. Quarantine and discrepancy rows already say this (passes 88 and 90). Hold rows now say *On hold 9 days 11 hours (since 2026-11-06 09:50)*, with *by …* when the status history names who held it, and the board lists the longest-held first.
+
+### Checked, no change
+
+- The HL7 outbound charges' "No enabled outbound interface" reason is right: the dev database has no interface set up. The active MTP already says it has been idle 228 h.
+
+### Retested live
+
+- `/api/inventory/units/on-hold` and the Operational hold board show the text for W0001230001029. Nothing was held or released live.
+
+### Tests
+
+- TEST-BB-1158 (`ListOnHold_SurfacesProductAndHoldReason` extended). Full suite passed.

@@ -4336,6 +4336,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("RBC-TEST", row.ProductCode);
         Assert.Equal("Pending packing slip", row.HoldReason);
         Assert.DoesNotContain(list, i => i.UnitNumber == "U-HOLD-OK");
+        // TEST-BB-1158: the row says when the unit was put on hold and by whom (end-user testing pass 136).
+        var history = await context.InventoryStatusHistory.AsNoTracking()
+            .Where(h => h.BloodProductId == held.Unit.Id && h.ToStatus == UnitStatus.OnHold).SingleAsync();
+        Assert.Equal(history.ChangedUtc, row.HeldSinceUtc);
+        var heldBy = history.ChangedBy == "system" ? null : history.ChangedBy;
+        Assert.Equal(heldBy, row.HeldBy);
+        Assert.Equal(QuarantineHoldText.Since("On hold", history.ChangedUtc, _factory.Clock.UtcNow) + (heldBy is null ? "" : $" by {heldBy}"), row.SinceText);
 
         var afterRelease = await service.ReleaseFromHoldAsync(held.Unit.Id, "Paperwork received");
         Assert.True(afterRelease.Succeeded, afterRelease.Error);

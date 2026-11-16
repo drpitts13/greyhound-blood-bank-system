@@ -270,6 +270,15 @@ public sealed record OnHoldWorkItemDto(
     long? CurrentLocationId = null,
     string? CurrentLocationName = null)
 {
+    /// <summary>When the unit was put on hold (its latest move to On hold, else its last change); pass 136.</summary>
+    public DateTime? HeldSinceUtc { get; init; }
+
+    /// <summary>Who put it on hold, when the status history records it; pass 136.</summary>
+    public string? HeldBy { get; init; }
+
+    /// <summary>"On hold 9 days 10 hours (since 2026-11-06 09:50) by tech2"; pass 136.</summary>
+    public string? SinceText { get; init; }
+
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 
     public static OnHoldWorkItemDto From(BloodUnit u, string? productCode = null, string? locationName = null) => new(

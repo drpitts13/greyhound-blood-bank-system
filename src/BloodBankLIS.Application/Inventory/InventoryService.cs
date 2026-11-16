@@ -431,19 +431,36 @@ public sealed class InventoryService
         var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.OnHold), ct);
         var products = await LoadProductsAsync(rows, ct);
         var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
-        return rows
-            .OrderBy(u => u.UnitNumber)
-            .Select(u =>
+        var now = _clock.UtcNow;
+        var items = new List<OnHoldWorkItemDto>(rows.Count);
+        foreach (var u in rows)
+        {
+            products.TryGetValue(u.ProductTypeId, out var product);
+            string? locationName = null;
+            if (u.CurrentLocationId is long locationId)
             {
-                products.TryGetValue(u.ProductTypeId, out var product);
-                string? locationName = null;
-                if (u.CurrentLocationId is long locationId)
-                {
-                    locationNames.TryGetValue(locationId, out locationName);
-                }
+                locationNames.TryGetValue(locationId, out locationName);
+            }
 
-                return OnHoldWorkItemDto.From(u, product?.ProductCode, locationName);
-            })
+            // Pass 136: how long each unit has been on hold and who held it, from its status history, so a hold waiting
+            // days on paperwork is seen (the board gave only the reason).
+            var held = (await _repository.GetHistoryAsync(u.Id, ct))
+                .Where(h => h.ToStatus == UnitStatus.OnHold)
+                .OrderByDescending(h => h.ChangedUtc)
+                .FirstOrDefault();
+            var since = held?.ChangedUtc ?? u.ModifiedUtc ?? u.CreatedUtc;
+            var by = string.IsNullOrWhiteSpace(held?.ChangedBy) || held!.ChangedBy == "system" ? null : held.ChangedBy.Trim();
+            items.Add(OnHoldWorkItemDto.From(u, product?.ProductCode, locationName) with
+            {
+                HeldSinceUtc = since,
+                HeldBy = by,
+                SinceText = QuarantineHoldText.Since("On hold", since, now) + (by is null ? string.Empty : $" by {by}")
+            });
+        }
+
+        return items
+            .OrderBy(i => i.HeldSinceUtc)
+            .ThenBy(i => i.UnitNumber, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
