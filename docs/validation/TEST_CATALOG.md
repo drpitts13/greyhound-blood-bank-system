@@ -1194,5 +1194,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1183 | U | `ExpirationPlausibilityRuleTests.Evaluate_RefusesAnImplausibleYear`, `ExpirationPlausibilityRuleTests.LabelExpiration_ResolvingToTheLastCentury_IsRefused` | URS-BB-940 / FRS-BB-1058 |
 | TEST-BB-1184 | U | `ExpirationProductParserTests.Expiration_CenturyDigit_ZeroIs2000s_NineIs1900s`, `ExpirationProductParserTests.RepairStoredEncoding_RewritesCenturyTwoAndTheDemoForm`, `ExpirationPlausibilityRuleTests.LabelExpiration_ReadWithTheIccbbaCentury_IsPlausible` | URS-BB-941 / FRS-BB-1059 |
 | TEST-BB-1185 | U | `ReactionWorkupProgressTests.Text_ListsWhatIsRecordedAndWhatIsLeft` | URS-BB-942 / FRS-BB-1060 |
+| TEST-BB-1186 | I | `ReactionInvestigationServiceTests.ListDtos_NoTypeOnFile_ChecksTheRepeatPatientTypeAgainstTheUnit` | URS-BB-943 / FRS-BB-1061 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

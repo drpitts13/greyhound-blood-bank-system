@@ -948,3 +948,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-940 | A scanned ISBT 128 expiration that resolves to an implausible year is refused with what to check. | P1 | FRS-BB-1058 |
 | URS-BB-941 | ISBT 128 expiration codes use the ICCBBA century digit (0 = 2000s, 9 = 1900s) when read and written, and stored codes are brought into that form. | P1 | FRS-BB-1059 |
 | URS-BB-942 | The Reactions board's Workup column shows which workup checklist steps are recorded and which remain. | P3 | FRS-BB-1060 |
+| URS-BB-943 | A reaction investigation for a patient with no ABO/Rh on file before the transfusion checks the repeat patient ABO/Rh against the transfused unit and flags an incompatible unit. | P1 | FRS-BB-1061 |

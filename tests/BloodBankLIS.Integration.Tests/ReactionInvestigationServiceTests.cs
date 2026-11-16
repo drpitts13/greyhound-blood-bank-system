@@ -502,6 +502,32 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.True(row.TestsIncompleteAtIssue);
     }
 
+    // TEST-BB-1186: with no ABO/Rh on file before the transfusion, the repeat patient type is checked against the unit,
+    // so an incompatible transfusion is flagged (end-user testing pass 163).
+    [Fact]
+    public async Task ListDtos_NoTypeOnFile_ChecksTheRepeatPatientTypeAgainstTheUnit()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: false, unitAbo: AboGroup.A);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+
+        var before = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.False(before.AboRhIncompatible);
+
+        var incompatible = await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, null, RepeatPatientAboRh: "O Positive"));
+        Assert.True(incompatible.Succeeded, incompatible.Error);
+        var row = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(row.AboRhIncompatible);
+        Assert.StartsWith("No ABO/Rh was on file before the transfusion; by the repeat patient type O+", row.AboRhCompatibilityAlert);
+        Assert.True((await CreateService(context).GetDtoAsync(opened.Id))!.AboRhIncompatible);
+
+        var compatible = await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, null, RepeatPatientAboRh: "A Positive"));
+        Assert.True(compatible.Succeeded, compatible.Error);
+        Assert.False(Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id).AboRhIncompatible);
+    }
+
     [Fact]
     public async Task ListDtos_SurfacesRepeatAboRhDiscrepancy()
     {

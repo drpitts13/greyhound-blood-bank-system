@@ -25405,3 +25405,21 @@ Looked at the ISBT 128 ABO/Rh scan (`=%5100` is unknown: the ABO/Rh code table h
 ### Tests
 
 - TEST-BB-1185. Full suite passed.
+
+## Iteration 883 — End-user testing pass 163: a reaction with no patient type on file (2026-11-16)
+
+### How it was tested
+
+Read reaction investigation 1 (Febrile, Marcus, MRN0006) through the API: no current ABO/Rh on file, unit A+, repeat patient and unit types A Positive, no incompatibility alert.
+
+### Found and fixed
+
+1. **An incompatible transfusion to an untyped patient raised nothing.** The ABO/Rh compatibility check on a reaction compared the unit with the patient's type on file only, and the repeat patient type with that same type, so with no type on file both passed (*No labeled or current ABO/Rh to compare*). A repeat type of O+ against an A+ unit would not have been flagged. The repeat patient type now stands in: it is checked against the unit with the same compatibility rule, and the alert says *No ABO/Rh was on file before the transfusion; by the repeat patient type O+: …*.
+
+### Retested live
+
+- Investigation 1 still shows no incompatibility (repeat A+ against an A+ unit). Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1186. Full suite passed.

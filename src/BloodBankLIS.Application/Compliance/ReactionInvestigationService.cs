@@ -1207,8 +1207,6 @@ public sealed class ReactionInvestigationService
                 _aboRhPolicies.TryGetValue(product.Id, out aboRhPolicy);
             }
 
-            var (incompatible, alert) = EvaluateLabeledCompatibility(
-                type, unit, product, patient?.Sex ?? Sex.Unknown, aboRhPolicy);
             var labeledUnit = unit is null ? (AboRh?)null : new AboRh(unit.Abo, unit.RhD);
             // The repeat patient type is the verified ABO/Rh on the post-transfusion specimen; a case recorded before the
             // specimen workup keeps its typed value. The pre- and post-transfusion types are also compared.
@@ -1216,6 +1214,21 @@ public sealed class ReactionInvestigationService
             var postAbo = specimenWorkup?.Post?.VerifiedValue("ABORH");
             var preAbo = specimenWorkup?.Pre?.VerifiedValue("ABORH");
             var patientRepeatText = postAbo ?? (row.PostTransfusionOrderId is null ? row.RepeatPatientAboRh : null);
+            // End-user testing pass 163: a patient with no ABO/Rh on file before the transfusion was never checked for
+            // compatibility, so an incompatible unit raised nothing. The repeat (post-transfusion) patient type stands in.
+            AboRh? repeatPatientType = null;
+            if (type is null && patientRepeatText is not null && ReactionRepeatAboRhRule.TryParseDisplay(patientRepeatText, out var parsedRepeat) && parsedRepeat.IsKnown)
+            {
+                repeatPatientType = parsedRepeat;
+            }
+
+            var (incompatible, alert) = EvaluateLabeledCompatibility(
+                type?.BloodType ?? repeatPatientType, unit, product, patient?.Sex ?? Sex.Unknown, aboRhPolicy);
+            if (incompatible && type is null)
+            {
+                alert = $"No ABO/Rh was on file before the transfusion; by the repeat patient type {repeatPatientType}: {alert}";
+            }
+
             var patientRepeat = ReactionRepeatAboRhRule.Evaluate(type?.BloodType, patientRepeatText, "Patient");
             var prePost = preAbo is not null && postAbo is not null && ReactionRepeatAboRhRule.TryParseDisplay(preAbo, out var preType)
                 ? ReactionRepeatAboRhRule.Evaluate(preType, postAbo, "Post-transfusion specimen")
@@ -1273,20 +1286,20 @@ public sealed class ReactionInvestigationService
         }
 
         private static (bool Incompatible, string? Alert) EvaluateLabeledCompatibility(
-            PatientBloodTypeHistory? type,
+            AboRh? patientType,
             BloodUnit? unit,
             ProductType? product,
             Sex patientSex,
             ProductAboRhPolicy? policy)
         {
-            if (type is null || unit is null)
+            if (patientType is not { } patientAboRh || unit is null)
             {
                 return (false, null);
             }
 
             var component = product?.ComponentClass ?? ComponentClass.RedBloodCells;
             var firstStop = AboCompatibilityRule.Evaluate(
-                    type.BloodType, new AboRh(unit.Abo, unit.RhD), component, patientSex, policy)
+                    patientAboRh, new AboRh(unit.Abo, unit.RhD), component, patientSex, policy)
                 .FirstOrDefault(r => r.Severity == RuleSeverity.HardStop);
             return firstStop is null ? (false, null) : (true, firstStop.Message);
         }

@@ -28,7 +28,7 @@ The workup tests two specimens, each with the tests of its Test Group (chosen in
 
 Each specimen's tests are ordered as a Stat reaction workup order and appear on the test worklist. **Result on bench** opens the worklist on that tube; result and verify the tests there as usual. The investigation shows each test with its result and whether it is verified. A specimen is set once; it cannot be swapped after its tests are ordered. If its workup order is cancelled (for example, the tube was mislabeled), the investigation asks for that specimen again and you can choose or accession a new one; the replaced tube and order stay in the audit trail.
 
-The repeat patient ABO/Rh is the verified ABO/Rh on the post-transfusion specimen. If it disagrees with the patient's current type or with the pre-transfusion specimen, the board shows an ABO/Rh discrepancy to review. Elution is required when the verified post-transfusion DAT is positive.
+The repeat patient ABO/Rh is the verified ABO/Rh on the post-transfusion specimen. If it disagrees with the patient's current type or with the pre-transfusion specimen, the board shows an ABO/Rh discrepancy to review. If the patient had no ABO/Rh on file before the transfusion, the repeat patient type is checked against the unit instead, and an incompatible unit is flagged (*No ABO/Rh was on file before the transfusion; by the repeat patient type O+: …*). Elution is required when the verified post-transfusion DAT is positive.
 
 ## Bedside vital signs
 
