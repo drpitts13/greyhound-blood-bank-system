@@ -1041,6 +1041,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-927 / FRS-BB-1045 | End-user testing pass 148: instrument interpretations listed as unmapped | `InstrumentInterpretationValue.cs`, `AstmInboundProcessor.cs`, `InterfaceUnmappedValueService.cs` | TEST-BB-1170 | U, I | |
 | URS-BB-928 / FRS-BB-1046 | End-user testing pass 149: reserved units awaiting retype on Ready to issue | `IssueGate.cs`, `IssuingDtos.cs`, `IssuingService.cs`, `IssueRun.cs`, `Issuing.razor` | TEST-BB-1171 | U | |
 | URS-BB-929 / FRS-BB-1047 | End-user testing pass 150: reserved units on the retype board | `ProductRetypeService.cs`, `ProductRetypeDtos.cs`, `Inventory.razor` | TEST-BB-1172 | I | |
+| URS-BB-930 / FRS-BB-1048 | End-user testing pass 151: the worklist's retype tab matches the board | `TestWorklist.razor` | TEST-BB-1173 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

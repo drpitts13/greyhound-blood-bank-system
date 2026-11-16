@@ -54,7 +54,7 @@ A manual ABO or Rh override, when policy allows one, is an immunohematology over
 
 Results that arrived from an instrument wait for the same verification. The row marks them so you know you did not type them. Read the values.
 
-The product retype tab of the worklist lists units that still need a front type. Recording the retype is the same action as the retype board in Inventory. A match can release the unit. A mismatch quarantines it. An outdated unit that matches is expired rather than made available.
+The product retype tab of the worklist lists units that still need a front type, in the same order as the Retype board in Inventory: units reserved for a patient first (**Reserved for** and the patient), then soonest-expiring; each row says how long the unit has waited and when it expires. Recording the retype is the same action as the retype board in Inventory. A match can release the unit. A mismatch quarantines it. An outdated unit that matches is expired rather than made available.
 
 ## Correct or invalidate
 

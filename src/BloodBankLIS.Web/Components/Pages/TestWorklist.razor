@@ -499,6 +499,7 @@
                     <th>Test</th>
                     <th>Labeled ABO/Rh</th>
                     <th>Received</th>
+                    <th>Expires</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -507,7 +508,13 @@
                 @foreach (var item in _retypes)
                 {
                     <tr>
-                        <td class="mono">@item.UnitNumber</td>
+                        <td class="mono">@item.UnitNumber
+                            @if (item.ReservedFor is { } reservedFor)
+                            {
+                                @* Pass 151: as on the Inventory retype board (pass 150), a patient is waiting on this unit. *@
+                                <span class="sub" data-worklist-retype-reserved>Reserved for <a href="@($"/patients/{item.ReservedPatientId}?tab=products")">@reservedFor</a></span>
+                            }
+                        </td>
                         <td class="mono">@item.ProductCode</td>
                         <td>@item.ProductName</td>
                         <td>
@@ -522,7 +529,26 @@
                             }
                         </td>
                         <td><strong>@Ui.BloodType(item.Abo, item.RhD)</strong></td>
-                        <td class="nowrap">@item.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@item.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                            @if (!string.IsNullOrEmpty(item.WaitingNote))
+                            {
+                                <div class="sub muted">@item.WaitingNote</div>
+                            }
+                        </td>
+                        <td class="nowrap" data-worklist-retype-expires>
+                            @if (item.ExpiresUtc is DateTime retypeExpires)
+                            {
+                                @retypeExpires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                @if (!item.Expired && !string.IsNullOrEmpty(item.ExpiryNote))
+                                {
+                                    <div class="sub muted">@item.ExpiryNote</div>
+                                }
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
                         <td>
                             <span class="@Ui.Badge(item.Status)">@Ui.StatusLabel(item.Status)</span>
                             @if (item.Expired)

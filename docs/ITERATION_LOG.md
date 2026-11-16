@@ -25160,3 +25160,21 @@ Followed pass 149 to the other side: from Ready to issue's *Open retype desk* to
 ### Tests
 
 - TEST-BB-1172. Full suite passed.
+
+## Iteration 870 — End-user testing pass 151: the worklist's retype tab (2026-11-16)
+
+### How it was tested
+
+Opened the same 23 waiting units from the bench's side: Test Worklist › Retype.
+
+### Found and fixed
+
+1. **The worklist's retype tab showed less than the Inventory board.** Passes 132 and 150 gave the Retype board each unit's expiry, time waiting and reserved patient; the worklist tab, where the bench starts, still listed unit, product, test, labeled type, received and status, with nothing saying a patient was waiting on W000123RXN0001 or W0001230000001. The tab now shows **Reserved for** and the patient, how long the unit has waited, and an **Expires** column, in the board's order (reserved first, then soonest-expiring).
+
+### Retested live
+
+- `/test-worklist?tab=retype` lists the 23 units with W000123RXN0001 (*Reserved for Febrile, Marcus (MRN0006)*, *waiting 6 d*, *expires in 14 d*) and W0001230000001 first. Nothing was retyped live.
+
+### Tests
+
+- TEST-BB-1173 (source check that both lists show the reserved patient, expiry and waiting). Full suite passed.
