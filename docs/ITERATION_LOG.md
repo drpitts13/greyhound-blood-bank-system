@@ -24903,3 +24903,25 @@ Checked the HL7 error queue and outbound waiting list, the active MTP, the test 
 ### Tests
 
 - TEST-BB-1158 (`ListOnHold_SurfacesProductAndHoldReason` extended). Full suite passed.
+
+## Iteration 856 — End-user testing pass 137: a forgotten hold (2026-11-15)
+
+### How it was tested
+
+Read the Home dashboard as the supervisor (every card and its note), then storage temperatures and the supervisor queue, with the seeded data.
+
+### Found and fixed
+
+1. **A unit on operational hold was on no queue or home card.** W0001230001029 has been held nine days for a supplier packing slip; quarantined, missing and damaged units are on the supervisor queue, but a hold was only on the Inventory board, so a forgotten hold kept the unit out of stock with nobody reminded. The supervisor queue now lists units on operational hold (inventory release permission), longest held first, with the reason, how long held and where (*On hold — W0001230001029 … On hold 9 days 12 hours (since 2026-11-06 09:50). At Main Blood Bank Refrigerator.*); **Release** opens the Operational hold board. It has its own filter (`?kind=OperationalHold`), and the home Supervisor queue card names *units on operational hold*.
+
+### Checked, no change
+
+- The plasma freezer (7 units) has never been read, and no reading is flagged due: the reading interval is a facility setting not yet entered, which the Facility settings card already names.
+
+### Retested live
+
+- `/api/supervisor-queue` and `/supervisor?kind=OperationalHold` show the row. Nothing was held or released live.
+
+### Tests
+
+- TEST-BB-1159. Full suite passed.

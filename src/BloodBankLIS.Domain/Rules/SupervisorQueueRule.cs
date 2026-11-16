@@ -13,6 +13,11 @@ public static class SupervisorQueueRule
     public const string KindQuarantineRelease = "QuarantineRelease";
     public const string KindOverrideReview = "OverrideReview";
     public const string KindDiscrepancy = "InventoryDiscrepancy";
+    /// <summary>
+    /// A unit on operational hold (end-user testing pass 137: a unit held nine days for a packing slip was on no queue or
+    /// home card, so a forgotten hold kept the unit out of stock with nobody reminded). Waits on inventory.release.
+    /// </summary>
+    public const string KindOperationalHold = "OperationalHold";
     /// <summary>An RhIG evaluation filled in and waiting for a verifier to complete it (Cycle 537).</summary>
     public const string KindRhigComplete = "RhigComplete";
     /// <summary>OCD-083: a transfusion the EHR reported for a unit recalled, quarantined, damaged or missing (Cycle 700).</summary>
@@ -43,8 +48,11 @@ public static class SupervisorQueueRule
     /// <summary>Missing and damaged units wait on whoever can locate, inspect, or discard them (inventory.release).</summary>
     public static bool IncludeDiscrepancy(bool hasInventoryRelease) => hasInventoryRelease;
 
+    /// <summary>Units on operational hold wait on whoever can release them (inventory.release).</summary>
+    public static bool IncludeOperationalHold(bool hasInventoryRelease) => hasInventoryRelease;
+
     public static readonly IReadOnlyList<string> Kinds =
-        [KindAntibodyReview, KindResultVerify, KindQuarantineRelease, KindDiscrepancy, KindTransfusionReported, KindOverrideReview];
+        [KindAntibodyReview, KindResultVerify, KindQuarantineRelease, KindDiscrepancy, KindOperationalHold, KindTransfusionReported, KindOverrideReview];
 
     /// <summary>The queue kind a link names (<c>?kind=</c>), matched without regard to case; null when it names none.</summary>
     public static string? KindFromQuery(string? value) =>
@@ -56,8 +64,9 @@ public static class SupervisorQueueRule
         KindResultVerify => 1,
         KindQuarantineRelease => 2,
         KindDiscrepancy => 3,
-        KindTransfusionReported => 4,
-        KindOverrideReview => 5,
+        KindOperationalHold => 4,
+        KindTransfusionReported => 5,
+        KindOverrideReview => 6,
         _ => 99
     };
 }

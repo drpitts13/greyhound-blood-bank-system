@@ -921,3 +921,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-913 | The overdue final-disposition board shows where each unit was sent, its cooler, to whom, and whether the ward received it. | P2 | FRS-BB-1031 |
 | URS-BB-914 | Store tubes lists received tubes with no storage place that were not discarded, oldest first, so every tube is put away or discarded. | P2 | FRS-BB-1032 |
 | URS-BB-915 | The operational hold board shows how long each unit has been on hold and who held it, longest held first. | P3 | FRS-BB-1033 |
+| URS-BB-916 | Units on operational hold are on the supervisor queue (inventory release) with the reason and time held, and the home card names them. | P2 | FRS-BB-1034 |

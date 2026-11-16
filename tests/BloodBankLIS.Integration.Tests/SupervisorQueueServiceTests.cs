@@ -221,6 +221,50 @@ public class SupervisorQueueServiceTests : IClassFixture<SqliteContextFactory>
         Assert.DoesNotContain(after.Value!, i => i.ContextId == received.Unit.Id && i.Kind == SupervisorQueueRule.KindDiscrepancy);
     }
 
+    // TEST-BB-1159: a unit on operational hold is on the supervisor queue (inventory.release) with its reason and how long
+    // it has been held, until it is released (end-user testing pass 137: holds were on no queue).
+    [Fact]
+    public async Task List_WithInventoryRelease_IncludesUnitOnHold_UntilReleased()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var inventory = CreateInventory(
+            context,
+            new FixedPermissionEvaluator(2, PermissionCodes.InventoryReceive, PermissionCodes.InventoryRelease));
+        var unitNumber = $"U-SUPH{Guid.NewGuid():N}"[..16];
+        var received = await inventory.ReceiveUnitAsync(NewUnitRequest(unitNumber, productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+        Assert.True((await inventory.ReleaseFromQuarantineAsync(received.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await inventory.HoldAsync(received.Unit.Id, "Pending supplier packing slip")).Succeeded);
+
+        var queue = await CreateService(
+                _factory.CurrentUser,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.InventoryRelease),
+                inventory: inventory)
+            .ListAsync();
+        Assert.True(queue.Succeeded, queue.Error);
+        var row = Assert.Single(queue.Value!, i => i.ContextId == received.Unit.Id && i.Kind == SupervisorQueueRule.KindOperationalHold);
+        Assert.Equal($"On hold — {unitNumber}", row.Title);
+        Assert.Contains("Pending supplier packing slip.", row.Detail, StringComparison.Ordinal);
+        Assert.Contains($"On hold 0 hours (since {ClinicalTimeText.Local(_factory.Clock.UtcNow)})", row.Detail, StringComparison.Ordinal);
+        Assert.Equal(_factory.Clock.UtcNow, row.SortUtc);
+
+        var verifyOnly = await CreateService(
+                _factory.CurrentUser,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.ResultVerify),
+                inventory: inventory)
+            .ListAsync();
+        Assert.DoesNotContain(verifyOnly.Value!, i => i.Kind == SupervisorQueueRule.KindOperationalHold);
+
+        Assert.True((await inventory.ReleaseFromHoldAsync(received.Unit.Id, "Packing slip received")).Succeeded);
+        var after = await CreateService(
+                _factory.CurrentUser,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.InventoryRelease),
+                inventory: inventory)
+            .ListAsync();
+        Assert.DoesNotContain(after.Value!, i => i.ContextId == received.Unit.Id && i.Kind == SupervisorQueueRule.KindOperationalHold);
+    }
+
     [Fact]
     public async Task List_WithResultVerifyOnly_OmitsQuarantine()
     {

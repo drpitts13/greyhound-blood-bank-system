@@ -179,6 +179,23 @@ public sealed class SupervisorQueueService
             }
         }
 
+        // Pass 137: units on operational hold, longest held first, so a hold waiting on paperwork is chased.
+        if (SupervisorQueueRule.IncludeOperationalHold(release) && _inventory is not null)
+        {
+            foreach (var u in await _inventory.ListOnHoldAsync(ct))
+            {
+                var product = string.IsNullOrWhiteSpace(u.ProductCode) ? "unit" : u.ProductCode!;
+                var reason = string.IsNullOrWhiteSpace(u.HoldReason) ? "No reason recorded" : u.HoldReason!.Trim().TrimEnd('.');
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindOperationalHold,
+                    $"On hold — {u.UnitNumber}",
+                    $"{product} {u.Abo} {u.RhD}. {reason}." + (u.SinceText is null ? "" : $" {u.SinceText}.") + $" At {u.LocationLabel}. Release it once the hold is resolved, or discard it.",
+                    "/inventory?board=hold",
+                    "Release",
+                    ContextId: u.UnitId) { SortUtc = u.HeldSinceUtc });
+            }
+        }
+
         // OCD-083 option B: each transfusion the EHR reported over a unit's status until a supervisor reviews it.
         if (SupervisorQueueRule.IncludeTransfusionReported(release, approve) && _reported is not null)
         {

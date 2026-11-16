@@ -49,5 +49,13 @@ public class SupervisorQueueRuleTests
         Assert.True(
             SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindDiscrepancy)
             < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOverrideReview));
+        // Pass 137: operational holds after missing or damaged units, before reviews.
+        Assert.True(
+            SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindDiscrepancy)
+            < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOperationalHold));
+        Assert.True(
+            SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOperationalHold)
+            < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOverrideReview));
+        Assert.Equal(SupervisorQueueRule.KindOperationalHold, SupervisorQueueRule.KindFromQuery("operationalhold"));
     }
 }

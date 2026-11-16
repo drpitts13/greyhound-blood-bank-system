@@ -1027,6 +1027,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-913 / FRS-BB-1031 | End-user testing pass 134: where an overdue issued unit went | `IssuedUnitWhereabouts.cs`, `FinalDispositionBoardService.cs`, `Issuing.razor` | TEST-BB-1156 | U | |
 | URS-BB-914 / FRS-BB-1032 | End-user testing pass 135: received tubes never put away | `SpecimenStorageRule.cs`, `SpecimenStorageService.cs`, `SpecimenEndpoints.cs`, `StoreTubes.razor` | TEST-BB-1157 | I | |
 | URS-BB-915 / FRS-BB-1033 | End-user testing pass 136: how long a unit has been on operational hold | `BloodUnitDtos.cs`, `InventoryService.cs`, `Inventory.razor` | TEST-BB-1158 | I | |
+| URS-BB-916 / FRS-BB-1034 | End-user testing pass 137: operational holds on the supervisor queue | `SupervisorQueueRule.cs`, `SupervisorQueueService.cs`, `DashboardQueueCatalog.cs`, `SupervisorQueue.razor` | TEST-BB-1159 | I, U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -466,6 +466,9 @@ public class DashboardQueueCatalogTests
         // TEST-BB-941 (Cycle 701): reported transfusions waiting for review are named too (OCD-083).
         Assert.Equal("1 reported transfusion to review",
             DashboardQueueCatalog.SupervisorNote([Item(SupervisorQueueRule.KindTransfusionReported, dueSoon: true)]));
+        // TEST-BB-1159 (pass 137): units on operational hold are named.
+        Assert.Equal("2 units on operational hold",
+            DashboardQueueCatalog.SupervisorNote([Item(SupervisorQueueRule.KindOperationalHold), Item(SupervisorQueueRule.KindOperationalHold)]));
     }
 
     // TEST-BB-490: deviation managers see Open deviations (everything not closed), with critical ones named; the card
