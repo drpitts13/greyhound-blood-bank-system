@@ -38,6 +38,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.Reactions => ReactionsAsync(cancellationToken),
             ReportSourceCatalog.Lookback => LookbackAsync(cancellationToken),
             ReportSourceCatalog.Rhig => RhigAsync(cancellationToken),
+            ReportSourceCatalog.ReagentQc => ReagentQcAsync(cancellationToken),
             ReportSourceCatalog.Deviations => DeviationsAsync(cancellationToken),
             ReportSourceCatalog.Overrides => OverridesAsync(cancellationToken),
             ReportSourceCatalog.CrossmatchTransfusion => ActivityAsync(cancellationToken),
@@ -218,6 +219,43 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("hours_event_to_given", row.GivenUtc is DateTime given
                 ? ((int)Math.Floor((given - row.EventUtc).TotalHours)).ToString(System.Globalization.CultureInfo.InvariantCulture)
                 : null))).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> ReagentQcAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from q in _db.ReagentDailyQcs.AsNoTracking()
+            join lot in _db.ReagentLots.AsNoTracking() on q.ReagentLotId equals lot.Id
+            join reagent in _db.Reagents.AsNoTracking() on lot.ReagentId equals reagent.Id
+            select new
+            {
+                q.PerformedUtc,
+                reagent.Code,
+                reagent.Name,
+                lot.LotNumber,
+                LotExpiresUtc = lot.ExpiresUtc,
+                q.Control,
+                q.ExpectedResult,
+                q.ObservedResult,
+                q.Passed,
+                q.PerformedBy,
+                q.ReviewedBy,
+                q.ReviewedUtc
+            }).ToListAsync(cancellationToken);
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("performed_utc", ReportValueFormat.Date(row.PerformedUtc)),
+            ("reagent_code", ReportValueFormat.Text(row.Code)),
+            ("reagent_name", ReportValueFormat.Text(row.Name)),
+            ("lot_number", ReportValueFormat.Text(row.LotNumber)),
+            ("lot_expires_utc", ReportValueFormat.Date(row.LotExpiresUtc)),
+            ("control", ReportValueFormat.Text(row.Control)),
+            ("expected_result", ReportValueFormat.Text(row.ExpectedResult)),
+            ("observed_result", ReportValueFormat.Text(row.ObservedResult)),
+            ("result", row.Passed ? "Pass" : "Fail"),
+            ("performed_by", ReportValueFormat.Text(row.PerformedBy)),
+            ("reviewed_by", ReportValueFormat.Text(row.ReviewedBy)),
+            ("reviewed_utc", ReportValueFormat.Date(row.ReviewedUtc)))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> LookbackAsync(CancellationToken cancellationToken)

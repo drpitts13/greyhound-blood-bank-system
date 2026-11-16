@@ -173,6 +173,26 @@ public static class ReportViewSql
             INNER JOIN Patients p ON p.Id = e.PatientId
             """);
 
+        // Pass 139: every reagent QC reading, with its lot and reagent.
+        yield return (ReportViewCatalog.ReagentQc, """
+            SELECT
+                q.PerformedUtc AS performed_utc,
+                r.Code AS reagent_code,
+                r.Name AS reagent_name,
+                l.LotNumber AS lot_number,
+                l.ExpiresUtc AS lot_expires_utc,
+                q.Control AS control,
+                q.ExpectedResult AS expected_result,
+                q.ObservedResult AS observed_result,
+                CASE WHEN q.Passed = 1 THEN 'Pass' ELSE 'Fail' END AS result,
+                q.PerformedBy AS performed_by,
+                q.ReviewedBy AS reviewed_by,
+                q.ReviewedUtc AS reviewed_utc
+            FROM ReagentDailyQcs q
+            INNER JOIN ReagentLots l ON l.Id = q.ReagentLotId
+            INNER JOIN Reagents r ON r.Id = l.ReagentId
+            """);
+
         yield return (ReportViewCatalog.Lookback, $"""
             SELECT
                 n.Din AS din,

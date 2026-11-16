@@ -24943,3 +24943,21 @@ Worked the mother/baby charts (MRN0028, delivered 2026-11-13 with maternal anti-
 ### Tests
 
 - TEST-BB-1160. Full suite passed.
+
+## Iteration 858 — End-user testing pass 139: the QC record for an inspection (2026-11-15)
+
+### How it was tested
+
+Checked equipment checks due and upcoming, then the report catalog, as the supervisor preparing the month's QC records for an inspection.
+
+### Found and fixed
+
+1. **Reagent QC older than 14 days could not be seen, printed or exported.** The Reagents page lists *Recent QC (14 days)* and its API stops at 90 days; no report source covered QC, so the QC record for a month (or for an inspector asking about a lot's failures) was out of reach. A system report, **Reagent QC record** (RPT-REAGENT-QC), and its SQL view `rpt_reagent_qc` now list every reading with the reagent, lot and its expiry, control, expected and observed reactions, Pass or Fail, who performed it and who reviewed it, filtered by when it was performed; it prints and exports like every report. The Reagents page help points to it.
+
+### Retested live
+
+- Reports lists *Reagent QC record*; running it returns the 8 seeded readings (AD-24092's failed reading as *Fail*, none reviewed), times in local time; `rpt_reagent_qc` in the dev database has the same 8 rows.
+
+### Tests
+
+- TEST-BB-1161; the seeded report count is 18. Full suite passed.

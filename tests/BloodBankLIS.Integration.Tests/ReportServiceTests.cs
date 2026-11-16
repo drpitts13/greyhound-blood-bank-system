@@ -51,7 +51,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(17, list.Value!.Count);
+        Assert.Equal(18, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)
@@ -356,6 +356,53 @@ public class ReportServiceTests : IDisposable
         Assert.True(sqlRun.Succeeded, sqlRun.Error);
         Assert.Equal(new[] { "40", "60", "90" }, sqlRun.Value!.Rows.Select(r => r[2] ?? "").ToArray());
         Assert.Equal(("Stat", "75"), (sqlRun.Value.Rows[2][1], sqlRun.Value.Rows[2][3]));
+    }
+
+    // TEST-BB-1161: the reagent QC record lists every reading with its reagent, lot, control, expected and observed
+    // reactions, pass or fail, and who performed and reviewed it, for any period; the SQL view gives the same (end-user
+    // testing pass 139: the Reagents page showed 14 days and no report listed QC).
+    [Fact]
+    public async Task ReagentQcReport_ListsEveryReading()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var reagent = new Reagent { Code = "ANTI-D-RQ", Name = "Anti-D (report)" };
+        db.Reagents.Add(reagent);
+        await db.SaveChangesAsync();
+        var lot = new ReagentLot { ReagentId = reagent.Id, LotNumber = "AD-RQ-1", ReceivedUtc = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc), ExpiresUtc = new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc), State = ReagentLotState.Opened };
+        db.ReagentLots.Add(lot);
+        await db.SaveChangesAsync();
+        var old = new DateTime(2026, 8, 20, 7, 0, 0, DateTimeKind.Utc);
+        db.ReagentDailyQcs.AddRange(
+            new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = old.Date, ExpectedResult = "3+", ObservedResult = "0", Control = "D+ cells", Passed = false, PerformedBy = "tech", PerformedUtc = old, ReviewedBy = "lead", ReviewedUtc = old.AddHours(4) },
+            new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = old.Date.AddDays(1), ExpectedResult = "3+", ObservedResult = "3+", Passed = true, PerformedBy = "tech", PerformedUtc = old.AddDays(1) });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-REAGENT-QC").Id, new Dictionary<string, string?>());
+        Assert.True(visual.Succeeded, visual.Error);
+        var columns = visual.Value!.Columns.ToList();
+        var failed = visual.Value.Rows.Single(r => r[columns.IndexOf("lot_number")] == "AD-RQ-1" && r[columns.IndexOf("result")] == "Fail");
+        Assert.Equal(("ANTI-D-RQ", "D+ cells", "3+", "0", "tech", "lead"),
+            (failed[columns.IndexOf("reagent_code")], failed[columns.IndexOf("control")], failed[columns.IndexOf("expected_result")],
+             failed[columns.IndexOf("observed_result")], failed[columns.IndexOf("performed_by")], failed[columns.IndexOf("reviewed_by")]));
+        var passed = visual.Value.Rows.Single(r => r[columns.IndexOf("lot_number")] == "AD-RQ-1" && r[columns.IndexOf("result")] == "Pass");
+        Assert.True(string.IsNullOrEmpty(passed[columns.IndexOf("reviewed_by")]));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-REAGENT-QC-SQL",
+            Name = "SQL reagent QC",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT reagent_code, observed_result, result, reviewed_by FROM rpt_reagent_qc WHERE lot_number = 'AD-RQ-1' ORDER BY performed_utc"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "ANTI-D-RQ", "0", "Fail", "lead" }, sqlRun.Value!.Rows[0].ToArray());
+        Assert.Equal("Pass", sqlRun.Value.Rows[1][2]);
     }
 
     // TEST-BB-1141: the RhIG report lists each evaluation with its decision and, when given, the time, vials, lot and

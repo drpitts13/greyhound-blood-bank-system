@@ -19,6 +19,7 @@ public static class ReportViewCatalog
     public const string TestTurnaround = "rpt_test_turnaround";
     public const string BloodOrderTurnaround = "rpt_blood_order_turnaround";
     public const string Rhig = "rpt_rhig";
+    public const string ReagentQc = "rpt_reagent_qc";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -34,6 +35,7 @@ public static class ReportViewCatalog
         SpecimenRejections,
         TestTurnaround,
         BloodOrderTurnaround,
-        Rhig
+        Rhig,
+        ReagentQc
     };
 }

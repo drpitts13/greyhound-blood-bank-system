@@ -923,3 +923,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-915 | The operational hold board shows how long each unit has been on hold and who held it, longest held first. | P3 | FRS-BB-1033 |
 | URS-BB-916 | Units on operational hold are on the supervisor queue (inventory release) with the reason and time held, and the home card names them. | P2 | FRS-BB-1034 |
 | URS-BB-917 | A recent pregnancy is recorded with its actual date (not the day it is entered), can be cleared, and an impossible date is refused. | P2 | FRS-BB-1035 |
+| URS-BB-918 | Reagent QC for any period can be listed, printed and exported (reagent, lot, control, expected/observed, pass/fail, performer, reviewer). | P2 | FRS-BB-1036 |

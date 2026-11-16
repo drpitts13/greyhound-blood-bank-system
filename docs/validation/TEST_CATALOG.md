@@ -1169,5 +1169,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1158 | I | `InventoryServiceTests.ListOnHold_SurfacesProductAndHoldReason` | URS-BB-915 / FRS-BB-1033 |
 | TEST-BB-1159 | I, U | `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesUnitOnHold_UntilReleased`, `DashboardQueueCatalogTests.SupervisorNote_NamesTheItemsWithADeadlineOrAReview`, `SupervisorQueueRuleTests.KindSortOrder_PutsAntibodyReviewFirst` | URS-BB-916 / FRS-BB-1034 |
 | TEST-BB-1160 | U, I | `RecentPregnancyRuleTests.Evaluate_AllowsAPastDate_RefusesFutureOrBeforeBirth`, `RecentPregnancyRuleTests.ToUtc_IsNowForToday_AndTheStartOfAnEarlierLocalDay`, `PatientServiceTests.Update_RecordsThePregnancyDate_AndRefusesAnImpossibleOne` | URS-BB-917 / FRS-BB-1035 |
+| TEST-BB-1161 | I | `ReportServiceTests.ReagentQcReport_ListsEveryReading` | URS-BB-918 / FRS-BB-1036 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -21,6 +21,7 @@ public static class ReportSourceCatalog
     public const string TestTurnaround = "test_turnaround";
     public const string BloodOrderTurnaround = "blood_order_turnaround";
     public const string Rhig = "rhig";
+    public const string ReagentQc = "reagent_qc";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -79,6 +80,20 @@ public static class ReportSourceCatalog
             Field("given_lot", "Lot"),
             Field("given_by", "Given by"),
             Field("hours_event_to_given", "Hours from event to given")),
+        // Pass 139: every reagent QC reading, for the QC record of a period (the Reagents page shows 14 days).
+        Source(ReagentQc, "Reagent QC", ReportViewCatalog.ReagentQc,
+            Field("performed_utc", "Performed", ReportValueKind.Date),
+            Field("reagent_code", "Reagent"),
+            Field("reagent_name", "Reagent name"),
+            Field("lot_number", "Lot"),
+            Field("lot_expires_utc", "Lot expires", ReportValueKind.Date),
+            Field("control", "Control"),
+            Field("expected_result", "Expected"),
+            Field("observed_result", "Observed"),
+            Field("result", "Result"),
+            Field("performed_by", "Performed by"),
+            Field("reviewed_by", "Reviewed by"),
+            Field("reviewed_utc", "Reviewed", ReportValueKind.Date)),
         Source(Lookback, "Lookback notifications", ReportViewCatalog.Lookback,
             Field("din", "DIN"),
             Field("status", "Status"),
