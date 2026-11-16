@@ -380,6 +380,38 @@ public class InstrumentInterfaceTests : IClassFixture<SqliteContextFactory>
         Assert.Matches("^(A|B|O|AB)\\|(Positive|Negative)$", posted.Interpretation ?? "");
     }
 
+    // TEST-BB-1170: a screen interpretation that is already an LIS interpretation (Positive or Negative) posts as it came
+    // and is not listed as unmapped, though the instrument translates other interpretations; an open entry listed for it
+    // earlier is resolved (end-user testing pass 148).
+    [Fact]
+    public async Task ScreenInterpretation_InLisForm_IsNotListedAsUnmapped()
+    {
+        await using var context = _factory.Create();
+        var iface = await EchoAsync(context);
+        foreach (var word in new[] { "Negative", "Positive" })
+        {
+            context.InterfaceUnmappedValues.Add(new InterfaceUnmappedValue
+            {
+                InstrumentInterfaceId = iface.Id, DataItemKey = InstrumentTranslationKeys.Interpretation, Value = word,
+                Direction = InterfaceTranslationDirection.Inbound, FirstSeenUtc = _factory.Clock.UtcNow, LastSeenUtc = _factory.Clock.UtcNow, Count = 4
+            });
+        }
+
+        await context.SaveChangesAsync();
+        await SeedOrderAsync(context, "MRN-INST-SCI", "ACC-INST-SCI", "ABSC");
+        var raw = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Screen", "ACC-INST-SCI", "MRN-INST-SCI", "Patient", "Test", "19590422", "M", 3)).RawMessage;
+
+        var outcome = await Processor(context).ProcessAsync(raw, iface.Id);
+
+        Assert.True(outcome.Accepted, string.Join("; ", outcome.Notes));
+        var posted = await PostedResultAsync(context, "ACC-INST-SCI", "ABSC");
+        Assert.Contains(posted.Interpretation, new[] { "Positive", "Negative" });
+        var row = await context.InterfaceUnmappedValues.AsNoTracking()
+            .SingleAsync(v => v.InstrumentInterfaceId == iface.Id && v.DataItemKey == InstrumentTranslationKeys.Interpretation && v.Value == posted.Interpretation);
+        Assert.Equal(("Used as it came: it is already an LIS value.", 4), (row.ResolvedNote, row.Count));
+    }
+
     // TEST-BB-532: once an instrument lists error codes, a Hold code (or one with no translation) keeps the result off
     // the record for review, and a Warn code posts it with the flag for the verifier.
     [Fact]

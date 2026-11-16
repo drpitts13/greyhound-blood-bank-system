@@ -932,3 +932,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-924 | Received tubes with no storage place are counted on the home dashboard (Bench) and the shift handoff. | P3 | FRS-BB-1042 |
 | URS-BB-925 | A mother's chart flags a linked newborn whose delivery is not recorded as a recent pregnancy and offers to record it on the infant's date of birth. | P2 | FRS-BB-1043 |
 | URS-BB-926 | An inbound order code that is already an LIS test, grouper or product code is not listed as unmapped, and an earlier listing is cleared when it is next used. | P3 | FRS-BB-1044 |
+| URS-BB-927 | An instrument interpretation already in the LIS's form is not listed as unmapped, and an earlier listing is cleared when it is next received. | P3 | FRS-BB-1045 |

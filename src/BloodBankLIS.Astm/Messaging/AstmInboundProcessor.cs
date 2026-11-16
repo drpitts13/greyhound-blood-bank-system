@@ -264,6 +264,8 @@ public sealed class AstmInboundProcessor
         var checkErrors = translator.HasRows(InstrumentTranslationKeys.ErrorCode);
         var qcSamples = 0;
 
+        // Pass 148: interpretations used as they came because they are already LIS interpretations.
+        var interpretationsUsedAsIs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var group in groups)
         {
             var assayCode = Read(paths, [group.Order], InstrumentDataItemKeys.TestCode)
@@ -376,7 +378,14 @@ public sealed class AstmInboundProcessor
                     if (!interpOutcome.Translated && translator.HasRows(InstrumentTranslationKeys.Interpretation)
                         && string.Equals(mappedInterp, rawInterp, StringComparison.Ordinal))
                     {
-                        translator.RecordMiss(InstrumentTranslationKeys.Interpretation, rawInterp, InterfaceTranslationDirection.Inbound);
+                        if (InstrumentInterpretationValue.IsLocal(rawInterp))
+                        {
+                            interpretationsUsedAsIs.Add(rawInterp!.Trim());
+                        }
+                        else
+                        {
+                            translator.RecordMiss(InstrumentTranslationKeys.Interpretation, rawInterp, InterfaceTranslationDirection.Inbound);
+                        }
                     }
 
                     interp = mappedInterp;
@@ -458,6 +467,14 @@ public sealed class AstmInboundProcessor
         }
 
         log.RuleTraceJson = JsonSerializer.Serialize(ruleTrace, JsonOptions);
+        if (_unmapped is not null)
+        {
+            foreach (var used in interpretationsUsedAsIs)
+            {
+                await _unmapped.ResolveInstrumentUsedAsIsAsync(iface.Id, InstrumentTranslationKeys.Interpretation, used, ct);
+            }
+        }
+
         await RecordMissesAsync(translator, iface.Id, log, ct);
         return groups.Count > 0 && qcSamples == groups.Count;
     }

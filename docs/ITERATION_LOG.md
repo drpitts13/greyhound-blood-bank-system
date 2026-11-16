@@ -25106,3 +25106,21 @@ Walked Issue & Transfuse (Ready to issue, the active MTP), RhIG, Lookback, the a
 ### Tests
 
 - TEST-BB-1169. Full suite passed.
+
+## Iteration 867 — End-user testing pass 148: instrument interpretations listed as unmapped (2026-11-16)
+
+### How it was tested
+
+Continued pass 147 on the instrument side of Unmapped values: the ImmuLINK Echo's *Positive* and *Negative* interpretations, each listed with 4 sightings.
+
+### Found and fixed
+
+1. **Screen and DAT interpretations already in the LIS's form were listed as unmapped.** The Echo reports a screen or DAT as *Positive* or *Negative*, which is what the LIS stores, and those results posted; but because the instrument translates other interpretations (*B Pos* → *B|Positive*), each was listed for the interface team as unmapped. An interpretation already in the LIS's form (Positive, Negative, Compatible, Incompatible, or an ABO/Rh in the LIS's form) is no longer listed, and an entry listed earlier is cleared with a note when the instrument next sends it. The instrument's own wording (for example *Positive (Perform DAT Assay)*) is still listed.
+
+### Retested live
+
+- A simulated Echo screen for a specimen that does not exist (TEST-NOSPEC-148; failed as *No specimen matched*, message removed afterwards) carried *Positive*: the open *Positive* entry cleared, count unchanged at 4. *Negative* clears the next time the Echo sends it. No result was posted.
+
+### Tests
+
+- TEST-BB-1170. Full suite passed.

@@ -85,6 +85,22 @@ public sealed class InterfaceUnmappedValueService
     }
 
     /// <summary>
+    /// Resolves an instrument's open inbound value that a message has just used as it came, because it is already an LIS
+    /// value (pass 148). The caller saves.
+    /// </summary>
+    public async Task ResolveInstrumentUsedAsIsAsync(long instrumentId, string dataItemKey, string value, CancellationToken ct = default)
+    {
+        var trimmed = value.Trim();
+        var open = await _values.ListAsync(v => v.ResolvedUtc == null && v.InstrumentInterfaceId == instrumentId && v.DataItemKey == dataItemKey
+            && v.Direction == InterfaceTranslationDirection.Inbound, ct);
+        foreach (var row in open.Where(v => string.Equals(v.Value, trimmed, StringComparison.OrdinalIgnoreCase)))
+        {
+            var tracked = await _values.GetByIdAsync(row.Id, ct) ?? row;
+            Resolve(tracked, "Used as it came: it is already an LIS value.");
+        }
+    }
+
+    /// <summary>
     /// Marks an instrument's open unmapped values resolved where its saved translations now cover them (the caller
     /// saves). An error code counts as covered once it has any action.
     /// </summary>
