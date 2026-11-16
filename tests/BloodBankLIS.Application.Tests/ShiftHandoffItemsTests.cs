@@ -130,6 +130,9 @@ public class ShiftHandoffItemsTests
         Assert.Null(DashboardQueueCatalog.RetypeNote([], now));
         Assert.Equal("oldest waiting 9 d; next expires in 6 d; 1 outdated",
             DashboardQueueCatalog.RetypeNote([Unit(9, 20), Unit(3, 6.5), Unit(4, -1, expired: true)], now));
+        // TEST-BB-1174 (pass 152): units reserved for patients are named first.
+        Assert.Equal("2 reserved for patients; oldest waiting 9 d; next expires in 6 d",
+            DashboardQueueCatalog.RetypeNote([Unit(9, 20) with { ReservedFor = "Demo, Pat (MRN1)" }, Unit(3, 6.5) with { ReservedFor = "Run, Al (MRN2)" }], now));
     }
 
     // TEST-BB-1133: lookback notifications still due are a handoff item linked to Lookback, naming those past notify-by,

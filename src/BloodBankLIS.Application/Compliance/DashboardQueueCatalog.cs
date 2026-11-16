@@ -446,8 +446,8 @@ public static class DashboardQueueCatalog
     }
 
     /// <summary>
-    /// The Units to retype card note (pass 143): how long the oldest has waited and the soonest in-date expiry (the
-    /// board lists them in that order), and how many have outdated while waiting.
+    /// The Units to retype card note (pass 143): how many are reserved for patients (pass 152), how long the oldest has
+    /// waited and the soonest in-date expiry, and how many have outdated while waiting.
     /// </summary>
     public static string? RetypeNote(IEnumerable<BloodBankLIS.Application.Inventory.ProductRetypeWorkItemDto> pending, DateTime nowUtc)
     {
@@ -460,6 +460,8 @@ public static class DashboardQueueCatalog
         var soonest = all.Where(i => !i.Expired && i.ExpiresUtc is not null).Select(i => i.ExpiresUtc).Min();
         var parts = new List<string?>
         {
+            // Pass 152: units a patient is waiting on come first (passes 149 and 150).
+            AttentionNote(all.Count(i => i.ReservedFor is not null), "reserved for a patient", "reserved for patients"),
             $"oldest waiting {AlertInboxView.OpenFor(all.Min(i => i.ReceivedUtc), nowUtc)}",
             soonest is DateTime next ? $"next {RetypeQueueOrder.ExpiryNote(next, nowUtc)}" : null,
             AttentionNote(all.Count(i => i.Expired), "outdated", "outdated")

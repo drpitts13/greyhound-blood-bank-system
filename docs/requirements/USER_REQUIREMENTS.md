@@ -936,3 +936,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-928 | Ready to issue marks a reserved unit whose ABO/Rh retype is not confirmed, links to the retype desk, and does not offer it for routine issue. | P2 | FRS-BB-1046 |
 | URS-BB-929 | The retype board names the patient a waiting unit is reserved for and lists reserved units first. | P2 | FRS-BB-1047 |
 | URS-BB-930 | The Test worklist's product retype tab shows the reserved patient, expiry and time waiting, in the same order as the Inventory retype board. | P3 | FRS-BB-1048 |
+| URS-BB-931 | The Units to retype home card names how many waiting units are reserved for patients. | P3 | FRS-BB-1049 |

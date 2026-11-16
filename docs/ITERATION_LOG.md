@@ -25178,3 +25178,21 @@ Opened the same 23 waiting units from the bench's side: Test Worklist › Retype
 ### Tests
 
 - TEST-BB-1173 (source check that both lists show the reserved patient, expiry and waiting). Full suite passed.
+
+## Iteration 871 — End-user testing pass 152: reserved units on the retype card (2026-11-16)
+
+### How it was tested
+
+Read the home dashboard's **Units to retype** card after passes 149–151, as the bench lead deciding what to do first.
+
+### Found and fixed
+
+1. **The Units to retype card did not say any of the 23 were reserved for patients.** It gave the oldest wait and the next expiry; the two units patients were waiting on (W000123RXN0001, W0001230000001) were not mentioned, so the card gave no reason to go now. The note now leads with them: *2 reserved for patients; oldest waiting 9 d; next expires in 6 d*.
+
+### Retested live
+
+- The dashboard card reads *Units to retype 23 — 2 reserved for patients; oldest waiting 9 d; next expires in 6 d*.
+
+### Tests
+
+- TEST-BB-1174 (`UnitsToRetype_AreAHandoffItem_AndAHomeCard` extended). Full suite passed.
