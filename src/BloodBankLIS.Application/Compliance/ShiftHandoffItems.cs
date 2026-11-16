@@ -76,6 +76,8 @@ public static class ShiftHandoffItems
         Add(h.RetypesPending, "Units to retype", "/inventory?board=retype");
         // Pass 144: deliveries entered but not completed against their packing lists.
         Add(h.DeliveriesToComplete, "Deliveries to complete", "/inventory?board=deliveries");
+        // Pass 145: received tubes with no storage place, so they cannot be found for a workup or repeat.
+        Add(h.TubesToStore, "Tubes to store", "/specimens/store");
         Add(h.InstrumentFailuresOpen, "Instrument failures", "/instruments?show=open",
             detail: Note((h.InstrumentResultsHeld, "held for review")));
         Add(h.Hl7ErrorsOpen, "HL7 errors", "/hl7");

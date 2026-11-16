@@ -180,6 +180,9 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Open deliveries with every expected unit entered, waiting to be completed (pass 144).</summary>
     public int DeliveriesToComplete { get; set; }
 
+    /// <summary>Received tubes with no storage place recorded (pass 145).</summary>
+    public int TubesToStore { get; set; }
+
     /// <summary>Units a ward has asked to be sent and not yet issued (end-user testing pass 21).</summary>
     public int WardRequestsWaiting { get; set; }
 

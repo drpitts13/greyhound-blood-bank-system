@@ -56,6 +56,7 @@ public static class DashboardQueueCatalog
     public const string LookbackDue = "lookback-due";
     public const string Retypes = "retypes";
     public const string OpenDeliveries = "open-deliveries";
+    public const string TubesToStore = "tubes-to-store";
 
     public static IReadOnlyList<Card> Select(Func<string, bool> has)
     {
@@ -79,6 +80,8 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.SpecimenAccession), PendingSpecimens, "Pending specimens", "/test-worklist?tab=specimens");
         // Stored tubes past the facility's retention date (OCD-070): whoever stores tubes pulls and discards them.
         Add(cards, has(PermissionCodes.SpecimenAccession), TubesDueForDiscard, "Tubes due for discard", "/specimens/store");
+        // Pass 145: received tubes never put away (Store tubes' Received, not yet stored).
+        Add(cards, has(PermissionCodes.SpecimenAccession), TubesToStore, "Tubes to store", "/specimens/store");
         // Pass 143: received units waiting for their ABO/Rh confirmation retype, seen only on the Retype board before.
         Add(cards, has(PermissionCodes.ResultEnter), Retypes, "Units to retype", "/inventory?board=retype");
         // Pass 144: supplier deliveries still open, seen only on Inventory's Open deliveries board before.
@@ -462,6 +465,13 @@ public static class DashboardQueueCatalog
             AttentionNote(all.Count(i => i.Expired), "outdated", "outdated")
         };
         return string.Join("; ", parts.Where(p => p is not null));
+    }
+
+    /// <summary>The Tubes to store card note (pass 145): how long the oldest tube has waited since it was collected.</summary>
+    public static string? TubesToStoreNote(IEnumerable<BloodBankLIS.Application.Specimens.TubeInPlaceDto> tubes, DateTime nowUtc)
+    {
+        var all = tubes.ToList();
+        return all.Count == 0 ? null : $"oldest collected {AlertInboxView.OpenFor(all.Min(t => t.CollectedUtc), nowUtc)} ago";
     }
 
     /// <summary>The Open deliveries card note (pass 144): those with every unit entered, ready to complete, and the oldest.</summary>

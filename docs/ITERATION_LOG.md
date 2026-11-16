@@ -25052,3 +25052,21 @@ Followed up pass 142 from the issue desk's side: where would a tech learn that a
 ### Tests
 
 - TEST-BB-1166. Full suite passed.
+
+## Iteration 864 — End-user testing pass 145: tubes to store on the home page and handoff (2026-11-16)
+
+### How it was tested
+
+Checked possible-duplicate patients (MRN0022 and MRN9022, same name and date of birth, correctly paired; MRN0024 already merged), then followed up pass 135 from the bench's side: where would a tech learn that tubes are waiting to be put away?
+
+### Found and fixed
+
+1. **Received tubes never put away were on no home card or handoff.** Pass 135 listed them on Store tubes (*Received, not yet stored*: 19 in the seeded laboratory), but nothing sent anyone there. A home card, **Tubes to store** (for those who accession specimens, on the Bench desk), now counts them and says how long ago the oldest was collected; the shift handoff counts them too, in its items and summary.
+
+### Retested live
+
+- The dashboard shows *Tubes to store 19 — oldest collected 30 d ago*; the handoff preview has 19 and *tubes to store 19* in its summary. No tube was stored and no handoff recorded live.
+
+### Tests
+
+- TEST-BB-1167. Full suite passed.

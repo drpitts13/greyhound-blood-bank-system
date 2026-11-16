@@ -87,7 +87,9 @@ public sealed record ShiftHandoffDto(
     // Pass 143: received units waiting for their ABO/Rh confirmation retype.
     int RetypesPending = 0,
     // Pass 144: deliveries with every unit entered, still to complete.
-    int DeliveriesToComplete = 0)
+    int DeliveriesToComplete = 0,
+    // Pass 145: received tubes not yet put away.
+    int TubesToStore = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -140,6 +142,7 @@ public sealed record ShiftHandoffDto(
         (LookbackDue > 0 ? $"; lookback notifications due {LookbackDue}" + (LookbackPastNotifyBy > 0 ? $", {LookbackPastNotifyBy} past notify-by" : "") : "") +
         (RetypesPending > 0 ? $"; units to retype {RetypesPending}" : "") +
         (DeliveriesToComplete > 0 ? $"; deliveries to complete {DeliveriesToComplete}" : "") +
+        (TubesToStore > 0 ? $"; tubes to store {TubesToStore}" : "") +
         (InstrumentFailuresOpen > 0
             ? $"; instrument failures {InstrumentFailuresOpen}" + (InstrumentResultsHeld > 0 ? $", {InstrumentResultsHeld} held for review" : "")
             : "") +
@@ -177,7 +180,7 @@ public sealed record ShiftHandoffDto(
         h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
         h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen,
         h.TemperatureExcursionsOpen, h.TemperatureExcursionsToClose, h.TemperatureReadingsDue, h.DeviationsOverdue,
-        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending, h.DeliveriesToComplete);
+        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending, h.DeliveriesToComplete, h.TubesToStore);
 }
 
 /// <summary>
@@ -537,7 +540,8 @@ public sealed class ShiftHandoffService
             RetypesPending = _retypes is null ? 0 : (await _retypes.ListPendingAsync(ct)).Count,
             DeliveriesToComplete = _deliveries is null
                 ? 0
-                : (await _deliveries.ListOpenAsync(ct)).Count(d => OpenDeliveryStatus.ReadyToComplete(d.ExpectedQuantity, d.ReceivedQuantity))
+                : (await _deliveries.ListOpenAsync(ct)).Count(d => OpenDeliveryStatus.ReadyToComplete(d.ExpectedQuantity, d.ReceivedQuantity)),
+            TubesToStore = _tubeStorage is null ? 0 : (await _tubeStorage.ListNotStoredAsync(ct)).Count
         };
     }
 
@@ -643,7 +647,8 @@ public sealed class ShiftHandoffService
         LookbackDue = row.LookbackDue,
         LookbackPastNotifyBy = row.LookbackPastNotifyBy,
         RetypesPending = row.RetypesPending,
-        DeliveriesToComplete = row.DeliveriesToComplete
+        DeliveriesToComplete = row.DeliveriesToComplete,
+        TubesToStore = row.TubesToStore
     };
 
     /// <summary>

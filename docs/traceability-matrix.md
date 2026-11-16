@@ -1035,6 +1035,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-921 / FRS-BB-1039 | End-user testing pass 142: deliveries entered but never completed | `OpenDeliveryStatus.cs`, `Inventory.razor` | TEST-BB-1164 | U | |
 | URS-BB-922 / FRS-BB-1040 | End-user testing pass 143: units to retype on the home page and handoff | `DashboardQueueCatalog.cs`, `DashboardHomeLayout.cs`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, `ShiftHandoff.cs`, `Home.razor` | TEST-BB-1165 | U | |
 | URS-BB-923 / FRS-BB-1041 | End-user testing pass 144: open deliveries on the home page and handoff | `DashboardQueueCatalog.cs`, `DashboardHomeLayout.cs`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, `ShiftHandoff.cs`, `Home.razor` | TEST-BB-1166 | U | |
+| URS-BB-924 / FRS-BB-1042 | End-user testing pass 145: tubes to store on the home page and handoff | `DashboardQueueCatalog.cs`, `DashboardHomeLayout.cs`, `ShiftHandoffService.cs`, `ShiftHandoffItems.cs`, `ShiftHandoff.cs`, `Home.razor` | TEST-BB-1167 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

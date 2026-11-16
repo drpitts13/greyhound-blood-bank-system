@@ -68,6 +68,26 @@ public class ShiftHandoffItemsTests
         Assert.Contains("deviations open 3, 1 overdue", handoff.QueueSummary);
     }
 
+    // TEST-BB-1167: received tubes with no storage place are a handoff item linked to Store tubes and in the summary; the
+    // home card is for those who accession specimens and says how long ago the oldest was collected (end-user testing
+    // pass 145).
+    [Fact]
+    public void TubesToStore_AreAHandoffItem_AndAHomeCard()
+    {
+        var handoff = Handoff() with { TubesToStore = 19 };
+        var item = Assert.Single(ShiftHandoffItems.For(handoff));
+        Assert.Equal(("Tubes to store", 19, "/specimens/store"), (item.Label, item.Count, item.Href));
+        Assert.Contains("tubes to store 19", handoff.QueueSummary);
+
+        Assert.Contains(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.SpecimenAccession), c => c.Key == DashboardQueueCatalog.TubesToStore && c.Href == "/specimens/store");
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(c => c == BloodBankLIS.Domain.Rules.PermissionCodes.IssueCreate), c => c.Key == DashboardQueueCatalog.TubesToStore);
+        var now = new DateTime(2026, 11, 16, 12, 0, 0, DateTimeKind.Utc);
+        BloodBankLIS.Application.Specimens.TubeInPlaceDto Tube(int collectedDaysAgo) =>
+            new(1, "ACC1", "EDTA", BloodBankLIS.Domain.Enums.SpecimenStatus.Expired, 1, "Demo, Pat", "MRN1", now.AddDays(-collectedDaysAgo), null, null);
+        Assert.Null(DashboardQueueCatalog.TubesToStoreNote([], now));
+        Assert.Equal("oldest collected 30 d ago", DashboardQueueCatalog.TubesToStoreNote([Tube(10), Tube(30)], now));
+    }
+
     // TEST-BB-1166: deliveries with every unit entered are a handoff item linked to Open deliveries and in the summary;
     // the home card is for those who receive stock and names those ready to complete and the oldest (end-user testing
     // pass 144).
