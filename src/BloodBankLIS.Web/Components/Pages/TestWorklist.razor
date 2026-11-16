@@ -285,6 +285,10 @@
                                 @item.Priority
                             }
                             <span class="sub nowrap">@item.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                            @if (item.TurnaroundNotice is null)
+                            {
+                                <span class="sub nowrap" data-worklist-waiting>@BloodOrderWaitText.Waiting(item.OrderedUtc, DateTime.UtcNow)</span>
+                            }
                             @if (item.TurnaroundNotice is { } turnaround)
                             {
                                 @* Pass 106: past the facility's STAT turnaround target. *@

@@ -25499,3 +25499,21 @@ Worked Transfusion › Blood orders to prepare with the seeded orders: ORD-PREP-
 ### Tests
 
 - TEST-BB-1190. Full suite passed.
+
+## Iteration 888 — End-user testing pass 168: how long a pending test has waited (2026-11-16)
+
+### How it was tested
+
+Worked Patients & testing › Test Worklist with the seeded tests: the reaction workup ABO/Rh types for Febrile, Marcus (MRN0006), Demo-Special, Avery's ABO/Rh to verify, and the Stat crossmatch ORD0002 for Demo, Patricia (MRN0001) with no specimen linked. The equipment banner and the Accession link on rows with no specimen worked as described.
+
+### Found and fixed
+
+1. **A pending test did not say how long it had waited.** With no STAT turnaround target set (Facility policies), Patricia's Stat crossmatch showed only *2026-11-06 08:49*, ten days earlier. Each row now says how long it has waited since it was ordered (*waiting 10 d*); where the target is set, the existing past-target badge says it instead.
+
+### Retested live
+
+- The seeded rows show how long each test has waited. Nothing was entered, verified or accessioned.
+
+### Tests
+
+- TEST-BB-1191. Full suite passed.

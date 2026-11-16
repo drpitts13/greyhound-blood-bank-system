@@ -1199,5 +1199,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1188 | I | `InventoryServiceTests.CoolerCheck_CatchesWrongAndUnissuedUnits_AndFinishingIsAudited` | URS-BB-945 / FRS-BB-1063 |
 | TEST-BB-1189 | U | `InstrumentMessagePatientTextTests.For_QcSampleIsNotShownAsAPatient` | URS-BB-946 / FRS-BB-1064 |
 | TEST-BB-1190 | U | `BloodOrderWaitTextTests.Text_SaysHowLongTheOrderHasWaited` | URS-BB-947 / FRS-BB-1065 |
+| TEST-BB-1191 | U | `BloodOrderWaitTextTests.Text_SaysHowLongTheOrderHasWaited` | URS-BB-948 / FRS-BB-1066 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -9,5 +9,11 @@ namespace BloodBankLIS.Web.Services;
 public static class BloodOrderWaitText
 {
     public static string Text(DateTime orderedUtc, DateTime nowUtc) =>
-        $"ordered {orderedUtc.ToLocalTime():yyyy-MM-dd HH:mm} · waiting {AlertInboxView.OpenFor(orderedUtc, nowUtc)}";
+        $"ordered {orderedUtc.ToLocalTime():yyyy-MM-dd HH:mm} · {Waiting(orderedUtc, nowUtc)}";
+
+    /// <summary>
+    /// "waiting 10 d" (end-user testing pass 168: the Test Worklist showed a Stat crossmatch ordered ten days earlier
+    /// with only its order time while no turnaround target is set).
+    /// </summary>
+    public static string Waiting(DateTime orderedUtc, DateTime nowUtc) => $"waiting {AlertInboxView.OpenFor(orderedUtc, nowUtc)}";
 }

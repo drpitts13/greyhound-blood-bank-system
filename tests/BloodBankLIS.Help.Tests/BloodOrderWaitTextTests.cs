@@ -13,5 +13,8 @@ public class BloodOrderWaitTextTests
         Assert.StartsWith($"ordered {ordered.ToLocalTime():yyyy-MM-dd HH:mm} · waiting ", text);
         Assert.EndsWith("8 d", text);
         Assert.EndsWith("· waiting 40 min", BloodOrderWaitText.Text(ordered, ordered.AddMinutes(40)));
+
+        // TEST-BB-1191: the Test Worklist says how long a pending test has waited (pass 168).
+        Assert.Equal("waiting 10 d", BloodOrderWaitText.Waiting(ordered, ordered.AddDays(10).AddHours(1)));
     }
 }
