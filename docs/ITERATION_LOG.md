@@ -25387,3 +25387,21 @@ The product owner checked the ICCBBA standard: in expiration codes (`=>cyyjjj`, 
 ### Tests
 
 - TEST-BB-1184; the parser tests use century 0. Full suite passed.
+
+## Iteration 882 — End-user testing pass 162: the reaction workup column (2026-11-16)
+
+### How it was tested
+
+Looked at the ISBT 128 ABO/Rh scan (`=%5100` is unknown: the ABO/Rh code table holds only placeholder codes until the licensed ICCBBA tables are loaded, OCD-004, not changed here), then worked the Reactions board.
+
+### Found and fixed
+
+1. **The Workup column repeated the Next step sentence.** For Demo-Multi, Riley both columns read *Visual inspection of the returned unit or segments has not been recorded*, and nothing showed how far the checklist had come. Workup now says what is recorded and what is left: *1 of 5 recorded; to do: visual inspection, repeat patient ABO/Rh, repeat unit ABO/Rh, DAT*, with the Incomplete or Ready to close mark beside it.
+
+### Retested live
+
+- The board shows *All 5 recorded* (Incomplete: workup tests still to verify) for Febrile, Marcus and *1 of 5 recorded; to do: …* for Demo-Multi, Riley. Nothing was recorded on either investigation.
+
+### Tests
+
+- TEST-BB-1185. Full suite passed.

@@ -122,9 +122,11 @@ else
                                 }
                             </td>
                             <td>
+                                @* Pass 162: what is recorded and still to record, not the Next step sentence again. *@
+                                <span data-reaction-workup-progress>@ReactionWorkupProgress.Text(r)</span>
                                 @if (r.WorkupIncomplete)
                                 {
-                                    <span class="badge badge-amber" title="@r.WorkupHoldReason">@(r.WorkupHoldReason ?? "Incomplete")</span>
+                                    <span class="badge badge-amber" title="@r.WorkupHoldReason">Incomplete</span>
                                 }
                                 else
                                 {
