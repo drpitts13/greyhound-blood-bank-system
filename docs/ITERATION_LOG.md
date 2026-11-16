@@ -25348,3 +25348,21 @@ Opened reaction investigation 2 (Demo-Multi, Riley, MRN0022) on its own and as i
 ### Tests
 
 - TEST-BB-1182 (the units-out test now also reads the investigation on its own, open and closed). Full suite passed.
+
+## Iteration 880 — End-user testing pass 161: an ISBT expiration read a century off (2026-11-16)
+
+### How it was tested
+
+Recipient traceback for MRN0022 and the merged MRN0024 (resolves to MRN0022 with its four issued units), then the ISBT 128 parse used at receipt with label codes for a DIN, a product, an ABO/Rh and an expiration.
+
+### Found and fixed
+
+1. **A label expiration resolved to 1926.** `&>0263312359` parsed as 1926-11-27: the parser maps century digit 0 to the 1900s and 2 to the 2000s, a reading marked as awaiting ICCBBA confirmation; labels in circulation are commonly read with 0 for the 2000s. Received that way, a good unit would read as expired a century ago. The century rule is a standards question, not changed here: it is recorded as **OCD-092** for the ISBT 128 owner. Meanwhile a scanned expiration whose year is more than 2 before or 11 after today is refused at the scan (`ISBT_IMPLAUSIBLE_EXPIRATION`) with what to do: check the eye-readable expiration and enter it by hand.
+
+### Retested live
+
+- `/api/isbt/parse` refuses `&>0263312359` with the message above; `&>2263312359` and `=>226331` parse to 2026-11-27 23:59 as before. No unit was received.
+
+### Tests
+
+- TEST-BB-1183. Full suite passed.

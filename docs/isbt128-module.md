@@ -130,7 +130,7 @@ Expiration: future local date/time
 
 1. Official ICCBBA product and ABO/RhD tables are licensed IP — shipped product rows are a **US public subset** (`IsPlaceholder=true`) pending facility ICCBBA validation; ABO/RhD demo codes remain placeholders. Cycle 7 added JSON import; Cycle 14 adds CSV/TSV/JSON extract import if files are available. A licensed extract has not been loaded (OCD-004).
 2. DIN keyboard check uses **ISO/IEC 7064 MOD 37-2** (`Iso7064Mod37_2DinCheckCharacterValidator`) over the 13-character DIN. Official ICCBBA product and ABO/RhD tables remain licensed IP and are not shipped here.
-3. Century / ordinal-date mapping follows a conservative interpretation pending ICCBBA confirmation.
+3. Century / ordinal-date mapping follows a conservative interpretation pending ICCBBA confirmation (OCD-092). Until confirmed, a scanned expiration that resolves to a year more than 2 before or 11 after today is refused (`ISBT_IMPLAUSIBLE_EXPIRATION`), so a code read a century off (for example `&>0263312359` as 1926) is caught at the scan.
 4. Date-only labels use institutional end-of-day (23:59) unless policy differs.
 5. Legacy units without `ComponentIdentity` keep prior issue/transfusion paths (scan verification optional).
 6. `Allocated` remains for back-compat; new assignments prefer `Assigned`.
