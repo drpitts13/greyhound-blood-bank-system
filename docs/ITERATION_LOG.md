@@ -25617,3 +25617,21 @@ Continued the pass 169 follow-up on Reagent QC, Equipment, Storage temps and Sup
 ### Tests
 
 - TEST-BB-1196. Full suite passed.
+
+## Iteration 894 — End-user testing pass 174: electronic crossmatch offered while off (2026-11-16)
+
+### How it was tested
+
+Walked the newborn chart DEMO-MATAB, Baby Boy Lena (MRN0029, born 2026-11-13, mother MRN0028 with anti-K): the maternal antibody banner offers the K-negative requirement, the neonatal testing rules (OCD-074, off until the medical director turns them on) are in place, and a pregnancy date before birth is already refused (pass 138). Lookback lists its one notification still due with how long it has been open. Then Transfusion › Compatibility.
+
+### Found and fixed
+
+1. **Electronic crossmatch was offered while the facility has it off.** Record crossmatch listed *Electronic* among the methods although the facility policy keeps electronic crossmatch off until AABB 5.16 validation; choosing it only failed on save (XM-EC-POLICY). While the policy is off the option now reads *Electronic (off at this facility)* and cannot be chosen. If the policy cannot be read, the option stays and the server still refuses it.
+
+### Retested live
+
+- The first live retest still offered Electronic: the bench policy read is limited to a list of readable keys, and this one was not on it (the read returned 404, so the option stayed). The key was added to the list. Retested: Method lists Serologic, Immediate spin and AHG, and *Electronic (off at this facility)* greyed out. Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1197. Full suite passed.

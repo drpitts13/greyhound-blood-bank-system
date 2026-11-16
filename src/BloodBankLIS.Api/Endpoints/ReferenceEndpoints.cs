@@ -21,6 +21,8 @@ public static class ReferenceEndpoints
     private static readonly HashSet<string> ReadablePolicyKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         FacilityPolicyKeys.RequireSecondAboForCellularIssue,
+        // Record crossmatch does not offer Electronic while the facility has it off (end-user testing pass 174).
+        FacilityPolicyKeys.AllowElectronicCrossmatch,
         FacilityPolicyKeys.PrefillPatientIdentifiers,
         FacilityPolicyKeys.RequireSpecimenReceiptByScan,
         FacilityPolicyKeys.InspectionDefaultAcceptable,

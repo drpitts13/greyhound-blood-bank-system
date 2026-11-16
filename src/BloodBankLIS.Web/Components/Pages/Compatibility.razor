@@ -78,7 +78,7 @@
                         Placeholder="Search accession" />
                 </div>
                 <div class="field"><label>Method</label>
-                    <select @bind="_xm.Method" @bind:after="OnXmMethodChanged">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@Ui.EnumText(m)</option> }</select>
+                    <select @bind="_xm.Method" @bind:after="OnXmMethodChanged" data-xm-method>@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { var option = CrossmatchMethodOption.For(m, Ui.EnumText(m), _facilityAllowsExm); <option value="@m" disabled="@option.Disabled">@option.Text</option> }</select>
                 </div>
                 @if (_xm.Method != CrossmatchMethod.Electronic)
                 {
@@ -299,8 +299,14 @@
     private string? _retroPtagNotice;
     private string? _retroCrossmatchStatusNotice;
 
+    // Pass 174: whether the facility allows electronic crossmatch (null when the policy could not be read; the server
+    // still refuses an electronic crossmatch when it is off).
+    private bool? _facilityAllowsExm;
+
     protected override async Task OnInitializedAsync()
     {
+        var exmPolicy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.AllowElectronicCrossmatch);
+        _facilityAllowsExm = exmPolicy.Succeeded ? exmPolicy.Value?.Enabled == true : null;
         var patients = await Api.GetPatientsAsync();
         _patients = patients.Value ?? new();
         if (!patients.Succeeded)

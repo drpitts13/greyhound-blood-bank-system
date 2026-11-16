@@ -1065,6 +1065,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-951 / FRS-BB-1069 | End-user testing pass 171: Reactions and Deviations before they are read | `Reactions.razor`, `Deviations.razor` | TEST-BB-1194 | U | |
 | URS-BB-952 / FRS-BB-1070 | End-user testing pass 172: Inventory boards before they are read | `Inventory.razor` | TEST-BB-1195 | U | |
 | URS-BB-953 / FRS-BB-1071 | End-user testing pass 173: QC, equipment, storage and supplier lists before they are read | `Reagents.razor`, `EquipmentPage.razor`, `StorageTemps.razor`, `SupplierOrders.razor` | TEST-BB-1196 | U | |
+| URS-BB-954 / FRS-BB-1072 | End-user testing pass 174: electronic crossmatch offered while off | `CrossmatchMethodOption.cs`, `Compatibility.razor` | TEST-BB-1197 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

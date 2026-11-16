@@ -959,3 +959,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-951 | The Reactions board and Deviations say they are loading, or that the list could not be read, instead of saying there are none. | P3 | FRS-BB-1069 |
 | URS-BB-952 | The Inventory boards say they are loading, or that a board could not be read, instead of saying there are no such units. | P2 | FRS-BB-1070 |
 | URS-BB-953 | The Reagent QC worklist, the equipment checks due, the storage temperature locations and the supplier orders say they are loading, or that the list could not be read, instead of saying there is nothing. | P2 | FRS-BB-1071 |
+| URS-BB-954 | Record crossmatch does not offer the electronic method while the facility has electronic crossmatch turned off, and says why. | P3 | FRS-BB-1072 |

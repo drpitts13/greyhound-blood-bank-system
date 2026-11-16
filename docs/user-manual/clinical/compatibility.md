@@ -20,7 +20,7 @@ Choose the unit and the method. The specimen must not have expired: a crossmatch
 
 **Electronic** crossmatch is available only when all of the following are true:
 
-- Facility policy has electronic crossmatch turned on. It is off until an administrator enables it.
+- Facility policy has electronic crossmatch turned on. It is off until an administrator enables it; while it is off, **Method** shows *Electronic (off at this facility)* and it cannot be chosen.
 - The patient has a current ABO and Rh and a negative antibody screen that meets the visit, specimen, and test minimums in Crossmatch Settings.
 - The specimen you crossmatch against is accepted, in date, and has its own verified negative antibody screen.
 - The patient has no antibody history of any kind. A deactivated antibody and an antibody marked currently undetectable still count.
