@@ -25753,7 +25753,7 @@ Opened the chart of Kellerman, Diane (MRN0004), one of the five patients whose A
 
 ### Found and fixed
 
-1. **The chart showed the type with nothing to say it was under review.** The header read *O+, Second ABO on file*, the type crossmatch, selection and issue rely on, while the result it came from waited on Reagent QC for review after the anti-D lot failed. The blood type now carries an amber **Under QC review** mark naming the lot (*ABO/Rh tested with ANTI-D lot AD-24092, whose QC failed; the result is to review on Reagent QC before relying on it*), linking to Reagent QC, until the result is reviewed. Nothing is blocked: whether to hold issue on it is not decided here.
+1. **The chart showed the type with nothing to say it was under review.** The header read *O+, Second ABO on file*, the type crossmatch, selection and issue rely on, while the result it came from waited on Reagent QC for review after the anti-D lot failed. The blood type now carries an amber **Under QC review** mark naming the lot (*ABO/Rh tested with ANTI-D lot AD-24092, whose QC failed; the result is to review on Reagent QC before relying on it*), linking to Reagent QC, until the result is reviewed. Nothing is blocked. **Decided 2026-11-16 (product owner): it stays a warning on the chart; issue is not held or warned on it.**
 
 ### Retested live
 
