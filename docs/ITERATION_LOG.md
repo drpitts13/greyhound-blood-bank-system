@@ -26541,3 +26541,25 @@ Opened Storage temperatures: the two open excursions (OR-FRIDGE 7.2 °C, FRIDGE-
 ### Tests
 
 - TEST-BB-1245. Full suite passed.
+
+## Iteration 944 — End-user testing pass 224: own QC on the supervisor queue (2026-11-17)
+
+### How it was tested
+
+Opened Deviations (three open: a unit in the wrong refrigerator and the two temperature excursions) and the Supervisor queue (18 items: reagent QC, quarantine releases, a missing unit, an operational hold, an emergency-release override).
+
+### Found and fixed
+
+1. **The queue offered Review on QC the user had performed.** All eight unreviewed QC rows were performed by DEV_ADMIN, the signed-in user, yet each offered **Review**; the reviewer must be another person (QC-REVIEW), as pass 213 made the Reagent QC page say. Those rows now read *… You performed it: another person reviews it.* and offer **Open**. A row performed by someone else still offers Review.
+
+### Also checked, no change
+
+- Deviation 3 names its times in UTC and lists raw scanned unit numbers; that text was recorded when the deviation was raised (before pass 202's local times) and is left as recorded.
+
+### Retested live
+
+- The eight QC rows show the note and *Open*; the lot with results to review still says *5 results to review*. Nothing was reviewed.
+
+### Tests
+
+- TEST-BB-1246. Full suite passed.

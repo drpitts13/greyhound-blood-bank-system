@@ -130,12 +130,16 @@ public sealed class SupervisorQueueService
         {
             foreach (var w in (await _reagentQc.ListWorkAsync(ct)).Where(w => SupervisorQueueRule.IsSupervisorReagentQc(w.Kind)))
             {
+                // Pass 224: QC this user performed is reviewed by someone else (QC-REVIEW), so it is not offered as theirs.
+                var own = w.Kind == ReagentQcWorklistRule.Unreviewed
+                    && !string.IsNullOrWhiteSpace(w.PerformedBy)
+                    && string.Equals(w.PerformedBy.Trim(), _currentUser.UserName?.Trim(), StringComparison.OrdinalIgnoreCase);
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindReagentQc,
                     $"Reagent QC {ReagentQcWorklistRule.KindText(w.Kind)} — lot {w.LotNumber}",
-                    w.Message,
+                    own ? $"{w.Message} You performed it: another person reviews it." : w.Message,
                     "/reagents",
-                    w.Kind == ReagentQcWorklistRule.ReviewResults ? $"{w.ResultsToReview} results to review" : "Review",
+                    w.Kind == ReagentQcWorklistRule.ReviewResults ? $"{w.ResultsToReview} results to review" : own ? "Open" : "Review",
                     ContextId: w.QcId ?? w.LotId,
                     DueSoon: w.Kind == ReagentQcWorklistRule.Failed));
             }

@@ -32,6 +32,15 @@ public class SupervisorQueueReagentQcTests : IDisposable
             ReagentLotId = lot.Id, QcDateUtc = now.Date, ExpectedResult = "3+", ObservedResult = "0", Passed = false,
             PerformedBy = "tech1", PerformedUtc = now.AddHours(-1)
         });
+        // Pass 224: a QC the signed-in user performed.
+        var ownLot = new ReagentLot { ReagentId = reagent.Id, LotNumber = "SQ-2", ReceivedUtc = now.AddDays(-3), ExpiresUtc = now.AddDays(30), State = ReagentLotState.Opened };
+        context.ReagentLots.Add(ownLot);
+        await context.SaveChangesAsync();
+        context.ReagentDailyQcs.Add(new ReagentDailyQc
+        {
+            ReagentLotId = ownLot.Id, QcDateUtc = now.Date, ExpectedResult = "3+", ObservedResult = "3+", Passed = true,
+            PerformedBy = _factory.CurrentUser.UserName, PerformedUtc = now.AddHours(-1)
+        });
         await context.SaveChangesAsync();
 
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
@@ -45,6 +54,11 @@ public class SupervisorQueueReagentQcTests : IDisposable
         Assert.Contains(qc, i => i.Title == "Reagent QC failed — lot SQ-1" && i.DueSoon && i.Href == "/reagents");
         Assert.Contains(qc, i => i.Title == "Reagent QC unreviewed — lot SQ-1");
         Assert.DoesNotContain(qc, i => i.Title.Contains("overdue", StringComparison.Ordinal));
+        // TEST-BB-1246 (end-user testing pass 224): QC the signed-in user performed is not offered to them to review.
+        var own = Assert.Single(qc, i => i.Title == "Reagent QC unreviewed — lot SQ-2");
+        Assert.Equal("Open", own.NextAction);
+        Assert.EndsWith("You performed it: another person reviews it.", own.Detail);
+        Assert.Equal("Review", Assert.Single(qc, i => i.Title == "Reagent QC unreviewed — lot SQ-1").NextAction);
 
         var releaseOnly = await new SupervisorQueueService(_factory.CurrentUser,
             permissions: new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease), reagentQc: reagents).ListAsync();
