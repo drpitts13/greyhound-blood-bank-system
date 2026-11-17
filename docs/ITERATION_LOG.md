@@ -26442,3 +26442,25 @@ Opened W000123LSIB001 (unit 46) from the Retype board, as a tech would before re
 ### Tests
 
 - TEST-BB-1240. Full suite passed.
+
+## Iteration 939 — End-user testing pass 219: Send offered with no interface (2026-11-17)
+
+### How it was tested
+
+Opened HL7 Interface: the error queue (two mapping errors, each with its cause and what to do), Waiting to send (ten charge messages, DFT, 4–14 days old) and the message log.
+
+### Found and fixed
+
+1. **Send was offered where it could only fail.** Each waiting DFT said *No enabled outbound interface is set up to send it*, yet offered **Send** there and again on its message-log row; the sender refuses with *No enabled outbound endpoint is configured*. Those rows now offer **Set up an interface** (Administration › HL7, for HL7 administrators) in Waiting to send and read *No interface* in the log. A message an interface will take keeps Send.
+
+### Also checked, no change
+
+- Log rows for the TEST-… patients of earlier passes have no Open chart: those charts were removed when the dev data was restored, so there is nothing to open.
+
+### Retested live
+
+- Ten *Set up an interface* links, ten *No interface* log rows, no Send buttons left. Nothing was sent.
+
+### Tests
+
+- TEST-BB-1241 (TEST-BB-840 updated). Full suite passed.

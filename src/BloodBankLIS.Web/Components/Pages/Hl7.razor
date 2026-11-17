@@ -1,5 +1,6 @@
 @page "/hl7"
 @inject BloodBankApiClient Api
+@inject UserSession Session
 
 <PageTitle>HL7 Interface &middot; HemoCore</PageTitle>
 
@@ -165,7 +166,18 @@
                         </td>
                         <td>@w.Reason</td>
                         <td class="right">
-                            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(w.Id)">Send</button>
+                            @if (w.Reason == OutboundMessageWaitRule.NoInterface)
+                            {
+                                @* Pass 219: with no interface to take it, Send cannot go; point to where one is set up. *@
+                                @if (Session.Has(PermissionCodes.AdminHl7Manage))
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="/admin/hl7" data-waiting-setup>Set up an interface</a>
+                                }
+                            }
+                            else
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(w.Id)">Send</button>
+                            }
                             <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(w.Id)">View</button>
                         </td>
                     </tr>
@@ -298,6 +310,10 @@
                                 @if (m.RetriesExhausted == true)
                                 {
                                     <span class="muted" title="This outbound message has used the endpoint retry limit. Resolve the error, or raise Max retries on the interface.">Retries used</span>
+                                }
+                                else if (NoInterfaceFor(m.Id))
+                                {
+                                    <span class="muted" data-log-no-interface title="@OutboundMessageWaitRule.NoInterface">No interface</span>
                                 }
                                 else
                                 {
@@ -470,6 +486,10 @@
     }
 
     private List<Hl7OutboundWaitingVm> _waiting = new();
+
+    // Pass 219: a queued message no interface will take; Send would only fail.
+    private bool NoInterfaceFor(long messageId) =>
+        _waiting.Any(w => w.Id == messageId && w.Reason == OutboundMessageWaitRule.NoInterface);
 
     private async Task SendAsync(long id)
     {
