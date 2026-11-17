@@ -58,7 +58,7 @@
         {
             <div style="margin-top:.5rem;">
                 <strong>@mtp.PatientName</strong> @(mtp.MedicalRecordNumber is null ? "" : $"({mtp.MedicalRecordNumber})")
-                &middot; MTP #@mtp.Id, @mtp.MinutesActive min &middot; called by @mtp.RequestedBy &middot; @mtp.Reason
+                &middot; MTP #@mtp.Id, open @ElapsedText.FromMinutes(mtp.MinutesActive) &middot; called by @mtp.RequestedBy &middot; @mtp.Reason
                 @if (!string.IsNullOrWhiteSpace(mtp.IdleNotice))
                 {
                     <div data-mtp-idle><span class="badge badge-amber">Still open</span> @mtp.IdleNotice</div>
@@ -1027,7 +1027,7 @@
             @if (IssueMtp is { } activeMtp)
             {
                 <div class="alert alert-info" style="margin-top:.5rem;">
-                    Issuing under <strong>MTP #@activeMtp.Id</strong>, active @activeMtp.MinutesActive min, called by @activeMtp.RequestedBy: @activeMtp.Reason.
+                    Issuing under <strong>MTP #@activeMtp.Id</strong>, active @ElapsedText.FromMinutes(activeMtp.MinutesActive), called by @activeMtp.RequestedBy: @activeMtp.Reason.
                     <button type="button" class="btn btn-sm btn-ghost" @onclick="() => UseMtpReason(activeMtp)">Use as override reason</button>
                 </div>
             }

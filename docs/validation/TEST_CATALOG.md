@@ -1225,5 +1225,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1214 | U | `EnumWordsOnScreenTests.StatusAndKindColumns_ShowWords` | URS-BB-971 / FRS-BB-1089 |
 | TEST-BB-1215 | I, U | `PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved`, `CrossmatchCueLinkTests.ReservedUnitCrossmatchCue_LinksWhereToGo` | URS-BB-972 / FRS-BB-1090 |
 | TEST-BB-1216 | U | `CrossmatchCueLinkTests.ReservedUnitCrossmatchCue_LinksWhereToGo` | URS-BB-973 / FRS-BB-1091 |
+| TEST-BB-1217 | U | `ElapsedTextTests.FromMinutes_ReadsAtAGlance` | URS-BB-974 / FRS-BB-1092 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -25996,3 +25996,21 @@ Followed Demo-Special, Avery's reserved irradiated red cell W000026123460 (pass 
 ### Tests
 
 - TEST-BB-1216. Full suite passed.
+
+## Iteration 915 — End-user testing pass 195: how long an MTP has been open (2026-11-17)
+
+### How it was tested
+
+Went through Ready to issue's rows needing attention (each offers its next step: New specimen, Crossmatch, Release, Open retype desk) and the Second ABO/Rh board (Kline, Nora with two units reserved and *Order ABO/Rh*), with the massive transfusion banner for Demo-Massive, Morgan (MRN0021) at the top of the desk.
+
+### Found and fixed
+
+1. **The MTP banner gave its age in minutes.** It read *MTP #1, 15487 min · called by Dr. Demo Trauma*: a protocol open more than ten days, with no unit issued for 258 hours, read as a number to divide. The banner and the issue form's MTP line now read *open 10 d 18 h* (minutes under two hours, hours and minutes under two days).
+
+### Retested live
+
+- The banner reads *MTP #1, open 10 d 18 h · called by Dr. Demo Trauma (demo)*. The protocol was not closed.
+
+### Tests
+
+- TEST-BB-1217. Full suite passed.
