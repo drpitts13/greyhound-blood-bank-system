@@ -528,6 +528,29 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.False(Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id).AboRhIncompatible);
     }
 
+    // TEST-BB-1210: the patient list flags a patient with a reaction investigation open, and not once it is closed
+    // (end-user testing pass 187).
+    [Fact]
+    public async Task PatientList_FlagsAReactionUnderInvestigation()
+    {
+        await using var context = _factory.Create();
+        var transfusion = await SeedTransfusionAsync(context, Guid.NewGuid().ToString("N")[..12], includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        BloodBankLIS.Application.Patients.PatientService Patients() => new(
+            new EfRepository<Patient>(context), context, _factory.Clock,
+            new BloodBankLIS.Application.Specimens.SpecimenService(new EfRepository<Specimen>(context), new EfRepository<Patient>(context),
+                new EfRepository<BloodBankLIS.Domain.Entities.Configuration.SpecimenTypeDefinition>(context), context, _factory.Clock,
+                currentUser: _factory.CurrentUser),
+            reactions: new EfRepository<ReactionInvestigation>(context));
+
+        Assert.True((await Patients().ListDtosAsync()).Single(p => p.Id == transfusion.PatientId).ReactionUnderInvestigation);
+
+        var row = await context.ReactionInvestigations.SingleAsync(r => r.Id == opened.Id);
+        row.Status = ReactionInvestigationStatus.Closed;
+        await context.SaveChangesAsync();
+        Assert.False((await Patients().ListDtosAsync()).Single(p => p.Id == transfusion.PatientId).ReactionUnderInvestigation);
+    }
+
     [Fact]
     public async Task ListDtos_SurfacesRepeatAboRhDiscrepancy()
     {

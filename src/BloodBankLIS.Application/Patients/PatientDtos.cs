@@ -144,6 +144,13 @@ public sealed record PatientDto(
     public bool Deceased { get; init; }
     public DateTime? DeceasedUtc { get; init; }
 
+    /// <summary>
+    /// A transfusion reaction investigation open or under review for the patient (patient list only; end-user testing
+    /// pass 187: the list's alerts named antibodies and requirements but not a reaction being investigated, which the
+    /// issue desk needs to see before choosing the patient).
+    /// </summary>
+    public bool ReactionUnderInvestigation { get; init; }
+
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
         p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc, p.MergedIntoPatientId,

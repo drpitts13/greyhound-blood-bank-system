@@ -35,6 +35,7 @@ public sealed class PatientService
     private readonly IRepository<AntibodyHistory>? _antibodies;
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
     private readonly IRepository<BloodAttributeDefinition>? _attributes;
+    private readonly IRepository<ReactionInvestigation>? _reactions;
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
     private readonly IRepository<Encounter>? _encounters;
 
@@ -63,8 +64,10 @@ public sealed class PatientService
         AlertService? alerts = null,
         IRepository<Specimen>? specimenRows = null,
         IFacilityTimeZone? facilityTimeZone = null,
-        IRepository<BloodAttributeDefinition>? attributes = null)
+        IRepository<BloodAttributeDefinition>? attributes = null,
+        IRepository<ReactionInvestigation>? reactions = null)
     {
+        _reactions = reactions;
         _attributes = attributes;
         _facilityTimeZone = facilityTimeZone;
         _alerts = alerts;
@@ -118,6 +121,9 @@ public sealed class PatientService
         var openVisits = _encounters is null
             ? Array.Empty<Encounter>().ToLookup(e => e.PatientId)
             : (await _encounters.ListAsync(e => e.Status == EncounterStatus.Active && e.DischargeUtc == null, ct)).ToLookup(e => e.PatientId);
+        var underInvestigation = _reactions is null
+            ? new HashSet<long>()
+            : (await _reactions.ListAsync(r => r.Status != ReactionInvestigationStatus.Closed, ct)).Select(r => r.PatientId).ToHashSet();
 
         return patients
             .OrderBy(p => p.LastName, StringComparer.OrdinalIgnoreCase)
@@ -128,7 +134,8 @@ public sealed class PatientService
                 CurrentBloodType = PatientBloodBankFlags.CurrentBloodType(currentTypes[p.Id]),
                 ActiveAntibodies = PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
                 ActiveSpecialRequirements = PatientBloodBankFlags.RequirementsInEffect(requirements[p.Id], now, informational),
-                InformationalNotes = PatientBloodBankFlags.NotesInEffect(requirements[p.Id], now, informational)
+                InformationalNotes = PatientBloodBankFlags.NotesInEffect(requirements[p.Id], now, informational),
+                ReactionUnderInvestigation = underInvestigation.Contains(p.Id)
             })
             .Select(d =>
             {

@@ -25852,3 +25852,21 @@ Ran Reports & billing › Utilization for the last 30 days (crossmatch-to-transf
 ### Tests
 
 - TEST-BB-1209. Full suite passed.
+
+## Iteration 907 — End-user testing pass 187: a reaction under investigation on the patient list (2026-11-16)
+
+### How it was tested
+
+Opened Patients & testing › Patients: 23 charts with location, ABO/Rh and alerts (anti-K for Kellerman, Diane and DEMO-MATAB, Lena; two requirements and a note for Demo-Special, Avery), the unidentified trauma patient open 8 days, and the possible duplicates link.
+
+### Found and fixed
+
+1. **The list did not flag a reaction being investigated.** Febrile, Marcus (MRN0006) and Demo-Multi, Riley (MRN0022) each have a transfusion reaction investigation open, which the chart header and issue desk show, but the list's alerts named only antibodies, requirements and notes, so someone choosing the patient to issue to saw nothing. The Alerts column now shows a red **Reaction under investigation** while an investigation is open or under review.
+
+### Retested live
+
+- MRN0006 and MRN0022 show **Reaction under investigation**; patients without one do not. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1210. Full suite passed.

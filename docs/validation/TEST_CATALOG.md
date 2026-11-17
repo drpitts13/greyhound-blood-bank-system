@@ -1218,5 +1218,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1207 | U | `LoadingStateSourceTests.OutsideAntibodyReports_SayLoadingBeforeNone` | URS-BB-964 / FRS-BB-1082 |
 | TEST-BB-1208 | I | `SpecimenStorageTests.ReceivedTubes_NotYetStored_AreListedUntilStored` | URS-BB-965 / FRS-BB-1083 |
 | TEST-BB-1209 | U | `VisualReportCompilerTests.AggregateColumn_IsHeadedFromItsAlias` | URS-BB-966 / FRS-BB-1084 |
+| TEST-BB-1210 | I | `ReactionInvestigationServiceTests.PatientList_FlagsAReactionUnderInvestigation` | URS-BB-967 / FRS-BB-1085 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

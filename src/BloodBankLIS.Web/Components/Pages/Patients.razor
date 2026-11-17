@@ -170,6 +170,11 @@
                             {
                                 <span class="badge badge-amber" title="Special requirements in effect; open the chart for details">@PatientBloodBankFlags.RequirementsLabel(p.ActiveSpecialRequirements)</span>
                             }
+                            @if (p.ReactionUnderInvestigation)
+                            {
+                                @* Pass 187: a transfusion reaction is being investigated for this patient. *@
+                                <a class="badge badge-red" href="@($"/patients/{p.Id}")" title="A transfusion reaction investigation is open for this patient; see the chart before issuing" data-reaction-alert>Reaction under investigation</a>
+                            }
                             @if (p.InformationalNotes > 0)
                             {
                                 <span class="badge badge-blue" title="Informational notes: shown, never enforced" data-note>@PatientBloodBankFlags.NotesLabel(p.InformationalNotes)</span>
