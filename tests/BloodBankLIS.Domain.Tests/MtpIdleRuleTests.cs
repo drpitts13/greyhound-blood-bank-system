@@ -21,6 +21,8 @@ public class MtpIdleRuleTests
 
         Assert.Equal("No unit issued under it for 6 h. Close it if the bleeding is controlled.", MtpIdleRule.Notice(activated, Now, anyIssued: true));
         Assert.Equal("No unit issued since it was called 90 min ago. Close it if it is no longer needed.", MtpIdleRule.Notice(Now.AddMinutes(-90), Now, anyIssued: false));
+        // TEST-BB-1218 (pass 196): days beyond two days ("258 h" read as 10 d 18 h).
+        Assert.Equal("No unit issued under it for 10 d 18 h. Close it if the bleeding is controlled.", MtpIdleRule.Notice(Now.AddMinutes(-15487), Now, anyIssued: true));
 
         var alert = MtpIdleRule.Alert(7, " MRN0021 ", activated, Now, anyIssued: true);
         Assert.Equal(("MTPIDLE:7", AlertRule.MtpStillOpen, AlertSeverity.Warning), (alert.Key, alert.Source, alert.Severity));

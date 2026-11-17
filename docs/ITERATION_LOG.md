@@ -26014,3 +26014,21 @@ Went through Ready to issue's rows needing attention (each offers its next step:
 ### Tests
 
 - TEST-BB-1217. Full suite passed.
+
+## Iteration 916 — End-user testing pass 196: MTP idle time in days (2026-11-17)
+
+### How it was tested
+
+Followed up pass 195 by looking for other durations put on screen in minutes or hours only: the MTP idle notice and alert, the STAT turnaround badge (already days and hours), cooler and in-transit overdue (pass 165), specimen transit times (short) and the needed-by countdown (short by design).
+
+### Found and fixed
+
+1. **The MTP idle notice gave days as hours.** The banner and the alert read *No unit issued under it for 258 h*. They now read *for 10 d 18 h*, with the same wording as pass 195 (minutes under two hours, hours and minutes under two days, then days and hours), now one Domain helper used by both.
+
+### Retested live
+
+- The MTP banner reads *No unit issued under it for 10 d 18 h*. The protocol was not closed.
+
+### Tests
+
+- TEST-BB-1218. Full suite passed.

@@ -20,7 +20,7 @@ public static class MtpIdleRule
     public static string Notice(DateTime lastActivityUtc, DateTime nowUtc, bool anyIssued)
     {
         var minutes = (int)Math.Max(0, (nowUtc - lastActivityUtc).TotalMinutes);
-        var span = minutes >= 120 ? $"{minutes / 60} h" : $"{minutes} min";
+        var span = ElapsedWords.FromMinutes(minutes);
         return anyIssued
             ? $"No unit issued under it for {span}. Close it if the bleeding is controlled."
             : $"No unit issued since it was called {span} ago. Close it if it is no longer needed.";
