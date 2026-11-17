@@ -57,3 +57,22 @@ public class TestHistoryQcReviewTests
         Assert.Contains("data-history-qc-review", tab);
     }
 }
+
+public class ExmChecklistFoldTests
+{
+    // TEST-BB-1228: the chart's electronic crossmatch checklist is folded when the facility has electronic crossmatch off
+    // and open when it is on (end-user testing pass 206).
+    [Fact]
+    public void ExmChecklist_IsFoldedWhileTheFacilityHasItOff()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var tab = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Shared", "PatientChartOverviewTab.razor"));
+        Assert.Contains("<details open=\"@Exm.FacilityAllowsElectronicCrossmatch\" data-exm-checklist>", tab);
+        Assert.Contains("Show the checklist ({Exm.Criteria.Count} items)", tab);
+    }
+}

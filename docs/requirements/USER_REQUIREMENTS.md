@@ -990,3 +990,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-982 | Raw HL7 and ASTM messages are shown one segment or record per line. | P3 | FRS-BB-1100 |
 | URS-BB-983 | The unmapped values list marks an inbound order code that is now an LIS test, grouper or product code as needing no translation. | P3 | FRS-BB-1101 |
 | URS-BB-984 | The home Unmapped interface values card says how many listed values are already LIS codes, to dismiss. | P3 | FRS-BB-1102 |
+| URS-BB-985 | The chart's electronic crossmatch checklist is folded while electronic crossmatch is off at the facility. | P3 | FRS-BB-1103 |

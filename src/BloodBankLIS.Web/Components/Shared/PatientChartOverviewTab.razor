@@ -25,6 +25,10 @@
                     </div>
                 }
             </p>
+            @* Pass 206: with electronic crossmatch off at the facility, every patient fails the first item; the checklist is
+               folded so the chart's blood type history, requirements and antibodies are not pushed down the page. *@
+            <details open="@Exm.FacilityAllowsElectronicCrossmatch" data-exm-checklist>
+            <summary class="muted">@(Exm.FacilityAllowsElectronicCrossmatch ? "Checklist" : $"Show the checklist ({Exm.Criteria.Count} items)")</summary>
             <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
@@ -44,6 +48,7 @@
                 </tbody>
             </table>
             </div>
+            </details>
             @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
             {
                 <div class="flex gap" style="margin-top:.85rem;">

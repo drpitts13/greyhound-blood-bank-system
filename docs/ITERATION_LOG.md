@@ -26194,3 +26194,21 @@ Followed up pass 204 on the home dashboard's **Unmapped interface values** card,
 ### Tests
 
 - TEST-BB-1227. Full suite passed.
+
+## Iteration 926 — End-user testing pass 206: the electronic crossmatch checklist while it is off (2026-11-17)
+
+### How it was tested
+
+Checked the mother/baby records: DEMO-RHIG, Maya (MRN0025) has two RhIG evaluations, both given, and her infant MRN0027 is linked to her; DEMO-RHIG, Noor's (MRN0026) postpartum evaluation is open and undecided (pass 164). Then opened the chart of Gravid, Elena (MRN0007, L&D 2, no type on file).
+
+### Found and fixed
+
+1. **Every chart opened with a ten-item checklist that could not pass.** The Overview starts with the electronic crossmatch checklist; with electronic crossmatch off at the facility (until AABB 5.16 validation), every patient fails its first item and the full table pushed the blood type history, special requirements and antibodies far down the page. While the facility has it off, the checklist is folded under *Show the checklist (10 items)*; the Not eligible badge, the reason and Record crossmatch stay in view. With it on, the checklist is open as before.
+
+### Retested live
+
+- Elena's Overview shows *Not eligible — Electronic crossmatch is disabled in facility policy…* with the checklist folded and her blood type history visible near the top. Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1228. Full suite passed.
