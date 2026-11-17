@@ -25834,3 +25834,21 @@ Opened Patients & testing › Store tubes: nineteen received tubes with no stora
 ### Tests
 
 - TEST-BB-1208. Full suite passed.
+
+## Iteration 906 — End-user testing pass 186: report count headings (2026-11-16)
+
+### How it was tested
+
+Ran Reports & billing › Utilization for the last 30 days (crossmatch-to-transfusion ratio: ICU 6 crossmatched, 4 issued, 2 transfused, C:T 3.00; Emergency Department 1 crossmatched), then ran the seeded reports, among them Wastage by product and reason (2026-11: one apheresis platelet and one leukoreduced red cell, EXPIRED).
+
+### Found and fixed
+
+1. **Count and average columns were headed in lower case.** Five seeded reports headed their computed columns with the raw alias beside proper field headings: *units* (Wastage by product and reason), *specimens* (Specimen rejections by cause), *results*, *average minutes*, *longest minutes* (Test turnaround by priority), *orders*, *average minutes to reserve* and the rest (Blood order turnaround by priority), and *count* (Crossmatches and transfusions by month). They are now headed like the others: *Units*, *Average minutes to reserve*.
+
+### Retested live
+
+- Wastage by product and reason heads its count *Units*; the other four read with capitals. No report was changed.
+
+### Tests
+
+- TEST-BB-1209. Full suite passed.

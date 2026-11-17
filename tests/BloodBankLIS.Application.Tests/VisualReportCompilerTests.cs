@@ -94,6 +94,26 @@ public class VisualReportCompilerTests
         Assert.Equal("1", ffp[1]);
     }
 
+    // TEST-BB-1209: a count or average column is headed from its alias with a capital and spaces, beside the field labels
+    // (end-user testing pass 186: "Wastage by product and reason" headed its count "units").
+    [Fact]
+    public void AggregateColumn_IsHeadedFromItsAlias()
+    {
+        var layout = new ReportLayout
+        {
+            SourceCode = "inventory_on_hand",
+            GroupBy = ["product_name"],
+            Aggregates = [new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "units" }]
+        };
+
+        var result = VisualReportCompiler.Compile(layout, Fields, Rows, null, 100);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Units", result.Value!.ColumnLabels[1]);
+        Assert.Equal("Average minutes to reserve", VisualReportCompiler.AliasLabel("average minutes to reserve"));
+        Assert.Equal("Average minutes", VisualReportCompiler.AliasLabel("average_minutes"));
+    }
+
     [Fact]
     public void Sum_AddsNumericFieldInsideTheGroup()
     {

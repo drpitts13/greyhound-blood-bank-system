@@ -72,7 +72,7 @@ public static class VisualReportCompiler
         return OperationResult<ReportGrid>.Ok(new ReportGrid
         {
             Columns = columns,
-            ColumnLabels = columns.Select(column => fieldByCode.TryGetValue(column, out var f) && !string.IsNullOrWhiteSpace(f.Label) ? f.Label : column).ToList(),
+            ColumnLabels = columns.Select(column => fieldByCode.TryGetValue(column, out var f) && !string.IsNullOrWhiteSpace(f.Label) ? f.Label : AliasLabel(column)).ToList(),
             Rows = output,
             Truncated = truncated
         });
@@ -265,6 +265,17 @@ public static class VisualReportCompiler
         DateTimeKind.Local => value.ToUniversalTime(),
         _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
     };
+
+    /// <summary>
+    /// The heading of a column with no field label, a count or average named by its alias (end-user testing pass 186:
+    /// "Wastage by product and reason" headed its count "units" beside "Discard month" and "Product"): underscores read
+    /// as spaces and the first letter is capital ("average_minutes" reads "Average minutes").
+    /// </summary>
+    public static string AliasLabel(string alias)
+    {
+        var text = alias.Replace('_', ' ').Trim();
+        return text.Length == 0 ? alias : char.ToUpperInvariant(text[0]) + text[1..];
+    }
 
     private static bool IsDateColumn(string column, ReportLayout layout, IReadOnlyDictionary<string, ReportField> fields)
     {
