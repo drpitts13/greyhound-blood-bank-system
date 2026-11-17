@@ -350,6 +350,22 @@ public class ShiftHandoffItemsTests
         Assert.Contains("reagent QC to review 1 lot", h.QueueSummary);
     }
 
+    // TEST-BB-1202 (pass 179): results tested while a lot's QC was failing stay on the handoff after its QC passes again,
+    // urgent and named in the summary; Reagent QC to review says it counts lots.
+    [Fact]
+    public void ResultsTestedWhileQcWasFailing_StayAfterTheQcPasses()
+    {
+        var passedAgain = Handoff(reagentResults: 5) with { ReagentQcUnreviewed = 7 };
+        var item = Assert.Single(ShiftHandoffItems.For(passedAgain), i => i.Label == "Results tested while QC was failing");
+        Assert.Equal((5, "/reagents", "to review", true), (item.Count, item.Href, item.Detail, item.Urgent));
+        Assert.Contains("RESULTS TESTED WHILE QC WAS FAILING: 5 to review", passedAgain.QueueSummary);
+        Assert.Equal("lots", Assert.Single(ShiftHandoffItems.For(passedAgain), i => i.Label == "Reagent QC to review").Detail);
+
+        var stillFailing = Handoff(reagentLots: 1, reagentResults: 5);
+        Assert.DoesNotContain(ShiftHandoffItems.For(stillFailing), i => i.Label == "Results tested while QC was failing");
+        Assert.DoesNotContain("RESULTS TESTED WHILE QC WAS FAILING", stillFailing.QueueSummary);
+    }
+
     // End-user testing pass 71: second ABO/Rh due and the supervisor queue are handed over, as on the dashboard.
     [Fact]
     public void SecondAboAndSupervisorQueue_AreHandedOver()

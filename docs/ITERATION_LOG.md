@@ -25707,3 +25707,22 @@ Read every card on the home dashboard against its queue after pass 177.
 ### Tests
 
 - TEST-BB-1201. Full suite passed.
+
+## Iteration 899 — End-user testing pass 179: QC results to review dropped off the handoff (2026-11-16)
+
+### How it was tested
+
+Opened Quality & review › Shift handoff and compared its counts with the queues after passes 177 and 178.
+
+### Found and fixed
+
+1. **Results tested while QC was failing dropped off the handoff once the QC passed.** The handoff counted the five results tested with anti-D lot AD-24092 while its QC was failing, but showed them only beside a lot whose QC was still failing. The lot passed later that day, so the next shift was never told. They now stay as the urgent item **Results tested while QC was failing** (*5, to review*) and lead the summary until reviewed.
+2. **Reagent QC to review did not say what it counted.** It read 7 beside eight unreviewed QC rows on Reagent QC: it counts lots. The item now says *lots*.
+
+### Retested live
+
+- The handoff lists *Results tested while QC was failing: 5 (to review)* among the urgent items and *Reagent QC to review: 7 (lots)*. No handoff was recorded.
+
+### Tests
+
+- TEST-BB-1202. Full suite passed.

@@ -34,6 +34,6 @@ Storage temperature is handed over too: **Temperature out of range** (urgent) co
 
 **Requested by the ward** counts reserved units a ward has asked to be sent and that are not yet issued. It is listed with the urgent items and opens Ready to issue.
 
-The handoff also carries the day's reagent QC: **Reagent QC to do** (lots with no QC for today) and **Reagent QC to review** (QC recorded but not yet reviewed), each opening Reagent QC. Failed QC stays an urgent item of its own.
+The handoff also carries the day's reagent QC: **Reagent QC to do** (lots with no QC for today) and **Reagent QC to review** (lots with QC recorded but not yet reviewed), each opening Reagent QC. Failed QC stays an urgent item of its own. Results tested with a lot while its QC was failing stay on the handoff after the lot passes QC again, as the urgent item **Results tested while QC was failing** (*RESULTS TESTED WHILE QC WAS FAILING: 5 to review* in the summary), until they are reviewed.
 
 It also carries **Second ABO/Rh** (patients waiting for a second determination before routine red-cell issue, opening that desk on Issue & Transfuse) and the **Supervisor queue** (opening it), as the dashboard does.
