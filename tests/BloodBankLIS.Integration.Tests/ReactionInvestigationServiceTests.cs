@@ -544,11 +544,18 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             reactions: new EfRepository<ReactionInvestigation>(context));
 
         Assert.True((await Patients().ListDtosAsync()).Single(p => p.Id == transfusion.PatientId).ReactionUnderInvestigation);
+        // TEST-BB-1211 (pass 188): the top-bar lookup's patient hit carries the flag too.
+        var mrn = (await context.Patients.SingleAsync(p => p.Id == transfusion.PatientId)).MedicalRecordNumber;
+        var lookup = new BloodBankLIS.Application.Search.UniversalLookupService(new EfRepository<Patient>(context), new EfRepository<PatientIdentifier>(context),
+            new EfRepository<BloodUnit>(context), new EfRepository<ProductType>(context), new EfRepository<Specimen>(context), new EfRepository<Order>(context),
+            reactions: new EfRepository<ReactionInvestigation>(context));
+        Assert.True(Assert.Single((await lookup.LookupAsync(mrn)).Hits, h => h.Kind == BloodBankLIS.Application.Search.LookupHitKind.Patient).ReactionUnderInvestigation);
 
         var row = await context.ReactionInvestigations.SingleAsync(r => r.Id == opened.Id);
         row.Status = ReactionInvestigationStatus.Closed;
         await context.SaveChangesAsync();
         Assert.False((await Patients().ListDtosAsync()).Single(p => p.Id == transfusion.PatientId).ReactionUnderInvestigation);
+        Assert.False(Assert.Single((await lookup.LookupAsync(mrn)).Hits, h => h.Kind == BloodBankLIS.Application.Search.LookupHitKind.Patient).ReactionUnderInvestigation);
     }
 
     [Fact]

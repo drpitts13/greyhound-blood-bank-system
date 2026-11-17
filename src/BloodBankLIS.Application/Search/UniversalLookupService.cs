@@ -40,6 +40,7 @@ public sealed class UniversalLookupService
     private readonly IRepository<Issue>? _issues;
     private readonly IRepository<ReagentLot>? _reagentLots;
     private readonly IRepository<Reagent>? _reagents;
+    private readonly IRepository<ReactionInvestigation>? _reactions;
     private readonly IAuditQuery? _auditQuery;
     private readonly ICurrentUser? _currentUser;
 
@@ -63,8 +64,10 @@ public sealed class UniversalLookupService
         ICurrentUser? currentUser = null,
         IRepository<Issue>? issues = null,
         IRepository<ReagentLot>? reagentLots = null,
-        IRepository<Reagent>? reagents = null)
+        IRepository<Reagent>? reagents = null,
+        IRepository<ReactionInvestigation>? reactions = null)
     {
+        _reactions = reactions;
         _reagentLots = reagentLots;
         _reagents = reagents;
         _issues = issues;
@@ -614,6 +617,8 @@ public sealed class UniversalLookupService
         var now = _clock?.UtcNow ?? DateTime.UtcNow;
         var requirements = PatientBloodBankFlags.RequirementsInEffect(rows, now, informational);
         var notes = PatientBloodBankFlags.NotesInEffect(rows, now, informational);
+        var reaction = _reactions is not null
+            && await _reactions.AnyAsync(r => r.PatientId == targetId && r.Status != ReactionInvestigationStatus.Closed, ct);
 
         return new LookupHitDto(
             LookupHitKind.Patient,
@@ -627,7 +632,10 @@ public sealed class UniversalLookupService
             bloodType,
             antibodies,
             requirements,
-            notes);
+            notes)
+        {
+            ReactionUnderInvestigation = reaction
+        };
     }
 
     private static IReadOnlyList<LookupHitDto> Distinct(IEnumerable<LookupHitDto> hits) =>

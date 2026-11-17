@@ -25870,3 +25870,21 @@ Opened Patients & testing › Patients: 23 charts with location, ABO/Rh and aler
 ### Tests
 
 - TEST-BB-1210. Full suite passed.
+
+## Iteration 908 — End-user testing pass 188: a reaction under investigation in the lookup (2026-11-16)
+
+### How it was tested
+
+Followed up pass 187 on the top-bar lookup (*Find a patient, visit, unit, specimen, or order*), which shows the patient's type, antibodies, requirements and notes on each patient row.
+
+### Found and fixed
+
+1. **The lookup did not flag a reaction being investigated.** Searching for Febrile, Marcus or Demo-Multi, Riley showed their type and alerts but not their open reaction investigations, which the patient list now shows (pass 187). Patient rows now carry **Reaction under investigation** in red while one is open or under review.
+
+### Retested live
+
+- Looking up MRN0006 shows **Reaction under investigation**; MRN0001 does not. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1211. Full suite passed.

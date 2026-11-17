@@ -68,6 +68,10 @@
                                 {
                                     <span class="badge badge-amber" data-lookup-alert title="Special requirements in effect">@PatientBloodBankFlags.RequirementsLabel(hit.RequirementsInEffect)</span>
                                 }
+                                @if (hit.ReactionUnderInvestigation)
+                                {
+                                    <span class="badge badge-red" data-lookup-reaction title="A transfusion reaction investigation is open for this patient">Reaction under investigation</span>
+                                }
                                 @if (hit.InformationalNotes > 0)
                                 {
                                     <span class="badge badge-blue" data-lookup-note title="Informational notes: shown, never enforced">@PatientBloodBankFlags.NotesLabel(hit.InformationalNotes)</span>

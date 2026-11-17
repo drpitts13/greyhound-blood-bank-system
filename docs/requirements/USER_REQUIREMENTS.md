@@ -973,3 +973,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-965 | Store tubes' not-yet-stored list shows when each tube was received and how long it has waited, the order it is listed in. | P3 | FRS-BB-1083 |
 | URS-BB-966 | Report count and average columns are headed like the other columns (capital first letter, words spaced). | P3 | FRS-BB-1084 |
 | URS-BB-967 | The patient list flags a patient with a transfusion reaction investigation open or under review. | P2 | FRS-BB-1085 |
+| URS-BB-968 | The top-bar lookup's patient rows flag a transfusion reaction investigation open or under review. | P2 | FRS-BB-1086 |

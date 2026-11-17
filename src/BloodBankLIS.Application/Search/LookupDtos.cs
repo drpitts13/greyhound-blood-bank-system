@@ -32,7 +32,14 @@ public sealed record LookupHitDto(
     string? BloodType = null,
     IReadOnlyList<string>? Antibodies = null,
     int RequirementsInEffect = 0,
-    int InformationalNotes = 0);
+    int InformationalNotes = 0)
+{
+    /// <summary>
+    /// Patient hits: a transfusion reaction investigation is open or under review (end-user testing pass 188, as the
+    /// patient list since pass 187).
+    /// </summary>
+    public bool ReactionUnderInvestigation { get; init; }
+}
 
 public sealed record LookupResultDto(
     string Query,
