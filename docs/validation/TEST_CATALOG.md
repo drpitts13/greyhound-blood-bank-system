@@ -1250,5 +1250,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1239 | I | `SeederTests.Seed_PendingRetypeWorklist_IncludesRetDemoUnits` | URS-BB-996 / FRS-BB-1114 |
 | TEST-BB-1240 | U | `UnitLookbackNotificationsTests.OpenFor_ListsOpenNotificationsForTheUnitsDonation` | URS-BB-997 / FRS-BB-1115 |
 | TEST-BB-1241 | U | `Hl7OutboundWaitingPageTests.WaitingMessages_AreListedWithWhy` | URS-BB-998 / FRS-BB-1116 |
+| TEST-BB-1242 | U | `AntibodyWorkupOpenForTests.OpenWorkups_SayHowLongTheyHaveBeenOpen` | URS-BB-999 / FRS-BB-1117 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

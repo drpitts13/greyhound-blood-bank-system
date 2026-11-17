@@ -26464,3 +26464,25 @@ Opened HL7 Interface: the error queue (two mapping errors, each with its cause a
 ### Tests
 
 - TEST-BB-1241 (TEST-BB-840 updated). Full suite passed.
+
+## Iteration 940 — End-user testing pass 220: how long an antibody workup has been open (2026-11-17)
+
+### How it was tested
+
+Opened Kellerman, Diane (MRN0004, anti-K): the chart's Overview (blood type history, special requirements, antibodies, antigen profile) and Tests tab, then the Antibody ID worklist with her open workup on ACC-DEMO-ABID1.
+
+### Found and fixed
+
+1. **The workup list gave a date but no age.** Her workup read *Opened 2026-11-10 02:23*, while the other worklists (alerts, reactions, deviations, instrument failures) say how long an item has waited. It now reads *2026-11-10 02:23 · open 7 d*.
+
+### Also checked, no change
+
+- Her chart lists anti-K with *No special requirements on record*. That is not a gap: issue checks units against the patient's own clinically significant antibodies directly; the antigen-negative offer of pass 110 exists for an infant whose mother has the antibody, since the infant has none on record.
+
+### Retested live
+
+- The worklist shows *open 7 d* under the date. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1242. Full suite passed.

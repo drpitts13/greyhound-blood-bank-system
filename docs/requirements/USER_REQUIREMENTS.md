@@ -1004,3 +1004,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-996 | The retype lists flag a unit whose donation has an open lookback notification. | P2 | FRS-BB-1114 |
 | URS-BB-997 | A unit's page says when its donation has a recipient lookback notification still open, and links to that DIN lookback. | P2 | FRS-BB-1115 |
 | URS-BB-998 | The HL7 page does not offer Send for an outbound message no interface will take, and points to interface setup. | P3 | FRS-BB-1116 |
+| URS-BB-999 | The antibody identification worklist says how long each open workup has been open. | P3 | FRS-BB-1117 |

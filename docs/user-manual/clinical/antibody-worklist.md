@@ -10,7 +10,7 @@ routes:
 
 ![Antibody identification worklist](figures/antibody-id.png)
 
-**Antibody ID** lists workups that are not finished. Filter to the patients or statuses you are responsible for. Open a row to go to that patient's workup.
+**Antibody ID** lists workups that are not finished. Filter to the patients or statuses you are responsible for. Open a row to go to that patient's workup. **Opened** gives the date and how long the workup has been open (*open 7 d*).
 
 **Outside reports to confirm**, below the workups, lists antibodies reported by another facility that this laboratory has not confirmed yet, oldest first (OCD-073). Each row gives the patient, the antibody, the reporting facility and date, and who recorded it. *Report not documented* marks one recorded before documentation was required. Each one already counts for product selection. Once your own testing confirms it, open the chart and use **Confirm** on the antibody's row. A completed, reviewed antibody identification workup that identifies the same antibody confirms it automatically and takes it off this list. You need *immuno.record* to see this list.
 

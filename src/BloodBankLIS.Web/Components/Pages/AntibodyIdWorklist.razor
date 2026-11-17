@@ -238,7 +238,8 @@ else
                                     <span class="badge badge-amber">Reserved/issued units</span>
                                 }
                             </td>
-                            <td class="nowrap">@w.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            @* Pass 220: how long the workup has been open, as other worklists say. *@
+                            <td class="nowrap">@w.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub" data-workup-open-for>open @AlertInboxView.OpenFor(w.CreatedUtc, DateTime.UtcNow)</span></td>
                             <td class="right nowrap">
                                 <a class="btn btn-ghost btn-sm" href="@($"/patients/{w.PatientId}")">Open Chart</a>
                                 @if (w.SpecimenId is not null)
