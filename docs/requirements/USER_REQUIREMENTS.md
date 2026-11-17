@@ -976,3 +976,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-968 | The top-bar lookup's patient rows flag a transfusion reaction investigation open or under review. | P2 | FRS-BB-1086 |
 | URS-BB-969 | Alert messages and the notes the system writes for staff give times in local time, as the rest of the screen does. | P3 | FRS-BB-1087 |
 | URS-BB-970 | The unit page names the quarantine reason in words. | P3 | FRS-BB-1088 |
+| URS-BB-971 | Status, kind and type columns show words, not joined codes. | P3 | FRS-BB-1089 |

@@ -37,7 +37,7 @@
                         <td>@row.Name</td>
                         <td>@(row.IsServer ? "Server" : "Client")</td>
                         <td class="mono">@(row.IsServer ? $":{row.Port}" : $"{row.IpAddress}:{row.Port}")</td>
-                        <td>@row.State</td>
+                        <td>@Ui.EnumText(row.State)</td>
                         <td class="muted">@row.Detail</td>
                     </tr>
                 }
@@ -85,7 +85,7 @@
                                 <td>@(_status.FirstOrDefault(s => s.Id == log.InterfaceId)?.Name ?? $"Instrument {log.InterfaceId}")</td>
                             }
                             <td>@Ui.EnumText(log.Level)</td>
-                            <td class="mono">@log.EventType</td>
+                            <td class="mono">@Ui.EnumText(log.EventType)</td>
                             <td>@log.Message</td>
                         </tr>
                     }
@@ -141,7 +141,7 @@
                                     <span class="sub" data-inst-waiting>waiting @AlertInboxView.OpenFor(msg.ReceivedUtc, DateTime.UtcNow)</span>
                                 }
                             </td>
-                            <td>@msg.MessageKind</td>
+                            <td>@Ui.EnumText(msg.MessageKind)</td>
                             <td>
                                 @(msg.Status == InstrumentMessageStatus.QualityControl ? "QC sample" : msg.Status.ToString())@(msg.ResolvedUtc is not null ? " · resolved" : "")
                                 @if (msg.Held)

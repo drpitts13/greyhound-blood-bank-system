@@ -63,7 +63,7 @@
                         <td class="mono">@(e.PatientMrn ?? "—")</td>
                         <td class="mono">@FormatContext(e.PlacerOrderNumber, e.TestCode, e.UnitNumber)</td>
                         <td>@(string.IsNullOrEmpty(e.MessageType) ? $"#{e.Hl7MessageId}" : $"{e.MessageType}{(string.IsNullOrEmpty(e.TriggerEvent) ? "" : $"^{e.TriggerEvent}")}")</td>
-                        <td>@e.ErrorType</td>
+                        <td>@Ui.EnumText(e.ErrorType)</td>
                         <td>@e.ErrorDetail</td>
                         <td>@e.RetryCount</td>
                         <td class="nowrap" data-error-waiting="@e.Id" title="@e.QueuedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")">@(e.QueuedUtc is { } queued ? AlertInboxView.OpenFor(queued, DateTime.UtcNow) : "—")</td>
@@ -127,7 +127,7 @@
                             <td class="nowrap">@(r.ResolvedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                             <td>@(r.ResolvedBy ?? "—")</td>
                             <td>@(string.IsNullOrEmpty(r.MessageType) ? $"#{r.Hl7MessageId}" : $"{r.MessageType}{(string.IsNullOrEmpty(r.TriggerEvent) ? "" : $"^{r.TriggerEvent}")}")<span class="sub mono">@r.MessageControlId</span></td>
-                            <td>@r.ErrorType<span class="sub">@r.ErrorDetail</span></td>
+                            <td>@Ui.EnumText(r.ErrorType)<span class="sub">@r.ErrorDetail</span></td>
                             <td>@(r.ResolutionNote ?? "Not recorded (resolved before notes were kept)")</td>
                         </tr>
                     }

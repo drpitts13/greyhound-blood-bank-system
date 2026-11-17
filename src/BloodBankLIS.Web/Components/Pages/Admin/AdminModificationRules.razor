@@ -49,7 +49,7 @@
                     <tr>
                         <td class="mono">@r.ModificationCode</td>
                         <td class="mono">@r.SourceProductCode</td>
-                        <td>@r.ModificationType</td>
+                        <td>@Ui.EnumText(r.ModificationType)</td>
                         <td class="mono">@r.TargetProductCode</td>
                         <td class="mono">@r.ExpirationOffsetCode <span class="muted">(@RelativeLabel(r.ExpirationRelativeTo))</span></td>
                         <td>@r.Version</td>

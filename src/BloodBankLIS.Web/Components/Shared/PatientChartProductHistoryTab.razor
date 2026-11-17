@@ -66,7 +66,7 @@
                     <tbody class="record">
                     <tr class="@HistoryRowClass(h)">
                         <td class="nowrap">@h.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                        <td><strong>@h.EventType</strong></td>
+                        <td><strong>@Ui.EnumText(h.EventType)</strong></td>
                         <td>
                             @if (h.UnitId is long historyUnitId)
                             {

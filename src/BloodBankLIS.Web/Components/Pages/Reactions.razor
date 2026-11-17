@@ -159,7 +159,7 @@ else
                             <td>
                                 @if (r.IsFatality)
                                 {
-                                    <div>@r.FatalityNotificationStatus</div>
+                                    <div>@Ui.EnumText(r.FatalityNotificationStatus)</div>
                                     @if (r.FatalityFollowUpDue)
                                     {
                                         <span class="badge badge-amber" title="@r.FatalityFollowUpDetail">Follow-up due</span>

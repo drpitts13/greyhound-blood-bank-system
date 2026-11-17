@@ -75,7 +75,7 @@
         <Outcome Value="_outputFb" />
         <div class="bb-card-title"><h3>Rendered output &middot; job #@_lastJob.Id</h3>
             <span class="@Ui.Badge(_lastJob.Status)">@Ui.EnumText(_lastJob.Status)</span>
-            <span class="muted">@_lastJob.DeliveryStatus</span>
+            <span class="muted">@Ui.EnumText(_lastJob.DeliveryStatus)</span>
         </div>
         @if (!string.IsNullOrEmpty(_lastJob.DeliveryError))
         {

@@ -46,7 +46,7 @@
                 {
                     <tr>
                         <td>@e.Name</td>
-                        <td>@e.InterfaceType</td>
+                        <td>@Ui.EnumText(e.InterfaceType)</td>
                         <td>@(string.IsNullOrWhiteSpace(e.VendorCode) ? "Custom" : e.VendorCode)</td>
                         <td>@Ui.EnumText(e.Direction)</td>
                         <td class="mono">@(e.Host is null ? "—" : $"{e.Host}:{e.Port}")</td>

@@ -227,7 +227,7 @@
                         <tr>
                             <td class="mono">@lot.ReagentCode</td>
                             <td class="mono">@lot.LotNumber</td>
-                            <td>@lot.State</td>
+                            <td>@Ui.EnumText(lot.State)</td>
                             <td>
                                 @lot.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                                 @{ var now = DateTime.UtcNow; var expired = lot.ExpiresUtc <= now; }

@@ -367,7 +367,7 @@
                 @foreach (var h in _history)
                 {
                     <tr>
-                        <td>@h.ModificationType</td>
+                        <td>@Ui.EnumText(h.ModificationType)</td>
                         <td>@h.PatientLabel</td>
                         <td class="mono">@h.SourceProductCode</td>
                         <td class="mono">@h.TargetProductCode</td>

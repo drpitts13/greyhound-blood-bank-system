@@ -454,7 +454,7 @@ else
                         @foreach (var a in _unitAttributes)
                         {
                             <tr>
-                                <td>@a.AttributeKind</td>
+                                <td>@Ui.EnumText(a.AttributeKind)</td>
                                 <td class="mono">@a.AntigenCode — @a.AntigenName</td>
                                 <td>@a.AntibodyName</td>
                                 <td>@a.Result</td>
@@ -588,7 +588,7 @@ else
                         {
                             <tr>
                                 <td class="nowrap">@row.WhenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                <td>@row.EventType</td>
+                                <td>@Ui.EnumText(row.EventType)</td>
                                 <td>@row.Summary</td>
                                 <td>@(row.ChangedBy ?? "—")</td>
                             </tr>

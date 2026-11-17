@@ -25928,3 +25928,21 @@ Followed the two thawed plasmas from the near-expiry alerts (W0001230001002-M01 
 ### Tests
 
 - TEST-BB-1213. Full suite passed.
+
+## Iteration 911 — End-user testing pass 191: words, not codes, in status columns (2026-11-17)
+
+### How it was tested
+
+After pass 190 (*PendingRelease* on the unit page), looked for other places a status, kind or type value is put on the screen as it is stored.
+
+### Found and fixed
+
+1. **Sixteen columns showed joined codes.** Among them the Reactions board's fatality notification (*NotApplicable*), the chart's Tests tab result status (*PendingVerification*), the chart's product history and the unit's history events, the unit's attributes, the HL7 error queue's error type, the instrument status, session log and message kind, print delivery status, modification type, subtest result type, interface type and reagent lot state. Each now shows words (*Not applicable*, *Pending verification*); values that are already text are shown as before.
+
+### Retested live
+
+- Demo-Multi, Riley's product history reads *Partially transfused* (before: *PartiallyTransfused*), *Transfused*, *Issued*; the other columns changed have no multi-word value in the seeded data (the fatality line shows only for a fatal reaction). Nothing was changed.
+
+### Tests
+
+- TEST-BB-1214. Full suite passed.
