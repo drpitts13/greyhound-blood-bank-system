@@ -1237,5 +1237,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1226 | I | `UnmappedAlreadyLisCodeTests.OpenOrderCodeThatIsAnLisCode_IsMarked` | URS-BB-983 / FRS-BB-1101 |
 | TEST-BB-1227 | U | `DashboardQueueCatalogTests.UnmappedNote_NamesThoseAlreadyLisCodes` | URS-BB-984 / FRS-BB-1102 |
 | TEST-BB-1228 | U | `ExmChecklistFoldTests.ExmChecklist_IsFoldedWhileTheFacilityHasItOff` | URS-BB-985 / FRS-BB-1103 |
+| TEST-BB-1229 | U | `InfantNoMotherNoteTests.InfantChart_SaysNoMotherIsLinked` | URS-BB-986 / FRS-BB-1104 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

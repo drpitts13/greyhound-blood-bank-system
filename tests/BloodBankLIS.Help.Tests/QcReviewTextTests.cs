@@ -76,3 +76,26 @@ public class ExmChecklistFoldTests
         Assert.Contains("Show the checklist ({Exm.Criteria.Count} items)", tab);
     }
 }
+
+public class InfantNoMotherNoteTests
+{
+    // TEST-BB-1229: an infant's chart with no mother linked says her type and antibodies are not shown, to anyone who
+    // reads the chart, under the same age window as Link mother (end-user testing pass 207).
+    [Fact]
+    public void InfantChart_SaysNoMotherIsLinked()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var header = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Shared", "PatientChartHeader.razor"));
+        var note = header.IndexOf("data-family-no-mother", StringComparison.Ordinal);
+        Assert.True(note > 0);
+        var condition = header.LastIndexOf("@if (family.Mother is null", note, StringComparison.Ordinal);
+        Assert.DoesNotContain("PermissionCodes.PatientWrite", header[condition..note]);
+        Assert.Contains("MotherInfantLinkRule.OfferLink", header[condition..note]);
+        Assert.True(BloodBankLIS.Domain.Rules.MotherInfantLinkRule.OfferLink(new DateOnly(2026, 11, 6), new DateOnly(2026, 11, 17)));
+    }
+}

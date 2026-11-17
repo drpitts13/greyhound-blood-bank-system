@@ -1097,6 +1097,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-983 / FRS-BB-1101 | End-user testing pass 204: unmapped order codes that are LIS codes | `InterfaceUnmappedValueService.cs`, `AdminDtos.cs`, `AdminHl7Translations.razor` | TEST-BB-1226 | I | |
 | URS-BB-984 / FRS-BB-1102 | End-user testing pass 205: unmapped values card note | `DashboardQueueCatalog.cs`, `Home.razor` | TEST-BB-1227 | U | |
 | URS-BB-985 / FRS-BB-1103 | End-user testing pass 206: EXM checklist folded while off | `PatientChartOverviewTab.razor` | TEST-BB-1228 | U | |
+| URS-BB-986 / FRS-BB-1104 | End-user testing pass 207: infant with no mother linked | `PatientChartHeader.razor` | TEST-BB-1229 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

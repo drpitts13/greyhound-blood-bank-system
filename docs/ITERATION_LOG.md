@@ -26212,3 +26212,21 @@ Checked the mother/baby records: DEMO-RHIG, Maya (MRN0025) has two RhIG evaluati
 ### Tests
 
 - TEST-BB-1228. Full suite passed.
+
+## Iteration 927 — End-user testing pass 207: an infant with no mother linked (2026-11-17)
+
+### How it was tested
+
+Opened the chart of Newborn, Baby Boy (MRN0002, born 2026-11-06, NICU), who has no mother linked; compared with DEMO-MATAB, Baby Boy Lena (MRN0029), whose header shows his mother's type and anti-K (pass 174).
+
+### Found and fixed
+
+1. **Nothing said the mother's information was missing.** The header showed only a **Link mother** button, and only to users who may register patients; anyone else saw nothing, and the absence of a mother line read like a mother with nothing to report. An infant's chart (the same under-one-year window as Link mother) with no mother linked now says *No mother linked: her ABO/Rh and antibodies are not shown for this infant.* to every reader.
+
+### Retested live
+
+- MRN0002's header shows the note beside Link mother; MRN0029's shows his mother as before. No link was made.
+
+### Tests
+
+- TEST-BB-1229. Full suite passed.

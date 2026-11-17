@@ -106,6 +106,12 @@
                         }
                     </span>
                 }
+                @if (family.Mother is null && Patient.Status != PatientStatus.Merged
+                     && MotherInfantLinkRule.OfferLink(Patient.DateOfBirth, DateOnly.FromDateTime(DateTime.Now)))
+                {
+                    @* Pass 207: an infant with no mother linked; her type and antibodies are not brought onto this chart. *@
+                    <span data-family-no-mother>No mother linked: her ABO/Rh and antibodies are not shown for this infant.</span>
+                }
                 @if (family.Mother is null && Session.Has(PermissionCodes.PatientWrite) && Patient.Status != PatientStatus.Merged
                      && MotherInfantLinkRule.OfferLink(Patient.DateOfBirth, DateOnly.FromDateTime(DateTime.Now)))
                 {
