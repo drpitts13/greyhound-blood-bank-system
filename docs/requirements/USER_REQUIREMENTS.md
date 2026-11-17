@@ -989,3 +989,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-981 | The temperature excursion deviation, the expiry status note, a reaction's closed and reopened times and the last good backup give local time. | P3 | FRS-BB-1099 |
 | URS-BB-982 | Raw HL7 and ASTM messages are shown one segment or record per line. | P3 | FRS-BB-1100 |
 | URS-BB-983 | The unmapped values list marks an inbound order code that is now an LIS test, grouper or product code as needing no translation. | P3 | FRS-BB-1101 |
+| URS-BB-984 | The home Unmapped interface values card says how many listed values are already LIS codes, to dismiss. | P3 | FRS-BB-1102 |

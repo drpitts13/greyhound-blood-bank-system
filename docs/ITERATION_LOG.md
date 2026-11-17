@@ -26176,3 +26176,21 @@ Opened Administration › HL7 translations › Unmapped values: eight open value
 ### Tests
 
 - TEST-BB-1226. Full suite passed.
+
+## Iteration 925 — End-user testing pass 205: the unmapped values card (2026-11-17)
+
+### How it was tested
+
+Followed up pass 204 on the home dashboard's **Unmapped interface values** card, which read *8* with no note.
+
+### Found and fixed
+
+1. **The card's count read as eight translations to write.** Two of the eight (RBC-LR and TNS) are already LIS codes and only need dismissing. The card now says *2 already LIS codes, to dismiss*.
+
+### Retested live
+
+- The card reads *8 · 2 already LIS codes, to dismiss*. Nothing was dismissed.
+
+### Tests
+
+- TEST-BB-1227. Full suite passed.

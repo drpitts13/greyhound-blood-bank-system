@@ -476,6 +476,19 @@ public class DashboardQueueCatalogTests
             new SupervisorQueueItemDto(SupervisorQueueRule.KindReagentQc, "t", "d", "/reagents", "Review")]));
     }
 
+    // TEST-BB-1227: the Unmapped interface values card names those already LIS codes, to dismiss (end-user testing
+    // pass 205).
+    [Fact]
+    public void UnmappedNote_NamesThoseAlreadyLisCodes()
+    {
+        BloodBankLIS.Application.Admin.InterfaceUnmappedValueDto Value(string value, bool lis) =>
+            new(1, null, null, "Order.TestCode", "Test / service code", value, BloodBankLIS.Domain.Enums.InterfaceTranslationDirection.Inbound,
+                DateTime.UtcNow, DateTime.UtcNow, 1, null, null, null, null) { AlreadyLisCode = lis };
+
+        Assert.Null(DashboardQueueCatalog.UnmappedNote([Value("LAB1", false)]));
+        Assert.Equal("2 already LIS codes, to dismiss", DashboardQueueCatalog.UnmappedNote([Value("RBC-LR", true), Value("TNS", true), Value("LAB1", false)]));
+    }
+
     // TEST-BB-490: deviation managers see Open deviations (everything not closed), with critical ones named; the card
     // sits in the Supervisor focus.
     [Fact]

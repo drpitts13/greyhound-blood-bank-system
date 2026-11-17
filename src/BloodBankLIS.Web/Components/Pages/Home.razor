@@ -647,7 +647,13 @@
                     : (card.Key, null, null);
             }
             case DashboardQueueCatalog.UnmappedInterfaceValues:
-                return await CountList(card.Key, Api.GetAdminHl7UnmappedValuesAsync());
+            {
+                // Pass 205: name the ones that are already LIS codes and only need dismissing (pass 204).
+                var result = await Api.GetAdminHl7UnmappedValuesAsync();
+                return result.Succeeded && result.Value is not null
+                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.UnmappedNote(result.Value))
+                    : (card.Key, null, null);
+            }
             case DashboardQueueCatalog.Handoff:
             {
                 var result = await Api.GetOpenShiftHandoffAsync();

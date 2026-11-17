@@ -626,6 +626,13 @@ public static class DashboardQueueCatalog
         return parts.Count == 0 ? null : string.Join("; ", parts);
     }
 
+    /// <summary>
+    /// The Unmapped interface values card: those that are already LIS codes and only need dismissing (end-user testing
+    /// pass 205), so the count is not read as that many translations to write.
+    /// </summary>
+    public static string? UnmappedNote(IEnumerable<BloodBankLIS.Application.Admin.InterfaceUnmappedValueDto> values) =>
+        AttentionNote(values.Count(v => v.AlreadyLisCode), "already an LIS code, to dismiss", "already LIS codes, to dismiss");
+
     public static string? ReagentQcNote(IEnumerable<ReagentQcWorkItemDto> work)
     {
         var items = work.ToList();
