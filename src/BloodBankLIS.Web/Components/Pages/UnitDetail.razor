@@ -124,7 +124,7 @@ else
                     }
                     @if (_unit.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(_unit.QuarantineReason))
                     {
-                        <span>Quarantine: @_unit.QuarantineReasonCode@(string.IsNullOrWhiteSpace(_unit.QuarantineReason) ? "" : $" — {_unit.QuarantineReason}")</span>
+                        <span data-unit-quarantine-reason>Quarantine: @Ui.EnumText(_unit.QuarantineReasonCode)@(string.IsNullOrWhiteSpace(_unit.QuarantineReason) ? "" : $" — {_unit.QuarantineReason}")</span>
                     }
                     @if (!string.IsNullOrWhiteSpace(_unit.MissingReason))
                     {

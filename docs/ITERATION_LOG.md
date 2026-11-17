@@ -25906,3 +25906,25 @@ Worked the Alerts inbox (30 open, most severe first): three critical temperature
 ### Tests
 
 - TEST-BB-1212. Full suite passed.
+
+## Iteration 910 — End-user testing pass 190: the quarantine reason in words (2026-11-17)
+
+### How it was tested
+
+Followed the two thawed plasmas from the near-expiry alerts (W0001230001002-M01 and W0001230001005-M01). At 00:43 local they had not expired: they expire at 06:46 and 06:59 today (the pass 189 close said they had expired at about 07:00; that was wrong). Quarantined units are in the expiry sweep, so they will move to Expired when due. Opened W0001230001002-M01's unit page.
+
+### Found and fixed
+
+1. **The quarantine reason was its code.** The unit page read *Quarantine: PendingRelease — Created by Thaw modification*. It now reads *Quarantine: Pending release — Created by Thaw modification*.
+
+### Noted, not changed
+
+- The thawed plasma's location reads *Plasma Freezer*: the seeded thaw left the result where the frozen unit was. Thaw already lets the tech choose where the result goes, and a modification rule can set a default result location; which place thawed plasma goes to is the facility's configuration.
+
+### Retested live
+
+- The unit page reads *Quarantine: Pending release*. Nothing was released or moved.
+
+### Tests
+
+- TEST-BB-1213. Full suite passed.

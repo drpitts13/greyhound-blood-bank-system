@@ -1081,6 +1081,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-967 / FRS-BB-1085 | End-user testing pass 187: reaction under investigation on the patient list | `PatientService.cs`, `PatientDtos.cs`, `Patients.razor` | TEST-BB-1210 | I | |
 | URS-BB-968 / FRS-BB-1086 | End-user testing pass 188: reaction under investigation in the lookup | `UniversalLookupService.cs`, `LookupDtos.cs`, `GlobalLookupBar.razor` | TEST-BB-1211 | I | |
 | URS-BB-969 / FRS-BB-1087 | End-user testing pass 189: local times in alerts and notes | `AlertScanner.cs`, `StorageTemperatureService.cs`, `TransfusionCompletionRule.cs`, `PatientDeathRule.cs`, `DatabaseBackupService.cs` and others | TEST-BB-1212 | U | |
+| URS-BB-970 / FRS-BB-1088 | End-user testing pass 190: quarantine reason in words | `UnitDetail.razor` | TEST-BB-1213 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

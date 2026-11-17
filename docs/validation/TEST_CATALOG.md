@@ -1221,5 +1221,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1210 | I | `ReactionInvestigationServiceTests.PatientList_FlagsAReactionUnderInvestigation` | URS-BB-967 / FRS-BB-1085 |
 | TEST-BB-1211 | I | `ReactionInvestigationServiceTests.PatientList_FlagsAReactionUnderInvestigation` | URS-BB-968 / FRS-BB-1086 |
 | TEST-BB-1212 | U | `AlertLocalTimeTests.AlertMessages_GiveLocalTimes` | URS-BB-969 / FRS-BB-1087 |
+| TEST-BB-1213 | U | `UnitQuarantineReasonTextTests.QuarantineReason_IsShownInWords` | URS-BB-970 / FRS-BB-1088 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
