@@ -26032,3 +26032,21 @@ Followed up pass 195 by looking for other durations put on screen in minutes or 
 ### Tests
 
 - TEST-BB-1218. Full suite passed.
+
+## Iteration 917 — End-user testing pass 197: reaction DATs on the DAT / Elution tab (2026-11-17)
+
+### How it was tested
+
+Opened the chart of Febrile, Marcus (MRN0006) on the DAT / Elution tab. His reaction investigation #1 has a DAT recorded (negative) as part of its workup.
+
+### Found and fixed
+
+1. **The tab said there was no DAT.** It read *No DAT or elution workups for this patient.*: the reaction's DAT is recorded in the investigation, not as a workup, so someone checking the patient's DAT history here would take it as never done. The tab now lists DATs recorded in the patient's reaction investigations at the top (*Reaction investigation #1 (reported 2026-11-06): DAT negative.*), linking to the investigation, for users who can see reaction investigations.
+
+### Retested live
+
+- Marcus's DAT / Elution tab lists reaction investigation #1's negative DAT above *No DAT or elution workups*. Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1219. Full suite passed.

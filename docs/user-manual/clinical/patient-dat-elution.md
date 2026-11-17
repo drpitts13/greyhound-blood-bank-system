@@ -35,3 +35,5 @@ Beside the DAT result, record the reaction with each reagent used: **Polyspecifi
 **Void** (before verification) needs a reason.
 
 Panel identification still has its own workup under [Antibody identification](antibody-identification), which posts antibodies when that workup is reviewed.
+
+**DAT in reaction investigations.** A DAT recorded in one of the patient's transfusion reaction investigations is listed at the top of the tab (*Reaction investigation #1 (reported 2026-11-06): DAT negative.*), linking to the investigation, when you can see reaction investigations. It is recorded there, not as a workup here.

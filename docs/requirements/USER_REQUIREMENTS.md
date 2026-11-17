@@ -981,3 +981,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-973 | Ready to issue's crossmatch link fills only the crossmatch form, and says Repeat only when a crossmatch was recorded. | P3 | FRS-BB-1091 |
 | URS-BB-974 | How long a massive transfusion protocol has been open reads in minutes, hours or days as fits. | P3 | FRS-BB-1092 |
 | URS-BB-975 | The MTP idle notice and alert say how long no unit was issued in days and hours beyond two days. | P3 | FRS-BB-1093 |
+| URS-BB-976 | The chart's DAT / Elution tab lists DATs recorded in the patient's reaction investigations. | P3 | FRS-BB-1094 |

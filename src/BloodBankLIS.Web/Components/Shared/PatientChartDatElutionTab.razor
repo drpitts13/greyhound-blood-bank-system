@@ -24,6 +24,18 @@
         </div>
     }
 
+    @if (_reactionDats.Count > 0)
+    {
+        @* Pass 197: DATs recorded in the patient's reaction investigations are listed here too, so this tab is not
+           read as "no DAT done". *@
+        <div class="bb-card" data-reaction-dats>
+            <div class="bb-card-title"><h3>DAT in reaction investigations</h3></div>
+            @foreach (var (investigationId, text) in _reactionDats)
+            {
+                <div><a href="@($"/reactions?id={investigationId}")">@text</a></div>
+            }
+        </div>
+    }
     @if (_loading)
     {
         <div class="loading">Loading DAT/elution workups...</div>
@@ -193,6 +205,7 @@
     private bool _showNew;
     private long _loadedFor;
 
+    private IReadOnlyList<(long InvestigationId, string Text)> _reactionDats = [];
     private bool CanRecord => Session.Has(PermissionCodes.ImmunoRecord);
     private bool CanVerify => Session.Has(PermissionCodes.ImmunoOverride);
 
@@ -205,6 +218,9 @@
                 .OrderBy(a => a.SortOrder).ThenBy(a => a.AntibodyName)
                 .ToList();
             _specimens = (await Api.GetPatientSpecimensAsync(PatientId)).Value ?? [];
+            _reactionDats = Session.Has(PermissionCodes.ReactionInvestigate)
+                ? ReactionDatText.For((await Api.GetReactionInvestigationsAsync()).Value ?? [], PatientId)
+                : [];
             await LoadAsync();
         }
     }
