@@ -26486,3 +26486,21 @@ Opened Kellerman, Diane (MRN0004, anti-K): the chart's Overview (blood type hist
 ### Tests
 
 - TEST-BB-1242. Full suite passed.
+
+## Iteration 941 — End-user testing pass 221: how late a supplier order is (2026-11-17)
+
+### How it was tested
+
+Opened Supplier orders: the draft SO-20261112-001, the received SO-DEMO-001 (short 2), and SO-DEMO-002, a group A red cell submitted 2026-11-06 and promised by the supplier for 2026-11-13 09:00 after a follow-up call.
+
+### Found and fixed
+
+1. **An overdue order did not say how late it was.** SO-DEMO-002 read *Promised by the supplier for 2026-11-13 09:00: overdue, chase the supplier.* four days later; the reader had to work out the gap before calling. It now reads *…: overdue 4 d 7 h, chase the supplier.* An order not yet due reads as before.
+
+### Retested live
+
+- SO-DEMO-002 shows *overdue 4 d 7 h*. Nothing was recorded or sent.
+
+### Tests
+
+- TEST-BB-1243. Full suite passed.

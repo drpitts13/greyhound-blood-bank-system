@@ -178,7 +178,7 @@
         {
             <p class="muted">Submitted by @current.SubmittedBy @submitted.ToLocalTime().ToString("yyyy-MM-dd HH:mm").@if (current.ArrivalDueUtc is DateTime due)
                 {
-                    <span class="@(current.ArrivalOverdue ? "text-danger" : null)" data-arrival-due> @(current.ArrivalPromised ? "Promised by the supplier for" : "Arrival due") @due.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(current.ArrivalOverdue ? ": overdue, chase the supplier" : "").</span>
+                    <span class="@(current.ArrivalOverdue ? "text-danger" : null)" data-arrival-due> @SupplierOrderArrivalText.Line(due, current.ArrivalPromised, current.ArrivalOverdue, DateTime.UtcNow)</span>
                 }</p>
             @if (current.FollowUpNote is not null)
             {
