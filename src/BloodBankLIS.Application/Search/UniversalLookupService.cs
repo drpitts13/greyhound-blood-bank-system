@@ -619,6 +619,9 @@ public sealed class UniversalLookupService
         var notes = PatientBloodBankFlags.NotesInEffect(rows, now, informational);
         var reaction = _reactions is not null
             && await _reactions.AnyAsync(r => r.PatientId == targetId && r.Status != ReactionInvestigationStatus.Closed, ct);
+        var maternal = _antibodies is not null && target.MotherPatientId is long motherId
+            ? PatientBloodBankFlags.ActiveAntibodies(await _antibodies.ListAsync(a => a.PatientId == motherId, ct))
+            : [];
 
         return new LookupHitDto(
             LookupHitKind.Patient,
@@ -634,7 +637,8 @@ public sealed class UniversalLookupService
             requirements,
             notes)
         {
-            ReactionUnderInvestigation = reaction
+            ReactionUnderInvestigation = reaction,
+            MaternalAntibodies = maternal
         };
     }
 

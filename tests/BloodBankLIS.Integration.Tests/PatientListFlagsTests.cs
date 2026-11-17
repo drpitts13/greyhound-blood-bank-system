@@ -137,5 +137,12 @@ public class PatientListFlagsTests : IClassFixture<SqliteContextFactory>
         Assert.Empty(list.Single(p => p.Id == infant.Id).ActiveAntibodies ?? []);
         Assert.Empty(list.Single(p => p.Id == mother.Id).MaternalAntibodies);
         Assert.NotEmpty(list.Single(p => p.Id == mother.Id).ActiveAntibodies ?? []);
+
+        // TEST-BB-1232 (pass 210): the top-bar lookup's hit for the infant carries the mother's antibodies too.
+        var lookup = new BloodBankLIS.Application.Search.UniversalLookupService(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
+            antibodies: new EfRepository<AntibodyHistory>(c));
+        Assert.NotEmpty(Assert.Single((await lookup.LookupAsync(infant.MedicalRecordNumber)).Hits, h => h.Kind == BloodBankLIS.Application.Search.LookupHitKind.Patient).MaternalAntibodies);
+        Assert.Empty(Assert.Single((await lookup.LookupAsync(mother.MedicalRecordNumber)).Hits, h => h.Kind == BloodBankLIS.Application.Search.LookupHitKind.Patient).MaternalAntibodies);
     }
 }

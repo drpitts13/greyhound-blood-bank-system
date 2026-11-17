@@ -1240,5 +1240,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1229 | U | `InfantNoMotherNoteTests.InfantChart_SaysNoMotherIsLinked` | URS-BB-986 / FRS-BB-1104 |
 | TEST-BB-1230 | I | `DowntimePatientSummaryTests.InfantRow_NamesTheMothersAntibodies` | URS-BB-987 / FRS-BB-1105 |
 | TEST-BB-1231 | I | `PatientListFlagsTests.PatientList_ShowsTheMothersAntibodiesOnTheInfant` | URS-BB-988 / FRS-BB-1106 |
+| TEST-BB-1232 | I | `PatientListFlagsTests.PatientList_ShowsTheMothersAntibodiesOnTheInfant` | URS-BB-989 / FRS-BB-1107 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

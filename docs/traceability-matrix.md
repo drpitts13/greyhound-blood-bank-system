@@ -1100,6 +1100,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-986 / FRS-BB-1104 | End-user testing pass 207: infant with no mother linked | `PatientChartHeader.razor` | TEST-BB-1229 | U | |
 | URS-BB-987 / FRS-BB-1105 | End-user testing pass 208: maternal antibodies on the downtime sheet | `DowntimePatientSummaryService.cs`, `DowntimePatients.razor` | TEST-BB-1230 | I | |
 | URS-BB-988 / FRS-BB-1106 | End-user testing pass 209: maternal antibodies on the patient list | `PatientDtos.cs`, `PatientService.cs`, `Patients.razor` | TEST-BB-1231 | I | |
+| URS-BB-989 / FRS-BB-1107 | End-user testing pass 210: maternal antibodies in the top-bar lookup | `LookupDtos.cs`, `UniversalLookupService.cs`, `GlobalLookupBar.razor` | TEST-BB-1232 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

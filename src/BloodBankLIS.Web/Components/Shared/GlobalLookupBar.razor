@@ -64,6 +64,10 @@
                                 {
                                     <span class="badge badge-red" data-lookup-alert title="Active antibodies on file">@string.Join(", ", abs)</span>
                                 }
+                                @if (hit.MaternalAntibodies is { Count: > 0 } maternal)
+                                {
+                                    <span class="badge badge-red" data-lookup-maternal title="The mother's active antibodies, which may be present in the infant">@($"Maternal {string.Join(", ", maternal)}")</span>
+                                }
                                 @if (hit.RequirementsInEffect > 0)
                                 {
                                     <span class="badge badge-amber" data-lookup-alert title="Special requirements in effect">@PatientBloodBankFlags.RequirementsLabel(hit.RequirementsInEffect)</span>

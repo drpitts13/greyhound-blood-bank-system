@@ -26266,3 +26266,21 @@ Opened Patients and looked for DEMO-MATAB, Baby Boy Lena (MRN0029), whose mother
 ### Tests
 
 - TEST-BB-1231. Full suite passed.
+
+## Iteration 930 — End-user testing pass 210: maternal antibodies in the top-bar lookup (2026-11-17)
+
+### How it was tested
+
+Typed DEMO-MATAB into the top-bar lookup, which lists DEMO-MATAB, Lena (MRN0028, anti-K) and her son DEMO-MATAB, Baby Boy Lena (MRN0029).
+
+### Found and fixed
+
+1. **The infant's hit showed no alert.** The mother's hit showed anti-K in red; the infant's showed only *No type on file*, though the patient list (pass 209), the chart and the downtime sheet name her antibody. The infant's hit now shows a red *Maternal anti-K* badge. Nothing is added to the infant's own record.
+
+### Retested live
+
+- The lookup lists *MRN0029 … No type on file Maternal anti-K* and *MRN0028 … A+ anti-K*. An exact MRN still opens the chart directly. No data was changed.
+
+### Tests
+
+- TEST-BB-1232. Full suite passed.

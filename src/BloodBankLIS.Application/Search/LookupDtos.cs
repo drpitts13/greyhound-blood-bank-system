@@ -39,6 +39,9 @@ public sealed record LookupHitDto(
     /// patient list since pass 187).
     /// </summary>
     public bool ReactionUnderInvestigation { get; init; }
+
+    /// <summary>An infant's linked mother's active antibodies, which may be present in the infant (end-user testing pass 210).</summary>
+    public IReadOnlyList<string> MaternalAntibodies { get; init; } = [];
 }
 
 public sealed record LookupResultDto(
