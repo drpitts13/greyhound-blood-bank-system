@@ -1009,3 +1009,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1001 | The chart's RhIG tab says how long ago the event was while RhIG is still to give. | P2 | FRS-BB-1119 |
 | URS-BB-1002 | Storage temperatures shows the age of each location's last reading and flags a location holding units that has never been read. | P2 | FRS-BB-1120 |
 | URS-BB-1003 | The supervisor queue does not offer Review on reagent QC the signed-in user performed. | P3 | FRS-BB-1121 |
+| URS-BB-1004 | The Compatibility specimen pickers word an expired tube as expired, with when. | P3 | FRS-BB-1122 |

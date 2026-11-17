@@ -1255,5 +1255,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1244 | U | `RhigEventAgeTextTests.For_SaysHowLongAgoTheEventWasWhileRhigIsDue` | URS-BB-1001 / FRS-BB-1119 |
 | TEST-BB-1245 | U | `StorageReadingTextTests.LastReading_SaysItsAgeAndFlagsStorageNeverRead` | URS-BB-1002 / FRS-BB-1120 |
 | TEST-BB-1246 | I | `SupervisorQueueReagentQcTests.FailedAndUnreviewedQc_WaitOnTheSupervisorQueue` | URS-BB-1003 / FRS-BB-1121 |
+| TEST-BB-1247 | U | `SpecimenChoiceTextTests.For_WordsExpiredAndUsableTubes` | URS-BB-1004 / FRS-BB-1122 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

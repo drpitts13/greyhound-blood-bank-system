@@ -26563,3 +26563,25 @@ Opened Deviations (three open: a unit in the wrong refrigerator and the two temp
 ### Tests
 
 - TEST-BB-1246. Full suite passed.
+
+## Iteration 945 — End-user testing pass 225: expired specimen wording on Compatibility (2026-11-17)
+
+### How it was tested
+
+Read the Shift handoff counts (31 queues, all named), then on Compatibility chose Demo-Multi, Riley (MRN0022) for a crossmatch and opened the specimen picker. Nothing was recorded.
+
+### Found and fixed
+
+1. **The specimen picker read "Expired expires".** Her two tubes were listed as *ACC0022 — EDTA (Expired expires 2026-11-09 04:50)*: the status and an "expires" phrase run together, the second contradicting the first. An expired tube now reads *(expired 2026-11-09 04:50)*, and a usable one *(Accepted, expires …)*.
+
+### Also checked, no change
+
+- The crossmatch test list is empty until a patient is chosen, then offers XM and CXM; the hint says to choose the patient first.
+
+### Retested live
+
+- MRN0022's picker shows *ACC-DEMO-RCV1 — EDTA (expired 2026-11-12 23:52)* and *ACC0022 — EDTA (expired 2026-11-09 04:50)*. Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1247. Full suite passed.

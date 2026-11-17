@@ -546,11 +546,9 @@
         }
     }
 
-    private static string FormatSpecimen(SpecimenDto s)
-    {
-        var expires = s.ExpiresUtc is DateTime exp ? $" expires {exp.ToLocalTime():yyyy-MM-dd HH:mm}" : "";
-        return $"{s.AccessionNumber} — {s.SpecimenType} ({s.Status}{expires})";
-    }
+    // Pass 225: an expired tube read "(Expired expires …)".
+    private static string FormatSpecimen(SpecimenDto s) =>
+        SpecimenChoiceText.For(s.AccessionNumber, s.SpecimenType, s.Status, s.ExpiresUtc, DateTime.UtcNow);
 
     private List<CrossmatchTestOptionDto> _xmTests = [];
     private string? _xmTestCode;
