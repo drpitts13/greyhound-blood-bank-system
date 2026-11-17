@@ -1002,3 +1002,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-994 | An open instrument message failure says what to do next and links to the patient, specimen or unmapped values. | P3 | FRS-BB-1112 |
 | URS-BB-995 | The DIN lookback names components of the donation still in stock and not held. | P2 | FRS-BB-1113 |
 | URS-BB-996 | The retype lists flag a unit whose donation has an open lookback notification. | P2 | FRS-BB-1114 |
+| URS-BB-997 | A unit's page says when its donation has a recipient lookback notification still open, and links to that DIN lookback. | P2 | FRS-BB-1115 |

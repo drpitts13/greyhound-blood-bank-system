@@ -1248,5 +1248,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1237 | U | `InstrumentFailureNextStepTests.For_NamesTheNextStepAndWhereToDoIt` | URS-BB-994 / FRS-BB-1112 |
 | TEST-BB-1238 | D | `LookbackRecallRuleTests.StillInStock_NamesUnheldComponentsOnAShelf` | URS-BB-995 / FRS-BB-1113 |
 | TEST-BB-1239 | I | `SeederTests.Seed_PendingRetypeWorklist_IncludesRetDemoUnits` | URS-BB-996 / FRS-BB-1114 |
+| TEST-BB-1240 | U | `UnitLookbackNotificationsTests.OpenFor_ListsOpenNotificationsForTheUnitsDonation` | URS-BB-997 / FRS-BB-1115 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

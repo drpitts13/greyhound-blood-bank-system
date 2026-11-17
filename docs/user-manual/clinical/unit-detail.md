@@ -30,6 +30,8 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **Reserved for.** When the unit is reserved for a patient, a banner under the header names the patient and the crossmatch. **Issue** opens the Issue form with the unit and patient filled, so a scan in the search bar can go straight to issuing. When routine issue is not yet possible, the banner says why (for example a second ABO/Rh or a crossmatch) and links to Ready to issue.
 
+**Lookback open.** When a recipient lookback notification for the unit's donation (its DIN) is still Pending or Attempted, a banner says so and how many are open, so the unit is checked under your lookback procedure before it is retyped, released or issued. **Open the DIN lookback** opens Lookback / Trace on that donation. The banner needs lookback access; nothing is blocked.
+
 **Attributes** lists antigens and modifications (irradiated, leukoreduced, and the others recorded on the unit). Antigen typing you performed is recorded with [Unit antigen typing](unit-antigen-typing) or on the retype tab.
 
 **Unit tests** on the same tab records tests done on the unit after it arrived, such as CMV or HbS. Enter the test code and Negative or Positive. The latest result for each test is the unit's result. A patient requirement for CMV- or HbS-negative units is met by a Negative here or by the product code, so a later Positive takes the unit out of selection for that patient. Changing a recorded result keeps the earlier one, shown as Corrected, and asks for the reason. Recording the same result again is refused.

@@ -1108,6 +1108,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-994 / FRS-BB-1112 | End-user testing pass 215: next step on an instrument failure | `InstrumentFailureNextStep.cs`, `Instruments.razor` | TEST-BB-1237 | U | |
 | URS-BB-995 / FRS-BB-1113 | End-user testing pass 216: donation components still in stock on the DIN lookback | `LookbackRecallRule.cs`, `Lookback.razor` | TEST-BB-1238 | D | |
 | URS-BB-996 / FRS-BB-1114 | End-user testing pass 217: lookback flag on the retype lists | `ProductRetypeDtos.cs`, `ProductRetypeService.cs`, `Inventory.razor`, `TestWorklist.razor` | TEST-BB-1239 | I | |
+| URS-BB-997 / FRS-BB-1115 | End-user testing pass 218: lookback banner on the unit page | `UnitLookbackNotifications.cs`, `UnitDetail.razor`, `Lookback.razor` | TEST-BB-1240 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

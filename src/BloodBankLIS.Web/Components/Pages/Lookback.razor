@@ -457,6 +457,10 @@ else
     [SupplyParameterFromQuery]
     public string? Mrn { get; set; }
 
+    // Pass 218: opened from a unit page, show that donation's lookback.
+    [SupplyParameterFromQuery]
+    public string? Din { get; set; }
+
     private LookbackMode _mode = LookbackMode.Din;
     private string _din = string.Empty;
     private string _reason = string.Empty;
@@ -493,6 +497,15 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!_autoTraced && !string.IsNullOrWhiteSpace(Din) && string.IsNullOrWhiteSpace(Mrn) && Session.Has(PermissionCodes.LookbackManage))
+        {
+            _autoTraced = true;
+            _din = Din.Trim();
+            _mode = LookbackMode.Din;
+            await SearchDinAsync();
+            return;
+        }
+
         if (_autoTraced || string.IsNullOrWhiteSpace(Mrn) || !Session.Has(PermissionCodes.LookbackManage))
         {
             return;

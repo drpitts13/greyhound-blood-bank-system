@@ -54,6 +54,15 @@ else
             </div>
         </div>
     }
+    @if (_openLookbacks.Count > 0 && _unit is not null)
+    {
+        @* Pass 218: the unit's donation has a recipient lookback notification still open. *@
+        <div class="alert alert-warning" style="margin-top:.5rem;" data-unit-lookback>
+            <strong>Lookback open for this donation (DIN @_unit.Din)</strong>:
+            @_openLookbacks.Count recipient notification@(_openLookbacks.Count == 1 ? "" : "s") @(_openLookbacks.Count == 1 ? "is" : "are") still open. Check this unit under your lookback procedure before it is retyped, released or issued.
+            <a class="btn btn-ghost btn-sm" href="@($"/lookback?din={Uri.EscapeDataString(_unit.Din ?? string.Empty)}")">Open the DIN lookback</a>
+        </div>
+    }
     @if (_reservation is { } reserved)
     {
         @* Found by a scan: say whose unit it is and go straight to issuing it. *@
@@ -818,6 +827,8 @@ else
         _loading = false;
     }
 
+    private List<LookbackNotificationDto> _openLookbacks = new();
+
     private async Task RefreshDetailsAsync()
     {
         if (_unit is null) return;
@@ -826,6 +837,10 @@ else
         if (unit.Succeeded && unit.Value is not null) _unit = unit.Value;
 
         _activity = (await Api.GetUnitActivityAsync(id)).Value ?? new();
+        // Pass 218: open lookback notifications for this unit's donation (none shown without lookback access).
+        _openLookbacks = string.IsNullOrWhiteSpace(_unit?.Din)
+            ? new()
+            : UnitLookbackNotifications.OpenFor(_unit!.Din, (await Api.GetOpenLookbackNotificationsAsync()).Value);
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(id)).Value ?? new();
         _unitTests = (await Api.GetUnitSpecialTestsAsync(id)).Value ?? new();
         _reservation = Session.HasAny(PermissionCodes.IssueCreate, PermissionCodes.CompatibilityAllocate)

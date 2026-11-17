@@ -26424,3 +26424,21 @@ Followed W000123LSIB001, the co-component of lookback DIN W123426000001 named in
 ### Tests
 
 - TEST-BB-1239 (the seeded LSIB unit is Available in a fresh seed, so the test sets up a pending-retype unit with an open notification). Full suite passed; the Help tests were rerun after the layout fix (Web only).
+
+## Iteration 938 — End-user testing pass 218: lookback banner on the unit page (2026-11-17)
+
+### How it was tested
+
+Opened W000123LSIB001 (unit 46) from the Retype board, as a tech would before retyping or releasing it.
+
+### Found and fixed
+
+1. **The unit page did not mention the lookback.** It showed the DIN W123426000001 among the identity fields but nothing about the open recipient notification for that donation (passes 216–217 flag it on the lookback and retype lists). The page now shows *Lookback open for this donation (DIN W123426000001): 1 recipient notification is still open. Check this unit under your lookback procedure before it is retyped, released or issued.* with **Open the DIN lookback**, which opens Lookback / Trace on that DIN (new `?din=` link). Nothing is blocked.
+
+### Retested live
+
+- Unit 46 shows the banner; the link opens the DIN lookback with its in-stock note. Unit 1 (W0001230000001) shows none. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1240. Full suite passed.
