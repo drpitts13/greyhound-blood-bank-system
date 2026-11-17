@@ -42,6 +42,10 @@ else
                             {
                                 <span class="badge badge-red">@string.Join(", ", r.ActiveAntibodies)</span>
                             }
+                            @if (r.MaternalAntibodies is { Count: > 0 } maternal)
+                            {
+                                <span class="badge badge-red" data-order-maternal title="The mother's active antibodies, which may be present in the infant">@($"Maternal {string.Join(", ", maternal)}")</span>
+                            }
                             @if (r.Requirements is { Count: > 0 } needs)
                             {
                                 <span class="sub" data-order-requirements><span class="badge badge-amber">Units must be</span> @string.Join(", ", needs)</span>

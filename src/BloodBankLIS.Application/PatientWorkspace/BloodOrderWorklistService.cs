@@ -49,7 +49,11 @@ public sealed record BloodOrderToPrepareDto(
     IReadOnlyList<string>? ExpiredReservations = null,
     // A tube drawn for the patient and not yet received (still in date, lasting to the needed-by time): receive it
     // instead of drawing again.
-    string? TubeAwaitingReceipt = null);
+    string? TubeAwaitingReceipt = null)
+{
+    /// <summary>An infant's linked mother's active antibodies, which may be present in the infant (end-user testing pass 211).</summary>
+    public IReadOnlyList<string> MaternalAntibodies { get; init; } = [];
+}
 
 /// <summary>
 /// Blood orders to prepare, across patients: open orders whose product lines are not yet covered by units reserved or
@@ -190,7 +194,9 @@ public sealed class BloodOrderWorklistService
             testedSpecimens = links.Where(l => testOrderIds.Contains(l.OrderId)).Select(l => l.SpecimenId).ToHashSet();
         }
         var types = (await _bloodTypes.ListAsync(t => patientIds.Contains(t.PatientId) && t.IsCurrent && t.InvalidatedUtc == null, ct)).ToLookup(t => t.PatientId);
-        var antibodies = (await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
+        var motherIds = patients.Values.Where(p => p.MotherPatientId != null).Select(p => p.MotherPatientId!.Value).Distinct().ToList();
+        var antibodyPatientIds = patientIds.Concat(motherIds).Distinct().ToList();
+        var antibodies = (await _antibodies.ListAsync(a => antibodyPatientIds.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
         var requirementText = await RequirementsAsync(patientIds, now, ct);
         var warnMinutes = _policy is null ? 0 : await _policy.GetBloodOrderNeededBySoonMinutesAsync(ct);
 
@@ -244,7 +250,12 @@ public sealed class BloodOrderWorklistService
                 OrderNeededByRule.DueSoon(order.NeededByUtc, now, warnMinutes) ? OrderNeededByRule.MinutesUntil(order.NeededByUtc, now) : null,
                 expiresBeforeNeeded,
                 expiredReservations.GetValueOrDefault(order.Id) ?? [],
-                BloodOrderPreparationRule.ReceiveInstead(hasSpecimen, expiresBeforeNeeded, tube) ? tube : null));
+                BloodOrderPreparationRule.ReceiveInstead(hasSpecimen, expiresBeforeNeeded, tube) ? tube : null)
+            {
+                MaternalAntibodies = patient?.MotherPatientId is long motherId
+                    ? PatientBloodBankFlags.ActiveAntibodies(antibodies[motherId])
+                    : []
+            });
         }
 
         // Rush first, then by when it is needed (orders without a time after those with one), then the oldest.

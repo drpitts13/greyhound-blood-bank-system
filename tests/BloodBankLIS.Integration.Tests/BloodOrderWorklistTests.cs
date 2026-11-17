@@ -74,6 +74,54 @@ public class BloodOrderWorklistTests
         }
     }
 
+    // TEST-BB-1233 (end-user testing pass 211): an infant's order row shows the linked mother's active antibodies; the
+    // mother's own antibodies are not added to the infant's, and a patient with no mother linked shows none.
+    [Fact]
+    public async Task InfantOrder_ShowsTheMothersAntibodies()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var now = factory.Clock.UtcNow;
+        var product = new ProductType { ProductCode = "RBC-MA", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        var location = new OrderingLocation { Code = "LOC-MA", Name = "NICU", IsActive = true };
+        c.ProductTypes.Add(product);
+        c.OrderingLocations.Add(location);
+        var mother = new Patient { MedicalRecordNumber = "MRN-MA-M", LastName = "Mom", FirstName = "Pat", DateOfBirth = new DateOnly(1990, 1, 1) };
+        c.Patients.Add(mother);
+        await c.SaveChangesAsync();
+        var infant = new Patient { MedicalRecordNumber = "MRN-MA-I", LastName = "Baby", FirstName = "Pat", DateOfBirth = new DateOnly(2026, 11, 10), MotherPatientId = mother.Id };
+        var other = new Patient { MedicalRecordNumber = "MRN-MA-O", LastName = "Other", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.AddRange(infant, other);
+        c.AntibodyHistory.Add(new AntibodyHistory { PatientId = mother.Id, AntibodySpecificity = "Anti-K", IsActive = true });
+        await c.SaveChangesAsync();
+        foreach (var (p, number) in new[] { (infant, "MA-1"), (other, "MA-2") })
+        {
+            var visit = new Encounter { PatientId = p.Id, VisitNumber = $"VIS-{p.MedicalRecordNumber}", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddHours(-5) };
+            c.Encounters.Add(visit);
+            await c.SaveChangesAsync();
+            var order = new Order
+            {
+                OrderNumber = number, PatientId = p.Id, EncounterId = visit.Id, OrderingLocationId = location.Id,
+                OrderCategory = OrderCategory.Product, OrderName = "Red cells", OrderType = OrderType.Other, ProductTypeId = product.Id,
+                Priority = OrderPriority.Routine, Status = OrderStatus.InProcess, OrderedUtc = now.AddHours(-1)
+            };
+            c.Orders.Add(order);
+            await c.SaveChangesAsync();
+            c.OrderLines.Add(new OrderLine { OrderId = order.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells", ProductTypeId = product.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered });
+        }
+        await c.SaveChangesAsync();
+
+        var rows = await new BloodOrderWorklistService(
+            new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c), factory.Clock).ListAsync();
+
+        var baby = Assert.Single(rows, r => r.OrderNumber == "MA-1");
+        Assert.NotEmpty(baby.MaternalAntibodies);
+        Assert.Empty(baby.ActiveAntibodies);
+        Assert.Empty(Assert.Single(rows, r => r.OrderNumber == "MA-2").MaternalAntibodies);
+    }
+
     [Fact]
     public async Task OrdersToPrepare_AreListedWithWhatIsStillNeeded()
     {

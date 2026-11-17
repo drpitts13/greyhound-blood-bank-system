@@ -995,3 +995,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-987 | The downtime patient summary names an infant's mother's active antibodies. | P2 | FRS-BB-1105 |
 | URS-BB-988 | The patient list shows an infant's mother's active antibodies on the infant's row. | P2 | FRS-BB-1106 |
 | URS-BB-989 | The top-bar lookup's patient hit shows an infant's mother's active antibodies. | P2 | FRS-BB-1107 |
+| URS-BB-990 | Blood orders to prepare shows an infant's mother's active antibodies on the infant's order. | P2 | FRS-BB-1108 |

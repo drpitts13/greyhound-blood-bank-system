@@ -26284,3 +26284,21 @@ Typed DEMO-MATAB into the top-bar lookup, which lists DEMO-MATAB, Lena (MRN0028,
 ### Tests
 
 - TEST-BB-1232. Full suite passed.
+
+## Iteration 931 — End-user testing pass 211: maternal antibodies on Blood orders to prepare (2026-11-17)
+
+### How it was tested
+
+Followed passes 209 and 210 to the bench's list of blood orders to prepare, where the tech chooses and crossmatches units, and read how the Type / antibodies column is built for an infant linked to a mother with anti-K (DEMO-MATAB, Baby Boy Lena, MRN0029, and his mother MRN0028).
+
+### Found and fixed
+
+1. **An infant's order showed only his own antibodies.** The column listed the patient's own active antibodies, so a neonatal red cell order for an infant whose mother has anti-K read *No type on file* with no alert, though antigen-negative units may be needed. The infant's row now shows a red *Maternal anti-K* badge. Nothing is added to the infant's own record.
+
+### Retested live
+
+- Blood orders to prepare lists the two seeded open orders (MRN0001, MRN0022), unchanged. The seed has no open infant order and none was created, so the infant row is covered by the test.
+
+### Tests
+
+- TEST-BB-1233. Full suite passed.
