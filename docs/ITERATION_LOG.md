@@ -25946,3 +25946,17 @@ After pass 190 (*PendingRelease* on the unit page), looked for other places a st
 ### Tests
 
 - TEST-BB-1214. Full suite passed.
+
+## Iteration 912 — End-user testing pass 192: checks with nothing to fix (2026-11-17)
+
+### How it was tested
+
+- **Instrument simulator:** generates ImmuLINK Echo result messages for a typed specimen and patient ID (a test tool; not changed).
+- **Chart Orders (Demo, Patricia, MRN0001):** the Stat two-unit red cell order ORD-PREP-DEMO, ORD0003 with a compatible crossmatch, the Stat crossmatch ORD0002 with no specimen, and ORD0001 cancelled when its specimen expired; each has history, edit and cancel.
+- **Facility settings to enter:** the home card opens Facility policies on the six decided settings with no value (temperature reading interval, the three RhIG dose settings, RhIG give-within hours, specimen retention), each saying what does not happen until it is entered.
+- **Printing:** specimen labels, compatibility tags and component labels with text or PDF preview, and the audited job list (nothing printed).
+- **Special requirements at selection (Demo-Special, Avery, MRN0023, irradiated and CMV-negative):** the compatible units offered are plasma only, and the red cell reserved for her is irradiated (W000026123460); the chart says to link a specimen before crossmatch.
+
+### Found
+
+- Nothing to change in these. No code changed.
