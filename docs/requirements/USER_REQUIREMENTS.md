@@ -978,3 +978,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-970 | The unit page names the quarantine reason in words. | P3 | FRS-BB-1088 |
 | URS-BB-971 | Status, kind and type columns show words, not joined codes. | P3 | FRS-BB-1089 |
 | URS-BB-972 | A reserved unit that cannot be crossmatched from the chart says where to go: its order to link a specimen, or Compatibility prefilled when the reservation has no order. | P3 | FRS-BB-1090 |
+| URS-BB-973 | Ready to issue's crossmatch link fills only the crossmatch form, and says Repeat only when a crossmatch was recorded. | P3 | FRS-BB-1091 |

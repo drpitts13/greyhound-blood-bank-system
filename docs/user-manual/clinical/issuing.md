@@ -30,7 +30,7 @@ Ready to issue opens first. Reserved units are listed so you do not retype the p
 - A red cell that still needs a second concordant ABO or Rh is not offered for routine issue.
 - A missing or expired specimen is not offered for routine issue. If the unit is group O red cells or group AB or A plasma, the row offers **Emergency** to those with emergency-release permission (see Before a specimen is drawn, below).
 - An outdated unit is not offered.
-- A unit that still needs a compatible crossmatch is not offered for routine issue. When its compatible crossmatch has expired, the status reads **Crossmatch expired** instead of Ready for issue, here and on the patient's Products tab. Repeat the crossmatch on a current specimen.
+- A unit that still needs a compatible crossmatch is not offered for routine issue. When its compatible crossmatch has expired, the status reads **Crossmatch expired** instead of Ready for issue, here and on the patient's Products tab. Repeat the crossmatch on a current specimen. The row's **Crossmatch** (or **Repeat crossmatch**, when one was recorded) opens Compatibility's crossmatch form with the patient and unit filled in.
 - An open antibody workup is marked and can still be issued.
 - A unit inside the near-expiry window is marked and can still be issued.
 - When electronic crossmatch is not eligible, the row shows the reason. Serologic issue is unchanged.

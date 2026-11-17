@@ -400,7 +400,9 @@
                                        crossmatch for this patient and unit, on a current specimen. *@
                                     @if (!row.SpecimenBlocksIssue && Session.Has(PermissionCodes.CompatibilityCrossmatch))
                                     {
-                                        <a class="btn btn-ghost btn-sm" href="@($"/compatibility?patientId={row.PatientId}&bloodUnitId={row.BloodUnitId}")" title="@row.CrossmatchNotice" data-ready-recrossmatch>Repeat crossmatch</a>
+                                        @* Pass 194: "Repeat" only when a crossmatch was recorded; the link fills only the crossmatch form
+                                           (the unit is already reserved, so Allocate unit would not list it). *@
+                                        <a class="btn btn-ghost btn-sm" href="@($"/compatibility?patientId={row.PatientId}&bloodUnitId={row.BloodUnitId}&from=xm")" title="@row.CrossmatchNotice" data-ready-recrossmatch>@(row.LatestCrossmatchResult is null or CrossmatchResult.NotPerformed ? "Crossmatch" : "Repeat crossmatch")</a>
                                     }
                                 }
                                 else if (!string.IsNullOrWhiteSpace(row.CrossmatchNotice))

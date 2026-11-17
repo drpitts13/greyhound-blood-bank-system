@@ -25978,3 +25978,21 @@ Followed up pass 192 on Demo-Special, Avery's chart (MRN0023): the irradiated re
 ### Tests
 
 - TEST-BB-1215. Full suite passed.
+
+## Iteration 914 — End-user testing pass 194: Ready to issue's crossmatch link (2026-11-17)
+
+### How it was tested
+
+Followed Demo-Special, Avery's reserved irradiated red cell W000026123460 (pass 193) to Issue & Transfuse › Ready to issue, where it is listed with *A compatible, unexpired crossmatch is required for this product*.
+
+### Found and fixed
+
+1. **The row's link said Repeat for a unit never crossmatched, and filled the wrong form too.** Ready to issue offered **Repeat crossmatch** although no crossmatch had been recorded for the unit, and the link put the reserved unit into Compatibility's Allocate unit form as well, which then read *Unit record … is not in this list* (the problem pass 193 found from the chart). The link now says **Crossmatch** when none was recorded (Repeat crossmatch when one was) and fills only the crossmatch form.
+
+### Retested live
+
+- Avery's row offers **Crossmatch**, opening Compatibility with her and the unit in the crossmatch form and nothing in Allocate unit. No crossmatch was recorded.
+
+### Tests
+
+- TEST-BB-1216. Full suite passed.

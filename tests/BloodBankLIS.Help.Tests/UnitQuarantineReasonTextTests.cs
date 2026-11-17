@@ -69,5 +69,11 @@ public class CrossmatchCueLinkTests
         Assert.Contains("\"&from=xm\"", tab);
         Assert.Contains("PatientChartUrls.Order(Patient?.Id ?? 0, a.OrderNumber)", tab);
         Assert.DoesNotContain("<span class=\"muted\">Link a specimen to the order before crossmatch.</span>", tab);
+
+        // TEST-BB-1216 (pass 194): Ready to issue's crossmatch link fills only the crossmatch form and says Crossmatch when
+        // none was recorded.
+        var issuing = File.ReadAllText(Path.Combine(dir.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "Issuing.razor"));
+        Assert.Contains("&bloodUnitId={row.BloodUnitId}&from=xm", issuing);
+        Assert.Contains("row.LatestCrossmatchResult is null or CrossmatchResult.NotPerformed ? \"Crossmatch\" : \"Repeat crossmatch\"", issuing);
     }
 }
