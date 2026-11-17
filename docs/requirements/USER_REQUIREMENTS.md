@@ -985,3 +985,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-977 | The antibody card page warns before printing when the ABO/Rh it carries is under QC review. | P2 | FRS-BB-1095 |
 | URS-BB-978 | The downtime patient summary says beside the ABO/Rh when it is under QC review, naming the lot. | P2 | FRS-BB-1096 |
 | URS-BB-979 | The chart's Test history marks a result still to review after a reagent lot it was tested with failed QC. | P2 | FRS-BB-1097 |
+| URS-BB-980 | The audit trail names record types in words in its filter and Entity column. | P3 | FRS-BB-1098 |

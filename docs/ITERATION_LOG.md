@@ -26104,3 +26104,21 @@ Opened Demo, Patricia's (MRN0001) Test history: the ABO/Rh (O+) and antibody scr
 ### Tests
 
 - TEST-BB-1222. Full suite passed.
+
+## Iteration 921 — End-user testing pass 201: audit record types in words (2026-11-17)
+
+### How it was tested
+
+Opened Quality & review › Audit trail: 4,357 entries, newest first, with filters for event, user, record type, record (scan or type), and date range or quick range, and columns for when, action, record, user, workstation, reason, old and new values and signature.
+
+### Found and fixed
+
+1. **Record types were code names.** The record type filter listed *InterfaceErrorQueueItem*, *BloodComponentScanSessionLine*, *PatientBloodTypeHistory* and the rest, and the Entity column read the same (*BloodUnit #79*). Both now read in words (*Interface error queue item*, *Blood unit #79*); the filter still matches the stored name.
+
+### Retested live
+
+- The record type filter reads *Blood unit*, *Interface error queue item*. The first retest showed the Entity column running the type into its number (*Alert#14*, *Instrument interface log#535*: the space between two values was dropped when the page was drawn, as it had been before); it now reads *Alert #14*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1223. Full suite passed.

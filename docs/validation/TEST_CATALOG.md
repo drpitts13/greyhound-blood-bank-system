@@ -1231,5 +1231,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1220 | U | `AntibodyCardQcReviewTests.AntibodyCard_WarnsWhenTheTypeIsUnderQcReview` | URS-BB-977 / FRS-BB-1095 |
 | TEST-BB-1221 | I | `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-978 / FRS-BB-1096 |
 | TEST-BB-1222 | U | `TestHistoryQcReviewTests.TestHistory_MarksAResultUnderQcReview` | URS-BB-979 / FRS-BB-1097 |
+| TEST-BB-1223 | U | `AuditEntityTypeWordsTests.AuditEntityTypes_AreShownInWords` | URS-BB-980 / FRS-BB-1098 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

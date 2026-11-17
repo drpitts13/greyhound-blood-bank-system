@@ -38,7 +38,7 @@
                 <option value="">All types</option>
                 @foreach (var t in EntityTypeChoices)
                 {
-                    <option value="@t">@Ui.EnumText(t)</option>
+                    <option value="@t">@Ui.CodeNameText(t)</option>
                 }
             </select>
         </div>
@@ -105,11 +105,11 @@
                         <td>
                             @if (EntityHref(e) is { } href)
                             {
-                                <a href="@href">@e.EntityType @(e.EntityName ?? (e.EntityId is null ? "" : $"#{e.EntityId}"))</a>
+                                <a href="@href">@($"{Ui.CodeNameText(e.EntityType)} {e.EntityName ?? (e.EntityId is null ? "" : $"#{e.EntityId}")}".Trim())</a>
                             }
                             else
                             {
-                                @e.EntityType @(e.EntityName ?? (e.EntityId is null ? "" : $"#{e.EntityId}"))
+                                @($"{Ui.CodeNameText(e.EntityType)} {e.EntityName ?? (e.EntityId is null ? "" : $"#{e.EntityId}")}".Trim())
                             }
                         </td>
                         <td>@e.UserName</td>

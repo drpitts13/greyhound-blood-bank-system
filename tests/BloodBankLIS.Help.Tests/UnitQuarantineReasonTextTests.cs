@@ -77,3 +77,25 @@ public class CrossmatchCueLinkTests
         Assert.Contains("row.LatestCrossmatchResult is null or CrossmatchResult.NotPerformed ? \"Crossmatch\" : \"Repeat crossmatch\"", issuing);
     }
 }
+
+public class AuditEntityTypeWordsTests
+{
+    // TEST-BB-1223: the audit trail names record types in words ("Interface error queue item", "Blood unit"), keeping
+    // the stored name as the filter value (end-user testing pass 201).
+    [Fact]
+    public void AuditEntityTypes_AreShownInWords()
+    {
+        Assert.Equal("Interface error queue item", Ui.CodeNameText("InterfaceErrorQueueItem"));
+        Assert.Equal("Blood unit", Ui.CodeNameText("BloodUnit"));
+
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var page = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "Audit.razor"));
+        Assert.Contains("<option value=\"@t\">@Ui.CodeNameText(t)</option>", page);
+        Assert.Contains("{Ui.CodeNameText(e.EntityType)} {e.EntityName", page);
+    }
+}
