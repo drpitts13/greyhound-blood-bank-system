@@ -186,6 +186,17 @@
         {
             <div class="alert alert-danger">@_detail.Message.ErrorDetail</div>
         }
+        @* Pass 215: what to do next, with links to the specimen and the patient. *@
+        @if (_detail.Message.OpenFailure && InstrumentFailureNextStep.For(_detail.Message.ErrorDetail, _detail.Message.SpecimenId, _detail.Message.PatientId) is { } nextStep)
+        {
+            <p class="muted" style="margin:.3rem 0;" data-inst-next-step>
+                @nextStep.Text
+                @foreach (var link in nextStep.Links)
+                {
+                    <a class="btn btn-ghost btn-sm" href="@link.Href">@link.Text</a>
+                }
+            </p>
+        }
         @if (_detail.Message.ResolvedUtc is DateTime resolvedAt)
         {
             <div class="alert alert-info">Resolved @resolvedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @_detail.Message.ResolvedBy: @_detail.Message.ResolutionNote</div>

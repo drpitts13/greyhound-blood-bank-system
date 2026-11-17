@@ -26362,3 +26362,25 @@ Walked the QC and bench screens (Reagent QC, Equipment, Store tubes, RhIG) and t
 ### Tests
 
 - TEST-BB-1236. Full suite passed.
+
+## Iteration 935 — End-user testing pass 215: next step on an instrument failure (2026-11-17)
+
+### How it was tested
+
+Opened Instrument status & logs and the open failures: message 8 (*Test DAT is not ordered on specimen ACC-DEMO-RCV1 (INST-NOT-ORDERED): not posted*) and the patient-mismatch failure on ACC-UAT-010.
+
+### Found and fixed
+
+1. **A failure offered only Replay and Resolve.** The help says to fix the cause (for example place the missing order) and replay, but the message gave no way to reach the patient or specimen; the tech had to note the MRN and search. An open failure now says what to do and links to where: a test not ordered → order it on the patient's chart, then Replay, with **Find patient MRN0022**; a patient mismatch → check the tube and label, with the specimen on Test Worklist and the patient; an unknown instrument code → **Unmapped values**. The failure, replay and resolve rules are unchanged.
+
+### Also checked, no change
+
+- A replayed QC sample's original failure (11-14, resolved) still shows the instrument's fixed patient ID 1171984; the replay itself reads *— QC*. Left as recorded.
+
+### Retested live
+
+- Message 8 shows the step with *Find patient MRN0022*, which opens the patient list on Demo-Multi, Riley. A first draft also linked the tube's Test Worklist, which lists no tests for an order not placed, so it was dropped for this case. On the patient-mismatch failure (ACC-UAT-010) the links read *Specimen ACC-UAT-010 on Test Worklist* and *Patient the instrument sent (MRN0022)*, so the instrument's ID is not taken for the specimen's patient. Nothing was replayed or resolved.
+
+### Tests
+
+- TEST-BB-1237. Full suite passed; the Help tests were rerun after the two link changes (Web only).

@@ -1105,6 +1105,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-991 / FRS-BB-1109 | End-user testing pass 212: expired units in the wrong storage | `InventoryLocationPolicyRule.cs`, `Inventory.razor` | TEST-BB-1234 | D | |
 | URS-BB-992 / FRS-BB-1110 | End-user testing pass 213: Review not offered on one's own QC | `ReagentQcService.cs`, `Reagents.razor` | TEST-BB-1235 | I | |
 | URS-BB-993 / FRS-BB-1111 | End-user testing pass 214: maternal antibodies on Ready to issue | `IssuingDtos.cs`, `IssuingService.cs`, `Issuing.razor` | TEST-BB-1236 | I | |
+| URS-BB-994 / FRS-BB-1112 | End-user testing pass 215: next step on an instrument failure | `InstrumentFailureNextStep.cs`, `Instruments.razor` | TEST-BB-1237 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
