@@ -20,7 +20,7 @@
         <div class="bb-card-title"><h3>Status</h3></div>
         <p>
             Last verified backup:
-            <strong>@(status.LastGoodUtc is DateTime last ? $"{last:yyyy-MM-dd HH:mm} UTC" : "none")</strong>
+            <strong>@(status.LastGoodUtc is DateTime last ? $"{last.ToLocalTime():yyyy-MM-dd HH:mm}" : "none")</strong>
             @if (status.Overdue)
             {
                 <span class="badge badge-red" style="margin-left:.5rem;">Overdue</span>

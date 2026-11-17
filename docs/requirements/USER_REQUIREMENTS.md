@@ -986,3 +986,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-978 | The downtime patient summary says beside the ABO/Rh when it is under QC review, naming the lot. | P2 | FRS-BB-1096 |
 | URS-BB-979 | The chart's Test history marks a result still to review after a reagent lot it was tested with failed QC. | P2 | FRS-BB-1097 |
 | URS-BB-980 | The audit trail names record types in words in its filter and Entity column. | P3 | FRS-BB-1098 |
+| URS-BB-981 | The temperature excursion deviation, the expiry status note, a reaction's closed and reopened times and the last good backup give local time. | P3 | FRS-BB-1099 |

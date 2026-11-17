@@ -198,7 +198,7 @@ else
             {
                 @* A signed investigation is read-only; changing it is an explicit, reasoned reopen. *@
                 <div class="alert alert-info">
-                    <strong>Closed and signed</strong>@(_selected.ClosedBy is null ? "" : $" by {_selected.ClosedBy}")@(_selected.ClosedUtc is DateTime closedAt ? $" on {closedAt:yyyy-MM-dd HH:mm} UTC" : "").
+                    <strong>Closed and signed</strong>@(_selected.ClosedBy is null ? "" : $" by {_selected.ClosedBy}")@(_selected.ClosedUtc is DateTime closedAt ? $" on {closedAt.ToLocalTime():yyyy-MM-dd HH:mm}" : "").
                     The workup and conclusions are locked. To change them, reopen the investigation with a reason; it must then be closed again with a new signature.
                     <div class="form-row" style="margin-top:.5rem;align-items:end;">
                         <div class="field" style="flex:2;"><label>Reason for reopening</label><input @bind="_reopenReason" placeholder="e.g. Late culture result changes the conclusion" /></div>
@@ -209,7 +209,7 @@ else
             else if (_selected.ReopenedBy is not null)
             {
                 <div class="alert alert-warning">
-                    Reopened by @_selected.ReopenedBy@(_selected.ReopenedUtc is DateTime reopenedAt ? $" on {reopenedAt:yyyy-MM-dd HH:mm} UTC" : ""): @_selected.ReopenReason. Close it again with a new signature when the changes are done.
+                    Reopened by @_selected.ReopenedBy@(_selected.ReopenedUtc is DateTime reopenedAt ? $" on {reopenedAt.ToLocalTime():yyyy-MM-dd HH:mm}" : ""): @_selected.ReopenReason. Close it again with a new signature when the changes are done.
                 </div>
             }
             @if (_selected.IssuedWhileOpen is { Count: > 0 } issuedMeanwhile)

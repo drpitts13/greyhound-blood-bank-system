@@ -2842,7 +2842,7 @@ public sealed class InventoryService
                 ToStatus = UnitStatus.Expired,
                 FromLocationId = unit.CurrentLocationId,
                 ToLocationId = unit.CurrentLocationId,
-                Reason = $"Expired at {ClinicalTimeText.Utc(unit.ExpiresUtc)}",
+                Reason = $"Expired at {ClinicalTimeText.Local(unit.ExpiresUtc)}",
                 ChangedBy = _currentUser.UserName,
                 ChangedUtc = now
             });

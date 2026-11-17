@@ -26122,3 +26122,21 @@ Opened Quality & review › Audit trail: 4,357 entries, newest first, with filte
 ### Tests
 
 - TEST-BB-1223. Full suite passed.
+
+## Iteration 922 — End-user testing pass 202: the times pass 189 missed (2026-11-17)
+
+### How it was tested
+
+After pass 201's run-together *Alert#14*, checked other places that put two values side by side (the context links on Deviations read correctly), and read the Deviations board: DEV-3 and DEV-4, the temperature excursions at FRIDGE-1 and OR-FRIDGE.
+
+### Found and fixed
+
+1. **Deviation text still gave UTC.** DEV-3 read *Main Blood Bank Refrigerator read 8.5 °C at 2026-11-12 16:43 UTC against a range of 1.0 to 6.0 °C*; pass 189 changed the excursion alert but not the deviation it opens. Found with it: the status note when a unit expires (*Expired at … UTC*), a reaction's *Closed and signed … on … UTC* and *Reopened … on … UTC*, and Backups' last good backup. All now give local time. Deviations and notes already written keep their text; the equipment log export keeps its UTC and local columns.
+
+### Retested live
+
+- Backups reads *Last verified backup: 2026-11-16 12:48* in local time (no UTC). DEV-3 and DEV-4 were written before the change and keep their UTC wording; a new excursion or expiry note, and a reaction closed or reopened, will read in local time. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1224. Full suite passed.

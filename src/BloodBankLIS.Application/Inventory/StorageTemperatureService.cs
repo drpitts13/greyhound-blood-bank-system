@@ -180,7 +180,7 @@ public sealed class StorageTemperatureService
             {
                 Title = $"Storage temperature excursion at {location.Code}",
                 Description =
-                    $"{location.Name} read {reading.ReadingC} °C at {ClinicalTimeText.Utc(readingUtc)} against a range of {RangeText(location.StorageTempMinC, location.StorageTempMaxC)}. " +
+                    $"{location.Name} read {reading.ReadingC} °C at {ClinicalTimeText.Local(readingUtc)} against a range of {RangeText(location.StorageTempMinC, location.StorageTempMaxC)}. " +
                     $"{stored} unit(s) were stored there. Review the units before release or issue.",
                 Severity = DeviationSeverity.Major,
                 Status = DeviationStatus.Open,
