@@ -662,7 +662,15 @@ public sealed record InterfaceUnmappedValueDto(
     string? ResolvedNote,
     // Set when the value came from an instrument rather than an EHR interface.
     long? InstrumentInterfaceId = null,
-    string? InstrumentName = null);
+    string? InstrumentName = null)
+{
+    /// <summary>
+    /// An inbound order code that is now the LIS's own test, grouper or product code, so it is used as it comes and needs
+    /// no translation (end-user testing pass 204: RBC-LR and TNS were listed from messages that had processed,
+    /// recorded before such codes stopped being listed in pass 147).
+    /// </summary>
+    public bool AlreadyLisCode { get; init; }
+}
 
 // ---- Users & roles ----
 

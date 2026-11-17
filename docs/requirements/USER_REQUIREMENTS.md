@@ -988,3 +988,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-980 | The audit trail names record types in words in its filter and Entity column. | P3 | FRS-BB-1098 |
 | URS-BB-981 | The temperature excursion deviation, the expiry status note, a reaction's closed and reopened times and the last good backup give local time. | P3 | FRS-BB-1099 |
 | URS-BB-982 | Raw HL7 and ASTM messages are shown one segment or record per line. | P3 | FRS-BB-1100 |
+| URS-BB-983 | The unmapped values list marks an inbound order code that is now an LIS test, grouper or product code as needing no translation. | P3 | FRS-BB-1101 |

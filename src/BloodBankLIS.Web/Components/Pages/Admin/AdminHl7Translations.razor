@@ -290,7 +290,13 @@ else
                     {
                         <tr data-xl-unmapped-row="@u.Value">
                             <td>@u.DisplayName</td>
-                            <td><code>@u.Value</code></td>
+                            <td><code>@u.Value</code>
+                                @if (u.AlreadyLisCode)
+                                {
+                                    @* Pass 204: listed before such codes stopped being recorded; dismiss it. *@
+                                    <div class="sub" data-xl-already-lis-code>Now an LIS code: used as it comes, no translation needed. Dismiss it.</div>
+                                }
+                            </td>
                             <td>@(u.InstrumentInterfaceId is null ? DirectionText(u.Direction) : u.Direction == InterfaceTranslationDirection.Outbound ? "Outbound (to instrument)" : "Inbound (from instrument)")</td>
                             <td>@(u.InstrumentName is { } instrument ? $"{instrument} (instrument)" : u.EndpointName ?? "—")</td>
                             <td class="right">@u.Count</td>

@@ -26158,3 +26158,21 @@ Opened deviation DEV-3 (the FRIDGE-1 excursion: its two automatic quarantine run
 ### Tests
 
 - TEST-BB-1225. Full suite passed.
+
+## Iteration 924 — End-user testing pass 204: unmapped order codes that are LIS codes (2026-11-17)
+
+### How it was tested
+
+Opened Administration › HL7 translations › Unmapped values: eight open values, among them order codes RBC-LR (LIVE-PRD-2), TNS (UAT-ORM-DUP-2) and RBC (UAT-ORM-CA-3), the instrument interpretation *Negative* and result test code *Antigen*, and patient class *I*.
+
+### Found and fixed
+
+1. **Codes that need no translation were listed with those that do.** RBC-LR and TNS are the LIS's own product and grouper codes: the messages carrying them were processed (LIVE-PRD-2, UAT-ORM-DUP-1). Since pass 147 such a code is not listed when it arrives, but these were listed before and stay open, so the interface team could spend time on translations that are not needed. Each open inbound order code that is now an LIS code says *Now an LIS code: used as it comes, no translation needed. Dismiss it.* Nothing is cleared automatically.
+
+### Retested live
+
+- RBC-LR and TNS carry the note; RBC (not an LIS code: UAT-ORM-CA-3 was replayed through a translation), LAB10117, LAB99999 and the instrument values do not. Nothing was dismissed.
+
+### Tests
+
+- TEST-BB-1226. Full suite passed.

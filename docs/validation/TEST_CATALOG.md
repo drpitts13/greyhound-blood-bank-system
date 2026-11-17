@@ -1234,5 +1234,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1223 | U | `AuditEntityTypeWordsTests.AuditEntityTypes_AreShownInWords` | URS-BB-980 / FRS-BB-1098 |
 | TEST-BB-1224 | U | `LocalTimeSourceTests.RemainingStaffTexts_GiveLocalTime` | URS-BB-981 / FRS-BB-1099 |
 | TEST-BB-1225 | U | `MessageRawTextTests.ForDisplay_PutsEachSegmentOnItsOwnLine` | URS-BB-982 / FRS-BB-1100 |
+| TEST-BB-1226 | I | `UnmappedAlreadyLisCodeTests.OpenOrderCodeThatIsAnLisCode_IsMarked` | URS-BB-983 / FRS-BB-1101 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

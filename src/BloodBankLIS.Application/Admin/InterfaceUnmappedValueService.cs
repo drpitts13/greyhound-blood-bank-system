@@ -29,8 +29,10 @@ public sealed class InterfaceUnmappedValueService
         ICurrentUser? currentUser = null,
         IAuditWriter? audit = null,
         IRepository<InterfaceEndpoint>? endpoints = null,
-        IRepository<InstrumentInterface>? instruments = null)
+        IRepository<InstrumentInterface>? instruments = null,
+        InterfaceValueSets? valueSets = null)
     {
+        _valueSets = valueSets;
         _values = values;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -163,6 +165,8 @@ public sealed class InterfaceUnmappedValueService
         await _unitOfWork.SaveChangesAsync(ct);
     }
 
+    private readonly InterfaceValueSets? _valueSets;
+
     public async Task<IReadOnlyList<InterfaceUnmappedValueDto>> ListAsync(bool openOnly, CancellationToken ct = default)
     {
         var since = _clock.UtcNow.AddDays(-30);
@@ -181,6 +185,10 @@ public sealed class InterfaceUnmappedValueService
             names[field.Key] = field.DisplayName;
         }
 
+        var lisOrderCodes = _valueSets is null
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : (await _valueSets.ForAsync(InterfaceDataItemKeys.OrderTestCode, ct)).Select(k => k.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         return rows
             .OrderBy(v => v.ResolvedUtc is null ? 0 : 1)
             .ThenByDescending(v => v.LastSeenUtc)
@@ -188,7 +196,11 @@ public sealed class InterfaceUnmappedValueService
                 v.Id, v.EndpointId, v.EndpointId is long id ? endpoints.GetValueOrDefault(id) : null,
                 v.DataItemKey, names.GetValueOrDefault(v.DataItemKey, v.DataItemKey), v.Value, v.Direction,
                 v.FirstSeenUtc, v.LastSeenUtc, v.Count, v.LastMessageControlId, v.ResolvedUtc, v.ResolvedBy, v.ResolvedNote,
-                v.InstrumentInterfaceId, v.InstrumentInterfaceId is long iid ? instruments.GetValueOrDefault(iid) : null))
+                v.InstrumentInterfaceId, v.InstrumentInterfaceId is long iid ? instruments.GetValueOrDefault(iid) : null)
+            {
+                AlreadyLisCode = v.ResolvedUtc is null && v.InstrumentInterfaceId is null && v.Direction == InterfaceTranslationDirection.Inbound
+                    && v.DataItemKey == InterfaceDataItemKeys.OrderTestCode && lisOrderCodes.Contains(v.Value.Trim())
+            })
             .ToList();
     }
 
