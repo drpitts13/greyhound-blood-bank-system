@@ -997,3 +997,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-989 | The top-bar lookup's patient hit shows an infant's mother's active antibodies. | P2 | FRS-BB-1107 |
 | URS-BB-990 | Blood orders to prepare shows an infant's mother's active antibodies on the infant's order. | P2 | FRS-BB-1108 |
 | URS-BB-991 | The inventory list's wrong-storage note says to discard expired units rather than move them. | P3 | FRS-BB-1109 |
+| URS-BB-992 | The reagent QC worklist does not offer Review on QC the signed-in user performed. | P3 | FRS-BB-1110 |

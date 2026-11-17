@@ -26320,3 +26320,21 @@ Opened Inventory with the default search (units in stock).
 ### Tests
 
 - TEST-BB-1234. Full suite passed.
+
+## Iteration 933 — End-user testing pass 213: Review offered on one's own QC (2026-11-17)
+
+### How it was tested
+
+Opened Reagent QC as DEV_ADMIN, who performed all eight unreviewed QC rows of 2026-11-12, and read the worklist.
+
+### Found and fixed
+
+1. **Every Unreviewed row offered Review, which would be refused.** The reviewer must be a different person from the one who performed QC (hard stop `QC-REVIEW`), so each click would only bring back that error. The worklist item now carries who performed the QC, and a row you performed shows *You performed it: another person reviews it* in place of the button. Another user still sees **Review**; the hard stop is unchanged.
+
+### Retested live
+
+- All eight Unreviewed rows show the note and no Review button. Nothing was reviewed or recorded.
+
+### Tests
+
+- TEST-BB-1235. Full suite passed.

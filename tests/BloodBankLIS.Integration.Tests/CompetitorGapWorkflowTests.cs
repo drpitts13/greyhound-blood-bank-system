@@ -65,6 +65,10 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.True(qc.Succeeded, qc.Error);
         var self = await service.ReviewAsync(qc.Value!.Id);
         Assert.False(self.Succeeded);
+        // TEST-BB-1235 (end-user testing pass 213): the Unreviewed item names who performed the QC, so the page offers
+        // Review only to someone else.
+        Assert.Equal(_factory.CurrentUser.UserName,
+            Assert.Single(await service.ListWorkAsync(), w => w.QcId == qc.Value.Id && w.Kind == ReagentQcWorklistRule.Unreviewed).PerformedBy);
 
         var reviewed = await Qc(context, new TestCurrentUser("lead-test", "WORKSTATION-1")).ReviewAsync(qc.Value.Id);
         Assert.True(reviewed.Succeeded, reviewed.Error);

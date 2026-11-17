@@ -38,7 +38,13 @@
                         <td class="mono">@row.LotNumber</td>
                         <td>@row.Message</td>
                         <td>
-                            @if (row.QcId is long qcId && row.Kind == ReagentQcWorklistRule.Unreviewed && Session.Has(PermissionCodes.ResultEnter))
+                            @if (row.QcId is long ownQcId && row.Kind == ReagentQcWorklistRule.Unreviewed
+                                 && string.Equals(row.PerformedBy?.Trim(), Session.UserName?.Trim(), StringComparison.OrdinalIgnoreCase))
+                            {
+                                @* Pass 213: the performer may not review their own QC; Review was offered and then refused. *@
+                                <span class="muted" data-qc-own-review title="The reviewer must be a different person from the one who performed QC">You performed it: another person reviews it</span>
+                            }
+                            else if (row.QcId is long qcId && row.Kind == ReagentQcWorklistRule.Unreviewed && Session.Has(PermissionCodes.ResultEnter))
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => ReviewAsync(qcId)">Review</button>
                             }

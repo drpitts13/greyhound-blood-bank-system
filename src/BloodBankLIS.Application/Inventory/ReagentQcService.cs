@@ -126,7 +126,14 @@ public sealed record ReagentQcWorkItemDto(
     long? QcId,
     string Message,
     // A failed lot: results recorded with it since its last passed QC, to review.
-    int ResultsToReview = 0);
+    int ResultsToReview = 0)
+{
+    /// <summary>
+    /// Who performed the QC row (QC items only), so the worklist does not offer Review to that person, who may not
+    /// review it (end-user testing pass 213).
+    /// </summary>
+    public string? PerformedBy { get; init; }
+}
 
 public sealed record SaveReagentRequest(string Code, string Name, string? TestCodes = null);
 
@@ -783,7 +790,10 @@ public sealed class ReagentQcService
                 item.LotId,
                 lotNumbers.TryGetValue(item.LotId, out var number) ? number : string.Empty,
                 item.QcId,
-                item.Message))
+                item.Message)
+            {
+                PerformedBy = item.QcId is long qcId ? rows.FirstOrDefault(q => q.Id == qcId)?.PerformedBy : null
+            })
             .ToList();
         if (_resultLots is null)
         {
