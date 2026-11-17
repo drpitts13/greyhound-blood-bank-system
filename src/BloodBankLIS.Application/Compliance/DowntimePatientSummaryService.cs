@@ -72,6 +72,12 @@ public sealed record DowntimePatientRow(
     /// end-user testing pass 199: the sheet, used when the chart cannot be seen, gave the type with no word of it).
     /// </summary>
     public IReadOnlyList<string> AboRhUnderQcReview { get; init; } = [];
+
+    /// <summary>
+    /// For an infant linked to its mother: her MRN and active antibodies, which may be present in the infant (end-user
+    /// testing pass 208: the sheet read "None on file" for an infant whose mother has anti-K).
+    /// </summary>
+    public string? MaternalAntibodies { get; init; }
 }
 
 public sealed record DowntimePatientSummary(DateTime GeneratedUtc, IReadOnlyList<DowntimePatientRow> Patients);
@@ -197,6 +203,12 @@ public sealed class DowntimePatientSummaryService
         var productNames = (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id, p => p.Name);
         var types = (await _bloodTypes.ListAsync(t => patientIds.Contains(t.PatientId), ct)).ToLookup(t => t.PatientId);
         var antibodyRows = await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
+        // Pass 208: the mothers of infants on the sheet, and their active antibodies.
+        var motherIds = patients.Where(p => p.MotherPatientId is not null).Select(p => p.MotherPatientId!.Value).Distinct().ToList();
+        var mothers = motherIds.Count == 0 ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => motherIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var maternalAntibodies = motherIds.Count == 0 ? Array.Empty<AntibodyHistory>().ToLookup(a => a.PatientId)
+            : (await _antibodies.ListAsync(a => motherIds.Contains(a.PatientId) && a.IsActive, ct)).ToLookup(a => a.PatientId);
         var antibodies = antibodyRows.Where(a => a.IsActive).ToLookup(a => a.PatientId);
         // The gate's antigen-negative requirements from every antibody on the history, current or historical.
         var allAntibodies = antibodyRows.ToLookup(a => a.PatientId);
@@ -295,6 +307,10 @@ public sealed class DowntimePatientSummaryService
                                 : null)
                             .OfType<string>()
                             .ToList(),
+                    MaternalAntibodies = p.MotherPatientId is long motherId && mothers.TryGetValue(motherId, out var mother)
+                        && BloodBankLIS.Application.Patients.PatientBloodBankFlags.ActiveAntibodies(maternalAntibodies[motherId]) is { Count: > 0 } maternal
+                        ? $"Mother {mother.MedicalRecordNumber}: {string.Join(", ", maternal)}"
+                        : null,
                     Reactions = reactionsByPatient[p.Id]
                         .OrderByDescending(r => r.ReportedUtc)
                         .Select(r => new DowntimeReactionLine(

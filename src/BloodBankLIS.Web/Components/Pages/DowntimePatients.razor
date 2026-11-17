@@ -120,6 +120,11 @@ else
                                 {
                                     <strong>@string.Join(", ", p.Antibodies)</strong>
                                 }
+                                @if (!string.IsNullOrWhiteSpace(p.MaternalAntibodies))
+                                {
+                                    @* Pass 208: maternal antibodies may be present in the infant. *@
+                                    <div class="sub" data-downtime-maternal-antibodies><strong>Maternal:</strong> @p.MaternalAntibodies (may be present in the infant)</div>
+                                }
                             </td>
                             <td>
                                 @if (p.SpecialRequirements.Count == 0 && p.Informational.Count == 0 && p.Rhig is not { Count: > 0 } && p.BloodOrders is not { Count: > 0 } && p.Reactions.Count == 0)

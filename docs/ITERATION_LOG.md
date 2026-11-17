@@ -26230,3 +26230,21 @@ Opened the chart of Newborn, Baby Boy (MRN0002, born 2026-11-06, NICU), who has 
 ### Tests
 
 - TEST-BB-1229. Full suite passed.
+
+## Iteration 928 — End-user testing pass 208: maternal antibodies on the downtime sheet (2026-11-17)
+
+### How it was tested
+
+Printed (on screen) the one-patient downtime summary for DEMO-MATAB, Baby Boy Lena (MRN0029), born 2026-11-13, whose mother DEMO-MATAB, Lena (MRN0028) has anti-K.
+
+### Found and fixed
+
+1. **The sheet said the infant had no antibodies.** His row read *Antibodies: None on file*. The chart shows his mother's anti-K and offers a K-negative requirement (pass 110), but during an outage the sheet is what the bench has, and it said nothing of her. An infant linked to its mother now shows *Maternal: Mother MRN0028: anti-K (may be present in the infant)* in the Antibodies column. Nothing is added to the infant's own record.
+
+### Retested live
+
+- MRN0029's sheet shows the maternal line under *None on file*. Nothing was printed.
+
+### Tests
+
+- TEST-BB-1230. Full suite passed.

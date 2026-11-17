@@ -489,4 +489,25 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Downtime patient summary printed.", printed.Reason);
         Assert.Contains(patient.Id.ToString(), printed.NewValueJson);
     }
+    // TEST-BB-1230: an infant's row names its mother's active antibodies, which may be present in the infant (end-user
+    // testing pass 208); a patient with no mother linked has none.
+    [Fact]
+    public async Task InfantRow_NamesTheMothersAntibodies()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var mother = new Patient { MedicalRecordNumber = $"MRN-MOM-{key}", LastName = "Mom", FirstName = "Pass208", DateOfBirth = new DateOnly(1990, 1, 1) };
+        c.Patients.Add(mother);
+        await c.SaveChangesAsync();
+        var infant = new Patient { MedicalRecordNumber = $"MRN-INF-{key}", LastName = "Infant", FirstName = "Pass208", DateOfBirth = new DateOnly(2026, 11, 10), MotherPatientId = mother.Id };
+        c.Patients.Add(infant);
+        c.AntibodyHistory.Add(new AntibodyHistory { PatientId = mother.Id, AntibodySpecificity = "Anti-K", IsActive = true });
+        await c.SaveChangesAsync();
+
+        var row = Assert.Single((await Service(c, withAttributes: false).GetAsync(infant.Id)).Patients);
+        Assert.NotNull(row.MaternalAntibodies);
+        Assert.StartsWith($"Mother MRN-MOM-{key}: ", row.MaternalAntibodies);
+        Assert.Contains("K", row.MaternalAntibodies);
+        Assert.Null(Assert.Single((await Service(c, withAttributes: false).GetAsync(mother.Id)).Patients).MaternalAntibodies);
+    }
 }
