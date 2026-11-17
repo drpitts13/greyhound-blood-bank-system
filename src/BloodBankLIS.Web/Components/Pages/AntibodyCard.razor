@@ -29,6 +29,11 @@
     special requirements in effect. It does not replace a pretransfusion sample. Printing is recorded in the audit trail.
 </p>
 <Outcome Value="_fb" />
+@if (QcReviewText.AboRh(_underQcReview) is { } underReview)
+{
+    @* Pass 198: the card carries the ABO/Rh to other hospitals; say before printing that it is under QC review. *@
+    <div class="alert alert-warning no-print" data-antibody-card-qc-review>@underReview Check the type before printing the card.</div>
+}
 
 @if (!Session.Has(PermissionCodes.ResultEnter))
 {
@@ -81,6 +86,8 @@ else
     private Feedback? _fb;
     private bool _busy;
 
+    private List<PatientResultUnderQcReviewDto> _underQcReview = new();
+
     private bool NothingToCarry => _card is { Antibodies.Count: 0, SpecialRequirements.Count: 0 };
 
     protected override async Task OnInitializedAsync()
@@ -91,6 +98,8 @@ else
         }
 
         _facility = (await Api.GetFacilityIdentityAsync()).Value;
+        var underReview = await Api.GetPatientResultsUnderQcReviewAsync(PatientId);
+        _underQcReview = underReview.Succeeded ? underReview.Value ?? new() : new();
         var r = await Api.GetAntibodyCardAsync(PatientId);
         if (r.Succeeded)
         {

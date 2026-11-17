@@ -26050,3 +26050,21 @@ Opened the chart of Febrile, Marcus (MRN0006) on the DAT / Elution tab. His reac
 ### Tests
 
 - TEST-BB-1219. Full suite passed.
+
+## Iteration 918 — End-user testing pass 198: the antibody card and a type under QC review (2026-11-17)
+
+### How it was tested
+
+Opened the antibody card for Kellerman, Diane (MRN0004): *ABO/Rh O+, Antibodies: anti-K, Requires: K-negative red cells*. Her ABO/Rh is the result still to review after anti-D lot AD-24092 failed QC (pass 181).
+
+### Found and fixed
+
+1. **The card would carry a type under QC review with no word.** The chart marks her blood type **Under QC review** (pass 181), but the card page, which prints the type for the patient to show at other hospitals, said nothing. It now shows the same warning above the card before printing (*ABO/Rh tested with ANTI-D lot AD-24092, whose QC failed; the result is to review on Reagent QC before relying on it. Check the type before printing the card.*). As decided for pass 181, it warns and does not stop printing; the warning is not on the printed card.
+
+### Retested live
+
+- MRN0004's card page shows the warning; nothing was printed.
+
+### Tests
+
+- TEST-BB-1220. Full suite passed.

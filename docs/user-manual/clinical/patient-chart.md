@@ -45,7 +45,7 @@ When the mother has a clinically significant antibody (one the antigen catalog m
 
 ## Antibody card
 
-**Antibody card** in the chart header shows a wallet-size card for the patient to carry: name, date of birth, MRN, blood type, the active antibodies (one known only from another facility's report says "reported by" that facility), and the special requirements in effect, with the instruction to show it to the blood bank before any transfusion. **Print card** prints it; the print is recorded in the audit trail with what the card carried. A patient with no antibody and no special requirement on file has nothing to carry, so no card is printed. The card does not replace a pretransfusion sample.
+**Antibody card** in the chart header shows a wallet-size card for the patient to carry: name, date of birth, MRN, blood type, the active antibodies (one known only from another facility's report says "reported by" that facility); when the ABO/Rh is under QC review (see the blood type above) the page says so before you print, without stopping you, and the special requirements in effect, with the instruction to show it to the blood bank before any transfusion. **Print card** prints it; the print is recorded in the audit trail with what the card carried. A patient with no antibody and no special requirement on file has nothing to carry, so no card is printed. The card does not replace a pretransfusion sample.
 
 ## Changing identity
 

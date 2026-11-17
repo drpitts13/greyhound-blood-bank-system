@@ -1228,5 +1228,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1217 | U | `ElapsedTextTests.FromMinutes_ReadsAtAGlance` | URS-BB-974 / FRS-BB-1092 |
 | TEST-BB-1218 | U | `MtpIdleRuleTests.IdleTime_RunsFromTheLastIssue_AndZeroIsOff` | URS-BB-975 / FRS-BB-1093 |
 | TEST-BB-1219 | U | `ReactionDatTextTests.For_ListsThePatientsReactionDats` | URS-BB-976 / FRS-BB-1094 |
+| TEST-BB-1220 | U | `AntibodyCardQcReviewTests.AntibodyCard_WarnsWhenTheTypeIsUnderQcReview` | URS-BB-977 / FRS-BB-1095 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

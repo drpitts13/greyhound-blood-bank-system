@@ -17,3 +17,23 @@ public class QcReviewTextTests
             QcReviewText.AboRh([new PatientResultUnderQcReviewDto(5, "ABORH", 3, "ANTI-D", "AD-24092")]));
     }
 }
+
+public class AntibodyCardQcReviewTests
+{
+    // TEST-BB-1220: the antibody card page warns before printing when the ABO/Rh it carries is under QC review
+    // (end-user testing pass 198); like the chart, it does not stop printing.
+    [Fact]
+    public void AntibodyCard_WarnsWhenTheTypeIsUnderQcReview()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var page = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "AntibodyCard.razor"));
+        Assert.Contains("QcReviewText.AboRh(_underQcReview)", page);
+        Assert.Contains("GetPatientResultsUnderQcReviewAsync(PatientId)", page);
+        Assert.Contains("data-antibody-card-qc-review", page);
+    }
+}
