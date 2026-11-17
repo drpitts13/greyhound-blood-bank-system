@@ -62,6 +62,30 @@ public static class InventoryLocationPolicyRule
             ? $"{locationCode} does not take {ComponentWords(component)}"
             : null;
 
+    /// <summary>
+    /// The inventory list's note over units in the wrong storage. Expired ones are to be discarded, not moved (end-user
+    /// testing pass 212: all nine flagged units had expired, and the note said to move them). Null when none.
+    /// </summary>
+    public static string? WrongStorageSummary(int misplaced, int expired)
+    {
+        if (misplaced <= 0)
+        {
+            return null;
+        }
+
+        expired = Math.Clamp(expired, 0, misplaced);
+        var where = $"{misplaced} {(misplaced == 1 ? "unit is" : "units are")} stored where the location does not take the component (marked below).";
+        if (expired == misplaced)
+        {
+            return $"{where} {(misplaced == 1 ? "It has" : misplaced == 2 ? "Both have" : "All have")} expired: discard {(misplaced == 1 ? "it" : "them")} (Discard expired) rather than moving {(misplaced == 1 ? "it" : "them")}.";
+        }
+
+        var move = "Move them, or correct the location record, following your storage procedure.";
+        return expired == 0
+            ? $"{where} {move}"
+            : $"{where} {expired} of them {(expired == 1 ? "has" : "have")} expired: discard {(expired == 1 ? "it" : "those")} (Discard expired). {move.Replace("Move them", "Move the rest")}";
+    }
+
     public static string ComponentWords(ComponentClass component) => component switch
     {
         ComponentClass.RedBloodCells => "red cells",

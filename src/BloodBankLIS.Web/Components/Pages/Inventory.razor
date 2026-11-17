@@ -893,11 +893,11 @@
     }
     else
     {
-        @if (_units.Count(u => WrongStorage(u) is not null) is var misplaced and > 0)
+        @if (InventoryLocationPolicyRule.WrongStorageSummary(
+                 _units.Count(u => WrongStorage(u) is not null),
+                 _units.Count(u => u.Status == UnitStatus.Expired && WrongStorage(u) is not null)) is { } wrongStorageNote)
         {
-            <div class="alert alert-warning" data-wrong-storage-summary>
-                @misplaced @(misplaced == 1 ? "unit is" : "units are") stored where the location does not take the component (marked below). Move them, or correct the location record, following your storage procedure.
-            </div>
+            <div class="alert alert-warning" data-wrong-storage-summary>@wrongStorageNote</div>
         }
         <div class="table-scroll">
         <table class="bb">

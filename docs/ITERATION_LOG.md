@@ -26302,3 +26302,21 @@ Followed passes 209 and 210 to the bench's list of blood orders to prepare, wher
 ### Tests
 
 - TEST-BB-1233. Full suite passed.
+
+## Iteration 932 — End-user testing pass 212: expired units in the wrong storage (2026-11-17)
+
+### How it was tested
+
+Opened Inventory with the default search (units in stock).
+
+### Found and fixed
+
+1. **The note said to move expired units.** Above the results: *9 units are stored where the location does not take the component (marked below). Move them, or correct the location record…* All nine (eight apheresis platelets and a thawed plasma in FRIDGE-1) had expired; they are to be discarded, not moved to a platelet incubator. The note now counts the expired ones: *All have expired: discard them (Discard expired) rather than moving them.* With some expired it says to discard those and move the rest; with none it reads as before. Each unit is still marked.
+
+### Retested live
+
+- Inventory shows the new note for the nine expired units. No data was changed.
+
+### Tests
+
+- TEST-BB-1234. Full suite passed.
