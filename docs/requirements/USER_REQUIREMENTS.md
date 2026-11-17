@@ -993,3 +993,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-985 | The chart's electronic crossmatch checklist is folded while electronic crossmatch is off at the facility. | P3 | FRS-BB-1103 |
 | URS-BB-986 | An infant's chart with no mother linked says the mother's type and antibodies are not shown. | P2 | FRS-BB-1104 |
 | URS-BB-987 | The downtime patient summary names an infant's mother's active antibodies. | P2 | FRS-BB-1105 |
+| URS-BB-988 | The patient list shows an infant's mother's active antibodies on the infant's row. | P2 | FRS-BB-1106 |

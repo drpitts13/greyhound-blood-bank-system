@@ -117,4 +117,25 @@ public class PatientListFlagsTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(0, p.ActiveSpecialRequirements);
         Assert.Equal(0, p.InformationalNotes);
     }
+    // TEST-BB-1231: the patient list shows an infant's mother's active antibodies (end-user testing pass 209); the
+    // mother's own row shows hers as before and no maternal badge.
+    [Fact]
+    public async Task PatientList_ShowsTheMothersAntibodiesOnTheInfant()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var mother = new Patient { MedicalRecordNumber = $"MRN-M209-{key}", LastName = $"Mom{key}", FirstName = "Pat", DateOfBirth = new DateOnly(1990, 1, 1) };
+        c.Patients.Add(mother);
+        await c.SaveChangesAsync();
+        var infant = new Patient { MedicalRecordNumber = $"MRN-I209-{key}", LastName = $"Baby{key}", FirstName = "Pat", DateOfBirth = new DateOnly(2026, 11, 10), MotherPatientId = mother.Id };
+        c.Patients.Add(infant);
+        c.AntibodyHistory.Add(new AntibodyHistory { PatientId = mother.Id, AntibodySpecificity = "Anti-K", IsActive = true });
+        await c.SaveChangesAsync();
+
+        var list = await Service(c).ListDtosAsync();
+        Assert.NotEmpty(list.Single(p => p.Id == infant.Id).MaternalAntibodies);
+        Assert.Empty(list.Single(p => p.Id == infant.Id).ActiveAntibodies ?? []);
+        Assert.Empty(list.Single(p => p.Id == mother.Id).MaternalAntibodies);
+        Assert.NotEmpty(list.Single(p => p.Id == mother.Id).ActiveAntibodies ?? []);
+    }
 }

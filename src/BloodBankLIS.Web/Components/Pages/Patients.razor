@@ -170,6 +170,11 @@
                             {
                                 <span class="badge badge-amber" title="Special requirements in effect; open the chart for details">@PatientBloodBankFlags.RequirementsLabel(p.ActiveSpecialRequirements)</span>
                             }
+                            @if (p.MaternalAntibodies is { Count: > 0 } maternal)
+                            {
+                                @* Pass 209: the mother's antibodies, which may be present in the infant. *@
+                                <span class="badge badge-red" title="The mother's active antibodies, which may be present in the infant" data-maternal-antibodies>Maternal @string.Join(", ", maternal)</span>
+                            }
                             @if (p.ReactionUnderInvestigation)
                             {
                                 @* Pass 187: a transfusion reaction is being investigated for this patient. *@

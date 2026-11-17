@@ -151,6 +151,12 @@ public sealed record PatientDto(
     /// </summary>
     public bool ReactionUnderInvestigation { get; init; }
 
+    /// <summary>
+    /// For an infant linked to its mother (patient list only): her active antibodies, which may be present in the infant
+    /// (end-user testing pass 209: the list showed nothing for an infant whose mother has anti-K).
+    /// </summary>
+    public IReadOnlyList<string> MaternalAntibodies { get; init; } = [];
+
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
         p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc, p.MergedIntoPatientId,

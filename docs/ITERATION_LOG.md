@@ -26248,3 +26248,21 @@ Printed (on screen) the one-patient downtime summary for DEMO-MATAB, Baby Boy Le
 ### Tests
 
 - TEST-BB-1230. Full suite passed.
+
+## Iteration 929 — End-user testing pass 209: maternal antibodies on the patient list (2026-11-17)
+
+### How it was tested
+
+Opened Patients and looked for DEMO-MATAB, Baby Boy Lena (MRN0029), whose mother DEMO-MATAB, Lena (MRN0028) has anti-K.
+
+### Found and fixed
+
+1. **The infant's row showed no alerts.** The mother's row showed anti-K in red; the infant's row, where a tech picking him for a crossmatch looks, showed nothing, though the chart and (pass 208) the downtime sheet name her antibody. An infant linked to its mother now shows a red *Maternal anti-K* badge in the Alerts column. Nothing is added to the infant's own record, and the mother's row is unchanged.
+
+### Retested live
+
+- MRN0029's row shows *Maternal anti-K*; no other row shows a maternal badge. No data was changed.
+
+### Tests
+
+- TEST-BB-1231. Full suite passed.

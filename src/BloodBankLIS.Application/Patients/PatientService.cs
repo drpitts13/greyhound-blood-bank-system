@@ -135,7 +135,10 @@ public sealed class PatientService
                 ActiveAntibodies = PatientBloodBankFlags.ActiveAntibodies(antibodies[p.Id]),
                 ActiveSpecialRequirements = PatientBloodBankFlags.RequirementsInEffect(requirements[p.Id], now, informational),
                 InformationalNotes = PatientBloodBankFlags.NotesInEffect(requirements[p.Id], now, informational),
-                ReactionUnderInvestigation = underInvestigation.Contains(p.Id)
+                ReactionUnderInvestigation = underInvestigation.Contains(p.Id),
+                MaternalAntibodies = p.MotherPatientId is long motherId
+                    ? PatientBloodBankFlags.ActiveAntibodies(antibodies[motherId])
+                    : []
             })
             .Select(d =>
             {
