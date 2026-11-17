@@ -26504,3 +26504,21 @@ Opened Supplier orders: the draft SO-20261112-001, the received SO-DEMO-001 (sho
 ### Tests
 
 - TEST-BB-1243. Full suite passed.
+
+## Iteration 942 — End-user testing pass 222: event age on the chart's RhIG tab (2026-11-17)
+
+### How it was tested
+
+Opened DEMO-RHIG, Noor (MRN0026, O−, delivery 2026-11-07 13:27, infant Rh positive) and her RhIG tab, after the RhIG worklist (pass 214 checked it).
+
+### Found and fixed
+
+1. **The chart gave the event time but not its age.** The evaluation read *Delivery · 2026-11-07 13:27 · Open*; the RhIG worklist says how long ago the event was, since RhIG is given within a window after it, but the chart, where the evaluation is recorded and completed, did not. While RhIG has not been given and the patient is not marked not a candidate, it now reads *10 days 3 hours ago, RhIG not given* under the event.
+
+### Retested live
+
+- Noor's RhIG tab shows the age. Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1244. Full suite passed.

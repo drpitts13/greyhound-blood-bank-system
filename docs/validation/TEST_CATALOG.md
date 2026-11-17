@@ -1252,5 +1252,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1241 | U | `Hl7OutboundWaitingPageTests.WaitingMessages_AreListedWithWhy` | URS-BB-998 / FRS-BB-1116 |
 | TEST-BB-1242 | U | `AntibodyWorkupOpenForTests.OpenWorkups_SayHowLongTheyHaveBeenOpen` | URS-BB-999 / FRS-BB-1117 |
 | TEST-BB-1243 | U | `SupplierOrderArrivalTextTests.Line_SaysHowLateAnOverdueArrivalIs` | URS-BB-1000 / FRS-BB-1118 |
+| TEST-BB-1244 | U | `RhigEventAgeTextTests.For_SaysHowLongAgoTheEventWasWhileRhigIsDue` | URS-BB-1001 / FRS-BB-1119 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

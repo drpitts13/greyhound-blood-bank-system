@@ -1112,6 +1112,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-998 / FRS-BB-1116 | End-user testing pass 219: no Send with no interface | `Hl7.razor` | TEST-BB-1241 | U | |
 | URS-BB-999 / FRS-BB-1117 | End-user testing pass 220: how long an antibody workup has been open | `AntibodyIdWorklist.razor` | TEST-BB-1242 | U | |
 | URS-BB-1000 / FRS-BB-1118 | End-user testing pass 221: how late a supplier order is | `SupplierOrderArrivalText.cs`, `SupplierOrders.razor` | TEST-BB-1243 | U | |
+| URS-BB-1001 / FRS-BB-1119 | End-user testing pass 222: event age on the chart's RhIG tab | `RhigEventAgeText.cs`, `PatientChartRhigTab.razor` | TEST-BB-1244 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

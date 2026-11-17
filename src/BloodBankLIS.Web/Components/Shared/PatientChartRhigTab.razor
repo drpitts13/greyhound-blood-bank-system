@@ -94,7 +94,11 @@
         {
             <div class="bb-card" data-rhig-row="@e.Id">
                 <div class="flex-between">
-                    <strong>@ContextLabel(e.Context) · @e.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</strong>
+                    <strong>@ContextLabel(e.Context) · @e.EventUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@if (RhigEventAgeText.For(e, DateTime.UtcNow) is { } age)
+                        {
+                            @* Pass 222: how long ago the event was, while RhIG is still to give. *@
+                            <span class="sub" data-rhig-event-age>@age</span>
+                        }</strong>
                     <span class="badge @(e.IsCompleted ? "badge-green" : "badge-amber")">@(e.IsCompleted ? $"Completed by {e.CompletedBy}" : "Open")</span>
                 </div>
                 <ul style="margin:.4rem 0;" data-rhig-facts>

@@ -1006,3 +1006,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-998 | The HL7 page does not offer Send for an outbound message no interface will take, and points to interface setup. | P3 | FRS-BB-1116 |
 | URS-BB-999 | The antibody identification worklist says how long each open workup has been open. | P3 | FRS-BB-1117 |
 | URS-BB-1000 | A submitted supplier order past its arrival time says how late it is. | P3 | FRS-BB-1118 |
+| URS-BB-1001 | The chart's RhIG tab says how long ago the event was while RhIG is still to give. | P2 | FRS-BB-1119 |

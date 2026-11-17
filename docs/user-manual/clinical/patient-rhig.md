@@ -15,6 +15,8 @@ The **RhIG** tab holds Rh immune globulin evaluations for this patient: one per 
 
 Each record lists the facts on file next to what you entered: the patient's current Rh type, whether anti-D is on the antibody history, the infant Rh, and the screen and quantitation. Under the facts, an open evaluation shows a **suggestion** and a **calculated dose** (OCD-069). You decide: the suggestion and the dose are only recorded when you enter them.
 
+While RhIG has not been given, an open evaluation that is not marked *not a candidate* says under its event how long ago the event was (*10 days 3 hours ago, RhIG not given*), as the RhIG worklist does.
+
 - **Suggestion.**
   - Rh positive on file, or an Rh-negative infant: suggested not a candidate.
   - Rh negative with no anti-D, and the infant Rh positive or not known: suggested candidate.
