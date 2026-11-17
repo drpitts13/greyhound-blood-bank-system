@@ -240,6 +240,11 @@
                                     @* Pass 150: a patient is waiting on this unit; it is listed first. *@
                                     <span class="sub" data-retype-reserved>Reserved for <a href="@($"/patients/{row.ReservedPatientId}?tab=products")">@reservedFor</a></span>
                                 }
+                                @if (row.LookbackDin is { } lookbackDin)
+                                {
+                                    @* Pass 217: the donation has a lookback notification still open. *@
+                                    <span class="sub"><span class="badge badge-red" data-retype-lookback title="A lookback notification for this donation is still open: check the unit under your lookback procedure before retyping it into stock">Lookback open: DIN @lookbackDin</span></span>
+                                }
                             </td>
                             <td>
                                 <span class="mono">@row.ProductCode</span>

@@ -528,6 +528,28 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(RhType.Negative, neg.RhD);
         Assert.Equal(ProductRetypeAssignment.RhNegativeTestCode, neg.TestCode);
         Assert.Equal(UnitStatus.Received, neg.Status);
+
+        // TEST-BB-1239 (end-user testing pass 217): a unit waiting for retype whose donation has an open lookback
+        // notification is flagged with its DIN; other units are not.
+        var lookbackDin = "W1234LB217001";
+        var waiting = await verify.BloodUnits.SingleAsync(u => u.UnitNumber == "W000123RET0002");
+        waiting.Din = lookbackDin;
+        verify.LookbackNotifications.Add(new LookbackNotification
+        {
+            Din = lookbackDin, BloodProductId = waiting.Id, Status = LookbackNotificationStatus.Pending, Reason = "Test lookback"
+        });
+        await verify.SaveChangesAsync();
+        var withLookbacks = await new ProductRetypeService(
+            new InventoryRepository(verify),
+            new EfRepository<ProductRetypeResult>(verify),
+            new EfRepository<TestDefinition>(verify),
+            verify,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(verify, _factory.Clock, _factory.CurrentUser),
+            lookbacks: new EfRepository<LookbackNotification>(verify)).ListPendingAsync();
+        Assert.Equal(lookbackDin, Assert.Single(withLookbacks, u => u.UnitNumber == "W000123RET0002").LookbackDin);
+        Assert.Null(Assert.Single(withLookbacks, u => u.UnitNumber == "W000123RET0001").LookbackDin);
     }
 
     [Fact]

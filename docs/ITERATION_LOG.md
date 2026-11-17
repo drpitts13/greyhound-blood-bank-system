@@ -26406,3 +26406,21 @@ Opened Reactions (both open investigations and the workup checklist of #2), then
 ### Tests
 
 - TEST-BB-1238. Full suite passed; the Help tests were rerun after a wording fix (Web only).
+
+## Iteration 937 — End-user testing pass 217: lookback flag on the retype lists (2026-11-17)
+
+### How it was tested
+
+Followed W000123LSIB001, the co-component of lookback DIN W123426000001 named in pass 216, to where it waits: the Test Worklist retype tab and the Inventory Retype board.
+
+### Found and fixed
+
+1. **The retype lists gave no sign of the lookback.** The unit was listed for front typing like any other (*waiting 11 d, expires in 14 d*); a matching retype makes it Available. Its row now says *Lookback open: DIN W123426000001* on its own line while a notification for that donation is Pending or Attempted, so it is checked under the lookback procedure first. The retype is not blocked.
+
+### Retested live
+
+- Both retype lists show the flag on W000123LSIB001 only. A first version put the badge against the unit number with no gap; it now sits on its own line. Nothing was retyped.
+
+### Tests
+
+- TEST-BB-1239 (the seeded LSIB unit is Available in a fresh seed, so the test sets up a pending-retype unit with an open notification). Full suite passed; the Help tests were rerun after the layout fix (Web only).

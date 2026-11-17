@@ -32,6 +32,12 @@ public sealed record ProductRetypeWorkItemDto(
 
     public long? ReservedPatientId { get; init; }
 
+    /// <summary>
+    /// The unit's DIN when a lookback notification for that donation is still open (Pending or Attempted): the unit
+    /// comes from an implicated donation, so it is checked before it is retyped into stock (end-user testing pass 217).
+    /// </summary>
+    public string? LookbackDin { get; init; }
+
     public static ProductRetypeWorkItemDto From(
         BloodUnit unit,
         ProductRetypeResult? latest = null,

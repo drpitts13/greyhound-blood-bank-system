@@ -56,6 +56,8 @@ Results that arrived from an instrument wait for the same verification. The row 
 
 The product retype tab of the worklist lists units that still need a front type, in the same order as the Retype board in Inventory: units reserved for a patient first (**Reserved for** and the patient), then soonest-expiring; each row says how long the unit has waited and when it expires. Recording the retype is the same action as the retype board in Inventory. A match can release the unit. A mismatch quarantines it. An outdated unit that matches is expired rather than made available.
 
+A unit whose donation has a lookback notification still open (Pending or Attempted) says **Lookback open: DIN …**: check it under your lookback procedure before retyping it into stock (Lookback / Trace has the donation and its recall).
+
 ## Correct or invalidate
 
 After verification, a wrong result is corrected or invalidated. Correction requires a signature. You can correct a verified result, and verify the correction, after its specimen has expired: the correction fixes the record of a test already done. A new result on an expired specimen is still refused. Invalidation keeps the prior result visible and removes it from current history. Both are audited. The supervisor queue shows verifications that are waiting when your role is the one who verifies.
