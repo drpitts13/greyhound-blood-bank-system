@@ -339,10 +339,16 @@
             }
         }
 
+        // Pass 193: from the chart's "Record crossmatch on Compatibility" the unit is already reserved; only the crossmatch
+        // form takes it (the allocate form would say the unit is not in its list).
+        var crossmatchOnly = string.Equals(From, "xm", StringComparison.OrdinalIgnoreCase);
         if (BloodUnitId is long bloodUnitId)
         {
             _xm.BloodUnitId = bloodUnitId;
-            _alloc.BloodUnitId = bloodUnitId;
+            if (!crossmatchOnly)
+            {
+                _alloc.BloodUnitId = bloodUnitId;
+            }
         }
 
         if (SpecimenId is long specimenId)

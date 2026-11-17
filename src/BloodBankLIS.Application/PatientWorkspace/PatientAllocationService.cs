@@ -178,6 +178,11 @@ public sealed class PatientAllocationService
                 .ToHashSet();
         var xmCodeByOrder = await CrossmatchTestCodeByOrderAsync(orderIds, ct);
         var pendingByOrder = await LoadPendingActionsAsync(orderIds, ct);
+        // Pass 193: order numbers of reservations whose order has no specimen linked, for the chart's link to the order.
+        var unlinkedIds = orderIds.Where(id => !linkedOrderIds.Contains(id)).ToList();
+        var orderNumbers = _orderRepo is null || unlinkedIds.Count == 0
+            ? new Dictionary<long, string>()
+            : (await _orderRepo.ListAsync(o => unlinkedIds.Contains(o.Id), ct)).ToDictionary(o => o.Id, o => o.OrderNumber);
         var pendingAutoThaw = _autoThaw is null
             ? new HashSet<long>()
             : await _autoThaw.PendingAllocationIdsAsync(allocations.Select(a => a.Id).ToList(), ct);
@@ -277,7 +282,10 @@ public sealed class PatientAllocationService
                 thaw?.ThawedShelfLifeHours,
                 thaw?.OpenSystemShelfLifeHours,
                 thaw?.PooledShelfLifeHours,
-                thaw is not null && _autoThaw is not null && await _autoThaw.IsPooledAsync(unit, ct)));
+                thaw is not null && _autoThaw is not null && await _autoThaw.IsPooledAsync(unit, ct))
+            {
+                OrderNumber = allocation.OrderId is long numbered ? orderNumbers.GetValueOrDefault(numbered) : null
+            });
         }
 
         return rows;
@@ -991,6 +999,9 @@ public sealed class PatientAllocationService
             AutoThawPooledShelfLifeHours = thawMatch?.PooledShelfLifeHours,
             AutoThawPooled = thawMatch is not null && _autoThaw is not null && await _autoThaw.IsPooledAsync(unit, ct),
             OrderSpecimenLinked = orderLinked,
+            OrderNumber = !orderLinked && allocation.OrderId is long numberedOrderId && _orderRepo is not null
+                ? (await _orderRepo.GetByIdAsync(numberedOrderId, ct))?.OrderNumber
+                : null,
             UnitOutdated = BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow),
             UnitExpiresUtc = unit.ExpiresUtc,
             UnitBloodType = unit.BloodType.ToString(),

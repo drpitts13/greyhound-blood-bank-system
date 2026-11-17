@@ -388,6 +388,11 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(unit.ExpiresUtc, list[0].UnitExpiresUtc);
         Assert.Equal("O+", list[0].UnitBloodType);
         Assert.Equal("Main Blood Bank Refrigerator", list[0].StorageLocationName);
+        // TEST-BB-1215 (pass 193): with no specimen linked to its order, the row names the order, so the chart's cue can
+        // open it to link one.
+        Assert.False(list[0].OrderSpecimenLinked);
+        Assert.NotNull(list[0].OrderId);
+        Assert.Equal((await c.Orders.FindAsync(list[0].OrderId!.Value))!.OrderNumber, list[0].OrderNumber);
         Assert.Equal(unit.ExpiresUtc, alloc.Value.Allocation.UnitExpiresUtc);
         Assert.Equal("O+", alloc.Value.Allocation.UnitBloodType);
         Assert.Equal("Main Blood Bank Refrigerator", alloc.Value.Allocation.StorageLocationName);

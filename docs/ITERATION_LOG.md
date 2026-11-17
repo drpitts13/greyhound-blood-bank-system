@@ -25960,3 +25960,21 @@ After pass 190 (*PendingRelease* on the unit page), looked for other places a st
 ### Found
 
 - Nothing to change in these. No code changed.
+
+## Iteration 913 — End-user testing pass 193: where to crossmatch a reserved unit (2026-11-17)
+
+### How it was tested
+
+Followed up pass 192 on Demo-Special, Avery's chart (MRN0023): the irradiated red cell W000026123460 is reserved for her with her accepted specimen ACC-UAT-001, and the row said *Link a specimen to the order before crossmatch*.
+
+### Found and fixed
+
+1. **The cue said what to do but not where, and for this unit it was wrong.** It was plain text. The reservation was made with no order (it carries the specimen itself), so there was no order to link a specimen to, and the chart's Crossmatch button, which needs an order with a specimen, could never appear. The row now says where to go: for a reservation with no order, **Record crossmatch on Compatibility**, opening Compatibility with Avery, the unit and ACC-UAT-001 filled in (*This reservation has no order.*); for one whose order has no specimen, a button naming the order (*Link a specimen to XM-… before crossmatch*) that opens it on the Orders tab.
+
+### Retested live
+
+- Avery's reserved unit offers **Record crossmatch on Compatibility**. It opened Compatibility's Record crossmatch with W000026123460, Avery and ACC-UAT-001 filled in. The first retest also filled the unit into Allocate unit, which then read *Unit record 79 is not in this list* (the unit is already reserved); the link now fills only the crossmatch form. No crossmatch was recorded and no specimen linked.
+
+### Tests
+
+- TEST-BB-1215. Full suite passed.

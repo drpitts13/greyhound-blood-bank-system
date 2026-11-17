@@ -22,7 +22,7 @@ After you reserve a unit, the Allocate panel stays open on the same order, visit
 
 ## What each row shows
 
-Each row shows the unit number, product, expiration, unit ABO and Rh, storage location, crossmatch result, and status. A row without a crossmatch result says so. A reserved unit that still needs a crossmatch offers **Crossmatch** when you have permission to record one.
+Each row shows the unit number, product, expiration, unit ABO and Rh, storage location, crossmatch result, and status. A row without a crossmatch result says so. A reserved unit that still needs a crossmatch offers **Crossmatch** when you have permission to record one. If its order has no specimen linked yet, the row offers **Link a specimen to** *the order* **before crossmatch** instead, which opens that order on the Orders tab to link the specimen. A reservation made with no order offers **Record crossmatch on Compatibility**, which opens Compatibility with the patient, the unit and the reservation's specimen filled in.
 
 A reserved unit that does not meet one of the patient's special requirements, for example one added after the unit was reserved, shows **Does not meet a special requirement** and what the patient requires. Issue will refuse it outside emergency release. Modify the unit if a modification meets the requirement, or release it and choose another unit. Adding a requirement on the Overview tab also lists any reserved units that do not meet it.
 

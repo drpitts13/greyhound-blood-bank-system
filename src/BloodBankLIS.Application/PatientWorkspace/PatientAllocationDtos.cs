@@ -43,7 +43,14 @@ public sealed record PatientAllocationRowDto(
     // thaw prompt states the time that will apply and refuses before the thaw rather than after.
     int? AutoThawOpenSystemShelfLifeHours = null,
     int? AutoThawPooledShelfLifeHours = null,
-    bool AutoThawPooled = false);
+    bool AutoThawPooled = false)
+{
+    /// <summary>
+    /// The reservation's order number, so "link a specimen to the order" can open that order (end-user testing pass 193:
+    /// the cue was plain text, and the tech had to find the order on the Orders tab).
+    /// </summary>
+    public string? OrderNumber { get; init; }
+}
 
 /// <summary>Cycle 685: what the thaw prompt says before Yes, for the open-system box as it stands.</summary>
 public static class AutoThawPreview
