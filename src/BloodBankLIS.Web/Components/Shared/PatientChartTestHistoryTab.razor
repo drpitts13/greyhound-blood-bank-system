@@ -1,3 +1,4 @@
+@inject BloodBankApiClient Api
 <div class="bb-card">
     <div class="bb-card-title">
         <h3>Test history</h3>
@@ -47,7 +48,13 @@
                                 <span class="sub" data-titer-trend>@h.Trend</span>
                             }
                         </td>
-                        <td><span class="@Ui.Badge(h.Status)">@Ui.EnumText(h.Status)</span>@(h.IsCurrent ? null : " prior")</td>
+                        <td><span class="@Ui.Badge(h.Status)">@Ui.EnumText(h.Status)</span>@(h.IsCurrent ? null : " prior")
+                            @if (_underQcReview.FirstOrDefault(u => u.ResultId == h.ResultId) is { } review)
+                            {
+                                @* Pass 200: a result tested with a reagent lot whose QC then failed, not yet reviewed. *@
+                                <a class="badge badge-amber" href="/reagents" title="Tested with @review.ReagentCode lot @review.LotNumber, whose QC failed; review it on Reagent QC" data-history-qc-review>QC review</a>
+                            }
+                        </td>
                         <td>@(h.Reason ?? "—")</td>
                         <td class="mono">
                             @if (!string.IsNullOrWhiteSpace(h.AccessionNumber))
@@ -87,6 +94,19 @@
 
 @code {
     [Parameter] public long PatientId { get; set; }
+
+    private List<PatientResultUnderQcReviewDto> _underQcReview = new();
+    private long _reviewLoadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_reviewLoadedFor != PatientId)
+        {
+            _reviewLoadedFor = PatientId;
+            var underReview = await Api.GetPatientResultsUnderQcReviewAsync(PatientId);
+            _underQcReview = underReview.Succeeded ? underReview.Value ?? new() : new();
+        }
+    }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool Loading { get; set; }
     [Parameter] public string Search { get; set; } = string.Empty;

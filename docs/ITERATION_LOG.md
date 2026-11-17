@@ -26086,3 +26086,21 @@ Opened the one-patient downtime summary for Kellerman, Diane (MRN0004): *O+, ant
 ### Tests
 
 - TEST-BB-1221. Full suite passed.
+
+## Iteration 920 — End-user testing pass 200: results under QC review in Test history (2026-11-17)
+
+### How it was tested
+
+Opened Demo, Patricia's (MRN0001) Test history: the ABO/Rh (O+) and antibody screen (negative) on ACC0001, verified 2026-11-06. Her ABO/Rh is one of the five results to review after anti-D lot AD-24092 failed QC.
+
+### Found and fixed
+
+1. **The result itself did not say it was to review.** Test history showed the ABO/Rh as *Verified* like any other. A result to review after a failed lot now carries a **QC review** mark beside its status, naming the lot on hover and opening Reagent QC, until it is reviewed (as the blood type in the chart header since pass 181).
+
+### Retested live
+
+- Patricia's ABO/Rh row shows **QC review**; her antibody screen does not. Nothing was reviewed.
+
+### Tests
+
+- TEST-BB-1222. Full suite passed.

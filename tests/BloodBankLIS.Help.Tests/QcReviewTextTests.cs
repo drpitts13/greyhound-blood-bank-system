@@ -37,3 +37,23 @@ public class AntibodyCardQcReviewTests
         Assert.Contains("data-antibody-card-qc-review", page);
     }
 }
+
+public class TestHistoryQcReviewTests
+{
+    // TEST-BB-1222: the chart's Test history marks a result still to review after a reagent lot it was tested with
+    // failed QC, naming the lot (end-user testing pass 200).
+    [Fact]
+    public void TestHistory_MarksAResultUnderQcReview()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var tab = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Shared", "PatientChartTestHistoryTab.razor"));
+        Assert.Contains("GetPatientResultsUnderQcReviewAsync(PatientId)", tab);
+        Assert.Contains("_underQcReview.FirstOrDefault(u => u.ResultId == h.ResultId)", tab);
+        Assert.Contains("data-history-qc-review", tab);
+    }
+}
