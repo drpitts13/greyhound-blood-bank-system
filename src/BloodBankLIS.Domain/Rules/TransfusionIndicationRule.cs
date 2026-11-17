@@ -94,7 +94,7 @@ public static class TransfusionIndicationRule
                 continue;
             }
 
-            var observed = $"{latest.TestCode} {Format(latest.Value)}{UnitText(latest.Unit ?? criterion.Unit)} at {latest.ResultUtc:yyyy-MM-dd HH:mm} UTC";
+            var observed = $"{latest.TestCode} {Format(latest.Value)}{UnitText(latest.Unit ?? criterion.Unit)} at {ClinicalTimeText.Local(latest.ResultUtc)}";
             if (Compare(latest.Value, criterion.Comparison!.Value, criterion.Threshold!.Value))
             {
                 return new IndicationOutcome(PbmStatus.Met, $"{criterion.Code}: {observed} meets {rule}.", criterion.Code);

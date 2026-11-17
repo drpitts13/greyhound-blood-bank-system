@@ -2887,7 +2887,7 @@ public sealed class InventoryService
         {
             var tracked = await _allocations.GetByIdAsync(row.Id, ct) ?? row;
             tracked.Status = AllocationStatus.Expired;
-            tracked.ReleaseReason = $"Unit {unit.UnitNumber} expired at {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC.";
+            tracked.ReleaseReason = $"Unit {unit.UnitNumber} expired at {ClinicalTimeText.Local(unit.ExpiresUtc)}.";
             _allocations.Update(tracked);
             _audit.Record(
                 AuditEventType.Assignment,

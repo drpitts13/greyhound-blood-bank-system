@@ -18,7 +18,7 @@ public static class TransfusionCompletionRule
             $"TXINCOMPLETE:ISSUE-{issueId}",
             AlertSeverity.Warning,
             $"Transfusion not completed: {unitNumber}",
-            $"Started {startUtc:yyyy-MM-dd HH:mm} UTC{(string.IsNullOrWhiteSpace(mrn) ? "" : $" for MRN {mrn.Trim()}")} and not yet completed. " +
+            $"Started {ClinicalTimeText.Local(startUtc)}{(string.IsNullOrWhiteSpace(mrn) ? "" : $" for MRN {mrn.Trim()}")} and not yet completed. " +
             "Record the stop time, volume, and outcome, or check whether the transfusion is still running.",
             $"/issuing?desk=transfuse&issueId={issueId}");
 }

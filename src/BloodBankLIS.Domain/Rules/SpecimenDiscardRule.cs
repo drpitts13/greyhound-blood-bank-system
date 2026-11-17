@@ -59,7 +59,7 @@ public static class SpecimenDiscardRule
         }
 
         return RuleResult.Warning(Code, keepUntilUtc is DateTime until
-            ? $"Discarded before {until:yyyy-MM-dd HH:mm} UTC: {why}"
+            ? $"Discarded before {ClinicalTimeText.Local(until)}: {why}"
             : $"Discarded with no retention period set: {why}");
     }
 }

@@ -218,7 +218,7 @@ public sealed class StorageTemperatureService
                 $"TEMP:DEV-{reading.DeviationId}",
                 AlertSeverity.Critical,
                 $"Temperature excursion at {location.Code}",
-                $"{location.Name} read {reading.ReadingC} °C at {readingUtc:yyyy-MM-dd HH:mm} UTC. Deviation DEV-{reading.DeviationId} is open.",
+                $"{location.Name} read {reading.ReadingC} °C at {ClinicalTimeText.Local(readingUtc)}. Deviation DEV-{reading.DeviationId} is open.",
                 "/storage-temps"), ct);
         }
 
@@ -267,7 +267,7 @@ public sealed class StorageTemperatureService
             return 0;
         }
 
-        var note = $"Storage excursion at {location.Code} since {start:yyyy-MM-dd HH:mm} UTC lasted more than {minutes} minutes.";
+        var note = $"Storage excursion at {location.Code} since {ClinicalTimeText.Local(start)} lasted more than {minutes} minutes.";
         var stored = StorageTemperatureRule.StoredStatuses.ToList();
         var candidates = await _units.ListAsync(
             u => u.CurrentLocationId == location.Id && stored.Contains(u.Status) && u.Status != UnitStatus.Quarantine,
@@ -315,7 +315,7 @@ public sealed class StorageTemperatureService
         var deviationId = runs.First().DeviationId;
         if (deviationId is long id && await _deviations.GetByIdAsync(id, ct) is { } deviation)
         {
-            deviation.Description += $" {now:yyyy-MM-dd HH:mm} UTC: {quarantined.Count} unit(s) quarantined automatically ({string.Join(", ", quarantined)}).";
+            deviation.Description += $" {ClinicalTimeText.Local(now)}: {quarantined.Count} unit(s) quarantined automatically ({string.Join(", ", quarantined)}).";
             _deviations.Update(deviation);
         }
 

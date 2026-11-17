@@ -643,7 +643,7 @@ public sealed class IssuingService
             ToStatus = UnitStatus.Issued,
             FromLocationId = unit.CurrentLocationId,
             ToLocationId = unit.CurrentLocationId,
-            Reason = backEntry ? $"Downtime back-entry: issued {issuedUtc:yyyy-MM-dd HH:mm} UTC on paper" : issueType switch
+            Reason = backEntry ? $"Downtime back-entry: issued {ClinicalTimeText.Local(issuedUtc)} on paper" : issueType switch
             {
                 IssueType.EmergencyRelease => "Emergency release",
                 IssueType.ElectronicIssue => "Electronic issue",

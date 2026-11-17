@@ -89,7 +89,7 @@ public sealed class AlertScanner
                 $"NEAREXP:{unit.UnitId}",
                 unit.IsReserved ? AlertSeverity.Warning : AlertSeverity.Info,
                 $"Near expiry: {unit.UnitNumber}",
-                $"Expires {unit.ExpiresUtc:yyyy-MM-dd HH:mm} UTC at {unit.LocationLabel}." +
+                $"Expires {ClinicalTimeText.Local(unit.ExpiresUtc)} at {unit.LocationLabel}." +
                 (unit.IsReserved
                     ? $" Reserved for {unit.ReservedPatientLabel}. {NearExpiryWorkItemDto.ReservedNextStep}"
                     : string.Empty),
@@ -260,7 +260,7 @@ public sealed class AlertScanner
             $"EXPIRED:{sweptUtc:yyyyMMddHHmmss}",
             reservationsEnded > 0 ? AlertSeverity.Critical : AlertSeverity.Warning,
             reservationsEnded > 0 ? $"{count} unit(s) expired, {reservationsEnded} reserved for patients" : $"{count} unit(s) expired",
-            $"The scheduled sweep moved {count} unit(s) to Expired at {sweptUtc:yyyy-MM-dd HH:mm} UTC. Remove them from storage." +
+            $"The scheduled sweep moved {count} unit(s) to Expired at {ClinicalTimeText.Local(sweptUtc)}. Remove them from storage." +
             (reservationsEnded > 0
                 ? $" {reservationsEnded} of them were reserved for patients{who}; those reservations have ended. Reserve replacement units."
                 : string.Empty),

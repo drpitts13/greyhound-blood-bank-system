@@ -25888,3 +25888,21 @@ Followed up pass 187 on the top-bar lookup (*Find a patient, visit, unit, specim
 ### Tests
 
 - TEST-BB-1211. Full suite passed.
+
+## Iteration 909 — End-user testing pass 189: local times in alerts (2026-11-17)
+
+### How it was tested
+
+Worked the Alerts inbox (30 open, most severe first): three critical temperature alerts (OR-FRIDGE 7.2 °C, FRIDGE-1 8.5 °C with a unit still quarantined), the EHR date-of-birth changes, reagent QC, below minimum stock, units expired, the MTP still open after 254 hours, and two thawed plasmas near expiry.
+
+### Found and fixed
+
+1. **Alert messages gave times in UTC.** *OR Satellite Refrigerator read 7.2 °C at 2026-11-12 17:31 UTC*, *since 2026-11-12 16:43 UTC*, *Expires 2026-11-17 11:59 UTC*, *moved 8 unit(s) to Expired at 2026-11-10 15:08 UTC*, beside a Raised column in local time, so a tech had to convert to know when the fridge was warm or a plasma expires. These alerts, and the other notes the system writes for staff (transfusion not completed, patient death, backup failed or overdue, the deviation and quarantine notes, the transfusion indication note, specimen discard, expiry release and paper back-entry reasons, a dispense request already made), now give local time. Alerts already raised keep their text until they are raised again; the chart's specimen banner already showed local time and is unchanged.
+
+### Retested live
+
+- The near-expiry alerts, re-raised by the scanner, read *Expires 2026-11-17 06:59 at Main Blood Bank Refrigerator* (11:59 UTC before); the units-expired alerts raised earlier keep their UTC wording. Nothing was acknowledged.
+
+### Tests
+
+- TEST-BB-1212. Full suite passed.

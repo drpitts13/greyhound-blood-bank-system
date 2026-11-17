@@ -36,7 +36,7 @@ public static class PatientDeathRule
             $"DECEASED:{patientId}:{messageControlId}",
             reservedUnits.Count == 0 ? AlertSeverity.Info : AlertSeverity.Warning,
             $"EHR recorded {name} (MRN {mrn}) as deceased",
-            $"The EHR recorded the patient's death{(deathUtc is DateTime at ? $" at {at:yyyy-MM-dd HH:mm} UTC" : "")}. {units}",
+            $"The EHR recorded the patient's death{(deathUtc is DateTime at ? $" at {ClinicalTimeText.Local(at)}" : "")}. {units}",
             $"/patients/{patientId}");
     }
 }

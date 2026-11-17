@@ -95,7 +95,7 @@ public sealed class InterfaceDispenseRequestService
             }
 
             throw new InvalidOperationException(
-                $"{unitNumber} was already requested at {already:yyyy-MM-dd HH:mm} UTC for {allocation.IssueRequestedTo}; cancel that request before asking for {destination}.");
+                $"{unitNumber} was already requested at {BloodBankLIS.Domain.Rules.ClinicalTimeText.Local(already)} for {allocation.IssueRequestedTo}; cancel that request before asking for {destination}.");
         }
 
         allocation.IssueRequestedUtc = _clock.UtcNow;
