@@ -35,7 +35,15 @@ public sealed record TubeInPlaceDto(
     string? StoredBy,
     // Where it is (filled on the due-for-discard list) and when it may be discarded (null when no retention period is set).
     string? Location = null,
-    DateTime? KeepUntilUtc = null);
+    DateTime? KeepUntilUtc = null)
+{
+    /// <summary>
+    /// When the tube was received (on the not-yet-stored list, which is ordered by it; end-user testing pass 185: the
+    /// list showed only the collection time, so "oldest first" looked out of order and nothing said how long a tube had
+    /// waited to be put away).
+    /// </summary>
+    public DateTime? ReceivedUtc { get; init; }
+}
 
 /// <summary>A tube scanned to be thrown away; a reason is needed before its retention date or when none is set.</summary>
 public sealed record DiscardSpecimenRequest(string Scan, string? Reason = null);
@@ -159,7 +167,8 @@ public sealed class SpecimenStorageService
         var received = tubes.ToDictionary(t => t.Id, t => t.ReceivedUtc);
         var rows = await ToRowsAsync(tubes, await RetentionDaysAsync(ct), ct);
         return rows
-            .OrderBy(t => received[t.SpecimenId])
+            .Select(t => t with { ReceivedUtc = received[t.SpecimenId] })
+            .OrderBy(t => t.ReceivedUtc)
             .ThenBy(t => t.AccessionNumber, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }

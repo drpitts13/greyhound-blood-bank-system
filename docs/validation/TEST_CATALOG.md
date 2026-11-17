@@ -1216,5 +1216,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1205 | I | `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-962 / FRS-BB-1080 |
 | TEST-BB-1206 | I | `DowntimeReconciliationTests.GetSnapshot_CountsOpenWorkAndReportsChain` | URS-BB-963 / FRS-BB-1081 |
 | TEST-BB-1207 | U | `LoadingStateSourceTests.OutsideAntibodyReports_SayLoadingBeforeNone` | URS-BB-964 / FRS-BB-1082 |
+| TEST-BB-1208 | I | `SpecimenStorageTests.ReceivedTubes_NotYetStored_AreListedUntilStored` | URS-BB-965 / FRS-BB-1083 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

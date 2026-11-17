@@ -25816,3 +25816,21 @@ Opened Patients & testing › Antibody ID: one open workup, Kellerman, Diane (MR
 ### Tests
 
 - TEST-BB-1207. Full suite passed.
+
+## Iteration 905 — End-user testing pass 185: when an unstored tube was received (2026-11-16)
+
+### How it was tested
+
+Opened Patients & testing › Store tubes: nineteen received tubes with no storage place, among them ACC0012-T1 (Kellerman, Diane, collected 2026-10-16), the 2026-11-06 demo tubes and ACC-UAT-001 and ACC-UAT-010 (accepted, 2026-11-12).
+
+### Found and fixed
+
+1. **"Oldest first" looked out of order.** The list is ordered by when each tube was received, but showed only the collection time, so ACC0001 (collected 07:49) came after ACC0010 (08:20) and ACC-DEMO-RCV1 (collected 2026-11-09) after ACC-UAT-001 (2026-11-12); nothing said how long a tube had waited to be put away. A **Received** column now gives when each tube came in and how long it has waited (*waiting 10 d*), the order it is listed in.
+
+### Retested live
+
+- The rows run from ACC0012-T1 (received 2026-10-17, *waiting 30 d*) to ACC-UAT-010 (2026-11-12, *waiting 4 d*), in order. Nothing was stored or discarded.
+
+### Tests
+
+- TEST-BB-1208. Full suite passed.

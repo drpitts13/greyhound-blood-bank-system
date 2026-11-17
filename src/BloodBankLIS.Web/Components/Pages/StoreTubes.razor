@@ -92,7 +92,7 @@ else
             <p class="muted">Tubes received in the laboratory with no storage place recorded, oldest first. Put each away (scan its place, then the tube) or, when it is no longer needed, discard it; the list shortens as you go. <strong>Store</strong> puts the tube in the Tube field.</p>
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Tube</th><th>Patient</th><th>Collected</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Tube</th><th>Patient</th><th>Collected</th><th>Received</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var t in _notStored.Take(NotStoredShown))
                     {
@@ -100,6 +100,8 @@ else
                             <td class="mono">@t.AccessionNumber <span class="sub">@t.SpecimenType</span></td>
                             <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
                             <td class="nowrap">@t.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            @* Pass 185: the list is ordered by receipt; say when and how long it has waited to be put away. *@
+                            <td class="nowrap" data-not-stored-received="@t.AccessionNumber">@(t.ReceivedUtc is DateTime received ? $"{received.ToLocalTime():yyyy-MM-dd HH:mm}" : "—")@if (t.ReceivedUtc is DateTime since) { <span class="sub"> · @BloodOrderWaitText.Waiting(since, DateTime.UtcNow)</span> }</td>
                             <td>@Ui.EnumText(t.Status)</td>
                             <td class="right"><button type="button" class="btn btn-secondary btn-sm" @onclick="() => PickTubeAsync(t.AccessionNumber)">Store</button></td>
                         </tr>

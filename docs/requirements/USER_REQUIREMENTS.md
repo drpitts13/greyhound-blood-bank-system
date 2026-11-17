@@ -970,3 +970,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-962 | A reagent lot's result lookback shows how many units each patient was issued after the result was entered. | P2 | FRS-BB-1080 |
 | URS-BB-963 | The downtime snapshot counts pending retrospective crossmatches as the Retrospective board lists them, leaving out returned units' issues. | P3 | FRS-BB-1081 |
 | URS-BB-964 | The antibody identification worklist says outside reports are loading, or could not be read, instead of saying none is waiting. | P3 | FRS-BB-1082 |
+| URS-BB-965 | Store tubes' not-yet-stored list shows when each tube was received and how long it has waited, the order it is listed in. | P3 | FRS-BB-1083 |

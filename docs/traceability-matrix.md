@@ -1076,6 +1076,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-962 / FRS-BB-1080 | End-user testing pass 182: units issued since a result under QC review | `ReagentQcService.cs`, `Reagents.razor` | TEST-BB-1205 | I | |
 | URS-BB-963 / FRS-BB-1081 | End-user testing pass 183: downtime snapshot retrospective count | `DowntimeReconciliationService.cs` | TEST-BB-1206 | I | |
 | URS-BB-964 / FRS-BB-1082 | End-user testing pass 184: outside antibody reports before they are read | `AntibodyIdWorklist.razor` | TEST-BB-1207 | U | |
+| URS-BB-965 / FRS-BB-1083 | End-user testing pass 185: when an unstored tube was received | `SpecimenStorageService.cs`, `StoreTubes.razor` | TEST-BB-1208 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

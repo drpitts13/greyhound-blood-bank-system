@@ -49,6 +49,9 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         var service = Service(c, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession));
         var mine = (await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id).Select(t => t.AccessionNumber).ToList();
         Assert.Equal([older.AccessionNumber, newer.AccessionNumber], mine);
+        // TEST-BB-1208 (pass 185): each row carries when it was received, the order it is listed in.
+        Assert.Equal([now.AddHours(-4), now.AddHours(-1)],
+            (await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id).Select(t => t.ReceivedUtc!.Value));
 
         Assert.True((await service.StoreAsync(new StoreSpecimenRequest(older.AccessionNumber, "Rack 3"))).Succeeded);
         Assert.Equal([newer.AccessionNumber], (await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id).Select(t => t.AccessionNumber));
