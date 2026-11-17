@@ -406,7 +406,9 @@ public sealed record ReadyToIssueWorkItemDto(
     long? OpenReactionInvestigationId = null,
     DateTime? OpenReactionReportedUtc = null,
     // Pass 149: the reserved unit is still Received, its ABO/Rh retype not confirmed, so routine issue refuses it.
-    string? RetypeNotice = null);
+    string? RetypeNotice = null,
+    // Pass 214: an infant's linked mother's active antibodies, which may be present in the infant.
+    IReadOnlyList<string>? MaternalAntibodies = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,

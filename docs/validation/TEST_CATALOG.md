@@ -1244,5 +1244,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1233 | I | `BloodOrderWorklistTests.InfantOrder_ShowsTheMothersAntibodies` | URS-BB-990 / FRS-BB-1108 |
 | TEST-BB-1234 | D | `WrongStorageRuleTests.WrongStorageSummary_SaysToDiscardExpiredUnits` | URS-BB-991 / FRS-BB-1109 |
 | TEST-BB-1235 | I | `CompetitorGapWorkflowTests.ReagentQc_ReviewerMustDiffer_AndWorklistClearsAfterReview` | URS-BB-992 / FRS-BB-1110 |
+| TEST-BB-1236 | I | `Phase4IssuingTests.ListReadyToIssue_ShowsTheMothersAntibodiesForAnInfant` | URS-BB-993 / FRS-BB-1111 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

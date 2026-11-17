@@ -26338,3 +26338,27 @@ Opened Reagent QC as DEV_ADMIN, who performed all eight unreviewed QC rows of 20
 ### Tests
 
 - TEST-BB-1235. Full suite passed.
+
+## Iteration 934 — End-user testing pass 214: maternal antibodies on Ready to issue (2026-11-17)
+
+### How it was tested
+
+Walked the QC and bench screens (Reagent QC, Equipment, Store tubes, RhIG) and then Issue & Transfuse › Ready to issue, the last list before a unit leaves the bank, following the infant cases of passes 208–211.
+
+### Found and fixed
+
+1. **Ready to issue's Antibodies column showed only the patient's own antibodies.** A unit reserved for an infant whose mother has anti-K would read *None* at the issue desk, though the patient list, lookup, blood orders and downtime sheet now name her antibody. The infant's row now shows a red *Maternal anti-K* badge beside his own summary. Issue is not blocked; nothing is added to the infant's own record.
+
+### Also checked, no change
+
+- Equipment: the test worklist already warns of overdue or out-of-service equipment its tests use (pass 74).
+- Store tubes: expired tubes are offered Store, since they may still be kept under the retention policy (OCD-070).
+- RhIG: an open evaluation says the give-by window is not set and how long ago the event was.
+
+### Retested live
+
+- Ready to issue lists its seven reserved units, unchanged; none is for an infant, so the badge is covered by the test. No data was changed.
+
+### Tests
+
+- TEST-BB-1236. Full suite passed.

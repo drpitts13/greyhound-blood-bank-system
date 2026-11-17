@@ -32,6 +32,7 @@ Ready to issue opens first. Reserved units are listed so you do not retype the p
 - An outdated unit is not offered.
 - A unit that still needs a compatible crossmatch is not offered for routine issue. When its compatible crossmatch has expired, the status reads **Crossmatch expired** instead of Ready for issue, here and on the patient's Products tab. Repeat the crossmatch on a current specimen. The row's **Crossmatch** (or **Repeat crossmatch**, when one was recorded) opens Compatibility's crossmatch form with the patient and unit filled in.
 - An open antibody workup is marked and can still be issued.
+- A unit reserved for an infant linked to the mother's record shows **Maternal** and the mother's active antibodies in the Antibodies column (they may be present in the infant). It can still be issued; nothing is added to the infant's own record.
 - A unit inside the near-expiry window is marked and can still be issued.
 - When electronic crossmatch is not eligible, the row shows the reason. Serologic issue is unchanged.
 

@@ -319,7 +319,13 @@
                             <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
                             <td>@(string.IsNullOrWhiteSpace(row.StorageLocationName) ? "—" : row.StorageLocationName)</td>
                             <td>@(row.CurrentBloodType ?? "—")</td>
-                            <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
+                            <td>
+                                @AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)
+                                @if (row.MaternalAntibodies is { Count: > 0 } maternal)
+                                {
+                                    <span class="badge badge-red" data-ready-maternal title="The mother's active antibodies, which may be present in the infant">@($"Maternal {string.Join(", ", maternal)}")</span>
+                                }
+                            </td>
                             <td>
                                 @(row.LatestCrossmatchResult is CrossmatchResult readyXm ? readyXm.ToString() : "—")
                                 @if (row.CrossmatchExpiresUtc is DateTime crossmatchExpires)

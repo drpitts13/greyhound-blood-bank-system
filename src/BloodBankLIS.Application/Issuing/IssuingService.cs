@@ -1093,6 +1093,11 @@ public sealed class IssuingService
         var antibodiesByPatient = antibodies
             .GroupBy(a => a.PatientId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity).ToList());
+        // Pass 214: an infant's mother's active antibodies, shown beside the infant's own.
+        var motherIds = patients.Values.Select(p => p.MotherPatientId).OfType<long>().Distinct().ToList();
+        var maternalAntibodies = _antibodies is null || motherIds.Count == 0
+            ? Array.Empty<AntibodyHistory>().ToLookup(a => a.PatientId)
+            : (await _antibodies.ListAsync(a => motherIds.Contains(a.PatientId), ct)).ToLookup(a => a.PatientId);
         var specimens = await _specimens.ListAsync(s => patientIds.Contains(s.PatientId), ct);
         var xms = await _crossmatches.ListAsync(
             x => patientIds.Contains(x.PatientId), ct);
@@ -1274,7 +1279,10 @@ public sealed class IssuingService
                     forOrder?.NeededByUtc, now),
                 OpenReactionInvestigationId = openReactions.TryGetValue(allocation.PatientId, out var reaction) ? reaction.Id : null,
                 OpenReactionReportedUtc = openReactions.TryGetValue(allocation.PatientId, out var reported) ? reported.ReportedUtc : null,
-                RetypeNotice = unit is null ? null : IssueGate.RetypeNotice(unit.Status)
+                RetypeNotice = unit is null ? null : IssueGate.RetypeNotice(unit.Status),
+                MaternalAntibodies = patient?.MotherPatientId is long motherId
+                    ? BloodBankLIS.Application.Patients.PatientBloodBankFlags.ActiveAntibodies(maternalAntibodies[motherId])
+                    : null
             });
         }
 

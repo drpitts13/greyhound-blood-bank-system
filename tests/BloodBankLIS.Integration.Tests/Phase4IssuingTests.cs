@@ -4504,6 +4504,29 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("Anti-E (historical / currently undetectable)", row.AntibodySummary);
     }
 
+    // TEST-BB-1236 (end-user testing pass 214): a unit reserved for an infant shows the linked mother's active
+    // antibodies on Ready to issue; the infant's own antibody summary is unchanged.
+    [Fact]
+    public async Task ListReadyToIssue_ShowsTheMothersAntibodiesForAnInfant()
+    {
+        var s = await SeedAsync("RDY-MAT");
+        await AllocateAsync(s);
+        await using (var c = _factory.Create())
+        {
+            var mother = new Patient { MedicalRecordNumber = $"MRN-RDYMAT-{Guid.NewGuid():N}"[..20], LastName = "Mom", FirstName = "Pat", DateOfBirth = new DateOnly(1990, 1, 1) };
+            c.Patients.Add(mother);
+            await c.SaveChangesAsync();
+            c.AntibodyHistory.Add(new AntibodyHistory { PatientId = mother.Id, AntibodySpecificity = "Anti-K", IsActive = true });
+            (await c.Patients.SingleAsync(p => p.Id == s.PatientId)).MotherPatientId = mother.Id;
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var row = (await Issuing(ctx).ListReadyToIssueAllocationsAsync()).Single(r => r.BloodUnitId == s.UnitId);
+        Assert.NotEmpty(row.MaternalAntibodies ?? []);
+        Assert.False(row.HasAntibodyHistory);
+    }
+
     [Fact]
     public async Task ListReadyToIssue_FlagsCellularUnitWhenSecondAboIsMissing()
     {
