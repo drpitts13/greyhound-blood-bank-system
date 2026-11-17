@@ -33,10 +33,10 @@ public static class ShiftHandoffItems
         Add(h.CriticalDeviations, "Critical deviation open", "/deviations", urgent: true);
         Add(h.ReagentLotsFailedQc, "Reagent QC failed", "/reagents", urgent: true,
             Note((h.ReagentResultsToReview, h.ReagentResultsToReview == 1 ? "result to review" : "results to review")));
-        // Pass 179: results tested while a lot's QC was failing stay to review after its QC passes again; they were
+        // Pass 179: results to review after a lot's failed QC stay to review after its QC passes again; they were
         // counted but shown only beside a lot still failing, so they dropped off the handoff.
-        Add(h.ReagentLotsFailedQc == 0 ? h.ReagentResultsToReview : 0, "Results tested while QC was failing", "/reagents", urgent: true,
-            detail: "to review");
+        Add(h.ReagentLotsFailedQc == 0 ? h.ReagentResultsToReview : 0, "Results to review after failed QC", "/reagents", urgent: true,
+            detail: "tested since the lot's last passed QC");
         // Pass 71: a red-cell issue waits on these (OCD rules unchanged); the supervisor's own list.
         Add(h.SecondAboRhDue, "Second ABO/Rh", "/issuing?desk=second", detail: "needed before routine red-cell issue");
         Add(h.SupervisorQueueOpen, "Supervisor queue", "/supervisor");

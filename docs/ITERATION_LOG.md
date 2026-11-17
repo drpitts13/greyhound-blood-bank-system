@@ -25726,3 +25726,21 @@ Opened Quality & review › Shift handoff and compared its counts with the queue
 ### Tests
 
 - TEST-BB-1202. Full suite passed.
+
+## Iteration 900 — End-user testing pass 180: what results to review after a failed QC are (2026-11-16)
+
+### How it was tested
+
+Opened the five results to review on anti-D lot AD-24092 (`/api/reagents/lots/3/results`): ABO/Rh types for Demo, Patricia (MRN0001), Kline, Nora (MRN0010), Demo-Multi, Riley (MRN0022), Rhesus, Nora (MRN0003) and Kellerman, Diane (MRN0004), all entered 2026-11-06. The lot's QC failed on 2026-11-12 at 03:14 and passed at 13:19; it had no passed QC before the failure.
+
+### Found and fixed
+
+1. **The results were said to be tested while QC was failing; they were not.** The review window runs from the lot's last passed QC before a failure to the repeat QC that passed (`ReagentLotUseRule.ReviewWindows`); with no earlier passed QC on file, it runs from when the lot was first used. These five were tested six days before the failure. The Reagent QC worklist, the home Reagent QC card, the Supervisor queue and the shift handoff (passes 177–179 and the existing worklist text) all said *tested while QC was failing*, which reads as if the failure came first and invites a reviewer to look only at results after it. They now say *results to review after failed QC*, tested since the lot's last passed QC before the failure. The window itself is unchanged.
+
+### Retested live
+
+- The Reagent QC card reads *7 overdue; 5 results to review after failed QC*; the handoff lists *Results to review after failed QC: 5 (tested since the lot's last passed QC)*. Nothing was reviewed.
+
+### Tests
+
+- TEST-BB-1203 (the pass 178 and 179 tests, reworded). Full suite passed.

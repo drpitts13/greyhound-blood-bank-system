@@ -104,7 +104,7 @@ public sealed record ShiftHandoffDto(
             ? $"REAGENT QC FAILED: {ReagentLotsFailedQc} {(ReagentLotsFailedQc == 1 ? "lot" : "lots")}" +
               (ReagentResultsToReview > 0 ? $", {ReagentResultsToReview} {(ReagentResultsToReview == 1 ? "result" : "results")} to review" : "") + "; "
             : ReagentResultsToReview > 0
-                ? $"RESULTS TESTED WHILE QC WAS FAILING: {ReagentResultsToReview} to review; "
+                ? $"RESULTS TO REVIEW AFTER FAILED QC: {ReagentResultsToReview}; "
                 : "") +
         (TransfusionsRunning > 0
             ? $"transfusing {TransfusionsRunning}" + (TransfusionsCompletionOverdue > 0 ? $", {TransfusionsCompletionOverdue} completion overdue" : "") + "; "

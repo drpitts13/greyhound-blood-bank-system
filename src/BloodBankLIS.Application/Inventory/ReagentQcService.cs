@@ -762,7 +762,7 @@ public sealed class ReagentQcService
                 lotId,
                 lotNumbers.TryGetValue(lotId, out var number) ? number : string.Empty,
                 null,
-                "QC failed and has since passed; results tested with the lot while it was failing still need review.")
+                "QC failed and has since passed; results tested with the lot since its last passed QC before the failure still need review.")
             {
                 ResultsToReview = count
             });

@@ -551,7 +551,7 @@ public static class DashboardQueueCatalog
         var parts = new[]
         {
             AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindResultVerify && i.DueSoon), "to verify before its specimen expires", "to verify before their specimens expire"),
-            // Pass 178: failed reagent QC, and patient results tested with a lot while its QC was failing.
+            // Pass 178: failed reagent QC, and patient results tested with a lot since its last passed QC before a failed QC.
             AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindReagentQc && i.DueSoon), "failed reagent QC", "failed reagent QC"),
             AttentionNote(all.Count(i => i.Kind == SupervisorQueueRule.KindReagentQc && i.NextAction.EndsWith("results to review", StringComparison.Ordinal)),
                 "lot with results to review", "lots with results to review"),
@@ -633,9 +633,9 @@ public static class DashboardQueueCatalog
         {
             AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Failed), "failed", "failed"),
             AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Overdue), "overdue", "overdue"),
-            // Pass 178: patient results tested with a lot while its QC was failing, still to review.
+            // Pass 178: patient results tested with a lot since its last passed QC before a failed QC, still to review.
             AttentionNote(items.Where(i => i.Kind == ReagentQcWorklistRule.ReviewResults).Sum(i => i.ResultsToReview),
-                "result tested while QC was failing to review", "results tested while QC was failing to review"),
+                "result to review after failed QC", "results to review after failed QC"),
             AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Expired), "lot expired", "lots expired"),
             AttentionNote(items.Count(i => i.Kind == ReagentQcWorklistRule.Replace), "lot to replace", "lots to replace")
         }.Where(p => p is not null).ToList();
