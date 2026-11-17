@@ -1089,6 +1089,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-975 / FRS-BB-1093 | End-user testing pass 196: MTP idle time in days | `ElapsedWords.cs`, `MtpIdleRule.cs`, `ElapsedText.cs` | TEST-BB-1218 | U | |
 | URS-BB-976 / FRS-BB-1094 | End-user testing pass 197: reaction DATs on the DAT / Elution tab | `ReactionDatText.cs`, `PatientChartDatElutionTab.razor` | TEST-BB-1219 | U | |
 | URS-BB-977 / FRS-BB-1095 | End-user testing pass 198: antibody card with a type under QC review | `AntibodyCard.razor` | TEST-BB-1220 | U | |
+| URS-BB-978 / FRS-BB-1096 | End-user testing pass 199: downtime sheet and a type under QC review | `DowntimePatientSummaryService.cs`, `DowntimePatients.razor` | TEST-BB-1221 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

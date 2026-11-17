@@ -31,6 +31,7 @@ Open **Downtime patient summary** from the link on Downtime Snapshot (or go to /
 
 - name, MRN, and date of birth
 - ABO/Rh on file, and **No second determination on file** when the second ABO/Rh that issue requires is missing
+- **Under QC review** beside the ABO/Rh when it was tested with a reagent lot whose QC then failed and the result is not yet reviewed, naming the lot (*tested with ANTI-D lot AD-24092, whose QC failed; result not yet reviewed*)
 - active antibodies
 - special requirements in effect, with informational notes below them
 - prior transfusion reactions, newest first: type, severity, the date reported, and **investigation open** while the workup is not closed

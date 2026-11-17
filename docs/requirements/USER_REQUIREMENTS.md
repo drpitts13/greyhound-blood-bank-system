@@ -983,3 +983,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-975 | The MTP idle notice and alert say how long no unit was issued in days and hours beyond two days. | P3 | FRS-BB-1093 |
 | URS-BB-976 | The chart's DAT / Elution tab lists DATs recorded in the patient's reaction investigations. | P3 | FRS-BB-1094 |
 | URS-BB-977 | The antibody card page warns before printing when the ABO/Rh it carries is under QC review. | P2 | FRS-BB-1095 |
+| URS-BB-978 | The downtime patient summary says beside the ABO/Rh when it is under QC review, naming the lot. | P2 | FRS-BB-1096 |

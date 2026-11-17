@@ -102,6 +102,10 @@ else
                                 {
                                     <div class="sub"><strong>No second determination on file</strong></div>
                                 }
+                                @if (p.AboRhUnderQcReview is { Count: > 0 } underReview)
+                                {
+                                    <div class="sub" data-downtime-qc-review><strong>Under QC review:</strong> tested with @string.Join(", ", underReview), whose QC failed; result not yet reviewed</div>
+                                }
                                 @foreach (var discrepancy in p.TypeDiscrepancies ?? [])
                                 {
                                     <div class="sub" data-downtime-type-discrepancy><strong>ABO/Rh discrepancy:</strong> @discrepancy</div>

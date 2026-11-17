@@ -26068,3 +26068,21 @@ Opened the antibody card for Kellerman, Diane (MRN0004): *ABO/Rh O+, Antibodies:
 ### Tests
 
 - TEST-BB-1220. Full suite passed.
+
+## Iteration 919 — End-user testing pass 199: the downtime sheet and a type under QC review (2026-11-17)
+
+### How it was tested
+
+Opened the one-patient downtime summary for Kellerman, Diane (MRN0004): *O+, anti-K, K-negative red cells*, the sheet used to issue blood during an outage when the chart cannot be seen.
+
+### Found and fixed
+
+1. **The sheet gave the type with no word of the QC review.** During an outage the chart's **Under QC review** mark (pass 181) cannot be seen, and the sheet is all the bench has. It now prints beside the ABO/Rh *Under QC review: tested with ANTI-D lot AD-24092, whose QC failed; result not yet reviewed*, on the one-patient and full sheets, until the result is reviewed. As for pass 181, it is information only.
+
+### Retested live
+
+- MRN0004's downtime summary shows the line under O+. Nothing was printed.
+
+### Tests
+
+- TEST-BB-1221. Full suite passed.

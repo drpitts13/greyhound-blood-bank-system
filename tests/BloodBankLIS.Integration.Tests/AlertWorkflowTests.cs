@@ -140,7 +140,7 @@ public class AlertWorkflowTests : IDisposable
             var specimen = new Specimen { AccessionNumber = "ACC-RQ", PatientId = patient.Id, SpecimenType = "EDTA", CollectedUtc = now.AddDays(-2), Status = SpecimenStatus.Accepted };
             c.Specimens.Add(specimen);
             await c.SaveChangesAsync();
-            var result = new TestResult { SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = "RQABO", Value = "O|Positive", Status = ResultStatus.Verified, Source = ResultSource.Manual, EnteredUtc = now.AddHours(-5), EnteredBy = "tech" };
+            var result = new TestResult { SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = "ABORH", Value = "O|Positive", Status = ResultStatus.Verified, Source = ResultSource.Manual, EnteredUtc = now.AddHours(-5), EnteredBy = "tech" };
             c.TestResults.Add(result);
             await c.SaveChangesAsync();
             c.TestResultReagentLots.Add(new TestResultReagentLot { TestResultId = result.Id, ReagentLotId = lot.Id, ReagentCode = "RQ-D", LotNumber = "RQ-1", RecordedUtc = now.AddHours(-5) });
@@ -176,13 +176,21 @@ public class AlertWorkflowTests : IDisposable
         // TEST-BB-1205 (pass 182): the lot's results say how many units the patient was issued after the result.
         Assert.Equal(1, (await reagents.ResultsForLotAsync(lotId)).Value!.Single(r => r.ResultId == resultId).UnitsIssuedSince);
         // TEST-BB-1204 (pass 181): the patient's chart learns the result is under QC review, and no longer once reviewed.
-        Assert.Equal(new PatientResultUnderQcReviewDto(resultId, "RQABO", lotId, "RQ-D", "RQ-1"),
+        Assert.Equal(new PatientResultUnderQcReviewDto(resultId, "ABORH", lotId, "RQ-D", "RQ-1"),
             Assert.Single(await reagents.PatientResultsUnderReviewAsync(patientId)));
+        // TEST-BB-1221 (pass 199): the downtime sheet names the lot beside the type, and not once the result is reviewed.
+        BloodBankLIS.Application.Compliance.DowntimePatientSummaryService Downtime() => new(
+            new EfRepository<Patient>(verify), new EfRepository<Specimen>(verify), new EfRepository<Allocation>(verify), new EfRepository<Issue>(verify),
+            new EfRepository<BloodUnit>(verify), new EfRepository<ProductType>(verify), new EfRepository<PatientBloodTypeHistory>(verify),
+            new EfRepository<AntibodyHistory>(verify), new EfRepository<SpecialTransfusionRequirement>(verify), new EfRepository<SpecialRequirementDefinition>(verify),
+            new AuditWriter(verify, _factory.Clock, _factory.CurrentUser), verify, _factory.Clock, reagentQc: reagents);
+        Assert.Equal(["RQ-D lot RQ-1"], Assert.Single((await Downtime().GetAsync(patientId)).Patients).AboRhUnderQcReview);
 
         var reviewed = await reagents.ReviewLotResultAsync(lotId, resultId, "Repeated with the passing lot: O Pos confirmed.");
         Assert.True(reviewed.Succeeded, reviewed.Error);
         Assert.DoesNotContain(await reagents.ListWorkAsync(), w => w.LotId == lotId && w.Kind == ReagentQcWorklistRule.ReviewResults);
         Assert.Empty(await reagents.PatientResultsUnderReviewAsync(patientId));
+        Assert.Empty(Assert.Single((await Downtime().GetAsync(patientId)).Patients).AboRhUnderQcReview);
     }
 
     // TEST-BB-346: a transfusion started and not completed within the reminder hours raises a warning,

@@ -66,6 +66,12 @@ public sealed record DowntimePatientRow(
 
     /// <summary>Transfusion reactions on record, newest first (pass 104).</summary>
     public IReadOnlyList<DowntimeReactionLine> Reactions { get; init; } = [];
+
+    /// <summary>
+    /// The reagent lots the ABO/Rh was tested with whose QC failed, the result not yet reviewed ("ANTI-D lot AD-24092";
+    /// end-user testing pass 199: the sheet, used when the chart cannot be seen, gave the type with no word of it).
+    /// </summary>
+    public IReadOnlyList<string> AboRhUnderQcReview { get; init; } = [];
 }
 
 public sealed record DowntimePatientSummary(DateTime GeneratedUtc, IReadOnlyList<DowntimePatientRow> Patients);
@@ -95,6 +101,7 @@ public sealed class DowntimePatientSummaryService
     private readonly IRepository<BloodAttributeDefinition>? _attributes;
     private readonly IRepository<TestResult>? _results;
     private readonly IRepository<ReactionInvestigation>? _reactions;
+    private readonly BloodBankLIS.Application.Inventory.ReagentQcService? _reagentQc;
 
     public DowntimePatientSummaryService(
         IRepository<Patient> patients,
@@ -114,8 +121,10 @@ public sealed class DowntimePatientSummaryService
         BloodBankLIS.Application.PatientWorkspace.BloodOrderWorklistService? bloodOrders = null,
         IRepository<BloodAttributeDefinition>? attributes = null,
         IRepository<TestResult>? results = null,
-        IRepository<ReactionInvestigation>? reactions = null)
+        IRepository<ReactionInvestigation>? reactions = null,
+        BloodBankLIS.Application.Inventory.ReagentQcService? reagentQc = null)
     {
+        _reagentQc = reagentQc;
         _reactions = reactions;
         _results = results;
         _attributes = attributes;
@@ -296,6 +305,22 @@ public sealed class DowntimePatientSummaryService
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(r => r.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        if (_reagentQc is not null)
+        {
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var lots = (await _reagentQc.PatientResultsUnderReviewAsync(rows[i].PatientId, ct))
+                    .Where(r => string.Equals(r.TestCode, "ABORH", StringComparison.OrdinalIgnoreCase))
+                    .Select(r => $"{r.ReagentCode} lot {r.LotNumber}")
+                    .Distinct()
+                    .ToList();
+                if (lots.Count > 0)
+                {
+                    rows[i] = rows[i] with { AboRhUnderQcReview = lots };
+                }
+            }
+        }
 
         return new DowntimePatientSummary(now, rows);
     }
