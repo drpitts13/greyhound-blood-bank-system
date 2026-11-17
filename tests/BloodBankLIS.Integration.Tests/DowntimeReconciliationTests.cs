@@ -130,6 +130,27 @@ public class DowntimeReconciliationTests : IClassFixture<SqliteContextFactory>
             IssuedUtc = _factory.Clock.UtcNow.AddHours(-2),
             IssuedBy = "tech-test",
             Status = IssueStatus.Issued,
+            TestsIncompleteAtIssue = true,
+            CrossmatchStatus = CrossmatchClinicalStatus.NotCrossmatchedEmergency,
+            RetrospectiveCrossmatchDueUtc = _factory.Clock.UtcNow.AddHours(-1)
+        });
+        // TEST-BB-1206 (pass 183): a returned emergency issue is not a pending retrospective crossmatch, as on the board.
+        var returnedUnit = new BloodUnit
+        {
+            UnitNumber = $"U-DTR-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Available
+        };
+        c.BloodUnits.Add(returnedUnit);
+        await c.SaveChangesAsync();
+        c.Issues.Add(new Issue
+        {
+            BloodProductId = returnedUnit.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-2),
+            IssuedBy = "tech-test",
+            Status = IssueStatus.Returned,
+            TestsIncompleteAtIssue = true,
+            CrossmatchStatus = CrossmatchClinicalStatus.NotCrossmatchedEmergency,
             RetrospectiveCrossmatchDueUtc = _factory.Clock.UtcNow.AddHours(-1)
         });
 

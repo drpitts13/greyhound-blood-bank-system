@@ -93,8 +93,13 @@ public sealed class DowntimeReconciliationService
             ct);
         var openIssues = await _issues.ListAsync(i => i.Status == IssueStatus.Issued, ct);
         var openBackEntries = openIssues.Where(i => i.DowntimeBackEntry).ToList();
+        // Pass 183: counted as the Retrospective board lists them; a returned unit's issue is not pending (the snapshot
+        // read 3 beside the board's 2 because a returned issue was counted).
         var retro = await _issues.ListAsync(
-            i => i.RetrospectiveCrossmatchDueUtc != null && i.RetrospectiveCrossmatchCompletedUtc == null,
+            i => i.TestsIncompleteAtIssue
+                 && i.CrossmatchStatus != CrossmatchClinicalStatus.Compatible
+                 && i.RetrospectiveCrossmatchCompletedUtc == null
+                 && i.Status != IssueStatus.Returned,
             ct);
         var instrumentFailures = _instrumentMessages is null
             ? 0

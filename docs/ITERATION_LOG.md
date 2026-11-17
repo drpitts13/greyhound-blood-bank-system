@@ -25780,3 +25780,21 @@ Opened Reagent QC › *5 results to review* for anti-D lot AD-24092: five ABO/Rh
 ### Tests
 
 - TEST-BB-1205. Full suite passed.
+
+## Iteration 903 — End-user testing pass 183: the downtime snapshot's retrospective crossmatch count (2026-11-16)
+
+### How it was tested
+
+Opened Quality & review › Downtime snapshot after the seeded outage #1 (2026-11-12 03:15–05:15, LIS application server planned patch, no paper issues back-entered) and compared each count with its board.
+
+### Found and fixed
+
+1. **Pending retrospective crossmatches read 3; the board and the home card read 2.** The snapshot counted every issue with a retrospective crossmatch due and not completed, including issue 2, whose unit came back to the blood bank; the Retrospective board leaves returned units out. The snapshot now counts as the board lists them (tests incomplete at issue, crossmatch not compatible, not completed, not returned).
+
+### Retested live
+
+- The snapshot reads 2 pending retrospective crossmatches, as the board and home card do. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1206. Full suite passed.
