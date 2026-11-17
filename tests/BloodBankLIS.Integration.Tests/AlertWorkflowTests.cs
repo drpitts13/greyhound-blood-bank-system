@@ -126,7 +126,7 @@ public class AlertWorkflowTests : IDisposable
     public async Task PassingRepeatQc_KeepsTheResultsToReview()
     {
         var now = _factory.Clock.UtcNow;
-        long lotId, resultId;
+        long lotId, resultId, patientId;
         await using (var c = _factory.Create())
         {
             var reagent = new Reagent { Code = "RQ-D", Name = "Repeat QC anti-D", TestCodes = "RQABO" };
@@ -149,7 +149,7 @@ public class AlertWorkflowTests : IDisposable
                 new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = now.Date, ExpectedResult = "3+", ObservedResult = "0", Passed = false, PerformedBy = "tech", PerformedUtc = now.AddHours(-3) },
                 new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = now.Date, ExpectedResult = "3+", ObservedResult = "3+", Passed = true, PerformedBy = "tech", PerformedUtc = now.AddHours(-1) });
             await c.SaveChangesAsync();
-            (lotId, resultId) = (lot.Id, result.Id);
+            (lotId, resultId, patientId) = (lot.Id, result.Id, patient.Id);
         }
 
         await using var verify = _factory.Create();
@@ -161,10 +161,14 @@ public class AlertWorkflowTests : IDisposable
         Assert.DoesNotContain(work, w => w.Kind == ReagentQcWorklistRule.Failed);
         Assert.Equal(1, work.Single(w => w.Kind == ReagentQcWorklistRule.ReviewResults).ResultsToReview);
         Assert.True((await reagents.ResultsForLotAsync(lotId)).Value!.Single(r => r.ResultId == resultId).ToReview);
+        // TEST-BB-1204 (pass 181): the patient's chart learns the result is under QC review, and no longer once reviewed.
+        Assert.Equal(new PatientResultUnderQcReviewDto(resultId, "RQABO", lotId, "RQ-D", "RQ-1"),
+            Assert.Single(await reagents.PatientResultsUnderReviewAsync(patientId)));
 
         var reviewed = await reagents.ReviewLotResultAsync(lotId, resultId, "Repeated with the passing lot: O Pos confirmed.");
         Assert.True(reviewed.Succeeded, reviewed.Error);
         Assert.DoesNotContain(await reagents.ListWorkAsync(), w => w.LotId == lotId && w.Kind == ReagentQcWorklistRule.ReviewResults);
+        Assert.Empty(await reagents.PatientResultsUnderReviewAsync(patientId));
     }
 
     // TEST-BB-346: a transfusion started and not completed within the reminder hours raises a warning,

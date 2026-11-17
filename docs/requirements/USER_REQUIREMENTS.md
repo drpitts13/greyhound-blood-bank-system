@@ -966,3 +966,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-958 | The home Reagent QC and Supervisor queue cards name patient results tested with a lot since its last passed QC before a failed QC, and the Supervisor card names failed reagent QC. | P2 | FRS-BB-1076 |
 | URS-BB-959 | The shift handoff keeps results to review after a lot's failed QC until they are reviewed, also after the lot passes QC again, and says the reagent QC to review is counted by lot. | P2 | FRS-BB-1077 |
 | URS-BB-960 | Results to review after a failed reagent QC are described as tested since the lot's last passed QC before the failure, not as tested while it was failing. | P3 | FRS-BB-1078 |
+| URS-BB-961 | The chart marks the blood type when the patient's ABO/Rh is still to review after a reagent lot it was tested with failed QC. | P2 | FRS-BB-1079 |

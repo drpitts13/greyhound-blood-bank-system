@@ -221,6 +221,11 @@
             {
                 <div class="muted" style="font-size:.8rem;" data-neonatal-type title="@NeonatalTestingRule.AdmissionTypeMessage">Infant: stands for the admission</div>
             }
+            @if (QcReviewText.AboRh(_underQcReview) is { } underReview)
+            {
+                @* Pass 181: an ABO/Rh tested with a reagent lot whose QC failed, not yet reviewed. *@
+                <a class="badge badge-amber" style="font-size:.75rem;" href="/reagents" title="@underReview" data-type-under-qc-review>Under QC review</a>
+            }
         </div>
         <div class="stat" style="text-align:center;padding:.6rem 1rem;">
             <div class="label">Current specimen</div>
@@ -487,8 +492,12 @@ else if (ReactionNotice is not null)
     private List<IssuedUnderEarlierIdentityDto> _issuedUnderEarlier = new();
     private List<LookbackNotificationDto> _openLookback = new();
 
+    private List<PatientResultUnderQcReviewDto> _underQcReview = new();
+
     private async Task LoadFamilyAsync()
     {
+        var underReview = await Api.GetPatientResultsUnderQcReviewAsync(Patient.Id);
+        _underQcReview = underReview.Succeeded ? underReview.Value ?? new() : new();
         var r = await Api.GetPatientFamilyAsync(Patient.Id);
         _family = r.Succeeded ? r.Value : null;
         var issued = await Api.GetIssuedUnderEarlierIdentityAsync(Patient.Id);

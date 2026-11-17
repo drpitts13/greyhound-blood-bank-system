@@ -31,6 +31,12 @@ public sealed record ReagentLotResultDto(
     string? ReviewedBy = null,
     string? ReviewNote = null);
 
+/// <summary>
+/// A patient's result still to review after a reagent lot it was tested with failed QC (end-user testing pass 181: the
+/// chart showed the ABO/Rh typed with a failed anti-D lot as the patient's type with nothing to say it was under review).
+/// </summary>
+public sealed record PatientResultUnderQcReviewDto(long ResultId, string TestCode, long ReagentLotId, string ReagentCode, string LotNumber);
+
 /// <summary>A reagent lot recorded against a result.</summary>
 public sealed record ResultReagentLotDto(long ReagentLotId, string ReagentCode, string LotNumber, DateTime RecordedUtc);
 
@@ -404,6 +410,41 @@ public sealed class ReagentQcService
                 .OrderBy(r => r.ReagentCode).ThenBy(r => r.LotNumber)
                 .Select(r => new ResultReagentLotDto(r.ReagentLotId, r.ReagentCode, r.LotNumber, r.RecordedUtc))
                 .ToList();
+
+    /// <summary>
+    /// The patient's results still to review after a lot they were tested with failed QC: recorded with the lot inside a
+    /// review window (since its last passed QC before a failure, until a repeat passed) and not yet reviewed.
+    /// </summary>
+    public async Task<IReadOnlyList<PatientResultUnderQcReviewDto>> PatientResultsUnderReviewAsync(long patientId, CancellationToken ct = default)
+    {
+        if (_resultLots is null || _results is null)
+        {
+            return [];
+        }
+
+        var results = (await _results.ListAsync(r => r.PatientId == patientId, ct)).ToDictionary(r => r.Id);
+        if (results.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = results.Keys.ToList();
+        var uses = await _resultLots.ListAsync(u => ids.Contains(u.TestResultId) && u.ReviewedUtc == null, ct);
+        var rows = new List<PatientResultUnderQcReviewDto>();
+        foreach (var lot in uses.GroupBy(u => u.ReagentLotId))
+        {
+            var windows = ReagentLotUseRule.ReviewWindows(await _qc.ListAsync(q => q.ReagentLotId == lot.Key, ct));
+            if (windows.Count == 0)
+            {
+                continue;
+            }
+
+            rows.AddRange(lot.Where(u => ReagentLotUseRule.InReviewWindow(u.RecordedUtc, windows))
+                .Select(u => new PatientResultUnderQcReviewDto(u.TestResultId, results[u.TestResultId].TestCode, u.ReagentLotId, u.ReagentCode, u.LotNumber)));
+        }
+
+        return rows.OrderBy(r => r.TestCode).ThenBy(r => r.LotNumber).ToList();
+    }
 
     /// <summary>Lot lookback: every result recorded as tested with the lot, newest first, with patient and specimen.</summary>
     public async Task<OperationResult<IReadOnlyList<ReagentLotResultDto>>> ResultsForLotAsync(long lotId, CancellationToken ct = default)

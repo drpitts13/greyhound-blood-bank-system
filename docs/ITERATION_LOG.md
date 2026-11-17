@@ -25744,3 +25744,21 @@ Opened the five results to review on anti-D lot AD-24092 (`/api/reagents/lots/3/
 ### Tests
 
 - TEST-BB-1203 (the pass 178 and 179 tests, reworded). Full suite passed.
+
+## Iteration 901 — End-user testing pass 181: a blood type under QC review on the chart (2026-11-16)
+
+### How it was tested
+
+Opened the chart of Kellerman, Diane (MRN0004), one of the five patients whose ABO/Rh was tested with anti-D lot AD-24092 and is still to review after the lot's failed QC (pass 180).
+
+### Found and fixed
+
+1. **The chart showed the type with nothing to say it was under review.** The header read *O+, Second ABO on file*, the type crossmatch, selection and issue rely on, while the result it came from waited on Reagent QC for review after the anti-D lot failed. The blood type now carries an amber **Under QC review** mark naming the lot (*ABO/Rh tested with ANTI-D lot AD-24092, whose QC failed; the result is to review on Reagent QC before relying on it*), linking to Reagent QC, until the result is reviewed. Nothing is blocked: whether to hold issue on it is not decided here.
+
+### Retested live
+
+- MRN0004's chart shows **Under QC review** under O+; a patient with no such result (MRN0029) shows none. Nothing was reviewed.
+
+### Tests
+
+- TEST-BB-1204. Full suite passed.

@@ -2162,6 +2162,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ReagentLotResultDto>> ReviewReagentLotResultAsync(long lotId, long resultId, string note, CancellationToken ct = default) =>
         SendAsync<ReagentLotResultDto>(HttpMethod.Post, $"api/reagents/lots/{lotId}/results/{resultId}/review", new ReasonRequestVm(note), ct);
 
+    public Task<ApiResult<List<PatientResultUnderQcReviewDto>>> GetPatientResultsUnderQcReviewAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<PatientResultUnderQcReviewDto>>(HttpMethod.Get, $"api/reagents/patients/{patientId}/results-under-review", ct: ct);
+
     public Task<ApiResult<List<ReagentLotResultDto>>> GetReagentLotResultsAsync(long lotId, CancellationToken ct = default) =>
         SendAsync<List<ReagentLotResultDto>>(HttpMethod.Get, $"api/reagents/lots/{lotId}/results", ct: ct);
 

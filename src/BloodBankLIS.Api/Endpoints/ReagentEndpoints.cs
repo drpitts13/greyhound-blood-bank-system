@@ -34,6 +34,10 @@ public static class ReagentEndpoints
             ToResult(await service.SetReagentTestsAsync(id, request, ct)))
             .RequirePermission(PermissionCodes.ResultEnter);
 
+        // Pass 181: a patient's results still to review after a lot they were tested with failed QC (the chart warns).
+        group.MapGet("/patients/{patientId:long}/results-under-review", async (long patientId, ReagentQcService service, CancellationToken ct) =>
+            Results.Ok(await service.PatientResultsUnderReviewAsync(patientId, ct)));
+
         // Lot lookback: the results recorded as tested with a lot (for a lot that failed QC or was recalled).
         group.MapGet("/lots/{id:long}/results", async (long id, ReagentQcService service, CancellationToken ct) =>
             ToResult(await service.ResultsForLotAsync(id, ct)));
