@@ -78,6 +78,17 @@ public class LoadingStateSourceTests
         Assert.Contains(expected, page);
     }
 
+    // TEST-BB-1207: the antibody ID worklist does not say no outside report is waiting before reading them, or after a
+    // failed read; the count shows once read (end-user testing pass 184).
+    [Fact]
+    public void OutsideAntibodyReports_SayLoadingBeforeNone()
+    {
+        var page = File.ReadAllText(Path.Combine(RepoRoot(), "src", "BloodBankLIS.Web", "Components", "Pages", "AntibodyIdWorklist.razor"));
+        Assert.Contains("WorklistEmptyText.For(_outsideLoaded, _outsideError, \"No outside antibody report is waiting to be confirmed.\")", page);
+        Assert.Contains("_outsideLoaded = true;", page);
+        Assert.DoesNotContain("<h3>Outside reports to confirm (@_outside.Count)</h3>", page);
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

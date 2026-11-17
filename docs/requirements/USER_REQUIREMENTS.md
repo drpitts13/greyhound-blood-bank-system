@@ -969,3 +969,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-961 | The chart marks the blood type when the patient's ABO/Rh is still to review after a reagent lot it was tested with failed QC. | P2 | FRS-BB-1079 |
 | URS-BB-962 | A reagent lot's result lookback shows how many units each patient was issued after the result was entered. | P2 | FRS-BB-1080 |
 | URS-BB-963 | The downtime snapshot counts pending retrospective crossmatches as the Retrospective board lists them, leaving out returned units' issues. | P3 | FRS-BB-1081 |
+| URS-BB-964 | The antibody identification worklist says outside reports are loading, or could not be read, instead of saying none is waiting. | P3 | FRS-BB-1082 |

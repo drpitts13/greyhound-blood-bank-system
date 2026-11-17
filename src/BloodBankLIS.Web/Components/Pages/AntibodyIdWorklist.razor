@@ -259,10 +259,12 @@ else
     @if (Session.Has(PermissionCodes.ImmunoRecord))
     {
         <div class="bb-card" id="outside-reports" data-outside-to-confirm>
-            <div class="bb-card-title"><h3>Outside reports to confirm (@_outside.Count)</h3></div>
+            <div class="bb-card-title"><h3>Outside reports to confirm@(_outsideLoaded && _outsideError is null ? $" ({_outside.Count})" : "")</h3></div>
             @if (_outside.Count == 0)
             {
-                <div class="empty">No outside antibody report is waiting to be confirmed.</div>
+                @* Pass 184: the card said none were waiting before it had read them, and after a failed read. *@
+                var outsideEmpty = WorklistEmptyText.For(_outsideLoaded, _outsideError, "No outside antibody report is waiting to be confirmed.");
+                <div class="@(outsideEmpty.IsError ? "empty text-danger" : "empty")" data-worklist-empty="outside-antibodies">@outsideEmpty.Text</div>
             }
             else
             {
@@ -297,6 +299,8 @@ else
 
 @code {
     private List<OutsideAntibodyToConfirmDto> _outside = new();
+    private bool _outsideLoaded;
+    private string? _outsideError;
     private List<AntibodyPanelLotSupplyItemDto> _supply = new();
 
     [SupplyParameterFromQuery]
@@ -452,6 +456,8 @@ else
         {
             var outside = await Api.GetOutsideAntibodiesToConfirmAsync();
             _outside = outside.Value ?? new();
+            _outsideError = outside.Succeeded ? null : outside.Error ?? "the server did not answer.";
+            _outsideLoaded = true;
         }
 
         if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.AdminConfigView))

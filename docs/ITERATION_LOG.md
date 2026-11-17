@@ -25798,3 +25798,21 @@ Opened Quality & review › Downtime snapshot after the seeded outage #1 (2026-1
 ### Tests
 
 - TEST-BB-1206. Full suite passed.
+
+## Iteration 904 — End-user testing pass 184: outside antibody reports before they are read (2026-11-16)
+
+### How it was tested
+
+Opened Patients & testing › Antibody ID: one open workup, Kellerman, Diane (MRN0004) on ACC-DEMO-ABID1 (expired specimen, next step Interpret), with chart, specimen and workup links.
+
+### Found and fixed
+
+1. **Outside reports to confirm said none were waiting while the page was still loading.** The card read *Outside reports to confirm (0)* and *No outside antibody report is waiting to be confirmed.* beside *Loading worklist...*, and would have kept saying so after a failed read; these are antibodies reported by another facility and used for selection until this laboratory confirms them (OCD-073). It now says *Loading…* until read, the read error if it failed, and shows the count only once read.
+
+### Retested live
+
+- Once read, the card shows *(0)* and its empty message; the workup list is unchanged (the brief loading state was not caught live; TEST-BB-1207 covers it). Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1207. Full suite passed.
