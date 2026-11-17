@@ -26384,3 +26384,25 @@ Opened Instrument status & logs and the open failures: message 8 (*Test DAT is n
 ### Tests
 
 - TEST-BB-1237. Full suite passed; the Help tests were rerun after the two link changes (Web only).
+
+## Iteration 936 — End-user testing pass 216: donation components still in stock on the DIN lookback (2026-11-17)
+
+### How it was tested
+
+Opened Reactions (both open investigations and the workup checklist of #2), then Lookback / Trace: the open notification for DIN W123426000001 (recipient Demo, Patricia, MRN0001, notify by 2027-01-29), its DIN lookback, and a recipient traceback of MRN0001.
+
+### Found and fixed
+
+1. **A co-component of the implicated donation sat in stock unremarked.** The DIN lookback listed W000123LSIB001, a red cell from the same donation, as Pending Retype in FRIDGE-1, among the components with no note, while the recipient notification for the donation was open. It could have been retyped and issued. The lookback now says *1 component of this donation is still in stock, not quarantined or recalled: W000123LSIB001 (Pending Retype, FRIDGE-1 Main Blood Bank Refrigerator). Recall all components (with a reason) recalls it, following your lookback procedure.* Nothing is recalled automatically.
+
+### Also checked, no change
+
+- Reaction investigation #2: the bedside vitals (T 36.9 → 38.6 °C) load after the case opens; the checklist lists every step still due before close.
+
+### Retested live
+
+- The DIN lookback shows the note for W000123LSIB001. Nothing was recalled.
+
+### Tests
+
+- TEST-BB-1238. Full suite passed; the Help tests were rerun after a wording fix (Web only).

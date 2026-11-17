@@ -22,4 +22,13 @@ public static class LookbackRecallRule
                 UnitStatus.Expired => "expired; it cannot be recalled, so discard it",
                 _ => $"is {status}; it cannot be recalled"
             };
+
+    /// <summary>
+    /// A component of the donation still on a shelf and not already held (quarantined, recalled or damaged): the DIN
+    /// lookback names it, so a unit from an implicated donation is not missed while the recipients are being traced
+    /// (end-user testing pass 216). Information only; whether to recall is the user's decision.
+    /// </summary>
+    public static bool StillInStock(UnitStatus status) =>
+        StorageTemperatureRule.StoredStatuses.Contains(status)
+        && status is not (UnitStatus.Quarantine or UnitStatus.Recalled or UnitStatus.Damaged);
 }

@@ -30,4 +30,18 @@ public class LookbackRecallRuleTests
             Assert.Contains(expected, why);
         }
     }
+    // TEST-BB-1238 (end-user testing pass 216): a component still on a shelf and not already held is named on the DIN
+    // lookback; a quarantined, recalled, damaged, transfused, issued or discarded one is not.
+    [Theory]
+    [InlineData(UnitStatus.Available, true)]
+    [InlineData(UnitStatus.Received, true)]
+    [InlineData(UnitStatus.Crossmatched, true)]
+    [InlineData(UnitStatus.Quarantine, false)]
+    [InlineData(UnitStatus.Recalled, false)]
+    [InlineData(UnitStatus.Damaged, false)]
+    [InlineData(UnitStatus.Issued, false)]
+    [InlineData(UnitStatus.Transfused, false)]
+    [InlineData(UnitStatus.Discarded, false)]
+    public void StillInStock_NamesUnheldComponentsOnAShelf(UnitStatus status, bool expected) =>
+        Assert.Equal(expected, LookbackRecallRule.StillInStock(status));
 }

@@ -34,7 +34,7 @@ You need lookback permission. Other staff can see the clinical chart but cannot 
 
 ## Finding the components
 
-**Components for** a DIN lists each component with its product, status and current location, so each can be found and pulled when it is recalled.
+**Components for** a DIN lists each component with its product, status and current location, so each can be found and pulled when it is recalled. A note above them names any component still in stock that is not quarantined, recalled or damaged (for example *W000123LSIB001 (Pending Retype, FRIDGE-1 …)*), so a unit from the donation is not missed while recipients are traced. Whether to recall is your decision under your lookback procedure.
 
 ## How long a notification has waited
 

@@ -1246,5 +1246,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1235 | I | `CompetitorGapWorkflowTests.ReagentQc_ReviewerMustDiffer_AndWorklistClearsAfterReview` | URS-BB-992 / FRS-BB-1110 |
 | TEST-BB-1236 | I | `Phase4IssuingTests.ListReadyToIssue_ShowsTheMothersAntibodiesForAnInfant` | URS-BB-993 / FRS-BB-1111 |
 | TEST-BB-1237 | U | `InstrumentFailureNextStepTests.For_NamesTheNextStepAndWhereToDoIt` | URS-BB-994 / FRS-BB-1112 |
+| TEST-BB-1238 | D | `LookbackRecallRuleTests.StillInStock_NamesUnheldComponentsOnAShelf` | URS-BB-995 / FRS-BB-1113 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

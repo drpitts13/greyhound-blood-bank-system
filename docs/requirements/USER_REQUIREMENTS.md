@@ -1000,3 +1000,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-992 | The reagent QC worklist does not offer Review on QC the signed-in user performed. | P3 | FRS-BB-1110 |
 | URS-BB-993 | Ready to issue shows an infant's mother's active antibodies on units reserved for the infant. | P2 | FRS-BB-1111 |
 | URS-BB-994 | An open instrument message failure says what to do next and links to the patient, specimen or unmapped values. | P3 | FRS-BB-1112 |
+| URS-BB-995 | The DIN lookback names components of the donation still in stock and not held. | P2 | FRS-BB-1113 |
