@@ -26522,3 +26522,22 @@ Opened DEMO-RHIG, Noor (MRN0026, O−, delivery 2026-11-07 13:27, infant Rh posi
 ### Tests
 
 - TEST-BB-1244. Full suite passed.
+
+## Iteration 943 — End-user testing pass 223: reading age and storage never read (2026-11-17)
+
+### How it was tested
+
+Opened Storage temperatures: the two open excursions (OR-FRIDGE 7.2 °C, FRIDGE-1 8.5 °C, both back in range with deviations to close) and the Locations table. The facility's reading interval is not set (it is on the home card's settings to enter), so no location is marked Reading due.
+
+### Found and fixed
+
+1. **FREEZER-1 held 6 units and had never been read, and the row said only *None*.** Nothing showed the temperature its plasma was kept at. A location holding units with no reading on record now says *No reading on record; 6 units stored here*.
+2. **The last reading gave its time but not its age.** FRIDGE-1's last reading was 2026-11-12 13:59, five days earlier, with 35 units stored. The Time column now adds *5 d 3 h ago*. Whether a reading is due still follows the facility's interval; nothing is invented when it is not set.
+
+### Retested live
+
+- FREEZER-1 shows the no-reading note; FRIDGE-1 and OR-FRIDGE show *5 d 3 h ago* and *5 d 4 h ago*; empty locations with no reading (ISSUE, PLT-1) say nothing more. No reading was recorded.
+
+### Tests
+
+- TEST-BB-1245. Full suite passed.

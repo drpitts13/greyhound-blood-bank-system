@@ -20,6 +20,8 @@ Readings are never edited. If a reading is wrong, record the correct one and say
 
 When Facility Policies › Inventory › *Storage temperature reading interval (hours)* is set, each location with a temperature range whose last reading is that old or older is marked **Reading due** (*Due since …*), and one never read says *No reading recorded*. The home card **Temperature readings due** counts them. A location without a range, such as an issue window, is never marked. While the interval is not set (0, the default) nothing is marked; the interval is your procedure's (for example every 4 hours when readings are taken by hand).
 
+Whatever the interval, **Time** says how old the last reading is (*5 d 3 h ago*), and a location holding units with no reading ever recorded says *No reading on record; 6 units stored here*.
+
 ## Ranges and excursions
 
 The range is the minimum and maximum set on the device in Admin › Refrigerators & Freezers (or Admin › Inventory locations). Each reading keeps the range that was in force when it was taken, so a later range change does not rewrite history. A location with no range records readings but never raises an excursion.

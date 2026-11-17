@@ -76,8 +76,16 @@
                             {
                                 <span class="badge badge-amber" data-reading-due title="Facility Policies › Storage temperature reading interval">Reading due: @due</span>
                             }
+                            @if (StorageReadingText.NoReadingWithUnits(loc.LastReadingUtc, loc.UnitsStored) is { } never)
+                            {
+                                @* Pass 223: units are stored here and nothing shows the temperature they are kept at. *@
+                                <span class="badge badge-amber" data-no-reading>@never</span>
+                            }
                         </td>
-                        <td>@loc.LastReadingUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@loc.LastReadingUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@if (StorageReadingText.Age(loc.LastReadingUtc, DateTime.UtcNow) is { } age)
+                            {
+                                <span class="sub" data-reading-age>@age</span>
+                            }</td>
                         <td>@loc.UnitsStored</td>
                         <td class="right nowrap">
                             @if (Session.Has(PermissionCodes.InventoryReceive))

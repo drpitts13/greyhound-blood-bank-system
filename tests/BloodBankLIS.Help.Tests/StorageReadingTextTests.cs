@@ -1,0 +1,21 @@
+using BloodBankLIS.Web.Services;
+
+namespace BloodBankLIS.Help.Tests;
+
+public class StorageReadingTextTests
+{
+    // TEST-BB-1245: a location's last reading says how old it is, and a location holding units with no reading ever
+    // recorded says so (end-user testing pass 223); an empty location with no reading says nothing.
+    [Fact]
+    public void LastReading_SaysItsAgeAndFlagsStorageNeverRead()
+    {
+        var now = new DateTime(2026, 11, 17, 14, 0, 0, DateTimeKind.Utc);
+        Assert.Equal("5 d ago", StorageReadingText.Age(now.AddDays(-5), now));
+        Assert.Null(StorageReadingText.Age(null, now));
+
+        Assert.Equal("No reading on record; 6 units stored here", StorageReadingText.NoReadingWithUnits(null, 6));
+        Assert.Equal("No reading on record; 1 unit stored here", StorageReadingText.NoReadingWithUnits(null, 1));
+        Assert.Null(StorageReadingText.NoReadingWithUnits(null, 0));
+        Assert.Null(StorageReadingText.NoReadingWithUnits(now, 6));
+    }
+}
