@@ -144,6 +144,17 @@ public class AlertWorkflowTests : IDisposable
             c.TestResults.Add(result);
             await c.SaveChangesAsync();
             c.TestResultReagentLots.Add(new TestResultReagentLot { TestResultId = result.Id, ReagentLotId = lot.Id, ReagentCode = "RQ-D", LotNumber = "RQ-1", RecordedUtc = now.AddHours(-5) });
+            // Pass 182: one unit issued to the patient after the result, one before it.
+            var product = new ProductType { ProductCode = "RBC-RQ", Name = "Red cells" };
+            c.ProductTypes.Add(product);
+            await c.SaveChangesAsync();
+            var unitAfter = new BloodUnit { UnitNumber = "W-RQ-AFTER", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddDays(10), Status = UnitStatus.Issued };
+            var unitBefore = new BloodUnit { UnitNumber = "W-RQ-BEFORE", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddDays(10), Status = UnitStatus.Issued };
+            c.BloodUnits.AddRange(unitAfter, unitBefore);
+            await c.SaveChangesAsync();
+            c.Issues.AddRange(
+                new Issue { BloodProductId = unitAfter.Id, PatientId = patient.Id, IssuedUtc = now.AddHours(-2), IssuedBy = "tech", Status = IssueStatus.Issued },
+                new Issue { BloodProductId = unitBefore.Id, PatientId = patient.Id, IssuedUtc = now.AddHours(-30), IssuedBy = "tech", Status = IssueStatus.Issued });
             c.ReagentDailyQcs.AddRange(
                 new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = now.AddDays(-1).Date, ExpectedResult = "3+", ObservedResult = "3+", Passed = true, PerformedBy = "tech", PerformedUtc = now.AddHours(-26) },
                 new ReagentDailyQc { ReagentLotId = lot.Id, QcDateUtc = now.Date, ExpectedResult = "3+", ObservedResult = "0", Passed = false, PerformedBy = "tech", PerformedUtc = now.AddHours(-3) },
@@ -156,11 +167,14 @@ public class AlertWorkflowTests : IDisposable
         var reagents = new ReagentQcService(
             new EfRepository<Reagent>(verify), new EfRepository<ReagentLot>(verify), new EfRepository<ReagentDailyQc>(verify),
             verify, _factory.Clock, _factory.CurrentUser, new AuditWriter(verify, _factory.Clock, _factory.CurrentUser),
-            new EfRepository<TestResultReagentLot>(verify), new EfRepository<TestResult>(verify), new EfRepository<Specimen>(verify), new EfRepository<Patient>(verify));
+            new EfRepository<TestResultReagentLot>(verify), new EfRepository<TestResult>(verify), new EfRepository<Specimen>(verify), new EfRepository<Patient>(verify),
+            issues: new EfRepository<Issue>(verify));
         var work = (await reagents.ListWorkAsync()).Where(w => w.LotId == lotId).ToList();
         Assert.DoesNotContain(work, w => w.Kind == ReagentQcWorklistRule.Failed);
         Assert.Equal(1, work.Single(w => w.Kind == ReagentQcWorklistRule.ReviewResults).ResultsToReview);
         Assert.True((await reagents.ResultsForLotAsync(lotId)).Value!.Single(r => r.ResultId == resultId).ToReview);
+        // TEST-BB-1205 (pass 182): the lot's results say how many units the patient was issued after the result.
+        Assert.Equal(1, (await reagents.ResultsForLotAsync(lotId)).Value!.Single(r => r.ResultId == resultId).UnitsIssuedSince);
         // TEST-BB-1204 (pass 181): the patient's chart learns the result is under QC review, and no longer once reviewed.
         Assert.Equal(new PatientResultUnderQcReviewDto(resultId, "RQABO", lotId, "RQ-D", "RQ-1"),
             Assert.Single(await reagents.PatientResultsUnderReviewAsync(patientId)));

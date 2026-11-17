@@ -25762,3 +25762,21 @@ Opened the chart of Kellerman, Diane (MRN0004), one of the five patients whose A
 ### Tests
 
 - TEST-BB-1204. Full suite passed.
+
+## Iteration 902 — End-user testing pass 182: whose result blood was selected on (2026-11-16)
+
+### How it was tested
+
+Opened Reagent QC › *5 results to review* for anti-D lot AD-24092: five ABO/Rh results entered 2026-11-06, each linking to its patient's chart, with Mark reviewed. (The reagents' *Used for tests* column is an edit box for an administrator; the tests are set: anti-A, anti-B, anti-D, A1 and B cells for ABORH, screening cells for ABSC, AHG for ABSC, DAT and XM.)
+
+### Found and fixed
+
+1. **The lookback did not say which patients had blood issued after the result.** A reviewer of results tested with a failed lot needs to see first where a questioned ABO/Rh was relied on to select blood; the list showed patient, specimen, test and result only. Each row now shows **Units issued since** (units issued to the patient at or after the result was entered), linking to the patient's product history, or *None*.
+
+### Retested live
+
+- Demo, Patricia (MRN0001) shows *1 issued* and Demo-Multi, Riley (MRN0022) *4 issued*, each opening the product history; the other three *None*. Nothing was reviewed.
+
+### Tests
+
+- TEST-BB-1205. Full suite passed.

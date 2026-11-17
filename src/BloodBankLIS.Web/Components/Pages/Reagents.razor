@@ -307,7 +307,7 @@
                 {
                     <div class="table-scroll">
                     <table class="bb">
-                        <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>By</th><th>Review</th></tr></thead>
+                        <thead><tr><th>Entered</th><th>Patient</th><th>Specimen</th><th>Test</th><th>Result</th><th>Status</th><th>By</th><th title="Units issued to the patient since the result was entered">Units issued since</th><th>Review</th></tr></thead>
                         <tbody>
                             @foreach (var r in _lookback)
                             {
@@ -319,6 +319,24 @@
                                     <td>@ResultValueText.For(r.Value)</td>
                                     <td>@r.Status @if (r.ToReview) { <span class="badge badge-red">To review</span> }</td>
                                     <td>@r.EnteredBy</td>
+                                    @* Pass 182: blood issued after the result, so the reviewer can see whose result mattered. *@
+                                    <td data-lot-units-since="@r.ResultId">
+                                        @if (r.UnitsIssuedSince is int since)
+                                        {
+                                            @if (since > 0)
+                                            {
+                                                <a class="badge badge-amber" href="/patients/@r.PatientId?tab=history">@since issued</a>
+                                            }
+                                            else
+                                            {
+                                                <span class="muted">None</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="muted">—</span>
+                                        }
+                                    </td>
                                     <td data-lot-review="@r.ResultId">
                                         @if (r.ReviewedUtc is DateTime reviewedAt)
                                         {

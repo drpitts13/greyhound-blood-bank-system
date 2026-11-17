@@ -1073,6 +1073,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-959 / FRS-BB-1077 | End-user testing pass 179: QC results to review on the handoff | `ShiftHandoffItems.cs`, `ShiftHandoffService.cs` | TEST-BB-1202 | U | |
 | URS-BB-960 / FRS-BB-1078 | End-user testing pass 180: what results to review after failed QC are | `ReagentQcService.cs`, `DashboardQueueCatalog.cs`, `ShiftHandoffItems.cs`, `ShiftHandoffService.cs` | TEST-BB-1203 | U | |
 | URS-BB-961 / FRS-BB-1079 | End-user testing pass 181: blood type under QC review on the chart | `ReagentQcService.cs`, `ReagentEndpoints.cs`, `QcReviewText.cs`, `PatientChartHeader.razor` | TEST-BB-1204 | U, I | |
+| URS-BB-962 / FRS-BB-1080 | End-user testing pass 182: units issued since a result under QC review | `ReagentQcService.cs`, `Reagents.razor` | TEST-BB-1205 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

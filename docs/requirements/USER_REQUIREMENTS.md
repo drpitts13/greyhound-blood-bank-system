@@ -967,3 +967,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-959 | The shift handoff keeps results to review after a lot's failed QC until they are reviewed, also after the lot passes QC again, and says the reagent QC to review is counted by lot. | P2 | FRS-BB-1077 |
 | URS-BB-960 | Results to review after a failed reagent QC are described as tested since the lot's last passed QC before the failure, not as tested while it was failing. | P3 | FRS-BB-1078 |
 | URS-BB-961 | The chart marks the blood type when the patient's ABO/Rh is still to review after a reagent lot it was tested with failed QC. | P2 | FRS-BB-1079 |
+| URS-BB-962 | A reagent lot's result lookback shows how many units each patient was issued after the result was entered. | P2 | FRS-BB-1080 |

@@ -1213,5 +1213,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1202 | U | `ShiftHandoffItemsTests.ResultsTestedWhileQcWasFailing_StayAfterTheQcPasses` | URS-BB-959 / FRS-BB-1077 |
 | TEST-BB-1203 | U | `DashboardQueueCatalogTests.ReagentQc_ForResultEntry_NamesFailedAndOverdue`, `ShiftHandoffItemsTests.ResultsTestedWhileQcWasFailing_StayAfterTheQcPasses` | URS-BB-960 / FRS-BB-1078 |
 | TEST-BB-1204 | U, I | `QcReviewTextTests.AboRh_NamesTheLotUnderReview`, `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-961 / FRS-BB-1079 |
+| TEST-BB-1205 | I | `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-962 / FRS-BB-1080 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

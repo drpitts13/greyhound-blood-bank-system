@@ -29,7 +29,15 @@ public sealed record ReagentLotResultDto(
     bool ToReview = false,
     DateTime? ReviewedUtc = null,
     string? ReviewedBy = null,
-    string? ReviewNote = null);
+    string? ReviewNote = null)
+{
+    /// <summary>
+    /// Units issued to the patient since this result was entered (end-user testing pass 182: the lot's results to review
+    /// did not say which patients had blood issued after a result tested with the failed lot, so the reviewer could not
+    /// tell which ones mattered most). Null when issues are not available.
+    /// </summary>
+    public int? UnitsIssuedSince { get; init; }
+}
 
 /// <summary>
 /// A patient's result still to review after a reagent lot it was tested with failed QC (end-user testing pass 181: the
@@ -143,6 +151,7 @@ public sealed class ReagentQcService
     private readonly IAuditWriter _audit;
     private readonly IRepository<TestResultReagentLot>? _resultLots;
     private readonly IRepository<TestResult>? _results;
+    private readonly IRepository<Issue>? _issues;
     private readonly IRepository<Specimen>? _specimens;
     private readonly IRepository<Patient>? _patients;
     private readonly IRepository<TestDefinition>? _tests;
@@ -167,8 +176,10 @@ public sealed class ReagentQcService
         IRepository<Specimen>? specimens = null,
         IRepository<Patient>? patients = null,
         IRepository<TestDefinition>? tests = null,
-        IFacilityTimeZone? timeZone = null)
+        IFacilityTimeZone? timeZone = null,
+        IRepository<Issue>? issues = null)
     {
+        _issues = issues;
         _timeZone = timeZone;
         _resultLots = resultLots;
         _results = results;
@@ -474,6 +485,9 @@ public sealed class ReagentQcService
         var patients = _patients is null || patientIds.Count == 0
             ? new Dictionary<long, Patient>()
             : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var patientIssues = _issues is null || patientIds.Count == 0
+            ? null
+            : (await _issues.ListAsync(i => patientIds.Contains(i.PatientId), ct)).ToLookup(i => i.PatientId);
         IReadOnlyList<ReagentLotResultDto> rows = results
             .OrderBy(r => toReview.Contains(r.Id) ? 0 : 1)
             .ThenByDescending(r => r.EnteredUtc).ThenByDescending(r => r.Id)
@@ -486,7 +500,12 @@ public sealed class ReagentQcService
                     toReview.Contains(r.Id),
                     reviews.GetValueOrDefault(r.Id)?.ReviewedUtc,
                     reviews.GetValueOrDefault(r.Id)?.ReviewedBy,
-                    reviews.GetValueOrDefault(r.Id)?.ReviewNote);
+                    reviews.GetValueOrDefault(r.Id)?.ReviewNote)
+                {
+                    UnitsIssuedSince = patientIssues is null
+                        ? null
+                        : patientIssues[r.PatientId].Count(i => r.EnteredUtc is not DateTime entered || i.IssuedUtc >= entered)
+                };
             })
             .ToList();
         return OperationResult<IReadOnlyList<ReagentLotResultDto>>.Ok(rows);
