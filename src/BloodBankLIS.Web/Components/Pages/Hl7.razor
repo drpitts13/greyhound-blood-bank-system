@@ -313,7 +313,7 @@
                             {
                                 <div class="alert alert-danger">@m.ErrorDetail</div>
                             }
-                            <div class="pre">@_detail.Raw</div>
+                            <div class="pre" data-hl7-raw>@MessageRawText.ForDisplay(_detail.Raw)</div>
                         </td></tr>
                     }
                 }
@@ -329,7 +329,7 @@
                 <h4 style="margin:0;">Message #@viewedId</h4>
                 <button class="btn btn-ghost btn-sm" @onclick="() => { _viewId = null; _detail = null; }">Close</button>
             </div>
-            <div class="pre">@_detail.Raw</div>
+            <div class="pre" data-hl7-raw>@MessageRawText.ForDisplay(_detail.Raw)</div>
         </div>
     }
 </div>

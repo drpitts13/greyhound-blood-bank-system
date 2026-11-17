@@ -46,7 +46,7 @@
     <div class="bb-card" style="margin-top:1rem;">
         <h3>Preview — @_preview.Assay</h3>
         <p class="muted" data-sim-preview-note>@(PreviewIsCurrent ? "Send sends exactly this message." : "The settings have changed since this preview; Send generates a new message.")</p>
-        <pre class="pre">@_preview.RawMessage</pre>
+        <pre class="pre">@MessageRawText.ForDisplay(_preview.RawMessage)</pre>
     </div>
 }
 

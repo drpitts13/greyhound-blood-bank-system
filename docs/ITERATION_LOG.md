@@ -26140,3 +26140,21 @@ After pass 201's run-together *Alert#14*, checked other places that put two valu
 ### Tests
 
 - TEST-BB-1224. Full suite passed.
+
+## Iteration 923 — End-user testing pass 203: message segments on separate lines (2026-11-17)
+
+### How it was tested
+
+Opened deviation DEV-3 (the FRIDGE-1 excursion: its two automatic quarantine runs list nearly the same units, as units released between them were quarantined again while the excursion went on, which is correct) and then the HL7 error queue's message UAT-ORM-DUP-2 (ORM for MRN0001 with another patient's placer order), opened from Billing's DFT link (pass 176).
+
+### Found and fixed
+
+1. **Raw messages ran their segments together.** HL7 ends each segment with a carriage return, which a browser does not show as a line break, so the message read *MSH|…|2.5 PID|1||MRN0001… ORC|NW|…* wrapped across two lines, and a reader had to find where PID began. The HL7 message view, the instrument message view (ASTM records end the same way) and the simulator preview now show one segment or record per line. The stored message is unchanged.
+
+### Retested live
+
+- UAT-ORM-DUP-2's raw message shows MSH, PID, ORC and OBR each on its own line. Nothing was replayed or resolved.
+
+### Tests
+
+- TEST-BB-1225. Full suite passed.

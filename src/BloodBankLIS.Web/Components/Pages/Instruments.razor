@@ -221,7 +221,7 @@
             </div>
         }
         <h4>Raw ASTM</h4>
-        <pre class="pre">@_detail.RawMessage</pre>
+        <pre class="pre" data-instrument-raw>@MessageRawText.ForDisplay(_detail.RawMessage)</pre>
         <h4>Parsing</h4>
         @if (_detail.ParsedFields.Count == 0)
         {
