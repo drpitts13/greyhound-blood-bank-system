@@ -177,7 +177,10 @@ public static class AppBreadcrumbTrail
             crumbs.Add(new("Administration", "/admin"));
             for (var i = 1; i < parts.Length; i++)
             {
-                var label = AdminPages.TryGetValue(parts[i], out var mapped) ? mapped : TitleCase(parts[i]);
+                // Pass 226: an id segment (/admin/reports/design/3) reads "#3", not "3".
+                var label = AdminPages.TryGetValue(parts[i], out var mapped) ? mapped
+                    : long.TryParse(parts[i], out _) ? $"#{parts[i]}"
+                    : TitleCase(parts[i]);
                 var href = i < parts.Length - 1 ? "/" + string.Join('/', parts.Take(i + 1)) : null;
                 crumbs.Add(new(label, href));
             }
@@ -254,6 +257,24 @@ public static class AppBreadcrumbTrail
                 crumbs.Add(new("Investigation", null));
             }
 
+            return Finalize(crumbs);
+        }
+
+        // Pass 226: a page under an id (/reports/17, /mtp/pack-records/5) read "Dashboard / 17".
+        if (parts[0].Equals("reports", StringComparison.OrdinalIgnoreCase))
+        {
+            crumbs.Add(new("Reports", "/reports"));
+            if (parts.Length >= 2)
+            {
+                crumbs.Add(new("Run report", null));
+            }
+
+            return Finalize(crumbs);
+        }
+
+        if (parts.Length >= 2 && long.TryParse(parts[^1], out _))
+        {
+            crumbs.Add(new($"{TitleCase(parts[^2])} #{parts[^1]}", null));
             return Finalize(crumbs);
         }
 

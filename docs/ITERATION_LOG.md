@@ -26585,3 +26585,25 @@ Read the Shift handoff counts (31 queues, all named), then on Compatibility chos
 ### Tests
 
 - TEST-BB-1247. Full suite passed.
+
+## Iteration 946 — End-user testing pass 226: unverified result at specimen expiry (question), and breadcrumbs for pages opened by id (2026-11-17)
+
+### How it was tested
+
+Opened MRN0022's Specimens and Orders tabs, then the Test Worklist; afterwards Billing (ten pending charges) and Reports, running *RhIG evaluations and doses given*.
+
+### Found, not changed: question to the user
+
+1. **An unverified positive antibody screen left every worklist at specimen expiry.** ORD-E258306ED774 (Stat ABO/Rh and antibody screen on ACC-DEMO-RCV1) had its screen resulted *Positive* (cell 3 AHG 1+) on 2026-11-12 and not verified; at 23:52 the specimen expired and the expiry sweep cancelled the order, deactivating the line, so the result is on no worklist, alert or queue. A change to keep such orders open was made and reverted: OCD-091 (decided 2026-11-14) blocks verifying a patient test after its specimen expires outside a recorded outage, so the result would have stayed on a worklist with no way to verify it. What should happen (cancel and alert, or allow verification of an in-date result) is the user's decision; nothing was changed and MRN0022's order stays as recorded.
+
+### Found and fixed
+
+2. **A report's breadcrumb read *Dashboard / 17*.** Pages opened by id fell to the generic rule, which showed the id. *Run report* pages now read *Dashboard / Reports / Run report* (Reports links back to the catalog); another page ending in an id names its section with the id (*Pack Records #5*); an id under Administration reads *#3*.
+
+### Retested live
+
+- /reports/17 shows *Dashboard / Reports / Run report*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1248. Full suite passed.
