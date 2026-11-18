@@ -339,9 +339,30 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 row.Action,
                 row.RuleCode,
                 row.Reason,
-                row.AuthorizedBy
+                row.AuthorizedBy,
+                row.ContextType,
+                row.ContextId
             })
             .ToListAsync(cancellationToken);
+
+        // End-user testing pass 245: an override names its unit and patient through its issue, reservation or crossmatch.
+        long[] Ids(string type) => overrides.Where(o => o.ContextType == type).Select(o => o.ContextId).Distinct().ToArray();
+        var issueIds = Ids(nameof(BloodBankLIS.Domain.Entities.Issue));
+        var allocationIds = Ids(nameof(BloodBankLIS.Domain.Entities.Allocation));
+        var crossmatchIds = Ids(nameof(BloodBankLIS.Domain.Entities.Crossmatch));
+        var contexts = new Dictionary<(string, long), (long UnitId, long PatientId)>();
+        // An issue override's ContextId is the unit; the patient is that unit's latest issue (as the supervisor queue reads it).
+        foreach (var x in (await _db.Issues.AsNoTracking().Where(i => issueIds.Contains(i.BloodProductId)).Select(i => new { i.Id, i.BloodProductId, i.PatientId }).ToListAsync(cancellationToken))
+                     .GroupBy(i => i.BloodProductId).Select(g => g.OrderByDescending(i => i.Id).First()))
+            contexts[(nameof(BloodBankLIS.Domain.Entities.Issue), x.BloodProductId)] = (x.BloodProductId, x.PatientId);
+        foreach (var x in await _db.Allocations.AsNoTracking().Where(a => allocationIds.Contains(a.Id)).Select(a => new { a.Id, a.BloodProductId, a.PatientId }).ToListAsync(cancellationToken))
+            contexts[(nameof(BloodBankLIS.Domain.Entities.Allocation), x.Id)] = (x.BloodProductId, x.PatientId);
+        foreach (var x in await _db.Crossmatches.AsNoTracking().Where(c => crossmatchIds.Contains(c.Id)).Select(c => new { c.Id, c.BloodProductId, c.PatientId }).ToListAsync(cancellationToken))
+            contexts[(nameof(BloodBankLIS.Domain.Entities.Crossmatch), x.Id)] = (x.BloodProductId, x.PatientId);
+        var contextUnitIds = contexts.Values.Select(v => v.UnitId).Distinct().ToArray();
+        var contextPatientIds = contexts.Values.Select(v => v.PatientId).Distinct().ToArray();
+        var unitNumbers = await _db.BloodUnits.AsNoTracking().Where(u => contextUnitIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UnitNumber, cancellationToken);
+        var mrns = await _db.Patients.AsNoTracking().Where(p => contextPatientIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.MedicalRecordNumber, cancellationToken);
 
         var emergencies = await (
             from issue in _db.Issues.AsNoTracking()
@@ -367,8 +388,8 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("rule_code", ReportValueFormat.Text(row.RuleCode)),
             ("reason", ReportValueFormat.Text(row.Reason)),
             ("actor", ReportValueFormat.Text(row.AuthorizedBy)),
-            ("unit_number", null),
-            ("mrn", null),
+            ("unit_number", contexts.TryGetValue((row.ContextType, row.ContextId), out var c) ? unitNumbers.GetValueOrDefault(c.UnitId) : null),
+            ("mrn", contexts.TryGetValue((row.ContextType, row.ContextId), out var cp) ? mrns.GetValueOrDefault(cp.PatientId) : null),
             ("physician_statement", null))).ToList();
 
         rows.AddRange(emergencies.Select(row => ReportValueFormat.Row(

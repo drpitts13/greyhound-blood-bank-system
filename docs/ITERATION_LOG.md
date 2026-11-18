@@ -26945,3 +26945,21 @@ Followed up the note in pass 243 and reran *Inventory on hand*.
 ### Tests
 
 - TEST-BB-1268. Full suite passed.
+
+## Iteration 965 — End-user testing pass 245: overrides report names unit and patient (2026-11-18)
+
+### How it was tested
+
+Ran *RhIG evaluations and doses given* (one dose given 126 hours after delivery; the give-within window is not set, so nothing marks it late), *Transfusion reaction investigations*, and *Emergency releases and overrides*.
+
+### Found and fixed
+
+1. **The override row named no unit or patient.** *ISS-XM-REQUIRED — Massive haemorrhage; physician requested uncrossmatched O negative* had blank Unit number and MRN, though the supervisor queue shows the same override as *W0001230001004 for Trauma, John Doe (MRN0005)*. The report (and its SQL view, reinstalled by a new migration) now resolves the override's context as the queue does: an issue override is recorded against the unit, with that unit's latest issue's patient; reservation and crossmatch overrides through those records. A first version read the issue override's context as an issue id and named the wrong unit; it was corrected before commit. The *Rule or issue type* column also reads in words (*Emergency release*).
+
+### Retested live
+
+- The override row reads *ISS-XM-REQUIRED · W0001230001004 · MRN0005*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1269 (in the TEST-BB-1140 test: the visual report and the SQL view). Full suite passed.

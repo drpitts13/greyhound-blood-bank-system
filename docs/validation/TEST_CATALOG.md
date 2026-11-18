@@ -1277,5 +1277,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1266 | D | `UnitOnlyTestRuleTests.IsUnitOnly_NamesUnitTests` | URS-BB-1021 / FRS-BB-1139 |
 | TEST-BB-1267 | A | `VisualReportCompilerTests.CodeNameColumn_ReadsInWords_AfterFilteringOnTheStoredValue` | URS-BB-1022 / FRS-BB-1140 |
 | TEST-BB-1268 | A | `VisualReportCompilerTests.CodeNameColumn_ReadsInWords_AfterFilteringOnTheStoredValue` | URS-BB-1023 / FRS-BB-1141 |
+| TEST-BB-1269 | I | `ReportServiceTests.OverridesReport_SaysWhetherThePhysicianStatementWasReceived` | URS-BB-1024 / FRS-BB-1142 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -522,7 +522,16 @@ public class ReportServiceTests : IDisposable
             IssueType = IssueType.EmergencyRelease, TestsIncompleteAtIssue = incomplete,
             UrgencyStatementSignedBy = signedBy, UrgencyStatementReceivedUtc = signedBy is null ? null : _factory.Clock.UtcNow
         };
-        db.Issues.AddRange(Emergency(units[0], true, "Dr. Amy Lee"), Emergency(units[1], true, null), Emergency(units[2], false, null));
+        var firstIssue = Emergency(units[0], true, "Dr. Amy Lee");
+        db.Issues.AddRange(firstIssue, Emergency(units[1], true, null), Emergency(units[2], false, null));
+        await db.SaveChangesAsync();
+        // TEST-BB-1269 (end-user testing pass 245): an override names its unit and patient; an issue override is recorded
+        // against the unit, and the patient is that unit's latest issue.
+        db.Overrides.Add(new Override
+        {
+            Action = OverrideAction.EmergencyRelease, ContextType = nameof(Issue), ContextId = units[0].Id, RuleCode = "ISS-XM-REQUIRED",
+            Reason = "Massive haemorrhage", AuthorizedBy = "Dr. Amy Lee", OverriddenUtc = _factory.Clock.UtcNow.AddHours(-2)
+        });
         await db.SaveChangesAsync();
         ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
 
@@ -531,20 +540,37 @@ public class ReportServiceTests : IDisposable
         var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-OVERRIDES").Id, new Dictionary<string, string?>());
         Assert.True(visual.Succeeded, visual.Error);
         var columns = visual.Value!.Columns.ToList();
-        string? Statement(string unit) => visual.Value.Rows.Single(r => r[columns.IndexOf("unit_number")] == unit)[columns.IndexOf("physician_statement")];
-        Assert.Equal(("Received from Dr. Amy Lee", "Not received", "Not needed"), (Statement("W-URG-1"), Statement("W-URG-2"), Statement("W-URG-3")));
+        string? Cell(IReadOnlyList<string?> row, string column) => row[columns.IndexOf(column)];
+        var overrideRow = visual.Value.Rows.Single(r => Cell(r, "rule_code") == "ISS-XM-REQUIRED");
+        Assert.Equal(("W-URG-1", "MRN-URG"), (Cell(overrideRow, "unit_number"), Cell(overrideRow, "mrn")));
+        Assert.Contains(visual.Value.Rows, r => Cell(r, "rule_code") == "Emergency release");
+        var issueRows = visual.Value.Rows.Where(r => Cell(r, "rule_code") != "ISS-XM-REQUIRED").ToList();
+        string? IssueStatement(string unit) => issueRows.Single(r => Cell(r, "unit_number") == unit)[columns.IndexOf("physician_statement")];
+        Assert.Equal(("Received from Dr. Amy Lee", "Not received", "Not needed"), (IssueStatement("W-URG-1"), IssueStatement("W-URG-2"), IssueStatement("W-URG-3")));
 
         var sql = await service.SaveAsync(null, new SaveReportRequest
         {
             Code = "RPT-URG-SQL",
             Name = "SQL physician statements",
             Kind = ReportKind.Sql,
-            SqlText = "SELECT unit_number, physician_statement FROM rpt_overrides WHERE mrn = 'MRN-URG' ORDER BY unit_number"
+            SqlText = "SELECT unit_number, physician_statement FROM rpt_overrides WHERE mrn = 'MRN-URG' AND rule_code <> 'ISS-XM-REQUIRED' ORDER BY unit_number"
         });
         Assert.True(sql.Succeeded, sql.Error);
         var sqlRun = await service.RunAsync(sql.Value!.Id, null);
         Assert.True(sqlRun.Succeeded, sqlRun.Error);
         Assert.Equal(new[] { "Received from Dr. Amy Lee", "Not received", "Not needed" }, sqlRun.Value!.Rows.Select(r => r[1] ?? "").ToArray());
+
+        var viewOverride = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-URG-OVR",
+            Name = "SQL override context",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT unit_number, mrn FROM rpt_overrides WHERE rule_code = 'ISS-XM-REQUIRED'"
+        });
+        Assert.True(viewOverride.Succeeded, viewOverride.Error);
+        var viewRun = await service.RunAsync(viewOverride.Value!.Id, null);
+        Assert.True(viewRun.Succeeded, viewRun.Error);
+        Assert.Equal(("W-URG-1", "MRN-URG"), (viewRun.Value!.Rows.Single()[0], viewRun.Value.Rows.Single()[1]));
     }
 
     // TEST-BB-641: blood order turnaround has one row per blood order (cancelled ones left out) with the minutes from

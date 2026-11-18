@@ -124,7 +124,7 @@ public static class ReportSourceCatalog
         Source(Overrides, "Emergency releases and overrides", ReportViewCatalog.Overrides,
             Field("occurred_utc", "Occurred", ReportValueKind.Date),
             Field("kind", "Kind", codeName: true),
-            Field("rule_code", "Rule or issue type"),
+            Field("rule_code", "Rule or issue type", codeName: true),
             Field("reason", "Reason"),
             Field("actor", "Actor"),
             Field("unit_number", "Unit number"),

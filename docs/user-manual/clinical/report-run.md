@@ -22,4 +22,6 @@ Date filters count whole local days: a range from 2026-11-12 to 2026-11-12 inclu
 
 Status, type, severity and similar columns read in words (*On hold*, *Under review*, *Transfusion started*) rather than as stored codes; a unit status reads as on the screens (a unit awaiting its retype is *Pending retype*). Filters and grouping still use the stored value.
 
+In *Emergency releases and overrides*, an override names its unit and patient, as the supervisor queue does: through the issue, reservation or crossmatch it was recorded on.
+
 SQL reports read the same reporting views; their month columns (for example *discarded_month*) are local months too. Other times in a view are stored UTC.

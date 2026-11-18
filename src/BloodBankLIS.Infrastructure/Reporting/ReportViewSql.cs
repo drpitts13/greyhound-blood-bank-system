@@ -242,10 +242,17 @@ public static class ReportViewSql
                 o.RuleCode AS rule_code,
                 o.Reason AS reason,
                 o.AuthorizedBy AS actor,
-                CAST(NULL AS {TextType(sqlServer)}) AS unit_number,
-                CAST(NULL AS {TextType(sqlServer)}) AS mrn,
+                ou.UnitNumber AS unit_number,
+                op.MedicalRecordNumber AS mrn,
                 CAST(NULL AS {TextType(sqlServer)}) AS physician_statement
             FROM Overrides o
+            -- End-user testing pass 245: an override names its unit and patient. An issue override is recorded against the
+            -- unit (its ContextId is the unit), with the patient of that unit's latest issue, as the supervisor queue reads it.
+            LEFT JOIN Issues oi ON o.ContextType = 'Issue' AND oi.Id = (SELECT MAX(i2.Id) FROM Issues i2 WHERE i2.BloodProductId = o.ContextId)
+            LEFT JOIN Allocations oa ON o.ContextType = 'Allocation' AND oa.Id = o.ContextId
+            LEFT JOIN Crossmatches ox ON o.ContextType = 'Crossmatch' AND ox.Id = o.ContextId
+            LEFT JOIN BloodProducts ou ON ou.Id = CASE WHEN o.ContextType = 'Issue' THEN o.ContextId ELSE COALESCE(oa.BloodProductId, ox.BloodProductId) END
+            LEFT JOIN Patients op ON op.Id = COALESCE(oi.PatientId, oa.PatientId, ox.PatientId)
             UNION ALL
             SELECT
                 i.IssuedUtc AS occurred_utc,
