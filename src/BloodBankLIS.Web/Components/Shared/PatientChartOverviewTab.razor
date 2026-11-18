@@ -272,7 +272,9 @@
             </div>
             <button class="btn btn-primary" disabled="@Busy" @onclick="OnAddSr">Add</button>
         }
-        @if (Session.Has(PermissionCodes.PatientWrite))
+        @* Pass 237: not offered on an infant's chart (under one year), unless a date is already on file. *@
+        @if (Session.Has(PermissionCodes.PatientWrite)
+             && !(PatientDateOfBirth is DateOnly dob && MotherInfantLinkRule.OfferLink(dob, DateOnly.FromDateTime(DateTime.Today)) && RecentPregnancyUtc is null))
         {
             <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
             <h4>Recent pregnancy (specimen window)</h4>
@@ -572,6 +574,8 @@
 
 @code {
     [Parameter] public long PatientId { get; set; }
+
+    [Parameter] public DateOnly? PatientDateOfBirth { get; set; }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public ElectronicCrossmatchEligibilityDto? Exm { get; set; }
     [Parameter] public IReadOnlyList<AntibodyIdWorkupListItemDto> OpenAbidWorkups { get; set; } = [];

@@ -26797,3 +26797,21 @@ From Issued units, opened **Start / document** for W0001230009206 (MRN0022), iss
 ### Tests
 
 - TEST-BB-1260. Full suite passed.
+
+## Iteration 957 — End-user testing pass 237: no pregnancy section on an infant's chart (2026-11-18)
+
+### How it was tested
+
+Opened Return for W0001230009206 (the return-to-available window has elapsed, so only Quarantine is offered: correct), then the chart of Newborn, Baby Boy (MRN0002, born 2026-11-06, NICU).
+
+### Found and fixed
+
+1. **A 12-day-old's chart offered "Recent pregnancy (specimen window)".** The Overview asked for a pregnancy or delivery date, which cannot apply to a newborn and would shorten his specimen window if entered by mistake. The section is no longer shown for a patient under one year (the same age the chart uses to offer *Link mother*), unless a date is already on file. An adult's chart is unchanged.
+
+### Retested live
+
+- MRN0002's Overview has no pregnancy section; DEMO-RHIG, Noor (MRN0026) still shows hers (*Current: 2026-11-07*). Nothing was changed.
+
+### Tests
+
+- TEST-BB-1261. Full suite passed.
