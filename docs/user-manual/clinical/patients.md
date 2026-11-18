@@ -35,7 +35,7 @@ Unidentified charts are listed at the top of Patients until they are merged, and
 
 ## Possible duplicates
 
-With the patient merge permission, **Possible duplicates** on Patients lists pairs of active charts that may be one person by the same match, including patients registered by the EHR feed. Each chart shows its ABO/Rh, active antibodies, and special requirements, so you can see which one holds the blood bank history. **Keep this, merge … in** opens that chart with its merge form naming the other MRN; give the reason and confirm as for any merge. Charts that are different people stay on the list.
+With the patient merge permission, **Possible duplicates** on Patients lists pairs of active charts that may be one person by the same match, including patients registered by the EHR feed. Each chart shows its ABO/Rh, active antibodies, and special requirements, so you can see which one holds the blood bank history. **Keep this, merge … in** opens that chart with its merge form naming the other MRN; give the reason and confirm as for any merge. Charts that are different people stay on the list. The link on Patients says how many pairs are waiting ("Possible duplicates (1 pair to review)"), and each chart in a pair is marked in the Alerts column with the other chart's MRN (*Possible duplicate of MRN9022*), so the right chart is chosen before its history is relied on.
 
 The MRN is the primary identifier you will type at issue and at transfusion documentation. Display names are not identifiers. Two patients must not share an MRN.
 

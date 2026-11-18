@@ -26999,3 +26999,21 @@ Compared the *Open deviations* report with the Deviations page (three open devia
 ### Tests
 
 - TEST-BB-1271 (the visual report and `rpt_deviations`). Full suite passed.
+
+## Iteration 968 — End-user testing pass 248: patient list marks possible duplicates (2026-11-18)
+
+### How it was tested
+
+Ran *Open deviations* and *Transfusion reaction investigations* against their pages, reviewed the open alerts (the FRIDGE-1 quarantine alert is correctly still open: one unit is still held), the instrument message log, and the Patients list.
+
+### Found and fixed
+
+1. **The Patients list gave no sign of a possible duplicate.** Demo-Multi, Riley (MRN0022, O+, reaction under investigation) and DEMO-MULTI, RILEY (MRN9022, no blood bank history) share a name and date of birth, and Possible duplicates lists them as a pair. The Patients list showed both rows with nothing to say so, and its *Possible duplicates* link did not say a pair was waiting. A technologist choosing MRN9022 would see no type or antibodies. For users who merge charts, the link now reads *Possible duplicates (1 pair to review)*, and each chart in a pair carries *Possible duplicate of* the other MRN in its Alerts column, linked to the report.
+
+### Retested live
+
+- The link reads *Possible duplicates (1 pair to review)*; MRN0022 reads *Possible duplicate of MRN9022* and MRN9022 *Possible duplicate of MRN0022*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1272. Full suite passed.

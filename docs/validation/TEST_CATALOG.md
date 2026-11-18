@@ -1280,5 +1280,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1269 | I | `ReportServiceTests.OverridesReport_SaysWhetherThePhysicianStatementWasReceived` | URS-BB-1024 / FRS-BB-1142 |
 | TEST-BB-1270 | I | `ReportServiceTests.LookbackReport_NamesTheUnitAndOpenedDate` | URS-BB-1025 / FRS-BB-1143 |
 | TEST-BB-1271 | I | `ReportServiceTests.DeviationsReport_NamesTheRelatedRecordAndFollowUp` | URS-BB-1026 / FRS-BB-1144 |
+| TEST-BB-1272 | A | `PossibleDuplicateFlagsTests.EachChartInAPair_NamesTheOther`, `PossibleDuplicateFlagsTests.LinkText_CountsThePairs` | URS-BB-1027 / FRS-BB-1145 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

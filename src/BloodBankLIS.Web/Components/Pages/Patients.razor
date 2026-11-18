@@ -93,7 +93,7 @@
 
 @if (Session.Has(PermissionCodes.PatientMerge))
 {
-    <p class="muted" style="margin:.25rem 0 .75rem;"><a href="/patients/duplicates" data-duplicates-link>Possible duplicates</a>: charts that may be one person, to review and merge.</p>
+    <p class="muted" style="margin:.25rem 0 .75rem;"><a href="/patients/duplicates" data-duplicates-link>@PossibleDuplicateFlags.LinkText(_duplicatePairs)</a>: charts that may be one person, to review and merge.</p>
 }
 
 <div class="bb-card">
@@ -179,6 +179,11 @@
                             {
                                 @* Pass 187: a transfusion reaction is being investigated for this patient. *@
                                 <a class="badge badge-red" href="@($"/patients/{p.Id}")" title="A transfusion reaction investigation is open for this patient; see the chart before issuing" data-reaction-alert>Reaction under investigation</a>
+                            }
+                            @if (_duplicatesOf.TryGetValue(p.Id, out var dupOf))
+                            {
+                                @* Pass 248: this chart may be the same person as another; review the pair before relying on its history. *@
+                                <a class="badge badge-amber" href="/patients/duplicates" title="This chart may be the same person as another chart; review the pair and merge if so" data-possible-duplicate>@PossibleDuplicateFlags.Badge(dupOf)</a>
                             }
                             @if (p.InformationalNotes > 0)
                             {
@@ -279,7 +284,17 @@
         if (result.Succeeded) { _patients = result.Value!; _error = null; }
         else _error = result.FailureSummary();
         _unidentified = _patients.Where(p => p.Unidentified && p.Status != PatientStatus.Merged).OrderBy(p => p.CreatedUtc).ToList();
+        if (Session.Has(PermissionCodes.PatientMerge))
+        {
+            var pairs = await Api.GetPossibleDuplicatePairsAsync();
+            var list = pairs.Succeeded ? pairs.Value! : new List<PossibleDuplicatePairDto>();
+            _duplicatePairs = list.Count;
+            _duplicatesOf = PossibleDuplicateFlags.OthersByPatient(list);
+        }
     }
+
+    private int _duplicatePairs;
+    private IReadOnlyDictionary<long, IReadOnlyList<string>> _duplicatesOf = new Dictionary<long, IReadOnlyList<string>>();
 
     private void ToggleCreate() => _showCreate = !_showCreate;
 
