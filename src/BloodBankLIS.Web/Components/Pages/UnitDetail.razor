@@ -466,7 +466,7 @@ else
                                 <td>@Ui.EnumText(a.AttributeKind)</td>
                                 <td class="mono">@a.AntigenCode — @a.AntigenName</td>
                                 <td>@a.AntibodyName</td>
-                                <td>@a.Result</td>
+                                <td data-unit-attribute-result>@Ui.EnumText(a.Result)</td>
                                 <td>@TypingSourceLabel(a.TypingSource)</td>
                                 <td class="nowrap">@a.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                 <td>@(string.IsNullOrWhiteSpace(a.CreatedBy) ? "—" : a.CreatedBy)</td>

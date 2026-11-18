@@ -27468,3 +27468,21 @@ After passes 269 to 272, searched the page markup for status, type and priority 
 ### Tests
 
 - TEST-BB-1299. Full suite passed.
+
+## Iteration 994 — End-user testing pass 274: antigen results in words (2026-11-18)
+
+### How it was tested
+
+Continued pass 273's search of the page markup, checking the result columns.
+
+### Found and fixed
+
+1. **An antigen result could read "NotTested".** The unit page's blood attributes, the chart overview's antigen profile and the antibody identification antigen list printed the stored antigen result, so an antigen not typed read *NotTested*. They now read *Not tested*.
+
+### Retested
+
+- The development units and patients have no antigen typed *Not tested* to show, so this was checked by a test of the wording. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1300. Full suite passed.

@@ -330,7 +330,7 @@ else
                     {
                         <tr>
                             <td class="mono">@p.AntigenCode</td>
-                            <td>@p.Result</td>
+                            <td>@Ui.EnumText(p.Result)</td>
                             <td>@(string.IsNullOrWhiteSpace(p.Method) ? "—" : p.Method)
                                 @if (AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method))
                                 {

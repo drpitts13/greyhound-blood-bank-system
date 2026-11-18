@@ -522,7 +522,7 @@
                         <tr>
                             <td>@p.AntigenName</td>
                             <td class="mono">@p.AntigenCode</td>
-                            <td>@p.Result</td>
+                            <td data-antigen-profile-result>@Ui.EnumText(p.Result)</td>
                             <td>@(p.SourceResultId is null ? "Chart" : "Verified result")</td>
                             <td class="nowrap">@(p.TestedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                         </tr>

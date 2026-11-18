@@ -1308,5 +1308,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1297 | D | `LookbackLocationTextTests.Location_OnlyForUnitsInStorage` | URS-BB-1049 / FRS-BB-1167 |
 | TEST-BB-1298 | U | `LookbackTraceTests.Trace_IssueAndTransfusion_ReadInWords` | URS-BB-1050 / FRS-BB-1168 |
 | TEST-BB-1299 | U | `LinkedDeviationsStatusTests.LinkedDeviation_StatusReadsInWords` | URS-BB-1051 / FRS-BB-1169 |
+| TEST-BB-1300 | U | `AntigenResultTextTests.AntigenResult_ReadsInWords` | URS-BB-1052 / FRS-BB-1170 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

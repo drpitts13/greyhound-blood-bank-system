@@ -1057,3 +1057,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1049 | The DIN lookback names a storage location only for components still in storage. | P2 | FRS-BB-1167 |
 | URS-BB-1050 | Recipient traceback shows each unit's issue type, issue status and transfusion outcome in words. | P3 | FRS-BB-1168 |
 | URS-BB-1051 | Deviation, result, order, supplier order and instrument message statuses read in words wherever they are listed. | P3 | FRS-BB-1169 |
+| URS-BB-1052 | Antigen results read in words (Not tested) on the unit page, the chart antigen profile and antibody identification. | P3 | FRS-BB-1170 |
