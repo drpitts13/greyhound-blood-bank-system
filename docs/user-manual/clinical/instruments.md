@@ -22,6 +22,8 @@ A result for one of the instrument's own QC samples (its sample ID starts with a
 
 **When** shows the time for today's messages and the date and time for earlier ones, so a failure from yesterday is not read as today's. An open failure also says how long it has been **waiting**: its result has not reached the patient record for that long. Under its status, an open failure says why it failed (the full text is in the message and on hover), and the **Patient** column gives the patient id the instrument sent. When the instrument sends the same failing result again (same specimen, same reason), the later row says *Repeats message 8 (same specimen and reason)*: one fix (for example adding the missing order) covers both; replay or resolve each. The home card names the oldest wait (for example "oldest waiting 26 h").
 
+An opened message shows the raw ASTM, the parsed data elements, the mapping of instrument codes onto LIS codes, and the **Rules** that ran on it as a table: each rule with its condition and what it changed (*subtest_result → 0*). The same rule making the same change several times in a row is one line with how many times (*× 5*). **Raw rule trace** below it shows the trace as recorded.
+
 The simulator is a separate screen for sending a test message. Do not point it at a live instrument connection.
 
 ## Session logs

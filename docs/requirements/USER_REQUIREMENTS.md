@@ -1038,3 +1038,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1030 | The emergency releases and overrides report says who authorized each override and emergency issue. | P2 | FRS-BB-1148 |
 | URS-BB-1031 | The home screen's equipment card counts and names equipment out of service, with how long it has been out. | P2 | FRS-BB-1149 |
 | URS-BB-1032 | Blood orders to prepare names units already reserved for the patient that are not on the order. | P2 | FRS-BB-1150 |
+| URS-BB-1033 | An instrument message shows the rules that ran on it as a readable table, not raw JSON. | P3 | FRS-BB-1151 |

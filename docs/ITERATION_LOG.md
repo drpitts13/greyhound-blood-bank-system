@@ -27107,3 +27107,21 @@ Checked the shift handoff (it already counts equipment out of service), reaction
 ### Tests
 
 - TEST-BB-1278. Full suite passed.
+
+## Iteration 974 — End-user testing pass 254: instrument rule trace as a table (2026-11-18)
+
+### How it was tested
+
+Went through Ready to issue (7 rows; W0001230000001 correctly waits for its retype), Open RhIG evaluations, the supervisor queue (18 items), and Instrument Interfaces, opening the failed ABO/Rh result for accession 0651439A.
+
+### Found and fixed
+
+1. **The message's rule trace was raw JSON.** Under *Rules*, the failed Group result showed five identical blocks of JSON (`"ruleName": "Numeric 0", "condition": …, "changes": {…}`), one per reaction cell, which a technologist checking why a value posted as it did has to read as code. The rules are now a table (rule, condition, what it changed, how many times in a row: *Numeric 0 · message.subtest_result = 0 · subtest_result → 0 · × 5*), with the raw trace kept under *Raw rule trace*.
+
+### Retested live
+
+- Message 16 shows the one row above. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1279. Full suite passed.

@@ -278,7 +278,36 @@
             </div>
         }
         <h4>Rules</h4>
-        <pre class="pre">@_detail.RuleTraceJson</pre>
+        @* Pass 254: the rule trace read as rows; the raw trace stays available. *@
+        @{ var traceRows = InstrumentRuleTraceView.Rows(_detail.RuleTraceJson); }
+        @if (traceRows.Count == 0 && string.IsNullOrWhiteSpace(_detail.RuleTraceJson))
+        {
+            <div class="empty">No rules ran on this message.</div>
+        }
+        else if (traceRows.Count == 0)
+        {
+            <pre class="pre">@_detail.RuleTraceJson</pre>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb" data-rule-trace>
+                <thead><tr><th>Rule</th><th>Condition</th><th>Changed</th><th>Times</th></tr></thead>
+                <tbody>
+                    @foreach (var row in traceRows)
+                    {
+                        <tr>
+                            <td>@row.Rule</td>
+                            <td class="mono">@(row.Condition ?? "—")</td>
+                            <td class="mono">@row.Changes</td>
+                            <td>@(row.Times == 1 ? "1" : $"× {row.Times}")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            <details><summary class="muted">Raw rule trace</summary><pre class="pre">@_detail.RuleTraceJson</pre></details>
+        }
     </div>
 }
 
