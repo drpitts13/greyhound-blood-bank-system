@@ -233,8 +233,23 @@ public static class ReportViewSql
                 {CaseEnum("d.Severity", typeof(DeviationSeverity))} AS severity,
                 {CaseEnum("d.Status", typeof(DeviationStatus))} AS status,
                 d.ReportedBy AS reported_by,
-                d.ContextType AS context_type
+                d.ContextType AS context_type,
+                -- End-user testing pass 247: the related record named as the Deviations page names it.
+                CASE
+                    WHEN d.ContextType IN ('BloodUnit', 'Unit') THEN du.UnitNumber
+                    WHEN d.ContextType = 'Patient' THEN dp.LastName{join}', '{join}dp.FirstName{join}' ('{join}dp.MedicalRecordNumber{join}')'
+                    WHEN d.ContextType = 'Specimen' THEN ds.AccessionNumber
+                    WHEN d.ContextType = 'StorageTemperatureReading' THEN dl.Code{join}' '{join}{(sqlServer ? "FORMAT(dr.ReadingC, '0.0')" : "printf('%.1f', dr.ReadingC)")}{join}{(sqlServer ? "N' °C'" : "' °C'")}
+                END AS record,
+                d.AssignedTo AS assigned_to,
+                d.DueOn AS due_on,
+                {CaseEnum("d.FdaReportability", typeof(DeviationFdaReportability))} AS fda_reportability
             FROM Deviations d
+            LEFT JOIN BloodProducts du ON d.ContextType IN ('BloodUnit', 'Unit') AND du.Id = d.ContextId
+            LEFT JOIN Patients dp ON d.ContextType = 'Patient' AND dp.Id = d.ContextId
+            LEFT JOIN Specimens ds ON d.ContextType = 'Specimen' AND ds.Id = d.ContextId
+            LEFT JOIN StorageTemperatureReadings dr ON d.ContextType = 'StorageTemperatureReading' AND dr.Id = d.ContextId
+            LEFT JOIN InventoryLocations dl ON dl.Id = dr.InventoryLocationId
             WHERE d.Status <> {(int)DeviationStatus.Closed}
             """);
 

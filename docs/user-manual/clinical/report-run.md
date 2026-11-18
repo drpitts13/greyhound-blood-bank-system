@@ -26,4 +26,6 @@ In *Emergency releases and overrides*, an override names its unit and patient, a
 
 In *Lookback and recall notifications*, each row names the unit transfused and the date the notification was opened, as the Lookback page does.
 
+In *Open deviations*, each row names the related record (the unit, patient, specimen or temperature reading) as the Deviations page does, with who it is assigned to, when it is due and whether it is FDA reportable.
+
 SQL reports read the same reporting views; their month columns (for example *discarded_month*) are local months too. Other times in a view are stored UTC.

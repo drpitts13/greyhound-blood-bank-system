@@ -123,7 +123,12 @@ public static class ReportSourceCatalog
             Field("severity", "Severity", codeName: true),
             Field("status", "Status", codeName: true),
             Field("reported_by", "Reported by"),
-            Field("context_type", "Context", codeName: true)),
+            Field("context_type", "Context", codeName: true),
+            // Pass 247: which record, who has it, when it is due, and FDA reportability, as the Deviations page shows them.
+            Field("record", "Related record"),
+            Field("assigned_to", "Assigned to"),
+            Field("due_on", "Due", ReportValueKind.Date),
+            Field("fda_reportability", "FDA reportability", codeName: true)),
         Source(Overrides, "Emergency releases and overrides", ReportViewCatalog.Overrides,
             Field("occurred_utc", "Occurred", ReportValueKind.Date),
             Field("kind", "Kind", codeName: true),

@@ -26981,3 +26981,21 @@ Compared the *Lookback and recall notifications* report with the Lookback page f
 ### Tests
 
 - TEST-BB-1270 (the visual report and `rpt_lookback`). Full suite passed.
+
+## Iteration 967 — End-user testing pass 247: deviations report names related record and follow-up (2026-11-18)
+
+### How it was tested
+
+Compared the *Open deviations* report with the Deviations page (three open deviations: a unit in the wrong refrigerator, and temperature excursions at FRIDGE-1 and OR-FRIDGE).
+
+### Found and fixed
+
+1. **The report said only what kind of record a deviation concerned, not which one, and left out its follow-up.** Rows read *Blood unit* and *Storage temperature reading*, while the page names *W0001230000001*, *FRIDGE-1 8.5 °C* and *OR-FRIDGE 7.2 °C*. Who the deviation is assigned to, when it is due, and its FDA reportability (needed to track a biological product deviation report) were not in the report at all. The report source and its SQL view (reinstalled by a new migration) now carry *Related record*, *Assigned to*, *Due* and *FDA reportability*, and the seeded report shows them.
+
+### Retested live
+
+- The rows read *Blood unit · W0001230000001*, *Storage temperature reading · FRIDGE-1 8.5 °C* and *· OR-FRIDGE 7.2 °C*, each *Not determined* for FDA reportability. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1271 (the visual report and `rpt_deviations`). Full suite passed.

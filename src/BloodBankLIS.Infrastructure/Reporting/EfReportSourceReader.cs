@@ -323,9 +323,38 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 row.Severity,
                 row.Status,
                 row.ReportedBy,
-                row.ContextType
+                row.ContextType,
+                row.ContextId,
+                row.AssignedTo,
+                row.DueOn,
+                row.FdaReportability
             })
             .ToListAsync(cancellationToken);
+
+        // End-user testing pass 247: name the related record as the Deviations page does.
+        var ids = (string[] types) => rows.Where(r => r.ContextId != null && types.Contains(r.ContextType)).Select(r => r.ContextId!.Value).Distinct().ToList();
+        var unitIds = ids(["BloodUnit", "Unit"]);
+        var patientIds = ids(["Patient"]);
+        var specimenIds = ids(["Specimen"]);
+        var readingIds = ids(["StorageTemperatureReading"]);
+        var units = await _db.BloodUnits.AsNoTracking().Where(u => unitIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UnitNumber, cancellationToken);
+        var patients = await _db.Patients.AsNoTracking().Where(p => patientIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})", cancellationToken);
+        var specimens = await _db.Specimens.AsNoTracking().Where(s => specimenIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, s => s.AccessionNumber, cancellationToken);
+        var readings = await (
+            from reading in _db.StorageTemperatureReadings.AsNoTracking()
+            join location in _db.InventoryLocations.AsNoTracking() on reading.InventoryLocationId equals location.Id
+            where readingIds.Contains(reading.Id)
+            select new { reading.Id, location.Code, reading.ReadingC }).ToListAsync(cancellationToken);
+        var readingNames = readings.ToDictionary(r => r.Id, r => $"{r.Code} {r.ReadingC.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} °C");
+        string? Record(string? type, long? id) => id is not long key ? null : type switch
+        {
+            "BloodUnit" or "Unit" => units.GetValueOrDefault(key),
+            "Patient" => patients.GetValueOrDefault(key),
+            "Specimen" => specimens.GetValueOrDefault(key),
+            "StorageTemperatureReading" => readingNames.GetValueOrDefault(key),
+            _ => null
+        };
 
         return rows.Select(row => ReportValueFormat.Row(
             ("reported_utc", ReportValueFormat.Date(row.ReportedUtc)),
@@ -333,7 +362,11 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("severity", row.Severity.ToString()),
             ("status", row.Status.ToString()),
             ("reported_by", ReportValueFormat.Text(row.ReportedBy)),
-            ("context_type", ReportValueFormat.Text(row.ContextType)))).ToList();
+            ("context_type", ReportValueFormat.Text(row.ContextType)),
+            ("record", ReportValueFormat.Text(Record(row.ContextType, row.ContextId))),
+            ("assigned_to", ReportValueFormat.Text(row.AssignedTo)),
+            ("due_on", row.DueOn is DateOnly due ? ReportValueFormat.Date(due) : null),
+            ("fda_reportability", row.FdaReportability.ToString()))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> OverridesAsync(CancellationToken cancellationToken)

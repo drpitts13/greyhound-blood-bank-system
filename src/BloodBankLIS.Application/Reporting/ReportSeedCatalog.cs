@@ -68,7 +68,7 @@ public static class ReportSeedCatalog
         Visual("RPT-DEVIATIONS", "Open deviations",
             "Deviations that are not closed.",
             ReportSourceCatalog.Deviations,
-            ["reported_utc", "title", "severity", "status", "reported_by", "context_type"],
+            ["reported_utc", "title", "severity", "status", "reported_by", "context_type", "record", "assigned_to", "due_on", "fda_reportability"],
             sorts: [Sort("reported_utc", ReportSortDirection.Descending)]),
         Visual("RPT-OVERRIDES", "Emergency releases and overrides",
             "Warning overrides plus emergency and massive-transfusion issues.",

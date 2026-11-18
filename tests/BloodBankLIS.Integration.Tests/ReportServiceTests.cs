@@ -696,6 +696,62 @@ public class ReportServiceTests : IDisposable
         Assert.False(string.IsNullOrEmpty(sqlRun.Value.Rows.Single()[1]));
     }
 
+    // TEST-BB-1271 (end-user testing pass 247): the Open deviations report names the related record (a unit, a temperature
+    // reading) as the Deviations page does, with who it is assigned to, when it is due and its FDA reportability, in the
+    // visual report and in rpt_deviations.
+    [Fact]
+    public async Task DeviationsReport_NamesTheRelatedRecordAndFollowUp()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var product = new ProductType { ProductCode = "RBC-DEV", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        var fridge = new InventoryLocation { Code = "DEV-FRIDGE", Name = "Deviation fridge", StorageTempMinC = 1m, StorageTempMaxC = 6m };
+        db.AddRange(product, fridge);
+        await db.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "W-DEV-1", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Available };
+        var reading = new StorageTemperatureReading { InventoryLocationId = fridge.Id, ReadingC = 8.5m, ReadingUtc = _factory.Clock.UtcNow, RecordedBy = "tech" };
+        db.AddRange(unit, reading);
+        await db.SaveChangesAsync();
+        db.Deviations.AddRange(
+            new Deviation
+            {
+                Title = "Pass 247 unit", Description = "d", Severity = DeviationSeverity.Major, ContextType = "BloodUnit", ContextId = unit.Id,
+                AssignedTo = "qa1", DueOn = new DateOnly(2026, 12, 1), FdaReportability = DeviationFdaReportability.Reportable, ReportedUtc = _factory.Clock.UtcNow
+            },
+            new Deviation
+            {
+                Title = "Pass 247 reading", Description = "d", Severity = DeviationSeverity.Major, ContextType = "StorageTemperatureReading", ContextId = reading.Id,
+                ReportedUtc = _factory.Clock.UtcNow
+            });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-DEVIATIONS").Id, new Dictionary<string, string?>());
+        Assert.True(visual.Succeeded, visual.Error);
+        var columns = visual.Value!.Columns.ToList();
+        string? Cell(IReadOnlyList<string?> row, string column) => row[columns.IndexOf(column)];
+        var unitRow = visual.Value.Rows.Single(r => Cell(r, "title") == "Pass 247 unit");
+        Assert.Equal(("W-DEV-1", "qa1", "2026-12-01", "Reportable"),
+            (Cell(unitRow, "record"), Cell(unitRow, "assigned_to"), Cell(unitRow, "due_on"), Cell(unitRow, "fda_reportability")));
+        var readingRow = visual.Value.Rows.Single(r => Cell(r, "title") == "Pass 247 reading");
+        Assert.Equal(("DEV-FRIDGE 8.5 °C", "Not determined"), (Cell(readingRow, "record"), Cell(readingRow, "fda_reportability")));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-DEV-SQL",
+            Name = "SQL deviations",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT title, record, fda_reportability FROM rpt_deviations WHERE title LIKE 'Pass 247%' ORDER BY title"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "DEV-FRIDGE 8.5 °C", "W-DEV-1" }, sqlRun.Value!.Rows.Select(r => r[1] ?? "").ToArray());
+        Assert.Equal("Reportable", sqlRun.Value.Rows[1][2]);
+    }
+
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>
         new(
             new ReportDefinitionStore(db),
