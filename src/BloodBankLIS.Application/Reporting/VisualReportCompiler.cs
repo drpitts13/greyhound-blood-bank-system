@@ -67,7 +67,9 @@ public static class VisualReportCompiler
         if (columns.Any(c => fieldByCode.TryGetValue(c, out var f) && f.IsCodeName))
         {
             output = output.Select(row => (IReadOnlyList<string?>)row.Select((cell, i) =>
-                fieldByCode.TryGetValue(columns[i], out var f) && f.IsCodeName ? ReportCodeNameText.Words(cell) : cell).ToList()).ToList();
+                !fieldByCode.TryGetValue(columns[i], out var f) || !f.IsCodeName ? cell
+                : f.IsUnitStatus ? ReportCodeNameText.UnitStatusWords(cell)
+                : ReportCodeNameText.Words(cell)).ToList()).ToList();
         }
 
         if (zone is not null)

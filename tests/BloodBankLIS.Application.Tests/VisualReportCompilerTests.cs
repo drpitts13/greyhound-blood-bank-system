@@ -66,6 +66,10 @@ public class VisualReportCompilerTests
         Assert.Equal(2, VisualReportCompiler.Compile(layout, fields, rows, null, 100).Value!.Rows.Count);
         Assert.Equal("Pending verification", ReportCodeNameText.Words("PendingVerification"));
         Assert.Equal("ABO mismatch", ReportCodeNameText.Words("ABO mismatch"));
+        // TEST-BB-1268 (pass 244): a unit status reads as the screens show it; Received is awaiting its retype.
+        Assert.Equal("Pending retype", ReportCodeNameText.UnitStatusWords("Received"));
+        Assert.Equal("On hold", ReportCodeNameText.UnitStatusWords("OnHold"));
+        Assert.Equal("Received", ReportCodeNameText.Words("Received"));
     }
 
     // End-user testing pass 50: "To 2026-11-12" stopped at midnight UTC, so a one-day range returned nothing.

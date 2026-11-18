@@ -26927,3 +26927,21 @@ On Add order the facility's TSNEO (neonatal type and screen) is offered on an ad
 ### Tests
 
 - TEST-BB-1267. Full suite passed.
+
+## Iteration 964 — End-user testing pass 244: unit status wording in reports (2026-11-18)
+
+### How it was tested
+
+Followed up the note in pass 243 and reran *Inventory on hand*.
+
+### Found and fixed
+
+1. **A unit awaiting retype read "Received" in reports.** Every screen calls that status *Pending Retype*; the report's stored code differed, so a count from the report did not match the Retype board by name. The unit status columns of *Inventory on hand* and *Discards* now read as the screens do (*Pending retype*), after filtering and grouping on the stored value.
+
+### Retested live
+
+- Inventory on hand's statuses read Expired, Pending retype, Available, Quarantine, On hold, Assigned. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1268. Full suite passed.

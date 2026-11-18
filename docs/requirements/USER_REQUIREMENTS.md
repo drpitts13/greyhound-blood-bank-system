@@ -1028,3 +1028,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1020 | An unmapped value that a translation now covers says what it translates to, to dismiss. | P3 | FRS-BB-1138 |
 | URS-BB-1021 | A patient order does not offer tests that are done on a blood unit. | P3 | FRS-BB-1139 |
 | URS-BB-1022 | Report status and type columns read in words, not as stored codes. | P3 | FRS-BB-1140 |
+| URS-BB-1023 | Report unit status columns use the screens' wording. | P3 | FRS-BB-1141 |

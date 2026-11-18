@@ -32,7 +32,7 @@ public static class ReportSourceCatalog
             Field("product_name", "Product"),
             Field("abo", "ABO"),
             Field("rh", "Rh"),
-            Field("status", "Status", codeName: true),
+            Field("status", "Status", codeName: true, unitStatus: true),
             Field("location", "Location"),
             Field("expires_utc", "Expiration", ReportValueKind.Date)),
         Source(IssueTransfusion, "Issues and transfusions", ReportViewCatalog.IssueTransfusion,
@@ -53,7 +53,7 @@ public static class ReportSourceCatalog
             Field("product_name", "Product"),
             Field("abo", "ABO"),
             Field("rh", "Rh"),
-            Field("status", "Status", codeName: true),
+            Field("status", "Status", codeName: true, unitStatus: true),
             Field("discard_reason", "Discard reason"),
             Field("discard_reason_code", "Reason code"),
             Field("discarded_utc", "Discarded", ReportValueKind.Date),
@@ -219,8 +219,8 @@ public static class ReportSourceCatalog
             Fields = fields
         };
 
-    private static ReportField Field(string code, string label, ReportValueKind kind = ReportValueKind.Text, bool codeName = false) =>
-        new() { Code = code, Label = label, Kind = kind, IsCodeName = codeName };
+    private static ReportField Field(string code, string label, ReportValueKind kind = ReportValueKind.Text, bool codeName = false, bool unitStatus = false) =>
+        new() { Code = code, Label = label, Kind = kind, IsCodeName = codeName, IsUnitStatus = unitStatus };
 }
 
 public sealed class ReportSourceDefinition

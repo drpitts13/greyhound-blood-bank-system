@@ -54,11 +54,18 @@ public sealed class ReportField
     /// filtered, sorted and grouped on the stored value (end-user testing pass 243).
     /// </summary>
     public bool IsCodeName { get; init; }
+
+    /// <summary>A unit status code name: shown as the screens show it (Received reads "Pending retype", pass 244).</summary>
+    public bool IsUnitStatus { get; init; }
 }
 
 /// <summary>A stored code name in words: "OnHold" → "On hold", "TransfusionStarted" → "Transfusion started".</summary>
 public static class ReportCodeNameText
 {
+    /// <summary>A unit status as the screens word it: a unit still Received is awaiting its retype.</summary>
+    public static string? UnitStatusWords(string? value) =>
+        string.Equals(value?.Trim(), "Received", StringComparison.OrdinalIgnoreCase) ? "Pending retype" : Words(value);
+
     public static string? Words(string? value)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Contains(' '))
