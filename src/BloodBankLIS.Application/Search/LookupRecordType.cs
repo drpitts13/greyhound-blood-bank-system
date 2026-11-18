@@ -25,6 +25,7 @@ public static class LookupRecordType
         LookupHitKind.Delivery => "BloodDelivery",
         // The hit carries the first expected unit; the shipment is recorded on BloodUnit rows.
         LookupHitKind.InboundShipment => "BloodUnit",
+        LookupHitKind.Hl7Message => "Hl7MessageLog",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No record type for this lookup kind.")
     };
 }

@@ -21,7 +21,8 @@ public class UniversalLookupTests : IDisposable
             encounters: new EfRepository<Encounter>(c), issues: new EfRepository<Issue>(c),
             reagentLots: new EfRepository<ReagentLot>(c), reagents: new EfRepository<Reagent>(c),
             deviations: new EfRepository<Deviation>(c), instrumentMessages: new EfRepository<InstrumentMessageLog>(c),
-            deliveries: new EfRepository<BloodDelivery>(c), suppliers: new EfRepository<BloodSupplier>(c));
+            deliveries: new EfRepository<BloodDelivery>(c), suppliers: new EfRepository<BloodSupplier>(c),
+            hl7Messages: new EfRepository<Hl7MessageLog>(c));
 
     [Fact]
     public async Task ScannedDin_OpensTheOneUnit()
@@ -423,7 +424,7 @@ public class UniversalLookupTests : IDisposable
         var result = await Lookup(c).LookupAsync("ZZZ-NOPE");
 
         Assert.Empty(result.Hits);
-        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, or instrument sample matches \"ZZZ-NOPE\".", result.Message);
+        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, instrument sample, or HL7 message control ID matches \"ZZZ-NOPE\".", result.Message);
     }
 
     // TEST-BB-612: a shipment reference (case and spaces ignored) finds the shipment, opening Ship units with it; a
@@ -687,5 +688,24 @@ public class UniversalLookupTests : IDisposable
         var shipmentHit = Assert.Single((await Lookup(c).LookupAsync("LK-ASN-1")).Hits);
         Assert.Equal((LookupHitKind.InboundShipment, "Inbound shipment LK-ASN-1", "2 units still expected", "/inventory?board=expected"),
             (shipmentHit.Kind, shipmentHit.Title, shipmentHit.Detail, shipmentHit.Href));
+    }
+
+    // TEST-BB-1292 (end-user testing pass 266): an HL7 control ID finds each message with it, newest first, and opens it on
+    // the HL7 page.
+    [Fact]
+    public async Task Hl7ControlId_OpensTheMessages()
+    {
+        await using var c = _factory.Create();
+        var t = _factory.Clock.UtcNow;
+        var first = new Hl7MessageLog { Direction = Hl7Direction.Inbound, MessageType = "ORM", TriggerEvent = "O01", MessageControlId = "LK-ORM-1", RawMessage = "MSH|", Status = Hl7MessageStatus.Errored, AckCode = "AE", ReceivedUtc = t.AddHours(-2) };
+        var replay = new Hl7MessageLog { Direction = Hl7Direction.Inbound, MessageType = "ORM", TriggerEvent = "O01", MessageControlId = "LK-ORM-1", RawMessage = "MSH|", Status = Hl7MessageStatus.Replayed, AckCode = "AA", ReceivedUtc = t.AddHours(-1) };
+        c.Hl7Messages.AddRange(first, replay);
+        await c.SaveChangesAsync();
+
+        var hits = (await Lookup(c).LookupAsync("lk-orm-1")).Hits;
+        Assert.Equal([replay.Id, first.Id], hits.Select(h => h.Id));
+        Assert.All(hits, h => Assert.Equal(LookupHitKind.Hl7Message, h.Kind));
+        Assert.Equal(("Inbound ORM^O01 LK-ORM-1", $"/hl7?messageId={first.Id}"), (hits[1].Title, hits[1].Href));
+        Assert.StartsWith("Errored · ACK AE · ", hits[1].Detail);
     }
 }

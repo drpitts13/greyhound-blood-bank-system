@@ -25,7 +25,9 @@ public enum LookupHitKind
     /// <summary>A delivery by its packing list number; opens the delivery (pass 265).</summary>
     Delivery = 10,
     /// <summary>An inbound shipment (ASN) with units still expected; opens Expected inbound (pass 265).</summary>
-    InboundShipment = 11
+    InboundShipment = 11,
+    /// <summary>An HL7 message by its control ID (MSH-10); opens it on the HL7 page (pass 266).</summary>
+    Hl7Message = 12
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>

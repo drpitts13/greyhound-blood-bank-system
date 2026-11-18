@@ -27324,3 +27324,21 @@ Tried the lookup with the identifiers on the receiving and interface screens: a 
 ### Tests
 
 - TEST-BB-1291. Full suite passed.
+
+## Iteration 986 — End-user testing pass 266: lookup finds an HL7 control ID (2026-11-18)
+
+### How it was tested
+
+Continued pass 265's lookup check with the interface identifiers: the HL7 error queue's control IDs and the charge list's DFT control IDs.
+
+### Found and fixed
+
+1. **An HL7 control ID found nothing.** The error queue lists UAT-ORM-DUP-2 and UAT-ADT-A03-X2, and Billing lists each charge's message (CTRL-DFT-BB-ABORH-1). An EHR or billing analyst asking about a message quotes that ID, but the lookup returned nothing. It now finds each message with the ID, newest first (a replayed message is sent again with the same ID), with direction, type, status, acknowledgement and time, and Enter opens it on the HL7 page.
+
+### Retested live
+
+- CTRL-DFT-BB-ABORH-1 opened outbound DFT^P03 message 5 on the HL7 page; UAT-ORM-CA-3 listed the replayed message (*Replayed · ACK AA*) above the original (*Errored · ACK AE*). Nothing was changed.
+
+### Tests
+
+- TEST-BB-1292. Full suite passed.

@@ -45,6 +45,7 @@ public sealed class UniversalLookupService
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
     private readonly IRepository<BloodDelivery>? _deliveries;
     private readonly IRepository<BloodSupplier>? _suppliers;
+    private readonly IRepository<Hl7MessageLog>? _hl7Messages;
     private readonly IAuditQuery? _auditQuery;
     private readonly ICurrentUser? _currentUser;
 
@@ -73,8 +74,10 @@ public sealed class UniversalLookupService
         IRepository<Deviation>? deviations = null,
         IRepository<InstrumentMessageLog>? instrumentMessages = null,
         IRepository<BloodDelivery>? deliveries = null,
-        IRepository<BloodSupplier>? suppliers = null)
+        IRepository<BloodSupplier>? suppliers = null,
+        IRepository<Hl7MessageLog>? hl7Messages = null)
     {
+        _hl7Messages = hl7Messages;
         _deliveries = deliveries;
         _suppliers = suppliers;
         _deviations = deviations;
@@ -139,6 +142,7 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactDeviationAsync(upper, ct));
             hits.AddRange(await ExactDeliveriesAsync(upper, ct));
             hits.AddRange(await ExactInboundShipmentsAsync(upper, ct));
+            hits.AddRange(await ExactHl7MessagesAsync(upper, ct));
             // Only when nothing else matched: a real accession keeps opening its specimen directly.
             if (hits.Count == 0)
             {
@@ -348,6 +352,30 @@ public sealed class UniversalLookupService
             "/inventory?board=expected")];
     }
 
+    /// <summary>
+    /// End-user testing pass 266: the HL7 error queue and the charges list name messages by control ID (UAT-ORM-DUP-2,
+    /// CTRL-DFT-BB-ABORH-1), the ID an EHR analyst quotes when asking about a message, but the lookup found nothing for
+    /// it. Each message with that control ID (a replayed one is sent again with the same ID) opens on the HL7 page.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactHl7MessagesAsync(string upper, CancellationToken ct)
+    {
+        if (_hl7Messages is null)
+        {
+            return [];
+        }
+
+        var messages = await _hl7Messages.ListAsync(m => m.MessageControlId.ToUpper() == upper, ct);
+        return messages
+            .OrderByDescending(m => m.ReceivedUtc)
+            .ThenByDescending(m => m.Id)
+            .Take(5)
+            .Select(m => new LookupHitDto(LookupHitKind.Hl7Message, m.Id, true, m.MessageControlId,
+                $"{Words(m.Direction.ToString())} {m.MessageType}{(string.IsNullOrWhiteSpace(m.TriggerEvent) ? "" : "^" + m.TriggerEvent)} {m.MessageControlId}",
+                $"{Words(m.Status.ToString())}{(string.IsNullOrWhiteSpace(m.AckCode) ? "" : " · ACK " + m.AckCode)} · {ClinicalTimeText.Local(m.ReceivedUtc)}",
+                $"/hl7?messageId={m.Id}"))
+            .ToList();
+    }
+
     /// <summary>A code name in words: "EmergencyRelease" reads "Emergency release".</summary>
     private static string Words(string code)
     {
@@ -449,7 +477,7 @@ public sealed class UniversalLookupService
     }
 
     private static string NoMatch(string query) =>
-        $"No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, or instrument sample matches \"{query}\".";
+        $"No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, instrument sample, or HL7 message control ID matches \"{query}\".";
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
     {
