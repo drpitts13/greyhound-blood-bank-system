@@ -1160,6 +1160,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1044 / FRS-BB-1162 | End-user testing pass 266: lookup finds an HL7 control ID | `UniversalLookupService.cs`, `LookupDtos.cs`, `LookupRecordType.cs`, `GlobalLookupBar.razor` | TEST-BB-1292 | I | |
 | URS-BB-1045 / FRS-BB-1163 | End-user testing pass 267: lookup finds equipment and storage codes | `UniversalLookupService.cs`, `LookupDtos.cs`, `LookupRecordType.cs`, `GlobalLookupBar.razor`, `EquipmentPage.razor` | TEST-BB-1293 | I | |
 | URS-BB-1046 / FRS-BB-1164 | End-user testing pass 268: reservation ended note with an expired crossmatch | `ReservationEndedText.cs`, `PatientChartProductsTab.razor` | TEST-BB-1294 | U | |
+| URS-BB-1047 / FRS-BB-1165 | End-user testing pass 269: timeline results as readings, statuses in words | `PatientTimelineService.cs`, `OrderTimelineService.cs`, `SpecimenTimelineService.cs` | TEST-BB-1295 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

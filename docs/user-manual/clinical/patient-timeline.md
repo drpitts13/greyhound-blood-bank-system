@@ -33,4 +33,6 @@ Use the filter buttons to show one kind of event. **Warnings and critical only**
 
 **Times.** Each event uses the time stored on that record, shown in this workstation's local time. When a change has no time of its own, such as a cancellation or a rejection, it is shown on the order or specimen it changed. The timeline does not guess when it happened. The audit trail has the exact time of every change.
 
+Results read as on the worklist: an ABO/Rh panel as its type and reactions, a screen as its cell readings. Statuses and priorities are in words (*Now In process*, *Investigation Under review*).
+
 The timeline only reads. Nothing on it can be edited.

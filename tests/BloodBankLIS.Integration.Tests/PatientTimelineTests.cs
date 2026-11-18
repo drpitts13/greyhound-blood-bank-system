@@ -312,6 +312,45 @@ public class PatientTimelineTests : IDisposable
         Assert.Contains("reviewed by sup1: Physician informed", reviewed.Detail);
     }
 
+    // TEST-BB-1295 (end-user testing pass 269): a stored ABO/Rh panel reads as its type and reactions on the timeline, not
+    // JSON, and specimen status reads in words.
+    [Fact]
+    public async Task PanelResult_ReadsAsReadings_AndStatusInWords()
+    {
+        await using var c = _factory.Create();
+        var patient = await AddPatientAsync(c, "MRN-TL-269");
+        var specimen = new Specimen
+        {
+            PatientId = patient.Id, AccessionNumber = "ACC-TL-269", SpecimenType = "EDTA", CollectedUtc = T(1), ExpiresUtc = T(200), Status = SpecimenStatus.Accepted
+        };
+        var location = new OrderingLocation { Code = "TL-269", Name = "Ward 269", IsActive = true };
+        c.Specimens.Add(specimen);
+        c.OrderingLocations.Add(location);
+        await c.SaveChangesAsync();
+        var encounter = new Encounter { PatientId = patient.Id, VisitNumber = "VIS-TL-269", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = T(0) };
+        c.Encounters.Add(encounter);
+        await c.SaveChangesAsync();
+        var order = new Order
+        {
+            OrderNumber = "ORD-TL-269", PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderCategory = OrderCategory.Test,
+            OrderName = "Type and screen", OrderType = OrderType.TypeAndScreen, OrderedUtc = T(1), Status = OrderStatus.InProcess
+        };
+        c.Orders.Add(order);
+        var result = new TestResult
+        {
+            SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = "ABORH", Status = ResultStatus.Entered, EnteredUtc = T(3), EnteredBy = "tech",
+            Value = """{"abo":"A","rh":"Positive","version":1,"subtests":{"Anti-A":"4+","Anti-B":"0","Anti-D":"3+","A-Cells":"0","B-Cells":"4+"}}"""
+        };
+        c.TestResults.Add(result);
+        await c.SaveChangesAsync();
+
+        var events = await Timeline(c).GetAsync(patient.Id);
+        var entered = Event(events, $"res-{result.Id}-enter");
+        Assert.DoesNotContain("{", entered.Title);
+        Assert.Contains("Anti-A:4+", entered.Title);
+        Assert.Contains("Now In process", Event(events, $"ord-{order.Id}").Detail);
+    }
+
     private static async Task<Patient> AddPatientAsync(BloodBankDbContext c, string mrn)
     {
         var patient = new Patient { MedicalRecordNumber = mrn, LastName = "Timeline", FirstName = "Tess", DateOfBirth = new DateOnly(1965, 4, 4), Sex = Sex.Female };

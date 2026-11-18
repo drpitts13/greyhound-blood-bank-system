@@ -1303,5 +1303,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1292 | I | `UniversalLookupTests.Hl7ControlId_OpensTheMessages` | URS-BB-1044 / FRS-BB-1162 |
 | TEST-BB-1293 | I | `UniversalLookupTests.EquipmentAndStorageCodes_AreFound` | URS-BB-1045 / FRS-BB-1163 |
 | TEST-BB-1294 | U | `ReservationEndedTextTests.For_SaysWhenAReservationHasEnded` | URS-BB-1046 / FRS-BB-1164 |
+| TEST-BB-1295 | I | `PatientTimelineTests.PanelResult_ReadsAsReadings_AndStatusInWords` | URS-BB-1047 / FRS-BB-1165 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

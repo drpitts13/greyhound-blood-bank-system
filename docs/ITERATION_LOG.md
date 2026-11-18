@@ -27378,3 +27378,21 @@ Opened Demo-Multi, Riley's Products tab (MRN0022): W0001230009201 and W000123000
 ### Tests
 
 - TEST-BB-1294. Full suite passed.
+
+## Iteration 989 — End-user testing pass 269: timeline results as readings, statuses in words (2026-11-18)
+
+### How it was tested
+
+Opened Febrile, Marcus's chart timeline (MRN0006: transfusion, reaction, cancelled and re-ordered workups, expired tubes).
+
+### Found and fixed
+
+1. **The timeline printed a stored result and code names.** The reaction workup ABO/Rh read *ABORH resulted: {"abo":"A","rh":"Positive","version":1,"subtests":{…}}*, the reaction *Investigation UnderReview*, and orders *Now InProcess*. Results now read as on the worklist (*A+ · Anti-A:4+ · …*), and statuses and priorities in words (*Investigation Under review*, *Now In process*), on the patient, order and specimen timelines.
+
+### Retested live
+
+- Marcus's timeline reads *ABORH resulted: A+ · Anti-A:4+ · Anti-B:0 · Anti-D:3+ · A-Cells:0 · B-Cells:4+*, *Investigation Under review* and *Now In process*, with no JSON left. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1295. Full suite passed.

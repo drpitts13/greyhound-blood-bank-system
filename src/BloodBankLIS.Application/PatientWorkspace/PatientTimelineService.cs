@@ -126,8 +126,8 @@ public sealed class PatientTimelineService
         {
             var cancelled = o.Status == OrderStatus.Cancelled;
             var detail = Join(
-                $"{o.OrderNumber} · {o.Priority}",
-                cancelled ? $"Cancelled{(string.IsNullOrWhiteSpace(o.CancellationReason) ? "" : $": {o.CancellationReason}")}" : $"Now {o.Status}");
+                $"{o.OrderNumber} · {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(o.Priority.ToString())}",
+                cancelled ? $"Cancelled{(string.IsNullOrWhiteSpace(o.CancellationReason) ? "" : $": {o.CancellationReason}")}" : $"Now {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(o.Status.ToString())}");
             events.Add(new(o.OrderedUtc, TimelineCategory.Order, cancelled ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 $"{(o.OrderCategory == OrderCategory.Product ? "Product order" : "Test order")}: {Name(o.OrderName, o.TestCode)}",
                 detail, o.OrderingProvider ?? o.CreatedBy, $"{chart}?tab=orders", $"ord-{o.Id}"));
@@ -140,7 +140,7 @@ public sealed class PatientTimelineService
             var rejected = s.Status == SpecimenStatus.Rejected;
             events.Add(new(s.CollectedUtc, TimelineCategory.Specimen, rejected ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 $"Specimen {s.AccessionNumber} collected ({s.SpecimenType})",
-                Join(rejected ? $"Rejected{(string.IsNullOrWhiteSpace(s.RejectionReason) ? "" : $": {s.RejectionReason}")}" : $"Now {s.Status}",
+                Join(rejected ? $"Rejected{(string.IsNullOrWhiteSpace(s.RejectionReason) ? "" : $": {s.RejectionReason}")}" : $"Now {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(s.Status.ToString())}",
                     s.ExpiresUtc is DateTime exp ? $"expires {ClinicalTimeText.Local(exp)}" : null,
                     // Cycle 680: an infant's specimen valid for the admission (OCD-074).
                     s.NeonatalStandardExpiresUtc is null ? null : "valid for the admission (infant)"),
@@ -305,7 +305,7 @@ public sealed class PatientTimelineService
         {
             events.Add(new(r.ReportedUtc, TimelineCategory.Transfusion, TimelineSeverity.Critical,
                 $"Transfusion reaction reported: unit {Unit(r.BloodProductId)}",
-                $"Investigation {r.Status}", r.ReportedBy, "/reactions", $"rxn-{r.Id}"));
+                $"Investigation {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(r.Status.ToString())}", r.ReportedBy, "/reactions", $"rxn-{r.Id}"));
             if (r.ClosedUtc is DateTime closed)
             {
                 events.Add(new(closed, TimelineCategory.Transfusion, TimelineSeverity.Info,
@@ -353,7 +353,8 @@ public sealed class PatientTimelineService
     /// <summary>Entered, verified, corrected, and invalidated events for one result. Shared with the specimen timeline.</summary>
     internal static IEnumerable<TimelineEventDto> ResultEvents(TestResult r, string accession, string href, AboRh? typeOnFile = null)
     {
-        var value = string.IsNullOrWhiteSpace(r.Interpretation) ? r.Value : r.Interpretation;
+        // End-user testing pass 269: a stored ABO/Rh or screen panel read as its readings, not JSON.
+        var value = string.IsNullOrWhiteSpace(r.Interpretation) ? BloodBankLIS.Application.Results.ResultValueText.For(r.Value) : r.Interpretation;
         if (r.EnteredUtc is DateTime entered)
         {
             var corrected = !string.IsNullOrWhiteSpace(r.CorrectionReason);

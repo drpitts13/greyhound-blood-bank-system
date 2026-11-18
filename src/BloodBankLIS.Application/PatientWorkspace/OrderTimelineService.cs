@@ -137,7 +137,7 @@ public sealed class OrderTimelineService
             var rejected = s.Status == SpecimenStatus.Rejected;
             events.Add(new(s.CollectedUtc, TimelineCategory.Specimen, rejected ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 $"Specimen {s.AccessionNumber} collected ({s.SpecimenType})",
-                rejected ? $"Rejected{(string.IsNullOrWhiteSpace(s.RejectionReason) ? "" : $": {s.RejectionReason}")}" : $"Now {s.Status}",
+                rejected ? $"Rejected{(string.IsNullOrWhiteSpace(s.RejectionReason) ? "" : $": {s.RejectionReason}")}" : $"Now {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(s.Status.ToString())}",
                 s.Collector, $"{chart}?tab=specimens", $"spc-{s.Id}-collect"));
             if (s.ReceivedUtc is DateTime received)
             {

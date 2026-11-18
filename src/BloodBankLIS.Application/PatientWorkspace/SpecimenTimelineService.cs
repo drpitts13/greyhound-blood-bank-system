@@ -143,7 +143,7 @@ public sealed class SpecimenTimelineService
         {
             events.Add(new(o.OrderedUtc, TimelineCategory.Order, o.Status == OrderStatus.Cancelled ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 $"Serves order {o.OrderNumber}: {(string.IsNullOrWhiteSpace(o.OrderName) ? o.TestCode : o.OrderName)}",
-                PatientTimelineService.Join($"{o.Priority}", $"Now {o.Status}",
+                PatientTimelineService.Join(BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(o.Priority.ToString()), $"Now {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(o.Status.ToString())}",
                     o.Status == OrderStatus.Cancelled && !string.IsNullOrWhiteSpace(o.CancellationReason) ? $"Cancelled: {o.CancellationReason}" : null),
                 o.OrderingProvider ?? o.CreatedBy, $"{chart}?tab=orders", $"ord-{o.Id}"));
         }

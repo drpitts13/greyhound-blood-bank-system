@@ -1052,3 +1052,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1044 | The top-bar lookup finds an HL7 message by its control ID. | P3 | FRS-BB-1162 |
 | URS-BB-1045 | The top-bar lookup finds equipment and storage locations by their codes. | P3 | FRS-BB-1163 |
 | URS-BB-1046 | A reservation that has ended does not tell the user to issue a unit whose crossmatch has expired. | P2 | FRS-BB-1164 |
+| URS-BB-1047 | The patient, order and specimen timelines show results as readings and statuses in words. | P2 | FRS-BB-1165 |
