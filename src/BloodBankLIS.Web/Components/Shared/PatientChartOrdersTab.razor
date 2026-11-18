@@ -309,7 +309,7 @@
                         </td>
                         <td>
                             @* Order number, then what kind of order and where it came from (a column of its own made the chart too wide). *@
-                            <div class="muted" style="margin-bottom:.15rem;"><span class="mono">@o.OrderNumber</span> · @o.OrderCategory · @o.Source</div>
+                            <div class="muted" style="margin-bottom:.15rem;"><span class="mono">@o.OrderNumber</span> · @Ui.EnumText(o.OrderCategory) · @Ui.EnumText(o.Source)</div>
                             @foreach (var line in o.Lines)
                             {
                                 <div>@RequestedVolumeRule.Label(line.LineName, line.RequestedVolumeMl) <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
@@ -336,7 +336,7 @@
                                 </div>
                             }
                         </td>
-                        <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@Ui.EnumText(o.Priority)</span> } else { @o.Priority }</td>
+                        <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@Ui.EnumText(o.Priority)</span> } else { @Ui.EnumText(o.Priority) }</td>
                         <td>@o.OrderingLocationName<span class="sub">@(o.OrderingProvider ?? "—")</span></td>
                         <td class="mono">
                             @(o.AccessionNumber ?? "—")

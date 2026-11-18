@@ -323,7 +323,7 @@
                                     <td class="mono">@r.SpecimenAccession</td>
                                     <td class="mono">@r.TestCode@(r.Version > 1 ? $" v{r.Version}" : "")</td>
                                     <td>@ResultValueText.For(r.Value)</td>
-                                    <td>@r.Status @if (r.ToReview) { <span class="badge badge-red">To review</span> }</td>
+                                    <td>@Ui.EnumText(r.Status) @if (r.ToReview) { <span class="badge badge-red">To review</span> }</td>
                                     <td>@r.EnteredBy</td>
                                     @* Pass 182: blood issued after the result, so the reviewer can see whose result mattered. *@
                                     <td data-lot-units-since="@r.ResultId">

@@ -27450,3 +27450,21 @@ After pass 271, ran Recipient traceback for Demo-Massive, Morgan (MRN0021) and F
 ### Tests
 
 - TEST-BB-1298. Full suite passed.
+
+## Iteration 993 — End-user testing pass 273: statuses in words across pages (2026-11-18)
+
+### How it was tested
+
+After passes 269 to 272, searched the page markup for status, type and priority values printed as stored, and checked the ones that can be more than one word.
+
+### Found and fixed
+
+1. **Several lists printed a stored code name.** The deviations listed on a unit or patient page (W0001230000001's *Unit found in the wrong refrigerator* read *UnderReview*; *CorrectiveAction* likewise), Reagent QC's results for a lot (*PendingVerification*), the chart Orders tab's category, source and routine priority, a supplier order's status heading, and an instrument message's status. They now read in words (*Under review*).
+
+### Retested live
+
+- W0001230000001's linked deviation reads *#1 Unit found in the wrong refrigerator · Major · Under review · reported 2026-11-05 by tech2*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1299. Full suite passed.

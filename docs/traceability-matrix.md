@@ -1164,6 +1164,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1048 / FRS-BB-1166 | End-user testing pass 270: timeline issue and type sources in words | `PatientTimelineService.cs`, `OrderTimelineService.cs` | TEST-BB-1296 | I | |
 | URS-BB-1049 / FRS-BB-1167 | End-user testing pass 271: lookback location only for stored components | `LookbackRecallRule.cs`, `Lookback.razor` | TEST-BB-1297 | D | |
 | URS-BB-1050 / FRS-BB-1168 | End-user testing pass 272: recipient traceback in words | `Lookback.razor` | TEST-BB-1298 | U | |
+| URS-BB-1051 / FRS-BB-1169 | End-user testing pass 273: statuses in words across pages | `LinkedDeviations.razor`, `Reagents.razor`, `PatientChartOrdersTab.razor`, `SupplierOrders.razor`, `Instruments.razor` | TEST-BB-1299 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
