@@ -302,6 +302,9 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
                 QuarantineHoldText.For(now.AddHours(-30), now.AddDays(3).AddHours(5), now));
             Assert.StartsWith("Held 2 hours", QuarantineHoldText.For(now.AddHours(-2), now.AddHours(-1), now));
             Assert.Contains("; expired ", QuarantineHoldText.For(now.AddHours(-2), now.AddHours(-1), now));
+            // TEST-BB-1285 (end-user testing pass 259): the quarantine board's Held column reads from the same time.
+            Assert.Equal($"Held 30 hours (since {ClinicalTimeText.Local(now.AddHours(-30))})",
+                QuarantineHoldText.Since("Held", now.AddHours(-30), now));
         }
     }
 

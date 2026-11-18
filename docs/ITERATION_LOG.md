@@ -27198,3 +27198,21 @@ Printed the one-patient downtime summary for Demo-Special, Avery (requirements, 
 ### Tests
 
 - TEST-BB-1284. Full suite passed.
+
+## Iteration 979 — End-user testing pass 259: quarantine board says how long held (2026-11-18)
+
+### How it was tested
+
+Went through Issue & Transfuse › Final disposition (6 units 11 days past due, each with Receive or Document transfusion and Return) and Inventory › Quarantine (6 units).
+
+### Found and fixed
+
+1. **The quarantine board did not say how long a unit had been held.** The supervisor queue lists the same six units with *Held 11 days 22 hours (since 2026-11-06 09:50)*, but the board where they are released or discarded showed only the reason, notes and expiry, so W0001230001026 (held 12 days for a visual defect) looked the same as a unit quarantined this morning. The board now has a **Held** column from the same time.
+
+### Retested live
+
+- W0001230001026 reads *Held 12 days 1 hour (since 2026-11-06 09:50)*; W0001230002001 *Held 5 days 22 hours (since 2026-11-12 12:22)*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1285. Full suite passed.

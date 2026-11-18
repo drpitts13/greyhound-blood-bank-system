@@ -1150,6 +1150,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1035 / FRS-BB-1153 | End-user testing pass 256: screen result read as readings on the reaction pages | `Reactions.razor`, `ReactionReport.razor`, `PatientDetail.razor` | TEST-BB-1282 | A | |
 | URS-BB-1035 / FRS-BB-1153 | End-user testing pass 257: batch verify and equipment results read as readings | `TestWorklist.razor`, `EquipmentPage.razor` | TEST-BB-1283 | U | |
 | URS-BB-1036 / FRS-BB-1154 | End-user testing pass 258: return window in words on the issued board | `ReadyToIssueFormCue.cs`, `Issuing.razor` | TEST-BB-1284 | A | |
+| URS-BB-1037 / FRS-BB-1155 | End-user testing pass 259: quarantine board says how long held | `Inventory.razor` | TEST-BB-1285 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

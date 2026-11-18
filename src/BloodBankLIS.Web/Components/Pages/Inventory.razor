@@ -485,6 +485,7 @@
                         <th>ABO/Rh</th>
                         <th>Retype</th>
                         <th>Reason</th>
+                        <th>Held</th>
                         <th>Notes</th>
                         <th>Expires</th>
                         <th>Next step</th>
@@ -515,6 +516,8 @@
                                 }
                             </td>
                             <td>@Ui.EnumText(row.ReasonCode)</td>
+                            @* Pass 259: how long it has been held, as the supervisor queue says. *@
+                            <td class="nowrap" data-quarantine-held>@(row.QuarantinedSinceUtc is DateTime heldSince ? QuarantineHoldText.Since("Held", heldSince, DateTime.UtcNow) : "—")</td>
                             <td>@(row.Notes ?? "—")</td>
                             <td class="nowrap">@row.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
