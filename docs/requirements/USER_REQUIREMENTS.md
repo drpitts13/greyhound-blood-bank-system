@@ -1035,3 +1035,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1027 | The patient list says how many possible-duplicate pairs are waiting and marks each chart in a pair with the other chart's MRN. | P2 | FRS-BB-1145 |
 | URS-BB-1028 | A tube received and not yet stored can be picked to discard from its row, as well as to store. | P3 | FRS-BB-1146 |
 | URS-BB-1029 | A massive-transfusion issue with no override names the physician who called its protocol as its authorizer on the issue worklists and product history. | P2 | FRS-BB-1147 |
+| URS-BB-1030 | The emergency releases and overrides report says who authorized each override and emergency issue. | P2 | FRS-BB-1148 |

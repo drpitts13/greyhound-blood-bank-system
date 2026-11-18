@@ -73,7 +73,7 @@ public static class ReportSeedCatalog
         Visual("RPT-OVERRIDES", "Emergency releases and overrides",
             "Warning overrides plus emergency and massive-transfusion issues.",
             ReportSourceCatalog.Overrides,
-            ["occurred_utc", "kind", "rule_code", "reason", "actor", "unit_number", "mrn", "physician_statement"],
+            ["occurred_utc", "kind", "rule_code", "reason", "actor", "authorized_by", "unit_number", "mrn", "physician_statement"],
             filters: [DateRange("occurred-range", "occurred_utc")],
             sorts: [Sort("occurred_utc", ReportSortDirection.Descending)]),
         Visual("RPT-XM-TX", "Crossmatch and transfusion activity",

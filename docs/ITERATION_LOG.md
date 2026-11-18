@@ -27053,3 +27053,21 @@ Opened Issue & Transfuse › In transit (5 units: one standard issue to ICU 4 an
 ### Tests
 
 - TEST-BB-1274, TEST-BB-1275. Full suite passed.
+
+## Iteration 971 — End-user testing pass 251: overrides report says who authorized (2026-11-18)
+
+### How it was tested
+
+Ran *Emergency releases and overrides* after pass 250, to see whether the report names the same authorizer as the issue worklists.
+
+### Found and fixed
+
+1. **The report's emergency and MTP issue rows named only the technologist who issued.** Each read *Actor: tech2*, with no physician, while In transit now names *Dr. Demo Trauma (demo) (called MTP #1)* for the MTP units, and the emergency release of W0001230001004 was authorized by Dr. Amy Lee through its override. A quality review of emergency releases needs the authorizing physician. The report and its SQL view (reinstalled by a new migration) now have *Authorized by*: an override's authorizer; for an issue, its override's authorizer or, for an MTP issue without one, the physician who called the protocol. *Actor* is unchanged.
+
+### Retested live
+
+- The emergency release reads *tech2 · Dr. Amy Lee*; each MTP issue *tech2 · Dr. Demo Trauma (demo) (called MTP #1)*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1276 (the visual report and `rpt_overrides`). Full suite passed.

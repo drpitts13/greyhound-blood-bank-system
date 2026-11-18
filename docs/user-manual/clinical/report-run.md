@@ -22,7 +22,7 @@ Date filters count whole local days: a range from 2026-11-12 to 2026-11-12 inclu
 
 Status, type, severity and similar columns read in words (*On hold*, *Under review*, *Transfusion started*) rather than as stored codes; a unit status reads as on the screens (a unit awaiting its retype is *Pending retype*). Filters and grouping still use the stored value.
 
-In *Emergency releases and overrides*, an override names its unit and patient, as the supervisor queue does: through the issue, reservation or crossmatch it was recorded on.
+In *Emergency releases and overrides*, an override names its unit and patient, as the supervisor queue does: through the issue, reservation or crossmatch it was recorded on. **Authorized by** says who authorized each row: an override's authorizer; for an emergency or massive-transfusion issue, the authorizer of its override, or, for a massive-transfusion issue without one, the physician who called its protocol (*Dr. Demo Trauma (called MTP #1)*). **Actor** is still who recorded it.
 
 In *Lookback and recall notifications*, each row names the unit transfused and the date the notification was opened, as the Lookback page does.
 

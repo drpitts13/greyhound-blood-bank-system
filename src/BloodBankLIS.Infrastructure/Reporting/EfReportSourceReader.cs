@@ -418,8 +418,16 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 patient.MedicalRecordNumber,
                 issue.TestsIncompleteAtIssue,
                 issue.UrgencyStatementReceivedUtc,
-                issue.UrgencyStatementSignedBy
+                issue.UrgencyStatementSignedBy,
+                issue.OverrideId,
+                issue.MtpActivationId
             }).ToListAsync(cancellationToken);
+
+        // End-user testing pass 251: who authorized each emergency issue, as the issue worklists name it.
+        var issueOverrideIds = emergencies.Where(e => e.OverrideId != null).Select(e => e.OverrideId!.Value).Distinct().ToList();
+        var issueAuthorizers = await _db.Overrides.AsNoTracking().Where(o => issueOverrideIds.Contains(o.Id)).ToDictionaryAsync(o => o.Id, o => o.AuthorizedBy, cancellationToken);
+        var mtpIds = emergencies.Where(e => e.MtpActivationId != null).Select(e => e.MtpActivationId!.Value).Distinct().ToList();
+        var mtpCallers = await _db.MtpActivations.AsNoTracking().Where(a => mtpIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, a => a.RequestedBy, cancellationToken);
 
         var rows = overrides.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.OverriddenUtc)),
@@ -429,7 +437,8 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("actor", ReportValueFormat.Text(row.AuthorizedBy)),
             ("unit_number", contexts.TryGetValue((row.ContextType, row.ContextId), out var c) ? unitNumbers.GetValueOrDefault(c.UnitId) : null),
             ("mrn", contexts.TryGetValue((row.ContextType, row.ContextId), out var cp) ? mrns.GetValueOrDefault(cp.PatientId) : null),
-            ("physician_statement", null))).ToList();
+            ("physician_statement", null),
+            ("authorized_by", ReportValueFormat.Text(row.AuthorizedBy)))).ToList();
 
         rows.AddRange(emergencies.Select(row => ReportValueFormat.Row(
             ("occurred_utc", ReportValueFormat.Date(row.IssuedUtc)),
@@ -439,7 +448,11 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("actor", ReportValueFormat.Text(row.IssuedBy)),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
-            ("physician_statement", UrgencyStatementRule.ReportText(row.TestsIncompleteAtIssue, row.UrgencyStatementReceivedUtc, row.UrgencyStatementSignedBy)))));
+            ("physician_statement", UrgencyStatementRule.ReportText(row.TestsIncompleteAtIssue, row.UrgencyStatementReceivedUtc, row.UrgencyStatementSignedBy)),
+            ("authorized_by", IssueAuthorizerText.For(
+                row.OverrideId is long oid ? issueAuthorizers.GetValueOrDefault(oid) : null,
+                row.MtpActivationId,
+                row.MtpActivationId is long mid ? mtpCallers.GetValueOrDefault(mid) : null)))));
 
         return rows;
     }

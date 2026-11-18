@@ -262,7 +262,8 @@ public static class ReportViewSql
                 o.AuthorizedBy AS actor,
                 ou.UnitNumber AS unit_number,
                 op.MedicalRecordNumber AS mrn,
-                CAST(NULL AS {TextType(sqlServer)}) AS physician_statement
+                CAST(NULL AS {TextType(sqlServer)}) AS physician_statement,
+                o.AuthorizedBy AS authorized_by
             FROM Overrides o
             -- End-user testing pass 245: an override names its unit and patient. An issue override is recorded against the
             -- unit (its ContextId is the unit), with the patient of that unit's latest issue, as the supervisor queue reads it.
@@ -284,10 +285,16 @@ public static class ReportViewSql
                     WHEN i.TestsIncompleteAtIssue = 0 THEN '{UrgencyStatementRule.NotNeeded}'
                     WHEN i.UrgencyStatementReceivedUtc IS NULL THEN '{UrgencyStatementRule.NotReceived}'
                     ELSE {(sqlServer ? "'Received from ' + i.UrgencyStatementSignedBy" : "'Received from ' || i.UrgencyStatementSignedBy")}
-                END AS physician_statement
+                END AS physician_statement,
+                -- End-user testing pass 251: the override's authorizer, else the physician who called the issue's MTP.
+                COALESCE(NULLIF(TRIM(io.AuthorizedBy), ''),
+                    CASE WHEN im.Id IS NOT NULL AND NULLIF(TRIM(im.RequestedBy), '') IS NOT NULL
+                        THEN TRIM(im.RequestedBy){join}' (called MTP #'{join}CAST(im.Id AS {(sqlServer ? "nvarchar(20)" : "text")}){join}')' END) AS authorized_by
             FROM Issues i
             INNER JOIN BloodProducts u ON u.Id = i.BloodProductId
             INNER JOIN Patients p ON p.Id = i.PatientId
+            LEFT JOIN Overrides io ON io.Id = i.OverrideId
+            LEFT JOIN MtpActivations im ON im.Id = i.MtpActivationId
             WHERE i.IssueType IN ({(int)IssueType.EmergencyRelease}, {(int)IssueType.MassiveTransfusion})
             """);
 

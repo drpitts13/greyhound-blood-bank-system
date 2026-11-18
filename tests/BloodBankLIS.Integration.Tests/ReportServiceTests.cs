@@ -752,6 +752,66 @@ public class ReportServiceTests : IDisposable
         Assert.Equal("Reportable", sqlRun.Value.Rows[1][2]);
     }
 
+    // TEST-BB-1276 (end-user testing pass 251): the overrides report says who authorized each row: an override's
+    // authorizer, an emergency issue's override authorizer, or, for an MTP issue without one, the physician who called the
+    // protocol; in the visual report and in rpt_overrides.
+    [Fact]
+    public async Task OverridesReport_SaysWhoAuthorized()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-AUTH", LastName = "Auth", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        var product = new ProductType { ProductCode = "RBC-AUTH", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        db.AddRange(patient, product);
+        await db.SaveChangesAsync();
+        var units = Enumerable.Range(1, 2).Select(i => new BloodUnit { UnitNumber = $"W-AUTH-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Issued }).ToList();
+        db.BloodUnits.AddRange(units);
+        var activation = new MtpActivation { PatientId = patient.Id, RequestedBy = "Dr. Trauma", Reason = "Haemorrhage", ActivatedUtc = _factory.Clock.UtcNow.AddHours(-3), ActivatedBy = "tech" };
+        var ov = new Override
+        {
+            Action = OverrideAction.EmergencyRelease, ContextType = nameof(Issue), ContextId = 0, RuleCode = "ISS-XM-REQUIRED",
+            Reason = "Bleeding", AuthorizedBy = "Dr. Amy Lee", OverriddenUtc = _factory.Clock.UtcNow.AddHours(-2)
+        };
+        db.AddRange(activation, ov);
+        await db.SaveChangesAsync();
+        db.Issues.AddRange(
+            new Issue
+            {
+                BloodProductId = units[0].Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-2), IssuedBy = "tech",
+                IssueType = IssueType.EmergencyRelease, TestsIncompleteAtIssue = true, OverrideId = ov.Id
+            },
+            new Issue
+            {
+                BloodProductId = units[1].Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-2), IssuedBy = "tech",
+                IssueType = IssueType.MassiveTransfusion, TestsIncompleteAtIssue = true, MtpActivationId = activation.Id
+            });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-OVERRIDES").Id, new Dictionary<string, string?>());
+        Assert.True(visual.Succeeded, visual.Error);
+        var columns = visual.Value!.Columns.ToList();
+        string? Cell(IReadOnlyList<string?> row, string column) => row[columns.IndexOf(column)];
+        string? Issued(string unit) => Cell(visual.Value.Rows.Single(r => Cell(r, "unit_number") == unit && Cell(r, "rule_code") != "ISS-XM-REQUIRED"), "authorized_by");
+        Assert.Equal("Dr. Amy Lee", Issued("W-AUTH-1"));
+        Assert.Equal($"Dr. Trauma (called MTP #{activation.Id})", Issued("W-AUTH-2"));
+        Assert.Equal("Dr. Amy Lee", Cell(visual.Value.Rows.Single(r => Cell(r, "rule_code") == "ISS-XM-REQUIRED"), "authorized_by"));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-AUTH-SQL",
+            Name = "SQL authorizers",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT unit_number, authorized_by FROM rpt_overrides WHERE mrn = 'MRN-AUTH' AND rule_code IN ('EmergencyRelease', 'MassiveTransfusion') ORDER BY unit_number"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "Dr. Amy Lee", $"Dr. Trauma (called MTP #{activation.Id})" }, sqlRun.Value!.Rows.Select(r => r[1] ?? "").ToArray());
+    }
+
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>
         new(
             new ReportDefinitionStore(db),

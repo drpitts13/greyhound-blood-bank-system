@@ -138,7 +138,9 @@ public static class ReportSourceCatalog
             Field("unit_number", "Unit number"),
             Field("mrn", "MRN"),
             // Pass 120: for a release before testing was complete, whether the physician's statement was received.
-            Field("physician_statement", "Physician statement")),
+            Field("physician_statement", "Physician statement"),
+            // Pass 251: who authorized it; for an MTP issue with no override, the physician who called the protocol.
+            Field("authorized_by", "Authorized by")),
         Source(CrossmatchTransfusion, "Crossmatch and transfusion activity", ReportViewCatalog.CrossmatchTransfusion,
             Field("occurred_utc", "Occurred", ReportValueKind.Date),
             Field("occurred_month", "Month"),

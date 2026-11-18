@@ -1284,5 +1284,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1273 | U | `TubePullListTests.NotStoredTube_CanBePickedToDiscard` | URS-BB-1028 / FRS-BB-1146 |
 | TEST-BB-1274 | D | `IssueAuthorizerTextTests.OverrideAuthorizer_ThenMtpCaller_ThenNothing` | URS-BB-1029 / FRS-BB-1147 |
 | TEST-BB-1275 | I | `DemoTransfusionConsistencyTests.MtpIssueWithoutOverride_NamesThePhysicianWhoCalledTheProtocol` | URS-BB-1029 / FRS-BB-1147 |
+| TEST-BB-1276 | I | `ReportServiceTests.OverridesReport_SaysWhoAuthorized` | URS-BB-1030 / FRS-BB-1148 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
