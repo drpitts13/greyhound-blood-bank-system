@@ -15,7 +15,7 @@ namespace BloodBankLIS.Application.PatientWorkspace;
 public sealed class UnitAntigenTypingService
 {
     public const string ActionCode = "UAGTYPE";
-    public const string TestCode = "UAGTYPE";
+    public const string TestCode = BloodBankLIS.Domain.Rules.UnitOnlyTestRule.UnitAntigenTypingCode;
 
     private readonly IRepository<Allocation> _allocations;
     private readonly IRepository<BloodUnit> _units;

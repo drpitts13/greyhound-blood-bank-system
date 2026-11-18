@@ -26887,3 +26887,21 @@ Opened Interface Setup › Translation table › Unmapped values (8 open).
 ### Tests
 
 - TEST-BB-1265 (and a card assertion in TEST-BB-1227's test). Full suite passed.
+
+## Iteration 962 — End-user testing pass 242: unit tests not on a patient order (2026-11-18)
+
+### How it was tested
+
+Checked Help (search for "lookback"; the PDF download is generated from the current topics), the Second ABO/Rh and Retrospective crossmatch boards, Kellerman's antibody ID workup #1, then opened **Add order** on Demo, Patricia (MRN0001). Nothing was saved.
+
+### Found and fixed
+
+1. **A patient order offered unit tests.** The Tests list included *ABO/Rh Retype*, *Rh+ Retype*, *Rh− Retype* and *Unit Antigen Typing*, which are done on a blood unit, beside the patient's ABO/Rh and screen. They are no longer offered on a patient's new or edited order; a code already on an order stays shown. Unit retypes are recorded on the Retype desk and unit antigen typing from the Products tab, as before.
+
+### Retested live
+
+- MRN0001's Add order lists ABID, ABORH, ABSC, AGTYPE, CXM, DAT, EXM, TSNEO, WEAKD and XM, without the four unit tests. Nothing was saved.
+
+### Tests
+
+- TEST-BB-1266. Full suite passed.

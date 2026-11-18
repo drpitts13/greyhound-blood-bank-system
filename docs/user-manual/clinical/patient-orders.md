@@ -18,6 +18,8 @@ Select the visit, the ordering provider, and the test, test grouper, or product.
 
 If a test you order is already ordered and still open for this patient, the order is created with a warning naming the open order (for example "Already ordered and still open: ABSC on ORD0012"). One result can serve the open order, so cancel the new one if it repeats by mistake; keep it when the repeat is intended, such as a second ABO/Rh determination. Editing an order to add a test that is already open on another order gives the same warning. A test choice keeps the test code. When the name is blank, the choice says Test and the id. The code is not shown as the name, and the stored test name is not changed. A product choice keeps the product code. When the name is blank, the choice says Product and the id. The code is not shown as the name, and the stored product name is not changed. A grouper such as a type and screen expands into the member tests. Priority from an interface order, including STAT and ASAP, is stored on the order and shown on the worklist.
 
+The test list leaves out tests that are done on a blood unit rather than on the patient: the unit ABO/Rh retypes and unit antigen typing. Those are recorded from the unit (the Retype desk, unit antigen typing from the Products tab).
+
 Product orders can carry modification actions: irradiate, wash, thaw, volume reduce, or leukoreduce. Those actions are defined in Administration. Completing the action later is done from inventory modification or the product workflow, and it can queue a charge when action billing is mapped.
 
 ## Link a specimen

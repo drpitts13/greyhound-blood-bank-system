@@ -106,7 +106,8 @@
                         }
                         <label>Tests</label>
                         <div class="checkbox-list">
-                            @foreach (var t in TestDefs)
+                            @* Pass 242: unit-only tests (retypes, unit antigen typing) are not ordered on a patient. *@
+                            @foreach (var t in TestDefs.Where(t => !UnitOnlyTestRule.IsUnitOnly(t.Code) || NewOrderTestCodes.Contains(t.Code)))
                             {
                                 <label class="checkbox-item">
                                     <input type="checkbox" checked="@NewOrderTestCodes.Contains(t.Code)" @onchange="e => OnToggleNewOrderTest.InvokeAsync((t.Code, e))" />
@@ -541,7 +542,7 @@
                                             }
                                             <label>Tests</label>
                                             <div class="checkbox-list">
-                                                @foreach (var t in TestDefs)
+                                                @foreach (var t in TestDefs.Where(t => !UnitOnlyTestRule.IsUnitOnly(t.Code) || EditOrderTestCodes.Contains(t.Code)))
                                                 {
                                                     <label class="checkbox-item">
                                                         <input type="checkbox" checked="@EditOrderTestCodes.Contains(t.Code)" @onchange="e => OnToggleEditOrderTest.InvokeAsync((t.Code, e))" />
