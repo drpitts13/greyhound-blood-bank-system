@@ -161,7 +161,7 @@ else
                                 <td>@(u.ProductName ?? "—")</td>
                                 <td class="mono">@u.Din</td>
                                 <td><span class="@Ui.Badge(u.Status)">@Ui.EnumText(u.Status)</span></td>
-                                <td>@(u.LocationName ?? "—")</td>
+                                <td>@LookbackRecallRule.LocationText(u.Status, u.LocationName)</td>
                                 <td>@(u.IsDerivedComponent ? "Yes" : "")</td>
                                 <td class="right nowrap">
                                     <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(u.BloodProductId)">Open Inventory</a>

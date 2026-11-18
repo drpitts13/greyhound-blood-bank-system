@@ -1054,3 +1054,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1046 | A reservation that has ended does not tell the user to issue a unit whose crossmatch has expired. | P2 | FRS-BB-1164 |
 | URS-BB-1047 | The patient, order and specimen timelines show results as readings and statuses in words. | P2 | FRS-BB-1165 |
 | URS-BB-1048 | The timelines show issue types, crossmatch status at issue, blood type sources and order sources in words. | P3 | FRS-BB-1166 |
+| URS-BB-1049 | The DIN lookback names a storage location only for components still in storage. | P2 | FRS-BB-1167 |

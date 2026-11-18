@@ -28,6 +28,17 @@ public static class LookbackRecallRule
     /// lookback names it, so a unit from an implicated donation is not missed while the recipients are being traced
     /// (end-user testing pass 216). Information only; whether to recall is the user's decision.
     /// </summary>
+    /// <summary>
+    /// Where to look for a component during a lookback (end-user testing pass 271: the transfused W0001230000099 was
+    /// listed at "FRIDGE-1 Main Blood Bank Refrigerator", its last storage place before issue). A unit in storage gives its
+    /// location; any other gives "Not in storage" (issued, transfused, discarded, shipped), so nobody searches a
+    /// refrigerator for it.
+    /// </summary>
+    public static string LocationText(UnitStatus status, string? locationName) =>
+        StorageTemperatureRule.StoredStatuses.Contains(status)
+            ? (string.IsNullOrWhiteSpace(locationName) ? "—" : locationName.Trim())
+            : "Not in storage";
+
     public static bool StillInStock(UnitStatus status) =>
         StorageTemperatureRule.StoredStatuses.Contains(status)
         && status is not (UnitStatus.Quarantine or UnitStatus.Recalled or UnitStatus.Damaged);

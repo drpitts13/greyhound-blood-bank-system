@@ -27414,3 +27414,21 @@ After pass 269, read the timelines of Demo-Massive, Morgan (MRN0021), Trauma, Jo
 ### Tests
 
 - TEST-BB-1296 (in the timeline safety-events test). Full suite passed.
+
+## Iteration 991 — End-user testing pass 271: lookback location only for stored components (2026-11-18)
+
+### How it was tested
+
+Scanned the product history, orders, unit, RhIG and reaction report pages for code names left after passes 269 and 270 (none), then opened the DIN lookback for W123426000001.
+
+### Found and fixed
+
+1. **A transfused component was listed in a refrigerator.** *Components for W123426000001* gave the transfused W0001230000099 the location *FRIDGE-1 Main Blood Bank Refrigerator*, where it was stored before issue. In a recall, that sends someone to search the refrigerator for a unit transfused to Demo, Patricia. A component not in storage (issued, transfused, discarded or shipped) now reads *Not in storage*; one still in storage keeps its location.
+
+### Retested live
+
+- W0001230000099 reads *Transfused · Not in storage*; W000123LSIB001 *Pending Retype · FRIDGE-1 Main Blood Bank Refrigerator*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1297. Full suite passed.

@@ -1305,5 +1305,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1294 | U | `ReservationEndedTextTests.For_SaysWhenAReservationHasEnded` | URS-BB-1046 / FRS-BB-1164 |
 | TEST-BB-1295 | I | `PatientTimelineTests.PanelResult_ReadsAsReadings_AndStatusInWords` | URS-BB-1047 / FRS-BB-1165 |
 | TEST-BB-1296 | I | `PatientTimelineTests.SafetyEvents_AreCritical_AndChangedRecords_NeedAttention` | URS-BB-1048 / FRS-BB-1166 |
+| TEST-BB-1297 | D | `LookbackLocationTextTests.Location_OnlyForUnitsInStorage` | URS-BB-1049 / FRS-BB-1167 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
