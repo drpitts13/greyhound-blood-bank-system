@@ -26775,3 +26775,25 @@ Looked at the instrument simulator, Facility policies (six settings still to ent
 ### Tests
 
 - TEST-BB-1259. Full suite passed.
+
+## Iteration 956 — End-user testing pass 236: issue and ward receipt times before starting (2026-11-17)
+
+### How it was tested
+
+From Issued units, opened **Start / document** for W0001230009206 (MRN0022), issued 2026-11-06 08:45 and received on ICU 4 at 08:57, never started. Nothing was recorded.
+
+### Found and fixed
+
+1. **The transfusion form did not say how long the unit had been on the ward.** It named who issued it and the ward appearance, but not that it was issued and received eleven days earlier; a red cell is to be started soon after it leaves controlled storage. Until a unit is started the form now says *Issued 2026-11-06 08:45, 11 d 15 h ago; received on the ward 2026-11-06 08:57 by RN Demo, 11 d 14 h ago. Check the unit and its time out of storage under your procedure before starting.* Nothing is blocked.
+
+### Also noted
+
+- The form already warns that a reaction investigation (#2) is open for this patient and asks why and who decided to continue.
+
+### Retested live
+
+- W0001230009206's Transfusion form shows the line. Nothing was started.
+
+### Tests
+
+- TEST-BB-1260. Full suite passed.

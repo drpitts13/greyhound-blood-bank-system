@@ -1523,7 +1523,7 @@
             <p class="muted">The receiving location must acknowledge the unit (ward receipt) before this can succeed. Patient identifiers must match the issued patient — a checkbox is not positive identification.</p>
             @if (!string.IsNullOrWhiteSpace(_txProductName) || !string.IsNullOrWhiteSpace(_txExpirationNotice) || !string.IsNullOrWhiteSpace(_txUnitTypeNotice) || !string.IsNullOrWhiteSpace(_txSpecimenNotice) || !string.IsNullOrWhiteSpace(_txCrossmatchNotice) || !string.IsNullOrWhiteSpace(_txIssuedToNotice) || !string.IsNullOrWhiteSpace(_txCoolerNotice) || !string.IsNullOrWhiteSpace(_txLocationNotice) || !string.IsNullOrWhiteSpace(_txIssuedByNotice) || !string.IsNullOrWhiteSpace(_txSecondVerifierNotice))
             {
-                <FactList Facts="@(new string?[] { _txExpirationNotice, _txUnitTypeNotice, _txSpecimenNotice, _txCrossmatchNotice, _txIssuedToNotice, _txCoolerNotice, _txLocationNotice, _txIssuedByNotice, _txSecondVerifierNotice })">Documenting @if (!string.IsNullOrWhiteSpace(_txProductName)) { <strong>@_txProductName</strong> }</FactList>
+                <FactList Facts="@(new string?[] { _txExpirationNotice, _txUnitTypeNotice, _txSpecimenNotice, _txCrossmatchNotice, _txIssuedToNotice, _txCoolerNotice, _txLocationNotice, _txIssuedByNotice, _txHeldSinceNotice, _txSecondVerifierNotice })">Documenting @if (!string.IsNullOrWhiteSpace(_txProductName)) { <strong>@_txProductName</strong> }</FactList>
             }
             @if (!string.IsNullOrWhiteSpace(_txEarlierIdentityNotice))
             {
@@ -1761,6 +1761,8 @@
     private string? _txCoolerNotice;
     private string? _txLocationNotice;
     private string? _txIssuedByNotice;
+    // Pass 236: when issued and received on the ward, before the unit is started.
+    private string? _txHeldSinceNotice;
     private string? _txSecondVerifierNotice;
     private string? _txReleaseReason;
     private string? _txEarlierIdentityNotice;
@@ -1867,6 +1869,7 @@
         _txCoolerNotice = null;
         _txLocationNotice = null;
         _txIssuedByNotice = null;
+        _txHeldSinceNotice = null;
         _txSecondVerifierNotice = null;
         _txReleaseReason = null;
         _txEarlierIdentityNotice = null;
@@ -2755,6 +2758,7 @@
         _txCoolerNotice = ReadyToIssueFormCue.CoolerNotice(row.CoolerId);
         _txLocationNotice = ReadyToIssueFormCue.IssuedToLocationNotice(row.IssuedToLocation);
         _txIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(row.IssuedBy);
+        _txHeldSinceNotice = WardReceiptTimingText.BeforeStart(row.IssuedUtc, row.WardReceivedUtc, row.WardReceivedBy, row.TransfusionStartedUtc, DateTime.UtcNow);
         _txSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(row.SecondVerifier);
         _txReleaseReason = ReadyToIssueFormCue.EmergencyReleaseReasonNotice(row.EmergencyReleaseDetails);
         _txEarlierIdentityNotice = IssuedUnderEarlierIdentityRule.BedsideNotice(row.IssuedUnderEarlierMrn, row.MedicalRecordNumber);

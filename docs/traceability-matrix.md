@@ -1126,6 +1126,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1012 / FRS-BB-1130 | End-user testing pass 233: discrepant ABO/Rh on the timeline | `PatientTimelineService.cs` | TEST-BB-1257 | I | |
 | URS-BB-1013 / FRS-BB-1131 | End-user testing pass 234: discrepant ABO/Rh on order and specimen history | `OrderTimelineService.cs`, `SpecimenTimelineService.cs` | TEST-BB-1258 | I | |
 | URS-BB-1014 / FRS-BB-1132 | End-user testing pass 235: when issued and how late, at ward receipt | `WardReceiptTimingText.cs`, `Issuing.razor` | TEST-BB-1259 | U | |
+| URS-BB-1015 / FRS-BB-1133 | End-user testing pass 236: issue and ward receipt times before starting | `WardReceiptTimingText.cs`, `Issuing.razor` | TEST-BB-1260 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

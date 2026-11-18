@@ -19,4 +19,23 @@ public static class WardReceiptTimingText
             ? $"{text}; due on the ward by {due.ToLocalTime():yyyy-MM-dd HH:mm}, now {ElapsedText.FromMinutes((int)(nowUtc - due).TotalMinutes)} late. Check the unit and its time out of storage under your procedure before transfusion."
             : text;
     }
+
+    /// <summary>
+    /// For the transfusion form, before a unit is started (pass 236): when it was issued and, when received on the ward,
+    /// when and by whom, so a unit held on the ward for days is seen before it is spiked. Null once started.
+    /// </summary>
+    public static string? BeforeStart(DateTime issuedUtc, DateTime? wardReceivedUtc, string? receivedBy, DateTime? startedUtc, DateTime nowUtc)
+    {
+        if (startedUtc is not null)
+        {
+            return null;
+        }
+
+        var issued = $"Issued {issuedUtc.ToLocalTime():yyyy-MM-dd HH:mm}, {Ago(issuedUtc, nowUtc)} ago";
+        return wardReceivedUtc is DateTime received
+            ? $"{issued}; received on the ward {received.ToLocalTime():yyyy-MM-dd HH:mm}{(string.IsNullOrWhiteSpace(receivedBy) ? "" : $" by {receivedBy}")}, {Ago(received, nowUtc)} ago. Check the unit and its time out of storage under your procedure before starting."
+            : issued;
+    }
+
+    private static string Ago(DateTime from, DateTime nowUtc) => ElapsedText.FromMinutes((int)Math.Max(0, (nowUtc - from).TotalMinutes));
 }

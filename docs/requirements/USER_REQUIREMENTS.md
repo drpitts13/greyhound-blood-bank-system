@@ -1020,3 +1020,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1012 | The patient timeline marks an ABO/Rh result that disagrees with the type on file. | P2 | FRS-BB-1130 |
 | URS-BB-1013 | An order's and a specimen's history mark an ABO/Rh result that disagrees with the type on file, as the patient timeline does. | P2 | FRS-BB-1131 |
 | URS-BB-1014 | Ward receipt says when the unit was issued and how late it is past its due time. | P2 | FRS-BB-1132 |
+| URS-BB-1015 | Before a unit is started, the transfusion form says when it was issued and received on the ward. | P2 | FRS-BB-1133 |
