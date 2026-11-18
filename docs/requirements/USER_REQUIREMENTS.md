@@ -1044,3 +1044,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1036 | The issued units board says in words where each unit stands against the return-to-stock window. | P3 | FRS-BB-1154 |
 | URS-BB-1037 | The inventory quarantine board says how long each unit has been held. | P3 | FRS-BB-1155 |
 | URS-BB-1038 | The inventory discrepancy board says how long each unit has been missing or damaged. | P3 | FRS-BB-1156 |
+| URS-BB-1039 | The expected inbound board says how long an overdue unit is past its due time. | P3 | FRS-BB-1157 |

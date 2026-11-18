@@ -100,7 +100,8 @@
                                 }
                                 else if (row.IsOverdue)
                                 {
-                                    <span class="badge badge-amber">Overdue</span>
+                                    @* Pass 261: how long overdue, as the other boards say how long. *@
+                                    <span class="badge badge-amber" data-expected-overdue>Overdue@(row.DueUtc is DateTime due ? $" {AlertInboxView.OpenFor(due, DateTime.UtcNow)}" : "")</span>
                                 }
                             </td>
                             <td class="right nowrap">

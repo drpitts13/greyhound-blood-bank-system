@@ -27234,3 +27234,21 @@ After pass 259, went through the other inventory boards: Operational hold (W0001
 ### Tests
 
 - TEST-BB-1286. Full suite passed.
+
+## Iteration 981 — End-user testing pass 261: expected inbound says how long overdue (2026-11-18)
+
+### How it was tested
+
+Went through the remaining inventory boards: Recalled (none waiting), Retype (W000123LSIB001 flagged *Lookback open: DIN W123426000001*; recalling it stays the user's decision), Open deliveries (2 ready to complete), Near expiry (none) and Expected inbound (2 units).
+
+### Found and fixed
+
+1. **Expected inbound said only "Overdue".** W000123ASN0001 and W000123ASN0002, due on 2026-11-06, were marked *Overdue* with nothing saying how long; the other inventory boards now say how long a unit has been held, missing or on hold. The badge now says how long past its due time (*Overdue 12 d*).
+
+### Retested live
+
+- W000123ASN0002 reads *Overdue 12 d*, W000123ASN0001 *Overdue 11 d*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1287. Full suite passed.
