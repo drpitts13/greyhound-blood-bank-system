@@ -26607,3 +26607,23 @@ Opened MRN0022's Specimens and Orders tabs, then the Test Worklist; afterwards B
 ### Tests
 
 - TEST-BB-1248. Full suite passed.
+
+## Iteration 947 — End-user testing pass 227: results entered in date survive specimen expiry (OCD-093) (2026-11-17)
+
+### Decision
+
+Pass 226 found MRN0022's Stat antibody screen, entered *Positive* on ACC-DEMO-RCV1 and not verified, cancelled by the expiry sweep with its line deactivated, so it was on no worklist. Asked whether to cancel and alert or keep it to verify, the product owner chose **keep it to verify** (OCD-093, 2026-11-17).
+
+### Built
+
+1. **The expiry sweep no longer cancels an order with a result waiting for verification.** An order with a non-superseded Entered or Pending-verification result stays open at specimen expiry (counted as left open, like an order with reserved units).
+2. **Such a result can be verified after the specimen expires.** A result entered (and, when the time tested is recorded, tested) before the specimen expired passes the specimen check at verification, and the test worklist offers **Verify** for it instead of *Blocked*. Entering anything new on the expired tube is unchanged (OCD-091 for back-entry).
+3. **The *Verify before* notice was corrected.** It said the result could not be verified afterwards; it now says it can, but no repeat can be run on the tube.
+
+### Not changed
+
+- MRN0022's order cancelled on 2026-11-12, before this decision, stays cancelled; orders already cancelled are not reopened.
+
+### Tests
+
+- TEST-BB-1249, TEST-BB-1250, TEST-BB-1251 (TEST-BB-368 updated). Full suite passed.

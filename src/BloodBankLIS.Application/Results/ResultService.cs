@@ -847,6 +847,18 @@ public sealed class ResultService
 
         if (!specimenGate.Succeeded)
         {
+            // OCD-093: a result entered while the specimen was in date is verified after it expires.
+            var expiredGate = await ValidateSpecimenForEntryAsync(result.SpecimenId, result.TestCode, ct, allowExpired: true);
+            if (expiredGate.Succeeded
+                && ExpiredSpecimenVerificationRule.EnteredWhileInDate(
+                    result.EnteredUtc ?? (result.CreatedUtc == default ? null : result.CreatedUtc), result.TestedUtc, expiredGate.Value!.ExpiresUtc))
+            {
+                specimenGate = expiredGate;
+            }
+        }
+
+        if (!specimenGate.Succeeded)
+        {
             return EvaluationResult<TestResult>.Fail(specimenGate.Error!);
         }
 

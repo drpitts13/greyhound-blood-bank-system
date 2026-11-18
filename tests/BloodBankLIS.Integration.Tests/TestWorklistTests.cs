@@ -594,6 +594,35 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Blocked", item.BenchActionLabel);
     }
 
+    // TEST-BB-1250 (OCD-093, end-user testing pass 227): a result entered while the specimen was in date is offered
+    // for verification after the specimen expires, and verifies.
+    [Fact]
+    public async Task PendingWorklist_ResultEnteredInDate_VerifiesAfterExpiry()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var posted = await Results(c).EnterFromInterfaceAsync(
+            seed.specimen!.Id,
+            seed.order.Id,
+            seed.line.TestCode!,
+            "Negative",
+            units: null,
+            interpretation: null,
+            sourceReference: "CTRL-WL-INDATE");
+        Assert.True(posted.Succeeded, posted.Error);
+
+        var row = await c.TestResults.SingleAsync(r => r.Id == posted.Value!.Id);
+        row.EnteredUtc = _factory.Clock.UtcNow.AddHours(-3);
+        row.TestedUtc = null;
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+        await c.SaveChangesAsync();
+
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.Equal("Verify", item.BenchActionLabel);
+        var verified = await Results(c).VerifyResultAsync(posted.Value!.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+    }
+
     [Fact]
     public async Task PendingWorklist_SurfacesElectronicXmHoldAndOpenAntibodyId()
     {

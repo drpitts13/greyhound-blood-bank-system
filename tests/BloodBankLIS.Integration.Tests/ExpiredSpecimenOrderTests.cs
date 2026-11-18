@@ -145,6 +145,37 @@ public class ExpiredSpecimenOrderTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(OrderStatus.Cancelled, (await c.Orders.SingleAsync(o => o.Id == order.Id)).Status);
     }
 
+    // TEST-BB-1251 (OCD-093, end-user testing pass 227): a result entered on the order and not yet verified keeps the order
+    // open at specimen expiry, so it stays on the worklist to verify; the line is not cancelled.
+    [Theory]
+    [InlineData(ResultStatus.Entered)]
+    [InlineData(ResultStatus.PendingVerification)]
+    public async Task UnverifiedResult_KeepsTheOrderOpen(ResultStatus status)
+    {
+        await using var c = _factory.Create();
+        var chart = await SeedChartAsync(c);
+        var specimen = await AddSpecimenAsync(c, chart, expired: true);
+        var order = await AddOrderAsync(c, chart, $"TS-U{(int)status}", OrderType.TypeAndScreen, OrderStatus.InProcess);
+        var screen = await AddLineAsync(c, order, OrderCategory.Test, OrderType.TypeAndScreen, "ABSC", "Antibody screen");
+        c.TestResults.Add(new TestResult
+        {
+            SpecimenId = specimen.Id,
+            PatientId = chart.Patient.Id,
+            OrderId = order.Id,
+            TestCode = "ABSC",
+            Status = status,
+            Value = "Positive"
+        });
+        await c.SaveChangesAsync();
+        await LinkAsync(c, order, specimen, primary: true);
+
+        var sweep = await Service(c).ProcessAsync();
+
+        Assert.Equal(0, sweep.OrdersCancelled);
+        Assert.NotEqual(OrderStatus.Cancelled, (await c.Orders.SingleAsync(o => o.Id == order.Id)).Status);
+        Assert.True((await c.OrderLines.SingleAsync(l => l.Id == screen.Id)).IsActive);
+    }
+
     [Fact]
     public async Task ProductThatRequiresCrossmatch_IsUnlinked_NotCancelled()
     {

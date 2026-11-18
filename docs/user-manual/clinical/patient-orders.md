@@ -30,7 +30,9 @@ An order on hold does not accept bench work. Results cannot be verified while th
 
 Cancel requires a reason from the cancellation catalog. Cancellation does not delete the order. It records who cancelled it and why. Do not cancel an order to hide a verified result. Correct or invalidate the result instead.
 
-> Hard stop. Verification is blocked while the order is on hold, the specimen is rejected, or the specimen is past its testing window.
+> Hard stop. Verification is blocked while the order is on hold, the specimen is rejected, or the specimen is past its testing window, except for a result entered while the specimen was in date (OCD-093) or a correction (OCD-051).
+
+When a specimen expires, open orders tested on it are cancelled (a pending crossmatch keeps its request and drops the tube), unless a result on the order is entered and waiting for verification: that order stays open so the result can be verified.
 
 ## Needed-by time
 

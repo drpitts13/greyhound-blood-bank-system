@@ -154,6 +154,19 @@ public sealed class ExpiredSpecimenOrderService
                 continue;
             }
 
+            // OCD-093 (decided 2026-11-17, end-user testing pass 226): a result entered on the order while the specimen was
+            // in date and not yet verified keeps the order open, so it stays on the worklist and can still be verified.
+            // MRN0022's Stat antibody screen, resulted Positive, was cancelled at expiry and appeared nowhere to verify.
+            if (await _results.AnyAsync(
+                    r => r.OrderId == order.Id
+                         && r.SupersededByResultId == null
+                         && (r.Status == ResultStatus.Entered || r.Status == ResultStatus.PendingVerification),
+                    ct))
+            {
+                leftOpen++;
+                continue;
+            }
+
             await CancelAsync(order, lines, ct);
             cancelled++;
         }

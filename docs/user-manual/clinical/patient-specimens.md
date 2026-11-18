@@ -28,7 +28,7 @@ If your facility requires the collector (**Require the collector before acceptin
 
 When your laboratory sends results to the EHR, rejecting a tube also tells the EHR that each open test on it will have no result: the message gives the tube, your reason, and "Recollect", and the order stays open for the new specimen. If that message cannot be queued, the rejection still stands and a warning tells you to phone the ward; check the HL7 page.
 
-> Hard stop. Results cannot be verified on a rejected specimen or on a specimen past its testing window. The one exception is a correction of a result that was already verified: it can be verified after the specimen expires, because it fixes the record of a test already done (OCD-051). Collect a new specimen rather than overriding the window for routine work.
+> Hard stop. Results cannot be verified on a rejected specimen or on a specimen past its testing window. There are two exceptions, both for testing already done: a correction of a result that was already verified (OCD-051), and a result entered while the specimen was in date and not yet verified (OCD-093). Either can be verified after the specimen expires. Nothing new can be entered or tested on the expired tube. An order with such a result is not cancelled when its specimen expires; it stays open until the result is verified. Collect a new specimen rather than overriding the window for routine work.
 
 ## Relabel
 

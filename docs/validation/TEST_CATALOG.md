@@ -1257,5 +1257,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1246 | I | `SupervisorQueueReagentQcTests.FailedAndUnreviewedQc_WaitOnTheSupervisorQueue` | URS-BB-1003 / FRS-BB-1121 |
 | TEST-BB-1247 | U | `SpecimenChoiceTextTests.For_WordsExpiredAndUsableTubes` | URS-BB-1004 / FRS-BB-1122 |
 | TEST-BB-1248 | U | `AppBreadcrumbIdTests.IdPages_NameWhatTheyAre` | URS-BB-1005 / FRS-BB-1123 |
+| TEST-BB-1249 | D | `VerificationDeadlineRuleTests.AnEnteredResult_FromBeforeExpiry_IsAllowedAnExpiredSpecimen` | URS-BB-1006 / FRS-BB-1124 |
+| TEST-BB-1250 | I | `TestWorklistTests.PendingWorklist_ResultEnteredInDate_VerifiesAfterExpiry` | URS-BB-1006 / FRS-BB-1124 |
+| TEST-BB-1251 | I | `ExpiredSpecimenOrderTests.UnverifiedResult_KeepsTheOrderOpen` | URS-BB-1006 / FRS-BB-1124 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

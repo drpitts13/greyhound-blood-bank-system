@@ -278,7 +278,7 @@ public sealed class TestWorklistService
                 line.TestCode!,
                 testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType,
                 specimenTypeDefs,
-                VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status)
+                VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status, current?.EnteredUtc, current?.TestedUtc, specimen?.ExpiresUtc)
                     || ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType));
             var expiredOnly = !canEnter && specimen is not null && EvaluateEntryGate(
                 specimen, line.TestCode!, testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType, specimenTypeDefs, allowExpired: true).CanEnter;
