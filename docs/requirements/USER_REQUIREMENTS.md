@@ -1015,3 +1015,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1007 | Each recorded outage counts the paper results entered for it and those still to verify. | P2 | FRS-BB-1125 |
 | URS-BB-1008 | An expired-units alert opens the Discard expired desk. | P3 | FRS-BB-1126 |
 | URS-BB-1009 | An issued unit not received by its due time says how long overdue it is. | P3 | FRS-BB-1127 |
+| URS-BB-1010 | Minimum stock's open orders leave out lines already covered by a reserved or issued unit. | P2 | FRS-BB-1128 |

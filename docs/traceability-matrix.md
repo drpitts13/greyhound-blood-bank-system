@@ -1121,6 +1121,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1007 / FRS-BB-1125 | End-user testing pass 228: paper results per outage | `DowntimeEpisodeService.cs`, `DowntimeReconciliation.razor` | TEST-BB-1252 | I | |
 | URS-BB-1008 / FRS-BB-1126 | End-user testing pass 229: expired-units alert opens Discard expired | `ExpiredUnitsAlert.cs`, `AlertScanner.cs`, `AlertService.cs` | TEST-BB-1253 | A | |
 | URS-BB-1009 / FRS-BB-1127 | End-user testing pass 230: how long a unit in transit is overdue | `OverdueText.cs`, `Issuing.razor` | TEST-BB-1254 | U | |
+| URS-BB-1010 / FRS-BB-1128 | End-user testing pass 231: open orders on Minimum stock match Blood orders to prepare | `MinimumStockService.cs` | TEST-BB-1255 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -26681,3 +26681,21 @@ Checked where each open alert links (temperature excursions → Storage temps, q
 ### Tests
 
 - TEST-BB-1254. Full suite passed.
+
+## Iteration 951 — End-user testing pass 231: open orders on Minimum stock (2026-11-17)
+
+### How it was tested
+
+Opened Issue & Transfuse › Final disposition (six units 10 days past due, each with its next step), then Minimum stock beside Blood orders to prepare. (The dev servers had stopped by themselves mid-pass and were restarted.)
+
+### Found and fixed
+
+1. **Minimum stock counted orders already being filled.** Both RBC-LR rows (group A and group O) read *Open orders 7 — More orders than on hand*, while Blood orders to prepare listed two orders needing 3 units. The count took every active product line still marked Ordered, including lines whose units were already reserved or issued on the order. Each order's lines covered by its reserved and issued units are now left out; the count reads 3, the units still needed there.
+
+### Retested live
+
+- Both RBC-LR rows show *3*; Blood orders to prepare shows 2 + 1 still needed. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1255. Full suite passed.

@@ -1263,5 +1263,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1252 | I | `DowntimeEpisodeTests.List_CountsPaperResultsTestedInsideTheOutage` | URS-BB-1007 / FRS-BB-1125 |
 | TEST-BB-1253 | A | `ExpiredUnitsAlertTests.Now_MovesTheOldLinkToDiscardExpired` | URS-BB-1008 / FRS-BB-1126 |
 | TEST-BB-1254 | U | `OverdueTextTests.Badge_SaysHowLongOverdue` | URS-BB-1009 / FRS-BB-1127 |
+| TEST-BB-1255 | I | `MinimumStockOpenOrdersTests.OpenOrders_LeaveOutLinesCoveredByReservedOrIssuedUnits` | URS-BB-1010 / FRS-BB-1128 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

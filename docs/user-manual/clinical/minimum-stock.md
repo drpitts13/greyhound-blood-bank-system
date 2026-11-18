@@ -17,6 +17,8 @@ On hand is the available count. Short is how many units you are under the minimu
 
 **Open orders** is how many product orders for that product are still waiting for a unit, whatever the patient's ABO group. Orders do not carry a quantity, so each one counts as at least one unit. When there are more open orders than units on hand, the row says **More orders than on hand**: order more, or check whether some of those orders can be filled another way. It is a count, not a forecast.
 
+A product line already covered by a unit reserved or issued on its order is not counted, so the number matches the units still needed on **Blood orders to prepare**.
+
 An administrator with configuration edit permission saves the minimum. Saving again for the same product, ABO and Rh(D) updates that row. **Order the shortfall** on Supplier orders orders each short row with its ABO and Rh(D).
 
 The board does not place an order with a blood center. It does not change unit status.

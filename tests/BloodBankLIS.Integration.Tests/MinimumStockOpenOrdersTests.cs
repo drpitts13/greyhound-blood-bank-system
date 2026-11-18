@@ -74,6 +74,57 @@ public class MinimumStockOpenOrdersTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(0, row.Shortfall);
     }
 
+    // TEST-BB-1255 (end-user testing pass 231): an order line already covered by a unit reserved or issued on its order is
+    // not counted as waiting, so the count matches Blood orders to prepare.
+    [Fact]
+    public async Task OpenOrders_LeaveOutLinesCoveredByReservedOrIssuedUnits()
+    {
+        await using var c = _factory.Create();
+        var product = new ProductType { ProductCode = $"RCV-{Guid.NewGuid():N}"[..12], Name = "Red cells" };
+        c.ProductTypes.Add(product);
+        var patient = new Patient { MedicalRecordNumber = $"RCV{Guid.NewGuid():N}"[..10], LastName = "Covered", FirstName = "Order", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.Add(patient);
+        var location = new OrderingLocation { Code = $"RCV{Guid.NewGuid():N}"[..8], Name = "Ward" };
+        c.OrderingLocations.Add(location);
+        await c.SaveChangesAsync();
+        var encounter = new Encounter { PatientId = patient.Id, VisitNumber = $"V-{Guid.NewGuid():N}"[..12], EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active };
+        c.Encounters.Add(encounter);
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-RCV-{Guid.NewGuid():N}"[..14], ProductTypeId = product.Id, Status = UnitStatus.Crossmatched,
+            Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(30)
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        var order = new Order
+        {
+            OrderNumber = $"RCV-{Guid.NewGuid():N}"[..14], PatientId = patient.Id, EncounterId = encounter.Id,
+            OrderingLocationId = location.Id, OrderCategory = OrderCategory.Product, OrderName = "Red cells",
+            OrderType = OrderType.Other, Status = OrderStatus.InProcess, OrderedUtc = _factory.Clock.UtcNow
+        };
+        c.Orders.Add(order);
+        await c.SaveChangesAsync();
+        for (var n = 1; n <= 2; n++)
+        {
+            c.OrderLines.Add(new OrderLine
+            {
+                OrderId = order.Id, LineNumber = n, LineCategory = OrderCategory.Product, LineName = "Red cells", ProductTypeId = product.Id,
+                OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered
+            });
+        }
+
+        c.Allocations.Add(new Allocation { PatientId = patient.Id, BloodProductId = unit.Id, OrderId = order.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow });
+        await c.SaveChangesAsync();
+
+        var service = new MinimumStockService(
+            new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c,
+            new EfRepository<OrderLine>(c), new EfRepository<Order>(c),
+            allocations: new EfRepository<Allocation>(c), issues: new EfRepository<Issue>(c));
+        Assert.True((await service.SaveAsync(new SaveMinimumStockRequest(product.Id, null, 1))).Succeeded);
+
+        Assert.Equal(1, (await service.ListAsync()).Single(r => r.ProductTypeId == product.Id).OpenOrders);
+    }
+
     // TEST-BB-1120: a minimum for O negative counts only O negative units, sits beside an O minimum for the same product,
     // and refuses an Unknown Rh (end-user testing pass 105).
     [Fact]

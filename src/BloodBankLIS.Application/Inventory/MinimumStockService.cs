@@ -47,6 +47,9 @@ public sealed class MinimumStockService
     private readonly IRepository<SupplierOrderLine>? _supplierOrderLines;
     private readonly FacilityPolicyService? _policy;
     private readonly IClock? _clock;
+    // Pass 231: units already reserved or issued on an order no longer wait for stock.
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<Issue>? _issues;
 
     public MinimumStockService(
         IRepository<MinimumStockLevel> levels,
@@ -58,8 +61,12 @@ public sealed class MinimumStockService
         IRepository<SupplierOrder>? supplierOrders = null,
         IRepository<SupplierOrderLine>? supplierOrderLines = null,
         FacilityPolicyService? policy = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<Issue>? issues = null)
     {
+        _allocations = allocations;
+        _issues = issues;
         _policy = policy;
         _clock = clock;
         _supplierOrders = supplierOrders;
@@ -197,7 +204,21 @@ public sealed class MinimumStockService
                 && o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Discontinued, ct))
             .Select(o => o.Id)
             .ToHashSet();
+        // End-user testing pass 231: lines already covered by a reserved or issued unit on their order were counted, so
+        // both RBC-LR rows read 7 open orders while Blood orders to prepare listed 2. Each order's first lines are taken as
+        // covered by its reserved and issued units (the same remaining count Blood orders to prepare shows).
+        var openIds = open.ToList();
+        var reserved = _allocations is null
+            ? new Dictionary<long, int>()
+            : (await _allocations.ListAsync(a => a.OrderId != null && openIds.Contains(a.OrderId.Value) && a.Status == AllocationStatus.Reserved, ct))
+                .GroupBy(a => a.OrderId!.Value).ToDictionary(g => g.Key, g => g.Count());
+        var issued = _issues is null
+            ? new Dictionary<long, int>()
+            : (await _issues.ListAsync(i => i.OrderId != null && openIds.Contains(i.OrderId.Value) && i.Status != IssueStatus.Returned, ct))
+                .GroupBy(i => i.OrderId!.Value).ToDictionary(g => g.Key, g => g.Count());
         return lines.Where(l => open.Contains(l.OrderId))
+            .GroupBy(l => l.OrderId)
+            .SelectMany(g => g.OrderBy(l => l.Id).Skip(reserved.GetValueOrDefault(g.Key) + issued.GetValueOrDefault(g.Key)))
             .GroupBy(l => l.ProductTypeId!.Value)
             .ToDictionary(g => g.Key, g => g.Count());
     }
