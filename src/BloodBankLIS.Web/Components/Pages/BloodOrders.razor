@@ -70,6 +70,11 @@ else
                         <td>@r.Products</td>
                         <td>
                             <strong>@r.Remaining</strong> <span class="sub">of @r.Requested (@r.Reserved reserved, @r.Issued issued)</span>
+                            @if (r.ReservedOffOrder is { Count: > 0 } offOrder)
+                            {
+                                @* Pass 253: units already reserved for the patient, not on this order. *@
+                                <div class="sub" data-reserved-off-order>Already reserved for this patient, not on this order: @string.Join(", ", offOrder)</div>
+                            }
                             @if (r.ExpiredReservations is { Count: > 0 } lost)
                             {
                                 @* Why the order needs units again: its reserved unit expired and the sweep ended the reservation (Cycle 599). *@

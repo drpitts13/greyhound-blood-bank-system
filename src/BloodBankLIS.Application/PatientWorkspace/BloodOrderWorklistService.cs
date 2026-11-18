@@ -53,6 +53,13 @@ public sealed record BloodOrderToPrepareDto(
 {
     /// <summary>An infant's linked mother's active antibodies, which may be present in the infant (end-user testing pass 211).</summary>
     public IReadOnlyList<string> MaternalAntibodies { get; init; } = [];
+
+    /// <summary>
+    /// Units already reserved for the patient but not on this order (end-user testing pass 253: ORD-SURG-DEMO for
+    /// Demo-Multi, Riley read "0 reserved" while W0001230009201 and W0001230009202 were reserved for her off the order),
+    /// so the bench does not reserve more units than the patient needs.
+    /// </summary>
+    public IReadOnlyList<string> ReservedOffOrder { get; init; } = [];
 }
 
 /// <summary>
@@ -75,6 +82,7 @@ public sealed class BloodOrderWorklistService
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
     private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
     private readonly IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<BloodUnit>? _units;
 
     public BloodOrderWorklistService(
         IRepository<Order> orders,
@@ -90,9 +98,11 @@ public sealed class BloodOrderWorklistService
         IRepository<SpecialTransfusionRequirement>? requirements = null,
         IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? requirementDefinitions = null,
         BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null,
-        IRepository<OrderSpecimen>? orderSpecimens = null)
+        IRepository<OrderSpecimen>? orderSpecimens = null,
+        IRepository<BloodUnit>? units = null)
     {
         _orderSpecimens = orderSpecimens;
+        _units = units;
         _policy = policy;
         _requirements = requirements;
         _requirementDefinitions = requirementDefinitions;
@@ -157,6 +167,12 @@ public sealed class BloodOrderWorklistService
 
         var patientIds = orders.Values.Select(o => o.PatientId).Distinct().ToList();
         var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        // Pass 253: the patient's reservations, to name those not on a given order.
+        var patientReservations = (await _allocations.ListAsync(a => patientIds.Contains(a.PatientId) && a.Status == AllocationStatus.Reserved, ct)).ToList();
+        var reservedUnitIds = patientReservations.Select(a => a.BloodProductId).Distinct().ToList();
+        var reservedUnitNumbers = _units is null || reservedUnitIds.Count == 0
+            ? new Dictionary<long, string>()
+            : (await _units.ListAsync(u => reservedUnitIds.Contains(u.Id), ct)).ToDictionary(u => u.Id, u => u.UnitNumber);
         var now = _clock.UtcNow;
         var usable = (await _specimens.ListAsync(s => patientIds.Contains(s.PatientId)
                 && (s.Status == SpecimenStatus.Accepted || s.Status == SpecimenStatus.Received)
@@ -254,7 +270,12 @@ public sealed class BloodOrderWorklistService
             {
                 MaternalAntibodies = patient?.MotherPatientId is long motherId
                     ? PatientBloodBankFlags.ActiveAntibodies(antibodies[motherId])
-                    : []
+                    : [],
+                ReservedOffOrder = patientReservations
+                    .Where(a => a.PatientId == order.PatientId && a.OrderId != order.Id)
+                    .OrderBy(a => a.Id)
+                    .Select(a => reservedUnitNumbers.GetValueOrDefault(a.BloodProductId) ?? $"unit {a.BloodProductId}")
+                    .ToList()
             });
         }
 

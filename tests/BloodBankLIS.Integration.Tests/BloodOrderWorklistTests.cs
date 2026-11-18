@@ -174,7 +174,7 @@ public class BloodOrderWorklistTests
         }
         Lines(coveredOrder, 1);
         Lines(cancelledOrder, 2);
-        var units = Enumerable.Range(1, 5).Select(i => new BloodUnit { UnitNumber = $"W-BO-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddDays(20), Status = UnitStatus.Assigned }).ToList();
+        var units = Enumerable.Range(1, 6).Select(i => new BloodUnit { UnitNumber = $"W-BO-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddDays(20), Status = UnitStatus.Assigned }).ToList();
         c.BloodUnits.AddRange(units);
         c.Specimens.Add(new Specimen { PatientId = routine.Id, AccessionNumber = "ACC-BO-1", SpecimenType = "EDTA", Status = SpecimenStatus.Accepted, CollectedUtc = now.AddHours(-5), ExpiresUtc = now.AddDays(2) });
         c.Specimens.Add(new Specimen { PatientId = stat.Id, AccessionNumber = "ACC-BO-2", SpecimenType = "EDTA", Status = SpecimenStatus.Accepted, CollectedUtc = now.AddDays(-5), ExpiresUtc = now.AddHours(-1) });
@@ -183,16 +183,22 @@ public class BloodOrderWorklistTests
             new Allocation { BloodProductId = units[0].Id, PatientId = routine.Id, OrderId = routineOrder.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now },
             new Allocation { BloodProductId = units[1].Id, PatientId = routine.Id, OrderId = routineOrder.Id, Status = AllocationStatus.Released, AllocatedUtc = now },
             new Allocation { BloodProductId = units[2].Id, PatientId = covered.Id, OrderId = coveredOrder.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now },
-            new Allocation { BloodProductId = units[4].Id, PatientId = stat.Id, OrderId = statOrder.Id, Status = AllocationStatus.Expired, AllocatedUtc = now.AddDays(-1), ReleaseReason = "Unit W-BO-5 expired at 2026-05-30 11:00 UTC." });
+            new Allocation { BloodProductId = units[4].Id, PatientId = stat.Id, OrderId = statOrder.Id, Status = AllocationStatus.Expired, AllocatedUtc = now.AddDays(-1), ReleaseReason = "Unit W-BO-5 expired at 2026-05-30 11:00 UTC." },
+            // Pass 252: reserved for the stat patient, but not on the order.
+            new Allocation { BloodProductId = units[5].Id, PatientId = stat.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now });
         c.Issues.Add(new Issue { BloodProductId = units[3].Id, PatientId = routine.Id, OrderId = routineOrder.Id, IssuedUtc = now, IssuedBy = "tech" });
         await c.SaveChangesAsync();
 
         var rows = await new BloodOrderWorklistService(
             new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
             new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
-            new EfRepository<AntibodyHistory>(c), factory.Clock).ListAsync();
+            new EfRepository<AntibodyHistory>(c), factory.Clock, units: new EfRepository<BloodUnit>(c)).ListAsync();
 
         Assert.Equal(["BO-2", "BO-1"], rows.Select(r => r.OrderNumber));
+        // TEST-BB-1278 (end-user testing pass 253): a unit reserved for the patient off the order is named on the order;
+        // a reservation on the order itself is not.
+        Assert.Equal(["W-BO-6"], rows[0].ReservedOffOrder);
+        Assert.Empty(rows[1].ReservedOffOrder);
         var statRow = rows[0];
         Assert.Equal((true, 2, 2, false, "Collect a specimen", $"/patients/{stat.Id}?tab=specimens&panel=specimen"),
             (statRow.Rush, statRow.Requested, statRow.Remaining, statRow.HasUsableSpecimen, statRow.NextStep, statRow.Href));

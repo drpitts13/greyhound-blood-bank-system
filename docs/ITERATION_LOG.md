@@ -27089,3 +27089,21 @@ Opened Equipment from the home card *Equipment checks to do: 2 overdue*.
 ### Tests
 
 - TEST-BB-1277. Full suite passed.
+
+## Iteration 973 — End-user testing pass 253: blood order names units reserved off the order (2026-11-18)
+
+### How it was tested
+
+Checked the shift handoff (it already counts equipment out of service), reaction investigation #2, Reagent QC, Inventory, and *Blood orders to prepare* (2 orders).
+
+### Found and fixed
+
+1. **A blood order said nothing of units already reserved for the patient.** ORD-SURG-DEMO for Demo-Multi, Riley read *1 of 1 (0 reserved, 0 issued)*, while Inventory showed W0001230009201 and W0001230009202 reserved for her, not on that order. ORD-PREP-DEMO for Demo, Patricia likewise did not mention W0001230000001. Preparing the order from this list, the bench would reserve more units than the patient needs. Each order now names the patient's reserved units that are not on it (*Already reserved for this patient, not on this order: W0001230009201, W0001230009202*). They do not count toward the order.
+
+### Retested live
+
+- Both orders name the patient's other reservations as above. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1278. Full suite passed.

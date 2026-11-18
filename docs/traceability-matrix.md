@@ -1143,6 +1143,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1029 / FRS-BB-1147 | End-user testing pass 250: MTP issue names the physician who called the protocol | `IssueAuthorizerText.cs`, `IssuingService.cs`, `PatientProductHistoryService.cs` | TEST-BB-1274, TEST-BB-1275 | D, I | |
 | URS-BB-1030 / FRS-BB-1148 | End-user testing pass 251: overrides report says who authorized | `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270215000000_OverridesReportAuthorizer.cs`, `ReportSourceCatalog.cs`, `ReportSeedCatalog.cs` | TEST-BB-1276 | I | |
 | URS-BB-1031 / FRS-BB-1149 | End-user testing pass 252: equipment card names equipment out of service | `DashboardQueueCatalog.cs`, `Home.razor` | TEST-BB-1277 | A | |
+| URS-BB-1032 / FRS-BB-1150 | End-user testing pass 253: blood order names units reserved off the order | `BloodOrderWorklistService.cs`, `BloodOrders.razor` | TEST-BB-1278 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
