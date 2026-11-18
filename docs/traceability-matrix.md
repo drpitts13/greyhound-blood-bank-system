@@ -1130,6 +1130,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1016 / FRS-BB-1134 | End-user testing pass 237: no pregnancy section on an infant's chart | `PatientChartOverviewTab.razor`, `PatientDetail.razor` | TEST-BB-1261 | U | |
 | URS-BB-1017 / FRS-BB-1135 | End-user testing pass 238: RhIG on an infant's chart | `PatientChartRhigTab.razor`, `PatientDetail.razor` | TEST-BB-1262 | U | |
 | URS-BB-1018 / FRS-BB-1136 | End-user testing pass 239: instrument list columns | `AdminInstruments.razor` | TEST-BB-1263 | U | |
+| URS-BB-1019 / FRS-BB-1137 | End-user testing pass 240: Interface Setup with no interface | `AdminHl7Endpoints.razor` | TEST-BB-1264 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

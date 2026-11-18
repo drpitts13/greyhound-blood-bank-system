@@ -26851,3 +26851,21 @@ Opened MRN0029's DAT / Elution tab (no workup; whether one is required for an in
 ### Tests
 
 - TEST-BB-1263. Full suite passed.
+
+## Iteration 960 — End-user testing pass 240: Interface Setup with no interface (2026-11-18)
+
+### How it was tested
+
+Opened Administration › Interface Setup, where pass 219's *Set up an interface* link leads.
+
+### Found and fixed
+
+1. **The page said only "No interfaces configured."** An administrator arriving from the ten waiting charge messages had nothing to connect the two. The empty page now says that inbound messages can still be submitted on the HL7 page, that outbound results to the EHR and charges to billing wait until an enabled outbound interface is added, and *10 outbound messages are waiting.* (linked to the HL7 page).
+
+### Retested live
+
+- Interface Setup shows the text and the count of 10. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1264. Full suite passed.

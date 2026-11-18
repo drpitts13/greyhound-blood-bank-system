@@ -34,7 +34,15 @@
     }
     else if (_items.Count == 0)
     {
-        <div class="empty">No interfaces configured.</div>
+        <div class="empty" data-no-interfaces>
+            No interfaces configured. Inbound messages can still be submitted on the HL7 page; outbound results to the EHR and
+            charges to billing wait until an enabled outbound interface is added.
+            @if (_outboundWaiting > 0)
+            {
+                @* Pass 240: what is waiting on this setup. *@
+                <a href="/hl7" data-outbound-waiting-count>@(_outboundWaiting == 1 ? "1 outbound message is" : $"{_outboundWaiting} outbound messages are") waiting.</a>
+            }
+        </div>
     }
     else
     {
@@ -253,6 +261,8 @@
 
     private string TabClass(string tab) => _tab == tab ? "btn-primary" : "btn-secondary";
 
+    private int _outboundWaiting;
+
     protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
@@ -261,6 +271,10 @@
         var r = await Api.GetAdminHl7EndpointsAsync();
         _items = r.Value ?? new();
         if (!r.Succeeded) _feedback = r.ToFeedback();
+        if (_items.Count == 0)
+        {
+            _outboundWaiting = (await Api.GetHl7OutboundWaitingAsync()).Value?.Count ?? 0;
+        }
         _loading = false;
     }
 

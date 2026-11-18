@@ -1272,5 +1272,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1261 | U | `PregnancySectionTests.RecentPregnancy_IsNotOfferedOnAnInfantsChart` | URS-BB-1016 / FRS-BB-1134 |
 | TEST-BB-1262 | U | `RhigInfantChartTests.InfantChart_OffersOnlyOtherExposure` | URS-BB-1017 / FRS-BB-1135 |
 | TEST-BB-1263 | U | `InstrumentAdminListSourceTests.InstrumentList_NamesFieldMapsAndTranslations` | URS-BB-1018 / FRS-BB-1136 |
+| TEST-BB-1264 | U | `Hl7SetupEmptyTests.NoInterfaces_SaysWhatIsWaiting` | URS-BB-1019 / FRS-BB-1137 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

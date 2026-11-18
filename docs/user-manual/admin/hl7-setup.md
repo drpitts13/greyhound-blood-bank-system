@@ -12,6 +12,8 @@ routes:
 
 **Interface Setup** defines each HL7 connection: the type of message, the direction, the address and port, a vendor preset when you start from one, and the field mapping. The operational log, where you replay a failed message, is the HL7 console in the clinical guide. This page changes what the connection does.
 
+With no interface configured, the page says so and what that leaves undone: inbound messages can still be submitted on the HL7 page, but outbound results to the EHR and charges to billing wait until an enabled outbound interface is added, with how many are waiting (linked to the HL7 page).
+
 Edit a live interface only when you can watch the next message. A bad map files orders or results on the wrong field, or rejects every message. The translation table for coded values is [Interface translations](hl7-translations). A map that expects a translated code will fail until the translation exists.
 
 > Warning. Activating an interface that points at a production host sends and accepts real messages. Confirm the host and the port before you activate. A training system must not point at the clinical interface engine.
