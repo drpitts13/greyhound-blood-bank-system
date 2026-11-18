@@ -655,6 +655,47 @@ public class ReportServiceTests : IDisposable
         Assert.True(string.IsNullOrEmpty(sqlRun.Value.Rows[2][2]));
     }
 
+    // TEST-BB-1270 (end-user testing pass 246): the Lookback report names the unit transfused and the date the
+    // notification was opened, as the Lookback page does, in the visual report and in rpt_lookback.
+    [Fact]
+    public async Task LookbackReport_NamesTheUnitAndOpenedDate()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-LBK", LastName = "Lookback", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        var product = new ProductType { ProductCode = "RBC-LBK", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        db.AddRange(patient, product);
+        await db.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "W-LBK-1", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Transfused };
+        db.BloodUnits.Add(unit);
+        await db.SaveChangesAsync();
+        db.LookbackNotifications.Add(new LookbackNotification { Din = "W-LBK-DIN", BloodProductId = unit.Id, PatientId = patient.Id, Reason = "Donor reactive" });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-LOOKBACK").Id, new Dictionary<string, string?>());
+        Assert.True(visual.Succeeded, visual.Error);
+        var columns = visual.Value!.Columns.ToList();
+        var row = visual.Value.Rows.Single(r => r[columns.IndexOf("din")] == "W-LBK-DIN");
+        Assert.Equal("W-LBK-1", row[columns.IndexOf("unit_number")]);
+        Assert.False(string.IsNullOrEmpty(row[columns.IndexOf("opened_utc")]));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-LBK-SQL",
+            Name = "SQL lookback",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT unit_number, opened_utc FROM rpt_lookback WHERE din = 'W-LBK-DIN'"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal("W-LBK-1", sqlRun.Value!.Rows.Single()[0]);
+        Assert.False(string.IsNullOrEmpty(sqlRun.Value.Rows.Single()[1]));
+    }
+
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>
         new(
             new ReportDefinitionStore(db),

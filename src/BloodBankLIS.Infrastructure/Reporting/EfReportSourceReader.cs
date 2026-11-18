@@ -287,6 +287,8 @@ public sealed class EfReportSourceReader : IReportSourceReader
             from note in _db.LookbackNotifications.AsNoTracking()
             join patient in _db.Patients.AsNoTracking() on note.PatientId equals patient.Id into patients
             from patient in patients.DefaultIfEmpty()
+            join unit in _db.BloodUnits.AsNoTracking() on note.BloodProductId equals unit.Id into units
+            from unit in units.DefaultIfEmpty()
             select new
             {
                 note.Din,
@@ -294,7 +296,9 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 note.PhysicianOfRecord,
                 note.Reason,
                 note.AttemptedUtc,
-                Mrn = patient != null ? patient.MedicalRecordNumber : null
+                Mrn = patient != null ? patient.MedicalRecordNumber : null,
+                UnitNumber = unit != null ? unit.UnitNumber : null,
+                note.CreatedUtc
             }).ToListAsync(cancellationToken);
 
         return rows.Select(row => ReportValueFormat.Row(
@@ -303,7 +307,9 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("physician", ReportValueFormat.Text(row.PhysicianOfRecord)),
             ("reason", ReportValueFormat.Text(row.Reason)),
             ("attempted_utc", ReportValueFormat.Date(row.AttemptedUtc)),
-            ("mrn", ReportValueFormat.Text(row.Mrn)))).ToList();
+            ("mrn", ReportValueFormat.Text(row.Mrn)),
+            ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
+            ("opened_utc", ReportValueFormat.Date(row.CreatedUtc)))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> DeviationsAsync(CancellationToken cancellationToken)

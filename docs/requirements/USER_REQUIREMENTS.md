@@ -1030,3 +1030,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1022 | Report status and type columns read in words, not as stored codes. | P3 | FRS-BB-1140 |
 | URS-BB-1023 | Report unit status columns use the screens' wording. | P3 | FRS-BB-1141 |
 | URS-BB-1024 | The overrides report names each override's unit and patient. | P2 | FRS-BB-1142 |
+| URS-BB-1025 | The lookback report names the unit transfused and the date each notification was opened. | P2 | FRS-BB-1143 |

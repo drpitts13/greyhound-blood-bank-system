@@ -113,7 +113,10 @@ public static class ReportSourceCatalog
             Field("physician", "Physician of record"),
             Field("reason", "Reason"),
             Field("attempted_utc", "Attempted", ReportValueKind.Date),
-            Field("mrn", "MRN")),
+            Field("mrn", "MRN"),
+            // Pass 246: the unit transfused and when the notification was opened, as the Lookback page shows them.
+            Field("unit_number", "Unit number"),
+            Field("opened_utc", "Opened", ReportValueKind.Date)),
         Source(Deviations, "Open deviations", ReportViewCatalog.Deviations,
             Field("reported_utc", "Reported", ReportValueKind.Date),
             Field("title", "Title"),

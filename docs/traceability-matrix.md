@@ -1136,6 +1136,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1022 / FRS-BB-1140 | End-user testing pass 243: report code names in words | `ReportLayout.cs`, `ReportSourceCatalog.cs`, `VisualReportCompiler.cs` | TEST-BB-1267 | A | |
 | URS-BB-1023 / FRS-BB-1141 | End-user testing pass 244: unit status wording in reports | `ReportLayout.cs`, `ReportSourceCatalog.cs`, `VisualReportCompiler.cs` | TEST-BB-1268 | A | |
 | URS-BB-1024 / FRS-BB-1142 | End-user testing pass 245: overrides report names unit and patient | `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270212000000_OverridesReportContext.cs`, `ReportSourceCatalog.cs` | TEST-BB-1269 | I | |
+| URS-BB-1025 / FRS-BB-1143 | End-user testing pass 246: lookback report names unit and opened date | `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270213000000_LookbackReportUnit.cs`, `ReportSourceCatalog.cs`, `ReportSeedCatalog.cs` | TEST-BB-1270 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

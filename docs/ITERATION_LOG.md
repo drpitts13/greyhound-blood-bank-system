@@ -26963,3 +26963,21 @@ Ran *RhIG evaluations and doses given* (one dose given 126 hours after delivery;
 ### Tests
 
 - TEST-BB-1269 (in the TEST-BB-1140 test: the visual report and the SQL view). Full suite passed.
+
+## Iteration 966 — End-user testing pass 246: lookback report names unit and opened date (2026-11-18)
+
+### How it was tested
+
+Compared the *Lookback and recall notifications* report with the Lookback page for DIN W123426000001.
+
+### Found and fixed
+
+1. **The report left out the unit and when the notification was opened.** The Lookback page names unit W0001230000099 and the notification's open date (its notify-by date counts from it); the report row had only the DIN, status, MRN, physician, reason and attempt date. The report source and its SQL view (reinstalled by a new migration) now carry *Unit number* and *Opened*, and the seeded report shows both. Notify-by is not added: it depends on the lookback notify-within setting.
+
+### Retested live
+
+- The report row reads *W123426000001 · W0001230000099 · Pending · MRN0001 · Dr. Smith*, opened *2026-11-06 09:50*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1270 (the visual report and `rpt_lookback`). Full suite passed.

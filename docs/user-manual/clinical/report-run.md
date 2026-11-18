@@ -24,4 +24,6 @@ Status, type, severity and similar columns read in words (*On hold*, *Under revi
 
 In *Emergency releases and overrides*, an override names its unit and patient, as the supervisor queue does: through the issue, reservation or crossmatch it was recorded on.
 
+In *Lookback and recall notifications*, each row names the unit transfused and the date the notification was opened, as the Lookback page does.
+
 SQL reports read the same reporting views; their month columns (for example *discarded_month*) are local months too. Other times in a view are stored UTC.

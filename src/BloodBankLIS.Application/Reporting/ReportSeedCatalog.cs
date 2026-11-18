@@ -63,7 +63,7 @@ public static class ReportSeedCatalog
         Visual("RPT-LOOKBACK", "Lookback and recall notifications",
             "Recipient notification rows recorded for a DIN lookback.",
             ReportSourceCatalog.Lookback,
-            ["din", "status", "mrn", "physician", "reason", "attempted_utc"],
+            ["din", "unit_number", "status", "mrn", "physician", "reason", "opened_utc", "attempted_utc"],
             sorts: [Sort("din")]),
         Visual("RPT-DEVIATIONS", "Open deviations",
             "Deviations that are not closed.",

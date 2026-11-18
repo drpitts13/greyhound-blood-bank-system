@@ -218,9 +218,12 @@ public static class ReportViewSql
                 n.PhysicianOfRecord AS physician,
                 n.Reason AS reason,
                 n.AttemptedUtc AS attempted_utc,
-                p.MedicalRecordNumber AS mrn
+                p.MedicalRecordNumber AS mrn,
+                u.UnitNumber AS unit_number,
+                n.CreatedUtc AS opened_utc
             FROM LookbackNotifications n
             LEFT JOIN Patients p ON p.Id = n.PatientId
+            LEFT JOIN BloodProducts u ON u.Id = n.BloodProductId
             """);
 
         yield return (ReportViewCatalog.Deviations, $"""
