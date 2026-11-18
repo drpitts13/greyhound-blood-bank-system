@@ -26,6 +26,6 @@ public class UnitsExpiredAlertTests
         Assert.Equal(AlertSeverity.Warning, plain.Severity);
         Assert.Equal("3 unit(s) expired", plain.Title);
         Assert.DoesNotContain("reserved", plain.Message);
-        Assert.Equal("/inventory?status=Expired", plain.Link);
+        Assert.Equal("/inventory/discard-expired", plain.Link);
     }
 }

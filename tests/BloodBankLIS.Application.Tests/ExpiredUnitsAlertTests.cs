@@ -32,4 +32,13 @@ public class ExpiredUnitsAlertTests
         Assert.Null(ExpiredUnitsAlert.Now(Raised(), new Dictionary<string, int> { ["20261110150814"] = 0 }));
         Assert.Null(ExpiredUnitsAlert.Now(Raised(), new Dictionary<string, int> { ["20261111150000"] = 3 }));
     }
+    // TEST-BB-1253 (end-user testing pass 229): an expired-units alert opens Discard expired; one raised with the old
+    // Inventory link moves to it on the next scan.
+    [Fact]
+    public void Now_MovesTheOldLinkToDiscardExpired()
+    {
+        Assert.Equal("/inventory/discard-expired",
+            ExpiredUnitsAlert.Now(Raised(), new Dictionary<string, int> { ["20261110150814"] = 8 })!.Link);
+        Assert.Equal("/inventory/discard-expired", AlertScanner.UnitsExpiredAlert(1, new DateTime(2026, 11, 17, 7, 1, 0, DateTimeKind.Utc), 0, null).Link);
+    }
 }

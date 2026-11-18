@@ -147,10 +147,11 @@ public sealed class AlertService
                 _alerts.Update(alert);
                 resolved++;
             }
-            else if (now.Title != alert.Title || now.Message != alert.Message)
+            else if (now.Title != alert.Title || now.Message != alert.Message || now.Link != alert.Link)
             {
                 alert.Title = now.Title;
                 alert.Message = now.Message;
+                alert.Link = now.Link;
                 _alerts.Update(alert);
                 updated++;
             }

@@ -12,6 +12,15 @@ public static class ExpiredUnitsAlert
 {
     public const string KeyPrefix = "EXPIRED:";
 
+    /// <summary>
+    /// Where an expired-units alert opens: the Discard expired desk, where each unit is scanned and discarded (end-user
+    /// testing pass 229; before, the Inventory search filtered to Expired, which lists them but discards nothing).
+    /// </summary>
+    public const string DiscardLink = "/inventory/discard-expired";
+
+    /// <summary>The link alerts raised before pass 229 carry; moved to <see cref="DiscardLink"/> on the next scan.</summary>
+    public const string OldLink = "/inventory?status=Expired";
+
     /// <summary>The sweep time in a key "EXPIRED:yyyyMMddHHmmss", as written there.</summary>
     public static string? SweepStamp(string key) =>
         key.StartsWith(KeyPrefix, StringComparison.Ordinal) && key.Length > KeyPrefix.Length ? key[KeyPrefix.Length..] : null;
@@ -22,7 +31,8 @@ public static class ExpiredUnitsAlert
     /// </summary>
     public static AlertCandidate? Now(Alert alert, IReadOnlyDictionary<string, int> stillOnShelfBySweep)
     {
-        var same = new AlertCandidate(alert.Source, alert.Key, alert.Severity, alert.Title, alert.Message, alert.Link);
+        var same = new AlertCandidate(alert.Source, alert.Key, alert.Severity, alert.Title, alert.Message,
+            alert.Link == OldLink ? DiscardLink : alert.Link);
         if (SweepStamp(alert.Key) is not { } stamp)
         {
             return same;

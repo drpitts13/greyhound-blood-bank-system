@@ -1261,5 +1261,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1250 | I | `TestWorklistTests.PendingWorklist_ResultEnteredInDate_VerifiesAfterExpiry` | URS-BB-1006 / FRS-BB-1124 |
 | TEST-BB-1251 | I | `ExpiredSpecimenOrderTests.UnverifiedResult_KeepsTheOrderOpen` | URS-BB-1006 / FRS-BB-1124 |
 | TEST-BB-1252 | I | `DowntimeEpisodeTests.List_CountsPaperResultsTestedInsideTheOutage` | URS-BB-1007 / FRS-BB-1125 |
+| TEST-BB-1253 | A | `ExpiredUnitsAlertTests.Now_MovesTheOldLinkToDiscardExpired` | URS-BB-1008 / FRS-BB-1126 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

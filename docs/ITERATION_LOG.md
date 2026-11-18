@@ -26645,3 +26645,21 @@ Opened Downtime Snapshot after the OCD-091/093 work: the recorded outage #1 (202
 ### Tests
 
 - TEST-BB-1252. Full suite passed.
+
+## Iteration 949 — End-user testing pass 229: expired-units alert opens Discard expired (2026-11-17)
+
+### How it was tested
+
+Opened Utilization (C:T ratio 3.50 overall, 3.00 for ICU), Printing, and the Alerts inbox (29 open: temperature excursions, QC, minimum stock, the open MTP, four expired-units alerts).
+
+### Found and fixed
+
+1. **The expired-units alerts opened a list, not the place to act.** *8 unit(s) expired … Remove them from storage.* linked to the Inventory search filtered to Expired, which lists the units but discards nothing; the Discard expired desk, where each unit is scanned and discarded, was a further click away. The alert now opens Discard expired. Alerts raised before this move to the new link on the next scan (the recheck now saves a changed link too).
+
+### Retested live
+
+- All four open expired-units alerts link to /inventory/discard-expired after the startup scan. Nothing was acknowledged or discarded.
+
+### Tests
+
+- TEST-BB-1253 (TEST-BB-705 updated for the plain alert's link). Full suite passed.

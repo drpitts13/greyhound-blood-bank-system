@@ -264,6 +264,6 @@ public sealed class AlertScanner
             (reservationsEnded > 0
                 ? $" {reservationsEnded} of them were reserved for patients{who}; those reservations have ended. Reserve replacement units."
                 : string.Empty),
-            reservationsEnded > 0 ? "/blood-orders" : "/inventory?status=Expired");
+            reservationsEnded > 0 ? "/blood-orders" : ExpiredUnitsAlert.DiscardLink);
     }
 }
