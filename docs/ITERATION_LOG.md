@@ -27162,3 +27162,21 @@ Opened reaction investigation #1 (Febrile, Marcus) after pass 255, to see how it
 ### Tests
 
 - TEST-BB-1281, TEST-BB-1282. Full suite passed.
+
+## Iteration 977 — End-user testing pass 257: batch verify and equipment results read as readings (2026-11-18)
+
+### How it was tested
+
+After pass 256, searched the screens for other places that print a result's stored value as it is, and opened Equipment › Results for CW-01 and CENT-01 (no hand-entered results recorded on them in the development database).
+
+### Found and fixed
+
+1. **Two more lists printed a result's stored value.** The Test Worklist's *Verify in a batch* list (plainly negative antibody screens and DATs, and ABO/Rh results) and an equipment's *Results tested on* list showed the value as stored, which for a screen or an ABO/Rh panel is JSON. Both now use the shared result formatter, as the worklist rows do (*Cell1 IS:0 · Cell1 AHG:0 · …*).
+
+### Retested
+
+- The development database has no batch candidates or equipment results to show, so this was checked by a rendered-page test with a stored screen panel. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1283. Full suite passed.

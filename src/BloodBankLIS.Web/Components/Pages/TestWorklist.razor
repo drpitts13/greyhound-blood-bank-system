@@ -132,7 +132,7 @@
                                 <td><input type="checkbox" checked="@_batchSelected.Contains(c.ResultId)" @onchange="e => ToggleBatch(c.ResultId, e)" aria-label="Select @c.TestCode for @c.Mrn" /></td>
                                 <td>@c.PatientName <span class="sub mono">@c.Mrn</span></td>
                                 <td class="mono">@c.TestCode</td>
-                                <td><strong>@c.Value</strong></td>
+                                <td><strong>@ResultValueText.For(c.Value)</strong></td>
                                 <td class="mono">@(c.AccessionNumber ?? "—")</td>
                                 <td>@(c.EnteredBy ?? "—")</td>
                             </tr>

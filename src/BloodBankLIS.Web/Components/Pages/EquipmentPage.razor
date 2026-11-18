@@ -283,7 +283,7 @@ else
                                                 <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientName ?? $"Patient {r.PatientId}")</a> <span class="sub mono">@r.PatientMrn</span></td>
                                                 <td class="mono">@(r.SpecimenAccession ?? "—")</td>
                                                 <td class="mono">@r.TestCode</td>
-                                                <td>@r.Value</td>
+                                                <td>@ResultValueText.For(r.Value)</td>
                                                 <td>@Ui.EnumText(r.Status)</td>
                                                 <td>@if (r.Condition is null) { <span class="muted">In order</span> } else { <span class="badge badge-amber">@r.Condition</span> }</td>
                                             </tr>
