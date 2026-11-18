@@ -1252,7 +1252,7 @@
         </div>
         @if (!string.IsNullOrWhiteSpace(_wardProductName) || !string.IsNullOrWhiteSpace(_wardExpirationNotice) || !string.IsNullOrWhiteSpace(_wardUnitTypeNotice) || !string.IsNullOrWhiteSpace(_wardSpecimenNotice) || !string.IsNullOrWhiteSpace(_wardCrossmatchNotice) || !string.IsNullOrWhiteSpace(_wardIssuedToNotice) || !string.IsNullOrWhiteSpace(_wardCoolerNotice) || !string.IsNullOrWhiteSpace(_wardLocationNotice) || !string.IsNullOrWhiteSpace(_wardIssuedByNotice) || !string.IsNullOrWhiteSpace(_wardSecondVerifierNotice))
         {
-            <FactList Facts="@(new string?[] { _wardExpirationNotice, _wardUnitTypeNotice, _wardSpecimenNotice, _wardCrossmatchNotice, _wardIssuedToNotice, _wardCoolerNotice, _wardLocationNotice, _wardIssuedByNotice, _wardSecondVerifierNotice })" Style="margin-top:.75rem;">Receiving @if (!string.IsNullOrWhiteSpace(_wardProductName)) { <strong>@_wardProductName</strong> }</FactList>
+            <FactList Facts="@(new string?[] { _wardExpirationNotice, _wardUnitTypeNotice, _wardSpecimenNotice, _wardCrossmatchNotice, _wardIssuedToNotice, _wardCoolerNotice, _wardLocationNotice, _wardIssuedByNotice, _wardIssuedWhenNotice, _wardSecondVerifierNotice })" Style="margin-top:.75rem;">Receiving @if (!string.IsNullOrWhiteSpace(_wardProductName)) { <strong>@_wardProductName</strong> }</FactList>
         }
         @if (_wardReceivedRun.Count > 0 || NextToReceive.Count > 0)
         {
@@ -1720,6 +1720,8 @@
     private string? _wardCoolerNotice;
     private string? _wardLocationNotice;
     private string? _wardIssuedByNotice;
+    // Pass 235: when it was issued and how late it is.
+    private string? _wardIssuedWhenNotice;
     private string? _wardSecondVerifierNotice;
     private string? _wardReleaseReason;
     private string? _wardReleaseAuthorizer;
@@ -2673,6 +2675,9 @@
             coolerId, _openCoolers is not null, coolerCheck?.LastCheckedUtc?.ToLocalTime(), coolerCheck?.LastCheckReady);
         _wardLocationNotice = ReadyToIssueFormCue.IssuedToLocationNotice(issuedToLocation);
         _wardIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(issuedBy);
+        _wardIssuedWhenNotice = _inTransitItems.FirstOrDefault(r => r.IssueId == issueId) is { } transitRow
+            ? WardReceiptTimingText.For(transitRow.IssuedUtc, transitRow.DueUtc, DateTime.UtcNow)
+            : null;
         _wardSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(secondVerifier);
         _wardReleaseReason = ReadyToIssueFormCue.EmergencyReleaseReasonNotice(emergencyReleaseDetails);
         _wardReleaseAuthorizer = ReadyToIssueFormCue.EmergencyReleaseAuthorizerNotice(emergencyReleaseAuthorizer);
@@ -3188,6 +3193,7 @@
         _wardCoolerNotice = null;
         _wardLocationNotice = null;
         _wardIssuedByNotice = null;
+        _wardIssuedWhenNotice = null;
         _wardSecondVerifierNotice = null;
         _wardReleaseReason = null;
         _wardReleaseAuthorizer = null;

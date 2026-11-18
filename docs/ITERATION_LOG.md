@@ -26757,3 +26757,21 @@ After pass 233, opened the History of ORD-E258306ED774 on MRN0022's Orders tab a
 ### Tests
 
 - TEST-BB-1258. Full suite passed.
+
+## Iteration 955 — End-user testing pass 235: when issued and how late, at ward receipt (2026-11-17)
+
+### How it was tested
+
+Looked at the instrument simulator, Facility policies (six settings still to enter), the Test Worklist's Specimens tab, the antibody card for MRN0004 (anti-K, K-negative required) and for the infant MRN0029 (nothing to print: passive maternal antibody is not carried on a card), then opened Ward receipt for W0001230009204 from In transit, without acknowledging it.
+
+### Found and fixed
+
+1. **Receipt did not say when the unit was issued.** The summary named who issued it, the cooler check and the crossmatch, but not that it had left the bank eleven days earlier. It now adds *Issued 2026-11-06 09:38, 11 d 13 h ago; due on the ward by 2026-11-06 10:38, now 11 d 12 h late. Check the unit and its time out of storage under your procedure before transfusion.* A unit received on time shows only when it was issued. Nothing is blocked.
+
+### Retested live
+
+- W0001230009204's receipt form shows the line. Nothing was acknowledged.
+
+### Tests
+
+- TEST-BB-1259. Full suite passed.
