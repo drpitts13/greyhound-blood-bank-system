@@ -27216,3 +27216,21 @@ Went through Issue & Transfuse › Final disposition (6 units 11 days past due, 
 ### Tests
 
 - TEST-BB-1285. Full suite passed.
+
+## Iteration 980 — End-user testing pass 260: discrepancy board says how long missing (2026-11-18)
+
+### How it was tested
+
+After pass 259, went through the other inventory boards: Operational hold (W0001230001029 *On hold 12 days 1 hour (since 2026-11-06 09:50)*) and Discrepancy.
+
+### Found and fixed
+
+1. **The discrepancy board did not say how long a unit had been missing.** W000123MISS001, not found at a physical count, read only *Missing · Not found during physical inventory count.* The supervisor queue says *Missing 11 days 22 hours (since …)*, and the hold board says how long a unit has been held, from the same kind of record. The discrepancy board now shows it under the reason.
+
+### Retested live
+
+- W000123MISS001 reads *Missing 12 days 1 hour (since 2026-11-06 09:50)*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1286. Full suite passed.

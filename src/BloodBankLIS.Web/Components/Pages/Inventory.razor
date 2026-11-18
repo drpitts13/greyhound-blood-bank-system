@@ -619,7 +619,13 @@
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td><span class="@Ui.Badge(row.Status)">@Ui.EnumText(row.Status)</span></td>
-                            <td>@(row.Reason ?? "—")</td>
+                            <td>@(row.Reason ?? "—")
+                                @* Pass 260: how long it has been missing or damaged, as the supervisor queue and the hold board say. *@
+                                @if (!string.IsNullOrEmpty(row.SinceText))
+                                {
+                                    <div class="sub muted" data-discrepancy-since>@row.SinceText</div>
+                                }
+                            </td>
                             <td>@row.LocationLabel</td>
                             <td class="right nowrap">
                                 @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status is UnitStatus.Missing or UnitStatus.Damaged)

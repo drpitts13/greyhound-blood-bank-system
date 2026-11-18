@@ -4318,6 +4318,10 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(StorageLocationLabel.None, unnamedRow.LocationLabel);
         Assert.Equal(blank.Id, blankRow.CurrentLocationId);
         Assert.Equal($"Location {blank.Id}", blankRow.LocationLabel);
+        // TEST-BB-1286 (end-user testing pass 260): each row says how long the unit has been missing or damaged, for the
+        // discrepancy board.
+        Assert.StartsWith("Missing ", namedRow.SinceText);
+        Assert.StartsWith("Damaged ", blankRow.SinceText);
     }
 
     [Fact]
