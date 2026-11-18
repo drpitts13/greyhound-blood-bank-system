@@ -89,7 +89,7 @@ else
     {
         <div class="bb-card" data-tubes-not-stored>
             <div class="bb-card-title"><h3>Received, not yet stored (@_notStored.Count)</h3></div>
-            <p class="muted">Tubes received in the laboratory with no storage place recorded, oldest first. Put each away (scan its place, then the tube) or, when it is no longer needed, discard it; the list shortens as you go. <strong>Store</strong> puts the tube in the Tube field.</p>
+            <p class="muted">Tubes received in the laboratory with no storage place recorded, oldest first. Put each away (scan its place, then the tube) or, when it is no longer needed, discard it; the list shortens as you go. <strong>Store</strong> puts the tube in the Tube field; <strong>Discard</strong> puts it in Tube to discard.</p>
             <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Tube</th><th>Patient</th><th>Collected</th><th>Received</th><th>Status</th><th></th></tr></thead>
@@ -103,7 +103,11 @@ else
                             @* Pass 185: the list is ordered by receipt; say when and how long it has waited to be put away. *@
                             <td class="nowrap" data-not-stored-received="@t.AccessionNumber">@(t.ReceivedUtc is DateTime received ? $"{received.ToLocalTime():yyyy-MM-dd HH:mm}" : "—")@if (t.ReceivedUtc is DateTime since) { <span class="sub"> · @BloodOrderWaitText.Waiting(since, DateTime.UtcNow)</span> }</td>
                             <td>@Ui.EnumText(t.Status)</td>
-                            <td class="right"><button type="button" class="btn btn-secondary btn-sm" @onclick="() => PickTubeAsync(t.AccessionNumber)">Store</button></td>
+                            <td class="right nowrap">
+                                <button type="button" class="btn btn-secondary btn-sm" @onclick="() => PickTubeAsync(t.AccessionNumber)">Store</button>
+                                @* Pass 249: most tubes waiting here were expired, but only Store was offered; the text said to discard what is no longer needed. *@
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => PickDiscardAsync(t.AccessionNumber)" data-pick-discard="@t.AccessionNumber">Discard</button>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -264,6 +268,13 @@ else
     }
 
     // Store on a not-yet-stored row: the tube waits in Tube; with a place already scanned, Enter in Tube stores it.
+    private async Task PickDiscardAsync(string accession)
+    {
+        _discardTube = accession;
+        _discardFb = Feedback.Succeed($"Tube {accession} is ready to discard: give a reason if it is early, then press Enter in Tube to discard.");
+        await Js.FocusSelectAsync("discard-tube", preventScroll: true);
+    }
+
     private async Task PickTubeAsync(string accession)
     {
         _tube = accession;

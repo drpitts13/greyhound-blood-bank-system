@@ -62,4 +62,23 @@ public class TubePullListTests : BunitContext
         Assert.Contains("9 d past", groups[0].QuerySelector("[data-pull-tube='T3']")!.TextContent);
         Assert.Contains("1 tube", groups[1].QuerySelector("tr.group-row")!.TextContent);
     }
+
+    // TEST-BB-1273 (end-user testing pass 249): a tube received and not yet stored can be picked to discard as well as to
+    // store; Discard puts it in Tube to discard.
+    [Fact]
+    public void NotStoredTube_CanBePickedToDiscard()
+    {
+        var expired = new TubeInPlaceDto(1, "ACC-EXP", "EDTA", SpecimenStatus.Expired, 5, "Demo, Pat", "MRN5", Now.AddDays(-12), Now.AddDays(-12), "tech", null, Now.AddDays(-12));
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/specimens/not-stored"] = new List<TubeInPlaceDto> { expired }
+        });
+
+        var page = Render<StoreTubes>();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-pick-discard='ACC-EXP']")));
+        page.Find("[data-pick-discard='ACC-EXP']").Click();
+
+        Assert.Equal("ACC-EXP", page.Find("[data-discard-tube]").GetAttribute("value"));
+        Assert.Contains("ready to discard", page.Find("[data-discard-tubes]").TextContent);
+    }
 }

@@ -1139,6 +1139,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1025 / FRS-BB-1143 | End-user testing pass 246: lookback report names unit and opened date | `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270213000000_LookbackReportUnit.cs`, `ReportSourceCatalog.cs`, `ReportSeedCatalog.cs` | TEST-BB-1270 | I | |
 | URS-BB-1026 / FRS-BB-1144 | End-user testing pass 247: deviations report names related record and follow-up | `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270214000000_DeviationsReportRecord.cs`, `ReportSourceCatalog.cs`, `ReportSeedCatalog.cs` | TEST-BB-1271 | I | |
 | URS-BB-1027 / FRS-BB-1145 | End-user testing pass 248: patient list marks possible duplicates | `PossibleDuplicateFlags.cs`, `Patients.razor` | TEST-BB-1272 | A | |
+| URS-BB-1028 / FRS-BB-1146 | End-user testing pass 249: not-stored tube can be picked to discard | `StoreTubes.razor` | TEST-BB-1273 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

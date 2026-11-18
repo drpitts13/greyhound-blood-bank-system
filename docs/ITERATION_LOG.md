@@ -27017,3 +27017,21 @@ Ran *Open deviations* and *Transfusion reaction investigations* against their pa
 ### Tests
 
 - TEST-BB-1272. Full suite passed.
+
+## Iteration 969 — End-user testing pass 249: not-stored tube can be picked to discard (2026-11-18)
+
+### How it was tested
+
+Opened the newborn's chart (Newborn, Baby Boy, MRN0002: no mother linked, said on the chart, with Link mother offered), went through the home dashboard's cards, and opened *Tubes to store* (19, the oldest collected 32 days ago).
+
+### Found and fixed
+
+1. **Store tubes offered only Store for tubes that were mostly expired.** Of the 19 tubes received and not yet stored, 17 were Expired (ACC0012-T1 waiting 32 days). The list says to put each away or discard it when no longer needed, but each row had only **Store**; discarding meant retyping the accession in *Tube to discard*. Each row now has **Discard** beside Store, which puts the tube in *Tube to discard*, says what to do next and focuses the field. The discard still applies its checks (a tube on an unfinished order or open reaction is kept; early discard needs a reason).
+
+### Retested live
+
+- **Discard** on ACC0012-T1 filled and focused *Tube to discard* with *Tube ACC0012-T1 is ready to discard: give a reason if it is early, then press Enter in Tube to discard.* Nothing was discarded.
+
+### Tests
+
+- TEST-BB-1273. Full suite passed.
