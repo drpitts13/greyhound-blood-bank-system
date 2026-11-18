@@ -61,6 +61,12 @@
                                     <span class="badge badge-red" data-special-requirement-unmet>Does not meet a special requirement</span>
                                     <span class="muted">@a.SpecialRequirementNotice Modify it if a modification meets it, or release it and choose another unit.</span>
                                 }
+                                @if (ReservationEndedText.For(a.AllocationStatus, a.ExpiresUtc, a.IssueId, DateTime.UtcNow) is { } reservationEnded)
+                                {
+                                    @* Pass 232: as Ready to issue says, the reservation is past its end time. *@
+                                    <span class="badge badge-amber" data-chart-reservation-ended>Reservation ended</span>
+                                    <span class="muted">@reservationEnded</span>
+                                }
                                 @if (a.DisplayStatus == ProductAllocationDisplayStatus.CrossmatchExpired && a.IssueId is null)
                                 {
                                     <span class="muted">Crossmatch expired. Repeat it on a current specimen before issue.</span>

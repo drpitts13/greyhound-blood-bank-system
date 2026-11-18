@@ -12,6 +12,8 @@ routes:
 
 The **Products** tab lists units reserved or issued to this patient. It is the chart-side view of allocation. The laboratory-wide queues live on [Compatibility](compatibility) and [Issue and transfuse](issuing).
 
+A reserved unit past its reservation end is marked **Reservation ended** with when and how long ago, as on Ready to issue; the unit stays held for the patient until it is issued or released.
+
 ## Choosing an order and a unit
 
 In the Allocate panel, each open product order is listed once for each product it asks for (an order for two units of red cells is one choice). Once you choose an order, the unit list offers only compatible units of that order's product, soonest to expire first, and a line under it says how many are in stock ("2 compatible units of Red Blood Cells, Leukoreduced in stock", or "No compatible units of … in stock"). Reserving still checks the unit against the order.

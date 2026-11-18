@@ -26699,3 +26699,21 @@ Opened Issue & Transfuse › Final disposition (six units 10 days past due, each
 ### Tests
 
 - TEST-BB-1255. Full suite passed.
+
+## Iteration 952 — End-user testing pass 232: reservation ended on the chart (2026-11-17)
+
+### How it was tested
+
+Opened Demo-Multi, Riley (MRN0022) › Products: two O+ red cells (W0001230009201, -9202) reserved on ORD0023, compared with the same units on Ready to issue.
+
+### Found and fixed
+
+1. **The chart did not say the reservations had ended.** Ready to issue marks both *Reservation ended 11-07 09:50*; the chart showed only *Crossmatch expired*, so a reader there would not know the hold had run out ten days ago. The row now shows **Reservation ended** with *Ended 2026-11-07 09:50, 10 d 11 h ago. The unit is still held for this patient: issue it when ready, or release it.* A first version repeated "Reservation ended" in the badge and the text; the text now begins "Ended".
+
+### Retested live
+
+- Both units show the note. Nothing was issued or released.
+
+### Tests
+
+- TEST-BB-1256. Full suite passed; the Help tests were rerun after the wording change (Web only).
