@@ -18,5 +18,8 @@ public class ReservationEndedTextTests
         Assert.Null(ReservationEndedText.For(AllocationStatus.Reserved, ends, 5, now));
         Assert.Null(ReservationEndedText.For(AllocationStatus.Released, ends, null, now));
         Assert.Null(ReservationEndedText.For(AllocationStatus.Reserved, null, null, now));
+        // TEST-BB-1294 (end-user testing pass 268): with its crossmatch expired too, the note does not say to issue it.
+        Assert.EndsWith("still held for this patient: repeat the crossmatch on a current specimen before issuing it, or release it.",
+            ReservationEndedText.For(AllocationStatus.Reserved, ends, null, now, crossmatchExpired: true));
     }
 }

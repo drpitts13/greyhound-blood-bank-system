@@ -12,7 +12,7 @@ routes:
 
 The **Products** tab lists units reserved or issued to this patient. It is the chart-side view of allocation. The laboratory-wide queues live on [Compatibility](compatibility) and [Issue and transfuse](issuing).
 
-A reserved unit past its reservation end is marked **Reservation ended** with when and how long ago, as on Ready to issue; the unit stays held for the patient until it is issued or released.
+A reserved unit past its reservation end is marked **Reservation ended** with when and how long ago, as on Ready to issue; the unit stays held for the patient until it is issued or released. When its crossmatch has expired too, the note says to repeat the crossmatch on a current specimen before issuing it, or release it, rather than to issue it.
 
 ## Choosing an order and a unit
 

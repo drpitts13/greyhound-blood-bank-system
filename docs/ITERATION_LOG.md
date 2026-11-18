@@ -27360,3 +27360,21 @@ Continued the lookup check with the codes the bench reads off labels and alerts:
 ### Tests
 
 - TEST-BB-1293. Full suite passed.
+
+## Iteration 988 — End-user testing pass 268: reservation ended note with an expired crossmatch (2026-11-18)
+
+### How it was tested
+
+Opened Demo-Multi, Riley's Products tab (MRN0022): W0001230009201 and W0001230009202 are held for her, their reservations ended on 11-07 and their crossmatches expired with the specimen.
+
+### Found and fixed
+
+1. **The chart told the user to issue units that could not be issued.** Each row read *Reservation ended … The unit is still held for this patient: issue it when ready, or release it*, and on the next line *Crossmatch expired. Repeat it on a current specimen before issue.* When the crossmatch has expired too, the note now says *repeat the crossmatch on a current specimen before issuing it, or release it*.
+
+### Retested live
+
+- Both rows read *… still held for this patient: repeat the crossmatch on a current specimen before issuing it, or release it.* Nothing was changed.
+
+### Tests
+
+- TEST-BB-1294. Full suite passed.
