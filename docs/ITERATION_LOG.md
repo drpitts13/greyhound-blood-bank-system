@@ -26905,3 +26905,25 @@ Checked Help (search for "lookback"; the PDF download is generated from the curr
 ### Tests
 
 - TEST-BB-1266. Full suite passed.
+
+## Iteration 963 — End-user testing pass 243: report code names in words (2026-11-18)
+
+### How it was tested
+
+On Add order the facility's TSNEO (neonatal type and screen) is offered on an adult's chart; it is a facility-defined test, so nothing was hidden by code. Opened Allocate on MRN0004 (no product order, said so), then ran *Inventory on hand* (55 rows).
+
+### Found and fixed
+
+1. **Report columns showed stored codes.** The Status column read *OnHold* (and other reports *UnderReview*, *TransfusionStarted*, *PendingVerification*). Status, type, severity, decision and kind columns (19 fields across the report sources) now read in words, *On hold*, once the report has filtered, sorted and grouped on the stored value, so filters typed against the stored code still work. Names and numbers are untouched.
+
+### Not changed
+
+- A unit awaiting retype shows its stored status *Received* (the screens call it Pending Retype); mapping report values to screen labels is a larger change.
+
+### Retested live
+
+- Inventory on hand shows *On hold* for W0001230001029. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1267. Full suite passed.

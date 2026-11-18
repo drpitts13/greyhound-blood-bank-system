@@ -1027,3 +1027,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1019 | Interface Setup with no interface says what waits for one and how many outbound messages are waiting. | P3 | FRS-BB-1137 |
 | URS-BB-1020 | An unmapped value that a translation now covers says what it translates to, to dismiss. | P3 | FRS-BB-1138 |
 | URS-BB-1021 | A patient order does not offer tests that are done on a blood unit. | P3 | FRS-BB-1139 |
+| URS-BB-1022 | Report status and type columns read in words, not as stored codes. | P3 | FRS-BB-1140 |

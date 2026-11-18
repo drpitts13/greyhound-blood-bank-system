@@ -36,6 +36,38 @@ public class VisualReportCompilerTests
         Assert.All(result.Value.Rows, row => Assert.Equal("Available", row[1]));
     }
 
+    // TEST-BB-1267 (end-user testing pass 243): a code-name column reads in words ("OnHold" → "On hold") after filtering on
+    // the stored value; other columns are unchanged.
+    [Fact]
+    public void CodeNameColumn_ReadsInWords_AfterFilteringOnTheStoredValue()
+    {
+        IReadOnlyList<ReportField> fields =
+        [
+            new() { Code = "unit_number", Label = "Unit" },
+            new() { Code = "status", Label = "Status", IsCodeName = true }
+        ];
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows =
+        [
+            new Dictionary<string, string?> { ["unit_number"] = "W0001", ["status"] = "OnHold" },
+            new Dictionary<string, string?> { ["unit_number"] = "W0002", ["status"] = "TransfusionStarted" },
+            new Dictionary<string, string?> { ["unit_number"] = "McKayW3", ["status"] = "Available" }
+        ];
+        var layout = new ReportLayout
+        {
+            SourceCode = "inventory_on_hand",
+            Columns = ["unit_number", "status"],
+            Filters = [new ReportFilter { Id = "s", Field = "status", Operator = ReportFilterOperator.NotEquals, Value = "Available" }]
+        };
+
+        var unfiltered = new ReportLayout { SourceCode = "inventory_on_hand", Columns = ["unit_number", "status"] };
+        var all = VisualReportCompiler.Compile(unfiltered, fields, rows, null, 100).Value!.Rows;
+        Assert.Equal(["On hold", "Transfusion started", "Available"], all.Select(r => r[1]));
+        Assert.Equal("McKayW3", all[2][0]);
+        Assert.Equal(2, VisualReportCompiler.Compile(layout, fields, rows, null, 100).Value!.Rows.Count);
+        Assert.Equal("Pending verification", ReportCodeNameText.Words("PendingVerification"));
+        Assert.Equal("ABO mismatch", ReportCodeNameText.Words("ABO mismatch"));
+    }
+
     // End-user testing pass 50: "To 2026-11-12" stopped at midnight UTC, so a one-day range returned nothing.
     [Fact]
     public void DateRange_CountsWholeLocalDays_AndShowsLocalTimes()

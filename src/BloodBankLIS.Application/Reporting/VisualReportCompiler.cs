@@ -63,6 +63,13 @@ public static class VisualReportCompiler
         if (truncated)
             output = output.Take(maxRows).ToList();
 
+        // Pass 243: stored code names ("OnHold") read in words, after filtering, sorting and grouping on the stored value.
+        if (columns.Any(c => fieldByCode.TryGetValue(c, out var f) && f.IsCodeName))
+        {
+            output = output.Select(row => (IReadOnlyList<string?>)row.Select((cell, i) =>
+                fieldByCode.TryGetValue(columns[i], out var f) && f.IsCodeName ? ReportCodeNameText.Words(cell) : cell).ToList()).ToList();
+        }
+
         if (zone is not null)
         {
             // End-user testing pass 50: the page showed "occurred_utc" and "2026-11-12T06:52:03Z"; staff read local times.

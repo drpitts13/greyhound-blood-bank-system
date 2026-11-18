@@ -1275,5 +1275,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1264 | U | `Hl7SetupEmptyTests.NoInterfaces_SaysWhatIsWaiting` | URS-BB-1019 / FRS-BB-1137 |
 | TEST-BB-1265 | I | `UnmappedAlreadyLisCodeTests.OpenValueNowTranslated_SaysWhatItTranslatesTo` | URS-BB-1020 / FRS-BB-1138 |
 | TEST-BB-1266 | D | `UnitOnlyTestRuleTests.IsUnitOnly_NamesUnitTests` | URS-BB-1021 / FRS-BB-1139 |
+| TEST-BB-1267 | A | `VisualReportCompilerTests.CodeNameColumn_ReadsInWords_AfterFilteringOnTheStoredValue` | URS-BB-1022 / FRS-BB-1140 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

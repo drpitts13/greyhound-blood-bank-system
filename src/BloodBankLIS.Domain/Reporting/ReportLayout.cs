@@ -48,6 +48,28 @@ public sealed class ReportField
     public required string Label { get; init; }
 
     public ReportValueKind Kind { get; init; } = ReportValueKind.Text;
+
+    /// <summary>
+    /// The column holds a stored code name ("OnHold", "UnderReview"), shown in words ("On hold") once the report has
+    /// filtered, sorted and grouped on the stored value (end-user testing pass 243).
+    /// </summary>
+    public bool IsCodeName { get; init; }
+}
+
+/// <summary>A stored code name in words: "OnHold" → "On hold", "TransfusionStarted" → "Transfusion started".</summary>
+public static class ReportCodeNameText
+{
+    public static string? Words(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Contains(' '))
+        {
+            return value;
+        }
+
+        var text = System.Text.RegularExpressions.Regex.Replace(value.Trim(), "(?<=[a-z])(?=[A-Z])", " ");
+        var words = text.Split(' ');
+        return string.Join(' ', words.Select((w, i) => i == 0 || w.Length < 2 || w.All(char.IsUpper) ? w : char.ToLowerInvariant(w[0]) + w[1..]));
+    }
 }
 
 /// <summary>
