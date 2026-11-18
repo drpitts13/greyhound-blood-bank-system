@@ -617,9 +617,15 @@
             case DashboardQueueCatalog.EquipmentChecks:
             {
                 var result = await Api.GetEquipmentDueAsync();
-                return result.Succeeded && result.Value is not null
-                    ? (card.Key, result.Value.Count, DashboardQueueCatalog.EquipmentChecksNote(result.Value))
-                    : (card.Key, null, null);
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                // Pass 252: equipment out of service counts too, named on the card.
+                var equipment = await Api.GetEquipmentAsync();
+                var (count, note) = DashboardQueueCatalog.EquipmentCard(result.Value, equipment.Succeeded ? equipment.Value ?? new() : new(), DateTime.UtcNow);
+                return (card.Key, count, note);
             }
             case DashboardQueueCatalog.PanelLotsToReplace:
             {

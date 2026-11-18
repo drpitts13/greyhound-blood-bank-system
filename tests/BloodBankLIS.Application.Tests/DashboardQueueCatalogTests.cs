@@ -665,4 +665,22 @@ public class DashboardQueueCatalogTests
         Assert.Single(DashboardHome.Arrange([new DashboardCardState(card, 1, "1 failed")], WorkFocus.Bench).Attention);
         Assert.Single(DashboardHome.Arrange([new DashboardCardState(card, 1, null)], WorkFocus.Bench).Queues);
     }
+
+    // TEST-BB-1277 (end-user testing pass 252): equipment out of service counts on the Equipment checks to do card and is
+    // named with how long it has been out; retired equipment does not count.
+    [Fact]
+    public void EquipmentCard_CountsAndNamesEquipmentOutOfService()
+    {
+        var now = new DateTime(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc);
+        EquipmentCheckDueDto Due(string state) => new(1, "CENT-01", "Centrifuge", null, 2, "Timer", state, null, state);
+        BloodBankLIS.Application.Inventory.EquipmentDto Unit(string code, DateTime? outSince, bool active = true) =>
+            new(3, code, code, "Heat block", null, null, active, outSince, outSince is null ? null : "Failed check", "demo", []);
+
+        Assert.Equal((2, "2 overdue"), DashboardQueueCatalog.EquipmentCard([Due("Overdue"), Due("Overdue")], [Unit("CENT-01", null)], now));
+        Assert.Equal((3, "2 overdue; HB-01 out of service 7 d"),
+            DashboardQueueCatalog.EquipmentCard([Due("Overdue"), Due("Overdue")], [Unit("HB-01", now.AddDays(-7).AddHours(-4)), Unit("OLD-01", now.AddDays(-30), active: false)], now));
+        Assert.Equal((1, "HB-01 out of service since today"), DashboardQueueCatalog.EquipmentCard([], [Unit("HB-01", now.AddHours(-2))], now));
+        Assert.Equal((2, "2 out of service (HB-01, CW-02)"),
+            DashboardQueueCatalog.EquipmentCard([], [Unit("CW-02", now.AddDays(-1)), Unit("HB-01", now.AddDays(-7))], now));
+    }
 }

@@ -27071,3 +27071,21 @@ Ran *Emergency releases and overrides* after pass 250, to see whether the report
 ### Tests
 
 - TEST-BB-1276 (the visual report and `rpt_overrides`). Full suite passed.
+
+## Iteration 972 — End-user testing pass 252: equipment card names equipment out of service (2026-11-18)
+
+### How it was tested
+
+Opened Equipment from the home card *Equipment checks to do: 2 overdue*.
+
+### Found and fixed
+
+1. **The home card did not mention equipment out of service.** Equipment listed CENT-01 and CW-01 overdue, and heat block HB-01, used for screens and crossmatches, out of service since 2026-11-11 after a failed temperature check (33.0 °C), waiting for a passing check to return it. The card counted only the two overdue checks, so a bench short a heat block for a week saw nothing on the home screen. Active equipment out of service now counts on the card and is named with how long it has been out (*2 overdue; HB-01 out of service 6 d*), which puts the card under Needs attention. Retired equipment does not count.
+
+### Retested live
+
+- The card reads *3 · 2 overdue; HB-01 out of service 6 d*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1277. Full suite passed.

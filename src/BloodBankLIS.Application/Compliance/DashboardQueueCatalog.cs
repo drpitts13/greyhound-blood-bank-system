@@ -627,6 +627,35 @@ public static class DashboardQueueCatalog
     }
 
     /// <summary>
+    /// The Equipment checks to do card (end-user testing pass 252): the checks due, plus equipment out of service. The card
+    /// said "2 overdue" while heat block HB-01, used for screens and crossmatches, had been out of service for 7 days after a
+    /// failed temperature check, waiting for a passing check to return it. Each piece of active equipment out of service
+    /// counts once and is named: "HB-01 out of service 7 d", or "2 out of service (HB-01, CW-02)".
+    /// </summary>
+    public static (int Count, string? Note) EquipmentCard(
+        IReadOnlyCollection<EquipmentCheckDueDto> due, IEnumerable<BloodBankLIS.Application.Inventory.EquipmentDto> equipment, DateTime nowUtc)
+    {
+        var outOfService = equipment.Where(e => e.IsActive && e.OutOfServiceUtc is not null).OrderBy(e => e.OutOfServiceUtc).ToList();
+        var parts = new List<string>();
+        if (EquipmentChecksNote(due) is { } checks)
+        {
+            parts.Add(checks);
+        }
+
+        if (outOfService.Count == 1)
+        {
+            var days = (int)Math.Floor((nowUtc - outOfService[0].OutOfServiceUtc!.Value).TotalDays);
+            parts.Add(days < 1 ? $"{outOfService[0].Code} out of service since today" : $"{outOfService[0].Code} out of service {days} d");
+        }
+        else if (outOfService.Count > 1)
+        {
+            parts.Add($"{outOfService.Count} out of service ({string.Join(", ", outOfService.Select(e => e.Code))})");
+        }
+
+        return (due.Count + outOfService.Count, parts.Count == 0 ? null : string.Join("; ", parts));
+    }
+
+    /// <summary>
     /// The Unmapped interface values card: those that are already LIS codes and only need dismissing (end-user testing
     /// pass 205), so the count is not read as that many translations to write.
     /// </summary>

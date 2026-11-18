@@ -1036,3 +1036,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1028 | A tube received and not yet stored can be picked to discard from its row, as well as to store. | P3 | FRS-BB-1146 |
 | URS-BB-1029 | A massive-transfusion issue with no override names the physician who called its protocol as its authorizer on the issue worklists and product history. | P2 | FRS-BB-1147 |
 | URS-BB-1030 | The emergency releases and overrides report says who authorized each override and emergency issue. | P2 | FRS-BB-1148 |
+| URS-BB-1031 | The home screen's equipment card counts and names equipment out of service, with how long it has been out. | P2 | FRS-BB-1149 |
