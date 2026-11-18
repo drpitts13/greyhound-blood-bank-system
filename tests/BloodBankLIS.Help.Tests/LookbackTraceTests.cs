@@ -40,4 +40,30 @@ public class LookbackTraceTests : BunitContext
         Assert.DoesNotContain("No other recipients identified", page.Markup);
         Assert.Contains("No DIN to search.", page.Markup);
     }
+
+    // TEST-BB-1298 (end-user testing pass 272): the traceback's issue and transfusion columns read in words, not code names
+    // ("MassiveTransfusion / Issued").
+    [Fact]
+    public void Trace_IssueAndTransfusion_ReadInWords()
+    {
+        var issued = new DateTime(2026, 11, 6, 9, 6, 0, DateTimeKind.Utc);
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/lookback/recipient"] = new RecipientTraceReportDto(
+                new RecipientTracePatientDto(11, "MRN0021", "Demo-Massive", "Morgan", new DateOnly(1979, 2, 14), false),
+                [
+                    new RecipientTraceUnitDto(1, "W0001230009101", "W123426000101", UnitStatus.Issued, 10, issued, "Trauma Bay 1", IssueType.MassiveTransfusion, IssueStatus.Issued, null, null, false),
+                    new RecipientTraceUnitDto(2, "W0001230009102", "W123426000102", UnitStatus.TransfusionStopped, 11, issued, "Trauma Bay 1", IssueType.EmergencyRelease, IssueStatus.Transfused, 5, TransfusionDisposition.Stopped, true)
+                ],
+                [],
+                [])
+        });
+
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/lookback?mrn=MRN0021");
+        var page = Render<Lookback>();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll("[data-trace-issue]").Count));
+
+        Assert.Equal(["Massive transfusion / Issued", "Emergency release / Transfused"], page.FindAll("[data-trace-issue]").Select(e => e.TextContent.Trim()));
+        Assert.Equal("Stopped (reaction)", page.Find("[data-trace-transfusion]").TextContent.Trim());
+    }
 }

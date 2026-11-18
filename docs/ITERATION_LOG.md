@@ -27432,3 +27432,21 @@ Scanned the product history, orders, unit, RhIG and reaction report pages for co
 ### Tests
 
 - TEST-BB-1297. Full suite passed.
+
+## Iteration 992 — End-user testing pass 272: recipient traceback in words (2026-11-18)
+
+### How it was tested
+
+After pass 271, ran Recipient traceback for Demo-Massive, Morgan (MRN0021) and Febrile, Marcus (MRN0006).
+
+### Found and fixed
+
+1. **The traceback printed code names.** Each of MRN0021's four MTP units read *MassiveTransfusion / Issued* in the Issue column. The issue type and status, and the transfusion's outcome, now read in words (*Massive transfusion / Issued*; Marcus's unit *Standard / Transfused · Stopped (reaction)*).
+
+### Retested live
+
+- MRN0021's units read *Massive transfusion / Issued*; MRN0006's W0001230001007 *Standard / Transfused … Stopped (reaction)*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1298. Full suite passed.

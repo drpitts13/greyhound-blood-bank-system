@@ -22,7 +22,7 @@ routes:
 
 Transfused and issued components open a recipient notification, and a component shipped to another facility opens a notification naming that facility, as before. A component the EHR reported transfused while the blood bank had it quarantined, damaged or missing (OCD-083) counts as transfused: its recipient is notified, and it is not recalled, since it is no longer here.
 
-**Recipient traceback** starts with the patient MRN. It lists the units that patient received so you can see which donations are involved.
+**Recipient traceback** starts with the patient MRN. It lists the units that patient received so you can see which donations are involved. Each unit gives the issue type and status (*Massive transfusion / Issued*) and, once documented, how the transfusion ended (*Stopped (reaction)*).
 
 ## Notifications
 

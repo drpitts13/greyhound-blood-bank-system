@@ -352,7 +352,7 @@ else
                                         }
                                     </td>
                                     <td><span class="@Ui.Badge(u.Status)">@Ui.EnumText(u.Status)</span></td>
-                                    <td>@u.IssueType / @u.IssueStatus</td>
+                                    <td data-trace-issue>@Ui.EnumText(u.IssueType) / @Ui.EnumText(u.IssueStatus)</td>
                                     <td>@(u.IssuedToLocation ?? "—")</td>
                                     <td class="nowrap">@u.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                     <td>
@@ -362,7 +362,7 @@ else
                                         }
                                         else
                                         {
-                                            <span>@u.TransfusionDisposition@(u.ReactionSuspected ? " (reaction)" : "")</span>
+                                            <span data-trace-transfusion>@(u.TransfusionDisposition is { } disposition ? Ui.EnumText(disposition) : "—")@(u.ReactionSuspected ? " (reaction)" : "")</span>
                                         }
                                     </td>
                                     <td class="right nowrap">
