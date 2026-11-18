@@ -21,7 +21,11 @@ public enum LookupHitKind
     /// <summary>
     /// A sample ID an instrument sent that matches no specimen: opens Instrument Interfaces searched for it (pass 264).
     /// </summary>
-    InstrumentMessages = 9
+    InstrumentMessages = 9,
+    /// <summary>A delivery by its packing list number; opens the delivery (pass 265).</summary>
+    Delivery = 10,
+    /// <summary>An inbound shipment (ASN) with units still expected; opens Expected inbound (pass 265).</summary>
+    InboundShipment = 11
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>

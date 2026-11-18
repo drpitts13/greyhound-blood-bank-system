@@ -27306,3 +27306,21 @@ Followed up pass 263's lookup check: the analyzer's sample ID on the two failed 
 ### Tests
 
 - TEST-BB-1290. Full suite passed.
+
+## Iteration 985 — End-user testing pass 265: lookup finds a packing list and an inbound shipment (2026-11-18)
+
+### How it was tested
+
+Tried the lookup with the identifiers on the receiving and interface screens: a QC sample (now *Instrument QC sample QC-ABSC-POS*), an HL7 control ID, a charge's DFT control ID, a visit, a delivery's packing list, an inbound shipment, a cooler, equipment and a refrigerator code.
+
+### Found and fixed
+
+1. **A packing list or an inbound shipment ID found nothing.** Open deliveries lists deliveries by packing list (PL-UAT-1) and Expected inbound lists units by shipment (ASN-DEMO-01), the papers a receiving technologist has in hand, but the lookup found neither. A packing list now opens its delivery (*Delivery 2 from American Red Cross · Packing list PL-UAT-1 · Open · received 2026-11-12 03:16*), and a shipment with units still expected opens Expected inbound (*1 unit still expected*). The message when nothing matches now names everything the lookup finds, including deviations and instrument samples (passes 263 and 264).
+
+### Retested live
+
+- PL-UAT-1 in the lookup bar opened Delivery 2; ASN-DEMO-01 gave *Inbound shipment ASN-DEMO-01 · 1 unit still expected*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1291. Full suite passed.

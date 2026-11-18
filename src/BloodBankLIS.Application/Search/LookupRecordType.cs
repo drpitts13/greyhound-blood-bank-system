@@ -22,6 +22,9 @@ public static class LookupRecordType
         LookupHitKind.Deviation => "Deviation",
         // The hit carries the latest message for the sample.
         LookupHitKind.InstrumentMessages => "InstrumentMessageLog",
+        LookupHitKind.Delivery => "BloodDelivery",
+        // The hit carries the first expected unit; the shipment is recorded on BloodUnit rows.
+        LookupHitKind.InboundShipment => "BloodUnit",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No record type for this lookup kind.")
     };
 }

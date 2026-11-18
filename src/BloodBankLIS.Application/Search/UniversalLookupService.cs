@@ -43,6 +43,8 @@ public sealed class UniversalLookupService
     private readonly IRepository<ReactionInvestigation>? _reactions;
     private readonly IRepository<Deviation>? _deviations;
     private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
+    private readonly IRepository<BloodDelivery>? _deliveries;
+    private readonly IRepository<BloodSupplier>? _suppliers;
     private readonly IAuditQuery? _auditQuery;
     private readonly ICurrentUser? _currentUser;
 
@@ -69,8 +71,12 @@ public sealed class UniversalLookupService
         IRepository<Reagent>? reagents = null,
         IRepository<ReactionInvestigation>? reactions = null,
         IRepository<Deviation>? deviations = null,
-        IRepository<InstrumentMessageLog>? instrumentMessages = null)
+        IRepository<InstrumentMessageLog>? instrumentMessages = null,
+        IRepository<BloodDelivery>? deliveries = null,
+        IRepository<BloodSupplier>? suppliers = null)
     {
+        _deliveries = deliveries;
+        _suppliers = suppliers;
         _deviations = deviations;
         _instrumentMessages = instrumentMessages;
         _reactions = reactions;
@@ -131,6 +137,8 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactShipmentsAsync(upper, ct));
             hits.AddRange(await ExactCoolersAsync(upper, ct));
             hits.AddRange(await ExactDeviationAsync(upper, ct));
+            hits.AddRange(await ExactDeliveriesAsync(upper, ct));
+            hits.AddRange(await ExactInboundShipmentsAsync(upper, ct));
             // Only when nothing else matched: a real accession keeps opening its specimen directly.
             if (hits.Count == 0)
             {
@@ -290,6 +298,56 @@ public sealed class UniversalLookupService
             $"/instruments?search={Uri.EscapeDataString(latest.SpecimenId!)}")];
     }
 
+    /// <summary>
+    /// End-user testing pass 265: Open deliveries lists each delivery by its packing list (PL-UAT-1), but scanning the
+    /// packing list in the lookup found nothing. It now opens the delivery.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactDeliveriesAsync(string upper, CancellationToken ct)
+    {
+        if (_deliveries is null)
+        {
+            return [];
+        }
+
+        var deliveries = await _deliveries.ListAsync(d => d.PackingListNumber != null && d.PackingListNumber.ToUpper().Replace(" ", "") == upper, ct);
+        if (deliveries.Count == 0)
+        {
+            return [];
+        }
+
+        var supplierIds = deliveries.Select(d => d.BloodSupplierId).Distinct().ToList();
+        var suppliers = _suppliers is null
+            ? new Dictionary<long, string>()
+            : (await _suppliers.ListAsync(s => supplierIds.Contains(s.Id), ct)).ToDictionary(s => s.Id, s => s.Name);
+        return deliveries
+            .OrderByDescending(d => d.ReceivedUtc)
+            .Select(d => new LookupHitDto(LookupHitKind.Delivery, d.Id, true, d.PackingListNumber!,
+                $"Delivery {d.Id}" + (suppliers.TryGetValue(d.BloodSupplierId, out var name) ? $" from {name}" : ""),
+                $"Packing list {d.PackingListNumber} · {Words(d.Status.ToString())} · received {ClinicalTimeText.Local(d.ReceivedUtc)}",
+                $"/inventory/deliveries/{d.Id}"))
+            .ToList();
+    }
+
+    /// <summary>
+    /// End-user testing pass 265: Expected inbound lists units by their shipment (ASN-DEMO-01), but the shipment ID found
+    /// nothing. A shipment with units still expected opens Expected inbound, with how many are still to arrive.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactInboundShipmentsAsync(string upper, CancellationToken ct)
+    {
+        var expected = await _units.ListAsync(u => u.Status == UnitStatus.Expected && u.ShipmentId != null
+            && u.ShipmentId.ToUpper().Replace(" ", "") == upper, ct);
+        if (expected.Count == 0)
+        {
+            return [];
+        }
+
+        var first = expected.OrderBy(u => u.Id).First();
+        return [new LookupHitDto(LookupHitKind.InboundShipment, first.Id, true, first.ShipmentId!,
+            $"Inbound shipment {first.ShipmentId}",
+            $"{expected.Count} unit{(expected.Count == 1 ? "" : "s")} still expected",
+            "/inventory?board=expected")];
+    }
+
     /// <summary>A code name in words: "EmergencyRelease" reads "Emergency release".</summary>
     private static string Words(string code)
     {
@@ -391,7 +449,7 @@ public sealed class UniversalLookupService
     }
 
     private static string NoMatch(string query) =>
-        $"No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, or cooler in transit matches \"{query}\".";
+        $"No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, or instrument sample matches \"{query}\".";
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
     {

@@ -20,7 +20,8 @@ public class UniversalLookupTests : IDisposable
             new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
             encounters: new EfRepository<Encounter>(c), issues: new EfRepository<Issue>(c),
             reagentLots: new EfRepository<ReagentLot>(c), reagents: new EfRepository<Reagent>(c),
-            deviations: new EfRepository<Deviation>(c), instrumentMessages: new EfRepository<InstrumentMessageLog>(c));
+            deviations: new EfRepository<Deviation>(c), instrumentMessages: new EfRepository<InstrumentMessageLog>(c),
+            deliveries: new EfRepository<BloodDelivery>(c), suppliers: new EfRepository<BloodSupplier>(c));
 
     [Fact]
     public async Task ScannedDin_OpensTheOneUnit()
@@ -422,7 +423,7 @@ public class UniversalLookupTests : IDisposable
         var result = await Lookup(c).LookupAsync("ZZZ-NOPE");
 
         Assert.Empty(result.Hits);
-        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, or cooler in transit matches \"ZZZ-NOPE\".", result.Message);
+        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, or instrument sample matches \"ZZZ-NOPE\".", result.Message);
     }
 
     // TEST-BB-612: a shipment reference (case and spaces ignored) finds the shipment, opening Ship units with it; a
@@ -658,5 +659,33 @@ public class UniversalLookupTests : IDisposable
         var accession = await Lookup(c).LookupAsync("LK-ACC-INST");
         Assert.True(accession.OpenDirectly);
         Assert.Equal(LookupHitKind.Specimen, accession.Hits.Single().Kind);
+    }
+
+    // TEST-BB-1291 (end-user testing pass 265): a delivery's packing list opens the delivery, and an inbound shipment with
+    // units still expected opens Expected inbound with how many are to arrive.
+    [Fact]
+    public async Task PackingListAndInboundShipment_AreFound()
+    {
+        await using var c = _factory.Create();
+        var supplier = new BloodSupplier { Code = "LK-SUP", Name = "Lookup Blood Center", Registration = "R1" };
+        var product = new ProductType { ProductCode = "RBC-LKS", Name = "Red cells" };
+        c.AddRange(supplier, product);
+        await c.SaveChangesAsync();
+        var delivery = new BloodDelivery { BloodSupplierId = supplier.Id, PackingListNumber = "LK-PL-1", OrderedUtc = _factory.Clock.UtcNow, ReceivedUtc = _factory.Clock.UtcNow };
+        c.BloodDeliveries.Add(delivery);
+        c.BloodUnits.AddRange(
+            new BloodUnit { UnitNumber = "W-LKS-1", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Expected, ShipmentId = "LK-ASN-1" },
+            new BloodUnit { UnitNumber = "W-LKS-2", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Expected, ShipmentId = "LK-ASN-1" },
+            new BloodUnit { UnitNumber = "W-LKS-3", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Available, ShipmentId = "LK-ASN-1" });
+        await c.SaveChangesAsync();
+
+        var deliveryHit = Assert.Single((await Lookup(c).LookupAsync("lk-pl-1")).Hits);
+        Assert.Equal((LookupHitKind.Delivery, $"Delivery {delivery.Id} from Lookup Blood Center", $"/inventory/deliveries/{delivery.Id}"),
+            (deliveryHit.Kind, deliveryHit.Title, deliveryHit.Href));
+        Assert.StartsWith("Packing list LK-PL-1 · Open · received ", deliveryHit.Detail);
+
+        var shipmentHit = Assert.Single((await Lookup(c).LookupAsync("LK-ASN-1")).Hits);
+        Assert.Equal((LookupHitKind.InboundShipment, "Inbound shipment LK-ASN-1", "2 units still expected", "/inventory?board=expected"),
+            (shipmentHit.Kind, shipmentHit.Title, shipmentHit.Detail, shipmentHit.Href));
     }
 }
