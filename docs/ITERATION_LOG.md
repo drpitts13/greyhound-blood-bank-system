@@ -26663,3 +26663,21 @@ Opened Utilization (C:T ratio 3.50 overall, 3.00 for ICU), Printing, and the Ale
 ### Tests
 
 - TEST-BB-1253 (TEST-BB-705 updated for the plain alert's link). Full suite passed.
+
+## Iteration 950 — End-user testing pass 230: how long a unit in transit is overdue (2026-11-17)
+
+### How it was tested
+
+Checked where each open alert links (temperature excursions → Storage temps, quarantine → Inventory quarantine board, expired units → Discard expired, MTP → the issue desk; all sensible), then opened Issue & Transfuse › In transit: five units issued on 2026-11-06 (one to ICU 4 for MRN0022, four under MRN0021's MTP to Trauma Bay 1) never received.
+
+### Found and fixed
+
+1. **"Overdue" did not say by how much.** Each row read *Due 2026-11-06 10:38 · Overdue*, the same badge for a unit eleven days out as for one ten minutes late. It now reads *Overdue 11 d 9 h*, on In transit and on Issued units.
+
+### Retested live
+
+- The five rows show *Overdue 11 d 10 h* and *Overdue 11 d 9 h*. Nothing was received or changed.
+
+### Tests
+
+- TEST-BB-1254. Full suite passed.

@@ -573,7 +573,8 @@
                                 <span class="sub">Due @(row.DueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
                                 @if (row.IsOverdue)
                                 {
-                                    <span class="badge badge-amber">Overdue</span>
+                                    @* Pass 230: by how long, so eleven days out reads differently from ten minutes. *@
+                                    <span class="badge badge-amber" data-receipt-overdue>@OverdueText.Badge(row.DueUtc, DateTime.UtcNow)</span>
                                 }
                             </td>
                             <td class="right nowrap">
@@ -698,7 +699,8 @@
                                 <span class="sub">Due @(row.DueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
                                 @if (row.IsOverdue)
                                 {
-                                    <span class="badge badge-amber">Overdue</span>
+                                    @* Pass 230: by how long, so eleven days out reads differently from ten minutes. *@
+                                    <span class="badge badge-amber" data-receipt-overdue>@OverdueText.Badge(row.DueUtc, DateTime.UtcNow)</span>
                                 }
                                 @if (row.DowntimeBackEntry)
                                 {
