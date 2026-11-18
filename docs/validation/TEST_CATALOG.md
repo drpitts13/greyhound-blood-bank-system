@@ -1296,5 +1296,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1285 | I | `InventoryServiceTests.Quarantine_SaysHowLongHeld_AndWhenItExpires` | URS-BB-1037 / FRS-BB-1155 |
 | TEST-BB-1286 | I | `InventoryServiceTests.ListDiscrepancy_NamesTheStorageLocation` | URS-BB-1038 / FRS-BB-1156 |
 | TEST-BB-1287 | U | `ExpectedInboundOverdueTests.OverdueUnit_SaysHowLong` | URS-BB-1039 / FRS-BB-1157 |
+| TEST-BB-1288 | I | `UtilizationServiceTests.ByProduct_CountsIssuesTransfusionsReturnsAndDiscards` | URS-BB-1040 / FRS-BB-1158 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

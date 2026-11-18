@@ -74,6 +74,41 @@ public class UtilizationServiceTests : IDisposable
         Assert.Null(erRow.TransfusedPercentOfIssued);
     }
 
+    // TEST-BB-1288 (end-user testing pass 262): by product, units issued in the period (with the emergency and MTP issues
+    // that are never crossmatched), transfused, returned, and units discarded in the period.
+    [Fact]
+    public async Task ByProduct_CountsIssuesTransfusionsReturnsAndDiscards()
+    {
+        await using var c = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        var f = await SeedAsync(c);
+        await TransfuseAsync(c, f, f.Units[0], TransfusionDisposition.Completed);
+        await TransfuseAsync(c, f, f.Units[1], TransfusionDisposition.Wasted);
+        c.Issues.Add(new Issue { BloodProductId = f.Units[2].Id, PatientId = f.Patient.Id, IssuedUtc = now.AddDays(-2), Status = IssueStatus.Returned });
+        c.Issues.Add(new Issue { BloodProductId = f.Units[3].Id, PatientId = f.Patient.Id, IssuedUtc = now.AddDays(-40), Status = IssueStatus.Issued });
+        var plasma = new ProductType { ProductCode = "FFP-UTIL", Name = "Plasma" };
+        c.ProductTypes.Add(plasma);
+        await c.SaveChangesAsync();
+        var plasmaUnit = new BloodUnit { UnitNumber = "U-UTIL-P1", ProductTypeId = plasma.Id, Abo = AboGroup.AB, RhD = RhType.Positive, ExpiresUtc = now.AddDays(300), Status = UnitStatus.Issued };
+        c.BloodUnits.Add(plasmaUnit);
+        await c.SaveChangesAsync();
+        c.Issues.Add(new Issue { BloodProductId = plasmaUnit.Id, PatientId = f.Patient.Id, IssuedUtc = now.AddHours(-3), IssueType = IssueType.MassiveTransfusion, Status = IssueStatus.Issued });
+        f.Units[7].Status = UnitStatus.Discarded;
+        c.InventoryStatusHistory.Add(new InventoryStatusHistory { BloodProductId = f.Units[7].Id, FromStatus = UnitStatus.Available, ToStatus = UnitStatus.Discarded, ChangedUtc = now.AddDays(-1), ChangedBy = "tech" });
+        await c.SaveChangesAsync();
+
+        var service = new UtilizationService(new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c), new EfRepository<TransfusionEvent>(c),
+            new EfRepository<Order>(c), new EfRepository<OrderingLocation>(c), new EfRepository<OrderingProvider>(c), _factory.Clock,
+            new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), new InventoryRepository(c));
+        var report = await service.GetAsync(now.AddDays(-30), now);
+
+        var red = report.ByProduct.Single(p => p.Product == "Red cells");
+        Assert.Equal((3, 0, 1, 1, 1), (red.Issued, red.EmergencyIssued, red.Transfused, red.Returned, red.Discarded));
+        Assert.Equal(33.3m, red.TransfusedPercentOfIssued);
+        var ffp = report.ByProduct.Single(p => p.Product == "Plasma");
+        Assert.Equal((1, 1, 0, 0, 0), (ffp.Issued, ffp.EmergencyIssued, ffp.Transfused, ffp.Returned, ffp.Discarded));
+    }
+
     [Fact]
     public async Task EmptyPeriod_ReturnsZeroTotals_AndSwapsReversedDates()
     {

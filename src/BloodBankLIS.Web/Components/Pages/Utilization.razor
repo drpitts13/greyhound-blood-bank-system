@@ -59,6 +59,40 @@
             </div>
         }
     </div>
+
+    @* Pass 262: every product, including uncrossmatched emergency issues, and what was wasted. *@
+    <div class="bb-card" data-utilization-by-product>
+        <div class="bb-card-title"><h3>By product</h3></div>
+        <p class="muted" style="margin-top:0;">Units issued in the period by product (emergency and massive-transfusion issues are never crossmatched first, so they are not in the table above), how many of those were transfused or came back, and units discarded in the period.</p>
+        @if (_report.ByProduct.Count == 0)
+        {
+            <div class="muted">No units issued or discarded in this period.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead>
+                    <tr><th>Product</th><th class="right">Issued</th><th class="right">Of them emergency or MTP</th><th class="right">Transfused</th><th class="right">Returned</th><th class="right">Transfused / issued</th><th class="right">Discarded</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in _report.ByProduct)
+                    {
+                        <tr data-product-row="@p.Product">
+                            <td>@p.Product</td>
+                            <td class="right">@p.Issued</td>
+                            <td class="right">@p.EmergencyIssued</td>
+                            <td class="right">@p.Transfused</td>
+                            <td class="right">@p.Returned</td>
+                            <td class="right">@(p.TransfusedPercentOfIssued is decimal pct ? $"{pct:0.0}%" : "—")</td>
+                            <td class="right">@p.Discarded</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+    </div>
 }
 
 <div class="bb-card">

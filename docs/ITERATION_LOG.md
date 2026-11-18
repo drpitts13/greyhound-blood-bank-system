@@ -27252,3 +27252,21 @@ Went through the remaining inventory boards: Recalled (none waiting), Retype (W0
 ### Tests
 
 - TEST-BB-1287. Full suite passed.
+
+## Iteration 982 — End-user testing pass 262: utilization by product (2026-11-18)
+
+### How it was tested
+
+Opened Storage temperatures (two open excursions back in range, waiting for their deviations to close) and Blood utilization for the last 30 days.
+
+### Found and fixed
+
+1. **Blood utilization counted only crossmatched red cells.** The page showed 7 crossmatched, 4 issued, 2 transfused. The two plasma units and the two uncrossmatched O-negative red cells issued under MTP #1, the emergency release to Trauma, John Doe, and every discarded unit were not on it, though a transfusion committee looks at use and wastage by product. A **By product** table now lists, per product, the units issued in the period (and how many were emergency or massive-transfusion issues), how many of them were transfused or returned, *Transfused / issued*, and the units discarded in the period.
+
+### Retested live
+
+- *Fresh Frozen Plasma: 2 issued, 2 emergency or MTP, 0 transfused*; *Red Blood Cells, Leukoreduced: 10 issued, 3 emergency or MTP, 5 transfused, 1 returned, 50.0%, 1 discarded*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1288. Full suite passed.
