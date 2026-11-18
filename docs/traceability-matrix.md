@@ -1118,6 +1118,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1004 / FRS-BB-1122 | End-user testing pass 225: expired specimen wording on Compatibility | `SpecimenChoiceText.cs`, `Compatibility.razor` | TEST-BB-1247 | U | |
 | URS-BB-1005 / FRS-BB-1123 | End-user testing pass 226: breadcrumbs for pages opened by id | `AppBreadcrumbTrail.cs` | TEST-BB-1248 | U | |
 | URS-BB-1006 / FRS-BB-1124 | End-user testing pass 227 (OCD-093): results entered in date survive specimen expiry | `ExpiredSpecimenOrderService.cs`, `ExpiredSpecimenVerificationRule.cs`, `VerificationDeadlineRule.cs`, `ResultService.cs`, `TestWorklistService.cs` | TEST-BB-1249, TEST-BB-1250, TEST-BB-1251 | D, I | |
+| URS-BB-1007 / FRS-BB-1125 | End-user testing pass 228: paper results per outage | `DowntimeEpisodeService.cs`, `DowntimeReconciliation.razor` | TEST-BB-1252 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

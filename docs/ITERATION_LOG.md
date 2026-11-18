@@ -26627,3 +26627,21 @@ Pass 226 found MRN0022's Stat antibody screen, entered *Positive* on ACC-DEMO-RC
 ### Tests
 
 - TEST-BB-1249, TEST-BB-1250, TEST-BB-1251 (TEST-BB-368 updated). Full suite passed.
+
+## Iteration 948 — End-user testing pass 228: paper results per outage (2026-11-17)
+
+### How it was tested
+
+Opened Downtime Snapshot after the OCD-091/093 work: the recorded outage #1 (2026-11-12 03:15–05:15, LIS application server) and the reconciliation queues.
+
+### Found and fixed
+
+1. **An outage counted paper issues but not paper results.** After an outage the bench enters the results it read on paper, each with its time tested (OCD-091), but the outage row counted only issues back-entered, so there was no check of results entered against the paper log. Each outage now also lists **Paper results entered** — hand-entered results whose time tested falls inside it, not invalidated or replaced — and how many still wait for verification, linked to To verify.
+
+### Retested live
+
+- Outage #1 shows *Paper results entered 0* (no paper result was entered for it in the seed). Nothing was changed.
+
+### Tests
+
+- TEST-BB-1252. Full suite passed.

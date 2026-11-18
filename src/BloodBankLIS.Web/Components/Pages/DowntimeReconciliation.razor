@@ -50,7 +50,7 @@
         {
             <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Outage</th><th>Started</th><th>Ended</th><th>What was down</th><th>Paper issues back-entered</th><th>Recorded by</th></tr></thead>
+                <thead><tr><th>Outage</th><th>Started</th><th>Ended</th><th>What was down</th><th>Paper issues back-entered</th><th>Paper results entered</th><th>Recorded by</th></tr></thead>
                 <tbody>
                     @foreach (var e in _episodes)
                     {
@@ -73,6 +73,14 @@
                                 @if (e.BackEntriesOpen > 0)
                                 {
                                     <span class="sub"><a href="/issuing?desk=issued">@e.BackEntriesOpen transfusion not yet entered</a></span>
+                                }
+                            </td>
+                            @* Pass 228: hand-entered results tested inside this outage. *@
+                            <td data-outage-results>
+                                @e.PaperResults
+                                @if (e.PaperResultsToVerify > 0)
+                                {
+                                    <span class="sub"><a href="/test-worklist?show=verify">@e.PaperResultsToVerify to verify</a></span>
                                 }
                             </td>
                             <td>@RecordedBy(e)</td>

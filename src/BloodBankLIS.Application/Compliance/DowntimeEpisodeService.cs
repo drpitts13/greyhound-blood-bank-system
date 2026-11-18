@@ -18,7 +18,16 @@ public sealed record DowntimeEpisodeDto(
     // Of these, the transfusion (or return) is still to be entered.
     int BackEntriesOpen,
     // The late-entry reason a back-entry inside this outage carries.
-    string BackEntryReason);
+    string BackEntryReason)
+{
+    /// <summary>
+    /// Manual results whose time tested falls inside this outage (paper results entered afterwards), not invalidated or
+    /// replaced (end-user testing pass 228); of these, still waiting for verification.
+    /// </summary>
+    public int PaperResults { get; init; }
+
+    public int PaperResultsToVerify { get; init; }
+}
 
 public sealed record RecordDowntimeEpisodeRequest(DateTime StartedUtc, DateTime? EndedUtc, string Description);
 
@@ -38,6 +47,7 @@ public sealed class DowntimeEpisodeService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
+    private readonly IRepository<TestResult>? _results;
 
     public DowntimeEpisodeService(
         IRepository<DowntimeEpisode> episodes,
@@ -45,8 +55,10 @@ public sealed class DowntimeEpisodeService
         IAuditWriter audit,
         IUnitOfWork unitOfWork,
         IClock clock,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IRepository<TestResult>? results = null)
     {
+        _results = results;
         _episodes = episodes;
         _issues = issues;
         _audit = audit;
@@ -66,10 +78,20 @@ public sealed class DowntimeEpisodeService
 
         var earliest = episodes.Min(e => e.StartedUtc);
         var backEntries = await _issues.ListAsync(i => i.DowntimeBackEntry && i.IssuedUtc >= earliest, ct);
+        // Pass 228: paper results, by the time tested a hand-entered result carries.
+        var paper = _results is null
+            ? []
+            : await _results.ListAsync(r => r.Source == ResultSource.Manual && r.TestedUtc != null && r.TestedUtc >= earliest
+                && r.Status != ResultStatus.Invalidated && r.SupersededByResultId == null, ct);
         return episodes.Select(e =>
         {
             var inside = backEntries.Where(i => DowntimeEpisodeRule.Covering([e], i.IssuedUtc) is not null).ToList();
-            return Map(e, inside.Count, inside.Count(i => i.Status == IssueStatus.Issued));
+            var results = paper.Where(r => DowntimeEpisodeRule.Covering([e], r.TestedUtc!.Value) is not null).ToList();
+            return Map(e, inside.Count, inside.Count(i => i.Status == IssueStatus.Issued)) with
+            {
+                PaperResults = results.Count,
+                PaperResultsToVerify = results.Count(r => r.Status is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected)
+            };
         }).ToList();
     }
 

@@ -50,6 +50,40 @@ public class DowntimeEpisodeTests : IDisposable
         Assert.Equal("Outage not found.", (await Service(c).EndAsync(9999, new EndDowntimeEpisodeRequest(Now))).Error);
     }
 
+    // TEST-BB-1252 (end-user testing pass 228): each outage counts the hand-entered results whose time tested falls inside
+    // it, and how many still wait for verification; an invalidated one, an interface result, or one tested outside does
+    // not count.
+    [Fact]
+    public async Task List_CountsPaperResultsTestedInsideTheOutage()
+    {
+        await using var c = _factory.Create();
+        var outage = await Service(c).RecordAsync(new RecordDowntimeEpisodeRequest(Now.AddHours(-6), Now.AddHours(-3), "LIS down"));
+        Assert.True(outage.Succeeded, outage.Error);
+        var patient = new Patient { MedicalRecordNumber = "MRN-DT228", LastName = "Paper", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var specimen = new Specimen { PatientId = patient.Id, AccessionNumber = "ACC-DT228", SpecimenType = "EDTA", Status = SpecimenStatus.Accepted, CollectedUtc = Now.AddHours(-7), ExpiresUtc = Now.AddDays(2) };
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+        TestResult Result(DateTime? tested, ResultSource source, ResultStatus status) => new()
+        {
+            SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = "ABSC", Value = "Negative", Source = source, Status = status, TestedUtc = tested
+        };
+        c.TestResults.AddRange(
+            Result(Now.AddHours(-5), ResultSource.Manual, ResultStatus.Verified),
+            Result(Now.AddHours(-4), ResultSource.Manual, ResultStatus.Entered),
+            Result(Now.AddHours(-4), ResultSource.Manual, ResultStatus.Invalidated),
+            Result(Now.AddHours(-4), ResultSource.Interface, ResultStatus.Entered),
+            Result(Now.AddHours(-1), ResultSource.Manual, ResultStatus.Entered));
+        await c.SaveChangesAsync();
+
+        var service = new DowntimeEpisodeService(new EfRepository<DowntimeEpisode>(c), new EfRepository<Issue>(c),
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), c, _factory.Clock, _factory.CurrentUser,
+            new EfRepository<TestResult>(c));
+        var row = Assert.Single(await service.ListAsync(), e => e.Id == outage.Value!.Id);
+        Assert.Equal((2, 1), (row.PaperResults, row.PaperResultsToVerify));
+    }
+
     // TEST-BB-845: refused, with nothing saved: no description, a start in the future, an end before the start, an end in
     // the future, an overlap with another outage (and a second open one); ending at a time that runs into a later outage.
     [Fact]

@@ -22,6 +22,7 @@ routes:
 - An outage left open shows as **Outage still open** on the home screen of everyone who issues and on the shift handoff, until someone ends it.
 - An outage cannot start or end in the future, must end after it starts, and cannot overlap another outage. Only one can be open at a time.
 - Each outage lists the paper issues back-entered with an issue time inside it, and how many of those still have their transfusion to enter (linked to **Issued units**).
+- It also lists the **paper results entered**: hand-entered results whose time tested falls inside the outage (not invalidated or replaced), and how many still wait for verification (linked to **To verify**), so the paper log can be checked against what was entered.
 
 Recording and ending an outage are written to the audit trail with who did it.
 

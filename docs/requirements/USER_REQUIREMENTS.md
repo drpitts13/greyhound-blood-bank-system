@@ -1012,3 +1012,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1004 | The Compatibility specimen pickers word an expired tube as expired, with when. | P3 | FRS-BB-1122 |
 | URS-BB-1005 | The breadcrumb of a page opened by id names the page, not the bare id. | P3 | FRS-BB-1123 |
 | URS-BB-1006 | A result entered while its specimen was in date is not lost when the specimen expires: its order stays open and the result can be verified (OCD-093). | P1 | FRS-BB-1124 |
+| URS-BB-1007 | Each recorded outage counts the paper results entered for it and those still to verify. | P2 | FRS-BB-1125 |
