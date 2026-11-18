@@ -66,7 +66,9 @@ public class PatientTimelineTests : IDisposable
 
         var issue = Event(events, $"iss-{f.Issue.Id}");
         Assert.Equal(TimelineSeverity.Warning, issue.Severity);
-        Assert.Contains("EmergencyRelease", issue.Title);
+        // Pass 270: in words.
+        Assert.Contains("(Emergency release)", issue.Title);
+        Assert.Contains("Crossmatch at issue: Not crossmatched emergency", issue.Detail);
         Assert.Contains("Override ISS-XM-REQUIRED: Uncrossmatched release for hemorrhage", issue.Detail);
         Assert.Contains("authorized by Dr. Lee", issue.Detail);
 

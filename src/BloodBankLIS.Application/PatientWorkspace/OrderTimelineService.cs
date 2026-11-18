@@ -90,7 +90,7 @@ public sealed class OrderTimelineService
         {
             new(order.OrderedUtc, TimelineCategory.Order, TimelineSeverity.Info,
                 $"Ordered: {(string.IsNullOrWhiteSpace(order.OrderName) ? order.TestCode : order.OrderName)}",
-                join($"{order.Priority}", $"from {order.Source}",
+                join(BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(order.Priority.ToString()), $"from {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(order.Source.ToString())}",
                     string.IsNullOrWhiteSpace(order.OrderingProvider) ? null : $"provider {order.OrderingProvider}",
                     order.NeededByUtc is DateTime nb ? $"needed by {ClinicalTimeText.Local(nb)}" : null),
                 order.OrderedByUser ?? order.CreatedBy, $"{chart}?tab=orders", $"ord-{order.Id}")
@@ -191,8 +191,8 @@ public sealed class OrderTimelineService
         {
             var emergency = i.IssueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion || i.OverrideId is not null;
             events.Add(new(i.IssuedUtc, TimelineCategory.Product, emergency ? TimelineSeverity.Warning : TimelineSeverity.Info,
-                $"Unit {Unit(i.BloodProductId)} issued{(i.IssueType == IssueType.Standard ? "" : $" ({i.IssueType})")}",
-                join(string.IsNullOrWhiteSpace(i.IssuedToLocation) ? null : $"To {i.IssuedToLocation}", $"Crossmatch at issue: {i.CrossmatchStatus}"),
+                $"Unit {Unit(i.BloodProductId)} issued{(i.IssueType == IssueType.Standard ? "" : $" ({BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(i.IssueType.ToString())})")}",
+                join(string.IsNullOrWhiteSpace(i.IssuedToLocation) ? null : $"To {i.IssuedToLocation}", $"Crossmatch at issue: {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(i.CrossmatchStatus.ToString())}"),
                 i.IssuedBy, UnitHref(i.BloodProductId), $"iss-{i.Id}"));
         }
 

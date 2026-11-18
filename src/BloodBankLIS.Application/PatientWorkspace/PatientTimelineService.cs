@@ -164,7 +164,7 @@ public sealed class PatientTimelineService
         {
             events.Add(new(b.CreatedUtc, TimelineCategory.Testing, TimelineSeverity.Info,
                 $"Blood type recorded: {b.Abo} {b.RhD}",
-                Join($"Source: {b.Source}", b.IsCurrent ? "current" : "superseded", b.Reason),
+                Join($"Source: {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(b.Source.ToString())}", b.IsCurrent ? "current" : "superseded", b.Reason),
                 b.CreatedBy, chart, $"abo-{b.Id}"));
         }
 
@@ -247,9 +247,9 @@ public sealed class PatientTimelineService
         {
             var emergency = i.IssueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion || i.OverrideId is not null;
             events.Add(new(i.IssuedUtc, TimelineCategory.Product, emergency ? TimelineSeverity.Warning : TimelineSeverity.Info,
-                $"Unit {Unit(i.BloodProductId)} issued{(i.IssueType == IssueType.Standard ? "" : $" ({i.IssueType})")}",
+                $"Unit {Unit(i.BloodProductId)} issued{(i.IssueType == IssueType.Standard ? "" : $" ({BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(i.IssueType.ToString())})")}",
                 Join(string.IsNullOrWhiteSpace(i.IssuedToLocation) ? null : $"To {i.IssuedToLocation}",
-                    $"Crossmatch at issue: {i.CrossmatchStatus}",
+                    $"Crossmatch at issue: {BloodBankLIS.Domain.Reporting.ReportCodeNameText.Words(i.CrossmatchStatus.ToString())}",
                     OverrideText(i.OverrideId, overrides),
                     // Cycle 680: how the issue was entered, as Product History says it (Cycle 676).
                     IssueEntryNotes.For(i.LateEntryReason, i.DowntimeBackEntry, i.OutsideOutageReason, i.NeonatalNoCrossmatch) is { Count: > 0 } notes

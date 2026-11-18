@@ -27396,3 +27396,21 @@ Opened Febrile, Marcus's chart timeline (MRN0006: transfusion, reaction, cancell
 ### Tests
 
 - TEST-BB-1295. Full suite passed.
+
+## Iteration 990 — End-user testing pass 270: timeline issue and type sources in words (2026-11-18)
+
+### How it was tested
+
+After pass 269, read the timelines of Demo-Massive, Morgan (MRN0021), Trauma, John Doe (MRN0005), Demo, Patricia (MRN0001), Demo-Multi, Riley (MRN0022) and Febrile, Marcus (MRN0006) for any remaining code names.
+
+### Found and fixed
+
+1. **Issue and blood type events still printed code names.** *Unit W0001230009104 issued (MassiveTransfusion)*, *Crossmatch at issue: NotCrossmatchedEmergency* or *NotPerformed*, and blood type history *Source: HistoricalImport* / *TestResult*. They now read *issued (Massive transfusion)*, *Crossmatch at issue: Not crossmatched emergency*, *Source: Historical import*; the order timeline's priority and source likewise.
+
+### Retested live
+
+- None of the five timelines has a code name left; MRN0021 reads *Unit W0001230009104 issued (Massive transfusion)*, MRN0005 *Unit W0001230001004 issued (Emergency release)*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1296 (in the timeline safety-events test). Full suite passed.
