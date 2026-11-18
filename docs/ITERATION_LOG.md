@@ -27180,3 +27180,21 @@ After pass 256, searched the screens for other places that print a result's stor
 ### Tests
 
 - TEST-BB-1283. Full suite passed.
+
+## Iteration 978 — End-user testing pass 258: return window in words on the issued board (2026-11-18)
+
+### How it was tested
+
+Printed the one-patient downtime summary for Demo-Special, Avery (requirements, current specimen and reserved unit listed) and DEMO-MATAB, Lena (*No second determination on file*), opened Kellerman, Diane's antibody card (it warns that the ABO/Rh was tested with the failed-QC anti-D lot), and went through Issue & Transfuse › Issued units (6 units).
+
+### Found and fixed
+
+1. **The issued board said only "Window elapsed".** Under each issue time the board printed *Window elapsed*, with nothing saying which window or what it meant. It is the return-to-available window: past it, a unit from governed storage cannot go back to available stock. The board now says *Return window passed: not returnable to stock* (or *Within the return window*, or *No return time limit (exempt storage)*), with the full notice on hover.
+
+### Retested live
+
+- Each of the 6 issued units reads *Return window passed: not returnable to stock*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1284. Full suite passed.

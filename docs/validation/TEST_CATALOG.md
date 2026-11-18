@@ -1292,5 +1292,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1281 | A | `WorklistSpecimenExpiryTextTests.Note_ReactionWorkup_MayUseTheExpiredTube` | URS-BB-1034 / FRS-BB-1152 |
 | TEST-BB-1282 | A | `WorklistSpecimenExpiryTextTests.PhasedScreenPanel_ReadsAsReadings` | URS-BB-1035 / FRS-BB-1153 |
 | TEST-BB-1283 | U | `BatchVerifyValueTextTests.BatchCandidate_ShowsTheScreenAsReadings` | URS-BB-1035 / FRS-BB-1153 |
+| TEST-BB-1284 | A | `TimeOutBoardTextTests.BoardText_SaysWhatTheWindowMeans` | URS-BB-1036 / FRS-BB-1154 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

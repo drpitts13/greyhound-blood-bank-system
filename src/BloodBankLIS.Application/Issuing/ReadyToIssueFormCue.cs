@@ -166,6 +166,15 @@ public static class ReadyToIssueFormCue
         _ => status.ToString()
     };
 
+    /// <summary>
+    /// The Issued units board's words for the return-to-available window (end-user testing pass 258: the board said only
+    /// "Window elapsed" under the issue time, which did not say what window or what it meant for a return).
+    /// </summary>
+    public static string TimeOutBoardText(bool governed, bool acceptable) =>
+        !governed ? "No return time limit (exempt storage)"
+        : acceptable ? "Within the return window"
+        : "Return window passed: not returnable to stock";
+
     public static string TimeOutNotice(bool governed, bool acceptable) =>
         ReturnReissueRule.TimeOutLabel(governed, acceptable) switch
         {

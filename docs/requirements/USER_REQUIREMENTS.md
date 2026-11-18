@@ -1041,3 +1041,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1033 | An instrument message shows the rules that ran on it as a readable table, not raw JSON. | P3 | FRS-BB-1151 |
 | URS-BB-1034 | The test worklist says in words when a specimen has expired, and that a new specimen is needed when nothing has been entered on it. | P2 | FRS-BB-1152 |
 | URS-BB-1035 | A subtest panel result (an antibody screen) reads as its readings on the reaction investigation, its report and the patient chart, not as stored JSON. | P2 | FRS-BB-1153 |
+| URS-BB-1036 | The issued units board says in words where each unit stands against the return-to-stock window. | P3 | FRS-BB-1154 |

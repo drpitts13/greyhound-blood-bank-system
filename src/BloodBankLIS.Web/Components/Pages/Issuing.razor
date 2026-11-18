@@ -807,7 +807,7 @@
                                 }
                                 else
                                 {
-                                    <span class="sub">@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span>
+                                    <span class="sub" title="@ReadyToIssueFormCue.TimeOutNotice(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)" data-time-out>@ReadyToIssueFormCue.TimeOutBoardText(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span>
                                 }
                                 @if (row.OpenReactionInvestigationId is long reactionOpen)
                                 {
