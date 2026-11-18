@@ -11,6 +11,8 @@ routes:
 
 The **RhIG** tab holds Rh immune globulin evaluations for this patient: one per delivery, antepartum event, or other exposure.
 
+On an infant's chart (under one year) the tab says that a delivery or antepartum event is recorded on the mother's chart, and a new evaluation offers only **Other exposure** (for example Rh-positive platelets).
+
 **New evaluation** records the event and its time, the infant's Rh (or Not known), the fetal bleed screen (Not done, Negative, Positive) and, when it is positive, the fetal cells percentage from quantitation. Then record the decision your procedure reached: **Candidate** with the vials recommended, or **Not a candidate** with the reason. You can save a record before the decision is made and come back to it.
 
 Each record lists the facts on file next to what you entered: the patient's current Rh type, whether anti-D is on the antibody history, the infant Rh, and the screen and quantitation. Under the facts, an open evaluation shows a **suggestion** and a **calculated dose** (OCD-069). You decide: the suggestion and the dose are only recorded when you enter them.

@@ -26815,3 +26815,21 @@ Opened Return for W0001230009206 (the return-to-available window has elapsed, so
 ### Tests
 
 - TEST-BB-1261. Full suite passed.
+
+## Iteration 958 — End-user testing pass 238: RhIG on an infant's chart (2026-11-18)
+
+### How it was tested
+
+Continued on Newborn, Baby Boy (MRN0002, 12 days old) with the RhIG tab.
+
+### Found and fixed
+
+1. **An infant's RhIG tab started a delivery evaluation.** *New evaluation* opened on *Delivery (postpartum)*, with the text "Record a pregnancy event", on the infant's own chart; the delivery evaluation belongs on the mother's chart. RhIG can still apply to an infant for another exposure (for example Rh-positive platelets), so the tab stays: it now says a delivery or antepartum event is recorded on the mother's chart, and a new evaluation starts on, and offers only, *Other exposure*. An existing record keeps its context when edited.
+
+### Retested live
+
+- MRN0002's RhIG tab shows the note; *New evaluation* offers only Other exposure. The form was opened, not saved.
+
+### Tests
+
+- TEST-BB-1262. Full suite passed.

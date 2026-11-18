@@ -17,6 +17,11 @@
         file; candidacy and the dose follow your facility's procedure (OCD-069). A supervisor with result verification
         completes the record.
     </p>
+    @if (IsInfant)
+    {
+        @* Pass 238: a pregnancy event belongs on the mother's chart; an infant's evaluation is for another exposure. *@
+        <p class="muted" data-rhig-infant-note>This is an infant's chart: record a delivery or antepartum event on the mother's chart. Here, record another exposure (for example Rh-positive platelets).</p>
+    }
     <Outcome Value="_fb" />
 
     @if (_form is not null)
@@ -25,8 +30,11 @@
             <div class="form-row">
                 <div class="field"><label>Event</label>
                     <select @bind="_form.Context">
-                        <option value="@RhigContext.Postpartum">Delivery (postpartum)</option>
-                        <option value="@RhigContext.Antepartum">Antepartum</option>
+                        @if (!IsInfant || _form.Context != RhigContext.OtherExposure)
+                        {
+                            <option value="@RhigContext.Postpartum">Delivery (postpartum)</option>
+                            <option value="@RhigContext.Antepartum">Antepartum</option>
+                        }
                         <option value="@RhigContext.OtherExposure">Other exposure</option>
                     </select>
                 </div>
@@ -208,6 +216,11 @@
 @code {
     [Parameter] public long PatientId { get; set; }
 
+    [Parameter] public DateOnly? PatientDateOfBirth { get; set; }
+
+    // Pass 238: under one year, as the chart's Link mother offer.
+    private bool IsInfant => PatientDateOfBirth is DateOnly dob && MotherInfantLinkRule.OfferLink(dob, DateOnly.FromDateTime(DateTime.Today));
+
     private List<RhigEvaluationDto>? _rows;
     private RhigForm? _form;
     private Feedback? _fb;
@@ -286,7 +299,7 @@
         }
     }
 
-    private void New() => _form = new RhigForm();
+    private void New() => _form = new RhigForm { Context = IsInfant ? RhigContext.OtherExposure : RhigContext.Postpartum };
 
     /// <summary>Opens the evaluation with the suggested decision and, for a candidate, the calculated vials; saving is the reviewer's.</summary>
     private void UseSuggestion(RhigEvaluationDto e)

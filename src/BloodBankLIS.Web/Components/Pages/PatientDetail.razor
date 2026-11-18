@@ -362,7 +362,7 @@ else
 
     @if (_tab == "rhig")
     {
-        <PatientChartRhigTab PatientId="Id" />
+        <PatientChartRhigTab PatientId="Id" PatientDateOfBirth="_patient?.DateOfBirth" />
     }
 
     @if (_tab == "test-history")

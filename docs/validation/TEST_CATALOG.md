@@ -1270,5 +1270,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1259 | U | `WardReceiptTimingTextTests.For_SaysWhenIssuedAndHowLate` | URS-BB-1014 / FRS-BB-1132 |
 | TEST-BB-1260 | U | `WardReceiptTimingTextTests.BeforeStart_SaysWhenIssuedAndReceived` | URS-BB-1015 / FRS-BB-1133 |
 | TEST-BB-1261 | U | `PregnancySectionTests.RecentPregnancy_IsNotOfferedOnAnInfantsChart` | URS-BB-1016 / FRS-BB-1134 |
+| TEST-BB-1262 | U | `RhigInfantChartTests.InfantChart_OffersOnlyOtherExposure` | URS-BB-1017 / FRS-BB-1135 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
