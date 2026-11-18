@@ -670,6 +670,12 @@ public sealed record InterfaceUnmappedValueDto(
     /// recorded before such codes stopped being listed in pass 147).
     /// </summary>
     public bool AlreadyLisCode { get; init; }
+
+    /// <summary>
+    /// An open inbound value that a translation saved since now covers: what it translates to (end-user testing pass 241:
+    /// patient class I stayed unmapped after the seeded I → Inpatient row was added). Null otherwise.
+    /// </summary>
+    public string? NowTranslatedTo { get; init; }
 }
 
 // ---- Users & roles ----

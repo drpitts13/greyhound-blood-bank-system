@@ -26869,3 +26869,21 @@ Opened Administration › Interface Setup, where pass 219's *Set up an interface
 ### Tests
 
 - TEST-BB-1264. Full suite passed.
+
+## Iteration 961 — End-user testing pass 241: unmapped values now translated (2026-11-18)
+
+### How it was tested
+
+Opened Interface Setup › Translation table › Unmapped values (8 open).
+
+### Found and fixed
+
+1. **Patient class "I" stayed unmapped though it is translated now.** It was recorded from UAT-ADT-1 on 2026-11-12, before the seeded *I → Inpatient* translation existed; saving a translation clears a value only when saved for it, so this one stayed listed as if a translation were still to be written. An open inbound value that a translation now covers says *Now translated to Inpatient. Dismiss it.*, and the home card adds *1 now translated, to dismiss*. Nothing is cleared automatically.
+
+### Retested live
+
+- Unmapped values marks patient class I; the home card reads *2 already LIS codes, to dismiss; 1 now translated, to dismiss*. Nothing was dismissed.
+
+### Tests
+
+- TEST-BB-1265 (and a card assertion in TEST-BB-1227's test). Full suite passed.

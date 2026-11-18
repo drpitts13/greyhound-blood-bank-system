@@ -30,8 +30,10 @@ public sealed class InterfaceUnmappedValueService
         IAuditWriter? audit = null,
         IRepository<InterfaceEndpoint>? endpoints = null,
         IRepository<InstrumentInterface>? instruments = null,
-        InterfaceValueSets? valueSets = null)
+        InterfaceValueSets? valueSets = null,
+        IRepository<InterfaceValueTranslation>? translations = null)
     {
+        _translations = translations;
         _valueSets = valueSets;
         _values = values;
         _unitOfWork = unitOfWork;
@@ -166,6 +168,8 @@ public sealed class InterfaceUnmappedValueService
     }
 
     private readonly InterfaceValueSets? _valueSets;
+    // Pass 241: an open value that a translation saved since now covers (a seeded row, say).
+    private readonly IRepository<InterfaceValueTranslation>? _translations;
 
     public async Task<IReadOnlyList<InterfaceUnmappedValueDto>> ListAsync(bool openOnly, CancellationToken ct = default)
     {
@@ -189,6 +193,16 @@ public sealed class InterfaceUnmappedValueService
             ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             : (await _valueSets.ForAsync(InterfaceDataItemKeys.OrderTestCode, ct)).Select(k => k.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var inbound = _translations is null
+            ? []
+            : await _translations.ListAsync(t => t.Direction == InterfaceTranslationDirection.Inbound || t.Direction == InterfaceTranslationDirection.Both, ct);
+        string? TranslatedTo(InterfaceUnmappedValue v) =>
+            v.ResolvedUtc is not null || v.InstrumentInterfaceId is not null || v.Direction != InterfaceTranslationDirection.Inbound
+                ? null
+                : inbound.FirstOrDefault(t => t.DataItemKey == v.DataItemKey
+                    && string.Equals(t.ExternalValue.Trim(), v.Value.Trim(), StringComparison.OrdinalIgnoreCase)
+                    && (t.EndpointId is null || t.EndpointId == v.EndpointId))?.InternalValue;
+
         return rows
             .OrderBy(v => v.ResolvedUtc is null ? 0 : 1)
             .ThenByDescending(v => v.LastSeenUtc)
@@ -199,7 +213,8 @@ public sealed class InterfaceUnmappedValueService
                 v.InstrumentInterfaceId, v.InstrumentInterfaceId is long iid ? instruments.GetValueOrDefault(iid) : null)
             {
                 AlreadyLisCode = v.ResolvedUtc is null && v.InstrumentInterfaceId is null && v.Direction == InterfaceTranslationDirection.Inbound
-                    && v.DataItemKey == InterfaceDataItemKeys.OrderTestCode && lisOrderCodes.Contains(v.Value.Trim())
+                    && v.DataItemKey == InterfaceDataItemKeys.OrderTestCode && lisOrderCodes.Contains(v.Value.Trim()),
+                NowTranslatedTo = TranslatedTo(v)
             })
             .ToList();
     }

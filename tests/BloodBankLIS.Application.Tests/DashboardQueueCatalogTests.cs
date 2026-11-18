@@ -487,6 +487,9 @@ public class DashboardQueueCatalogTests
 
         Assert.Null(DashboardQueueCatalog.UnmappedNote([Value("LAB1", false)]));
         Assert.Equal("2 already LIS codes, to dismiss", DashboardQueueCatalog.UnmappedNote([Value("RBC-LR", true), Value("TNS", true), Value("LAB1", false)]));
+        // TEST-BB-1265 (pass 241): values a translation now covers are named too.
+        Assert.Equal("2 already LIS codes, to dismiss; 1 now translated, to dismiss", DashboardQueueCatalog.UnmappedNote(
+            [Value("RBC-LR", true), Value("TNS", true), Value("I", false) with { NowTranslatedTo = "Inpatient" }]));
     }
 
     // TEST-BB-490: deviation managers see Open deviations (everything not closed), with critical ones named; the card

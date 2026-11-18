@@ -296,6 +296,11 @@ else
                                     @* Pass 204: listed before such codes stopped being recorded; dismiss it. *@
                                     <div class="sub" data-xl-already-lis-code>Now an LIS code: used as it comes, no translation needed. Dismiss it.</div>
                                 }
+                                else if (u.NowTranslatedTo is { } translatedTo)
+                                {
+                                    @* Pass 241: a translation saved since covers it; dismiss it. *@
+                                    <div class="sub" data-xl-now-translated>Now translated to @translatedTo. Dismiss it.</div>
+                                }
                             </td>
                             <td>@(u.InstrumentInterfaceId is null ? DirectionText(u.Direction) : u.Direction == InterfaceTranslationDirection.Outbound ? "Outbound (to instrument)" : "Inbound (from instrument)")</td>
                             <td>@(u.InstrumentName is { } instrument ? $"{instrument} (instrument)" : u.EndpointName ?? "—")</td>

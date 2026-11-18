@@ -1025,3 +1025,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1017 | An infant's RhIG tab points pregnancy events to the mother's chart and offers only other exposures. | P3 | FRS-BB-1135 |
 | URS-BB-1018 | The instrument interface list names its field map and translation counts in separate columns. | P3 | FRS-BB-1136 |
 | URS-BB-1019 | Interface Setup with no interface says what waits for one and how many outbound messages are waiting. | P3 | FRS-BB-1137 |
+| URS-BB-1020 | An unmapped value that a translation now covers says what it translates to, to dismiss. | P3 | FRS-BB-1138 |

@@ -50,6 +50,8 @@ Race (PID-10) and ethnicity (PID-22) are stored on the patient only when they tr
 
 An inbound order code that is now one of the LIS's own test, grouper or product codes says *Now an LIS code: used as it comes, no translation needed. Dismiss it.* Such codes are no longer listed when they arrive; one listed before that, or before the code was added to the LIS, stays until dismissed. The home **Unmapped interface values** card says how many are already LIS codes, to dismiss.
 
+An inbound value that a translation saved since now covers (for example patient class *I* after the *I → Inpatient* row was added) says *Now translated to Inpatient. Dismiss it.*, and the home card counts those too (*1 now translated, to dismiss*).
+
 ## Good practice
 
 When the sending system changes a code, add the new translation and leave the old one if historical replays still need it. Deleting the old row makes those replays fail.

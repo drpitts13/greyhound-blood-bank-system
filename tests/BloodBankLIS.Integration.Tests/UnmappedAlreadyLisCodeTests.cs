@@ -33,4 +33,27 @@ public class UnmappedAlreadyLisCodeTests : IDisposable
         Assert.True(rows.Single(r => string.Equals(r.Value, code, StringComparison.OrdinalIgnoreCase)).AlreadyLisCode);
         Assert.False(rows.Single(r => r.Value == "LAB-NOT-LIS-204").AlreadyLisCode);
     }
+
+    // TEST-BB-1265 (end-user testing pass 241): an open inbound value that a translation saved since now covers says what
+    // it translates to; one with no translation does not.
+    [Fact]
+    public async Task OpenValueNowTranslated_SaysWhatItTranslatesTo()
+    {
+        await using var c = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        var key = "Encounter.PatientClass";
+        var value = $"Q{Guid.NewGuid():N}"[..4].ToUpperInvariant();
+        c.InterfaceValueTranslations.Add(new InterfaceValueTranslation { DataItemKey = key, InternalValue = "Inpatient", ExternalValue = value, Direction = InterfaceTranslationDirection.Both });
+        c.InterfaceUnmappedValues.AddRange(
+            new InterfaceUnmappedValue { DataItemKey = key, Value = value.ToLowerInvariant(), Direction = InterfaceTranslationDirection.Inbound, FirstSeenUtc = now, LastSeenUtc = now, Count = 1 },
+            new InterfaceUnmappedValue { DataItemKey = key, Value = "ZZ241", Direction = InterfaceTranslationDirection.Inbound, FirstSeenUtc = now, LastSeenUtc = now, Count = 1 });
+        await c.SaveChangesAsync();
+
+        var service = new InterfaceUnmappedValueService(new EfRepository<InterfaceUnmappedValue>(c), c, _factory.Clock,
+            translations: new EfRepository<InterfaceValueTranslation>(c));
+        var rows = await service.ListAsync(openOnly: true);
+
+        Assert.Equal("Inpatient", rows.Single(r => string.Equals(r.Value, value, StringComparison.OrdinalIgnoreCase)).NowTranslatedTo);
+        Assert.Null(rows.Single(r => r.Value == "ZZ241").NowTranslatedTo);
+    }
 }
