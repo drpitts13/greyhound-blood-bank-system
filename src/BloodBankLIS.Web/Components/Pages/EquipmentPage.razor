@@ -169,7 +169,7 @@ else
         {
             @foreach (var e in _equipment)
             {
-                <div class="bb-card" style="margin:.5rem 0;" data-equipment="@e.Code">
+                <div class="bb-card" style="margin:.5rem 0;@(string.Equals(e.Code, CodeQuery, StringComparison.OrdinalIgnoreCase) ? "outline:2px solid var(--bb-accent,#2563eb);" : "")" data-equipment="@e.Code" id="@($"equipment-{e.Id}")">
                     <div class="bb-card-title">
                         <h4 style="margin:0;"><span class="mono">@e.Code</span> @e.Name <span class="muted">· @e.Kind@(e.Location is null ? "" : $" · {e.Location}")@(e.SerialNumber is null ? "" : $" · S/N {e.SerialNumber}")@(e.TestCodes is null ? "" : $" · used for {e.TestCodes}")</span></h4>
                         <div class="flex gap">
@@ -632,6 +632,21 @@ else
     }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    /// <summary>Pass 267: the lookup opens one piece of equipment (/equipment?code=HB-01): it is outlined and scrolled to.</summary>
+    [SupplyParameterFromQuery(Name = "code")] public string? CodeQuery { get; set; }
+    private bool _scrolledToCode;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Only once the list is on the page (while loading, the cards are not rendered yet).
+        if (!_scrolledToCode && !_loading && !string.IsNullOrWhiteSpace(CodeQuery)
+            && _equipment.FirstOrDefault(e => string.Equals(e.Code, CodeQuery, StringComparison.OrdinalIgnoreCase)) is { } match)
+        {
+            _scrolledToCode = true;
+            await Js.ScrollIntoViewAsync($"equipment-{match.Id}");
+        }
+    }
 
     private async Task LoadAsync()
     {

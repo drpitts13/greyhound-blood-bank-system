@@ -22,7 +22,8 @@ public class UniversalLookupTests : IDisposable
             reagentLots: new EfRepository<ReagentLot>(c), reagents: new EfRepository<Reagent>(c),
             deviations: new EfRepository<Deviation>(c), instrumentMessages: new EfRepository<InstrumentMessageLog>(c),
             deliveries: new EfRepository<BloodDelivery>(c), suppliers: new EfRepository<BloodSupplier>(c),
-            hl7Messages: new EfRepository<Hl7MessageLog>(c));
+            hl7Messages: new EfRepository<Hl7MessageLog>(c),
+            equipment: new EfRepository<Equipment>(c), locations: new EfRepository<InventoryLocation>(c));
 
     [Fact]
     public async Task ScannedDin_OpensTheOneUnit()
@@ -424,7 +425,7 @@ public class UniversalLookupTests : IDisposable
         var result = await Lookup(c).LookupAsync("ZZZ-NOPE");
 
         Assert.Empty(result.Hits);
-        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, instrument sample, or HL7 message control ID matches \"ZZZ-NOPE\".", result.Message);
+        Assert.Equal("No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, instrument sample, HL7 message control ID, equipment, or storage location matches \"ZZZ-NOPE\".", result.Message);
     }
 
     // TEST-BB-612: a shipment reference (case and spaces ignored) finds the shipment, opening Ship units with it; a
@@ -707,5 +708,28 @@ public class UniversalLookupTests : IDisposable
         Assert.All(hits, h => Assert.Equal(LookupHitKind.Hl7Message, h.Kind));
         Assert.Equal(("Inbound ORM^O01 LK-ORM-1", $"/hl7?messageId={first.Id}"), (hits[1].Title, hits[1].Href));
         Assert.StartsWith("Errored · ACK AE · ", hits[1].Detail);
+    }
+
+    // TEST-BB-1293 (end-user testing pass 267): an equipment code opens it on Equipment, saying whether it is in service;
+    // a storage location code opens its temperature history with its range. Retired equipment is not offered.
+    [Fact]
+    public async Task EquipmentAndStorageCodes_AreFound()
+    {
+        await using var c = _factory.Create();
+        var block = new Equipment { Code = "LK-HB-01", Name = "Heat block", Kind = "Heat block", Location = "Bench 2", OutOfServiceUtc = new DateTime(2026, 11, 11, 16, 31, 0, DateTimeKind.Utc) };
+        var retired = new Equipment { Code = "LK-OLD-01", Name = "Old centrifuge", Kind = "Centrifuge", IsActive = false };
+        var fridge = new InventoryLocation { Code = "LK-FRIDGE-1", Name = "Lookup fridge", StorageTempMinC = 1m, StorageTempMaxC = 6m };
+        c.AddRange(block, retired, fridge);
+        await c.SaveChangesAsync();
+
+        var equipmentHit = Assert.Single((await Lookup(c).LookupAsync("lk-hb-01")).Hits);
+        Assert.Equal((LookupHitKind.Equipment, "LK-HB-01 Heat block", "/equipment?code=LK-HB-01"), (equipmentHit.Kind, equipmentHit.Title, equipmentHit.Href));
+        Assert.StartsWith("Heat block · Bench 2 · out of service since ", equipmentHit.Detail);
+
+        var fridgeHit = Assert.Single((await Lookup(c).LookupAsync("LK-FRIDGE-1")).Hits);
+        Assert.Equal((LookupHitKind.StorageLocation, "LK-FRIDGE-1 Lookup fridge", "Refrigerator · range 1.0 to 6.0 °C", $"/storage-temps/report?device={fridge.Id}"),
+            (fridgeHit.Kind, fridgeHit.Title, fridgeHit.Detail, fridgeHit.Href));
+
+        Assert.Empty((await Lookup(c).LookupAsync("LK-OLD-01")).Hits);
     }
 }

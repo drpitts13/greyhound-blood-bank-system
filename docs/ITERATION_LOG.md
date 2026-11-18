@@ -27342,3 +27342,21 @@ Continued pass 265's lookup check with the interface identifiers: the HL7 error 
 ### Tests
 
 - TEST-BB-1292. Full suite passed.
+
+## Iteration 987 — End-user testing pass 267: lookup finds equipment and storage codes (2026-11-18)
+
+### How it was tested
+
+Continued the lookup check with the codes the bench reads off labels and alerts: equipment (HB-01) and storage (FRIDGE-1).
+
+### Found and fixed
+
+1. **Equipment and storage codes found nothing.** The Test Worklist names *HB-01 Heat block (XM): out of service* and the alerts *Temperature excursion at FRIDGE-1*, but the lookup returned nothing for either code. Active equipment now opens on Equipment, outlined and scrolled to (*HB-01 Heat block · Heat block · Bench 2 · out of service since 2026-11-11 16:31*); a storage location opens its temperature history (*FRIDGE-1 Main Blood Bank Refrigerator · Refrigerator · range 1.0 to 6.0 °C*). The first live check found the Equipment page outlined HB-01 but did not scroll to it, because it tried before the list was on the page; it now waits for the list.
+
+### Retested live
+
+- HB-01 and FRIDGE-1 found as above; Equipment opened on HB-01 scrolled into view. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1293. Full suite passed.

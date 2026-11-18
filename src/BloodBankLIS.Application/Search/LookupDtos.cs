@@ -27,7 +27,11 @@ public enum LookupHitKind
     /// <summary>An inbound shipment (ASN) with units still expected; opens Expected inbound (pass 265).</summary>
     InboundShipment = 11,
     /// <summary>An HL7 message by its control ID (MSH-10); opens it on the HL7 page (pass 266).</summary>
-    Hl7Message = 12
+    Hl7Message = 12,
+    /// <summary>Bench equipment by its code (HB-01); opens it on Equipment (pass 267).</summary>
+    Equipment = 13,
+    /// <summary>A storage location by its code (FRIDGE-1); opens its temperature history (pass 267).</summary>
+    StorageLocation = 14
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>

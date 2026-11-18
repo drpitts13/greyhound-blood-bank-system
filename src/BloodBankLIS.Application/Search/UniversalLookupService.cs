@@ -46,6 +46,8 @@ public sealed class UniversalLookupService
     private readonly IRepository<BloodDelivery>? _deliveries;
     private readonly IRepository<BloodSupplier>? _suppliers;
     private readonly IRepository<Hl7MessageLog>? _hl7Messages;
+    private readonly IRepository<Equipment>? _equipment;
+    private readonly IRepository<InventoryLocation>? _locations;
     private readonly IAuditQuery? _auditQuery;
     private readonly ICurrentUser? _currentUser;
 
@@ -75,8 +77,12 @@ public sealed class UniversalLookupService
         IRepository<InstrumentMessageLog>? instrumentMessages = null,
         IRepository<BloodDelivery>? deliveries = null,
         IRepository<BloodSupplier>? suppliers = null,
-        IRepository<Hl7MessageLog>? hl7Messages = null)
+        IRepository<Hl7MessageLog>? hl7Messages = null,
+        IRepository<Equipment>? equipment = null,
+        IRepository<InventoryLocation>? locations = null)
     {
+        _equipment = equipment;
+        _locations = locations;
         _hl7Messages = hl7Messages;
         _deliveries = deliveries;
         _suppliers = suppliers;
@@ -143,6 +149,8 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactDeliveriesAsync(upper, ct));
             hits.AddRange(await ExactInboundShipmentsAsync(upper, ct));
             hits.AddRange(await ExactHl7MessagesAsync(upper, ct));
+            hits.AddRange(await ExactEquipmentAsync(upper, ct));
+            hits.AddRange(await ExactLocationsAsync(upper, ct));
             // Only when nothing else matched: a real accession keeps opening its specimen directly.
             if (hits.Count == 0)
             {
@@ -376,6 +384,44 @@ public sealed class UniversalLookupService
             .ToList();
     }
 
+    /// <summary>
+    /// End-user testing pass 267: the worklist names equipment by code ("HB-01 Heat block (XM): out of service") and alerts
+    /// name storage by code ("Temperature excursion at FRIDGE-1"), but the lookup found neither. Active equipment opens on
+    /// Equipment; a storage location opens its temperature history.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactEquipmentAsync(string upper, CancellationToken ct)
+    {
+        if (_equipment is null)
+        {
+            return [];
+        }
+
+        var items = await _equipment.ListAsync(e => e.IsActive && e.Code.ToUpper().Replace(" ", "") == upper, ct);
+        return items
+            .Select(e => new LookupHitDto(LookupHitKind.Equipment, e.Id, true, e.Code, $"{e.Code} {e.Name}",
+                string.Join(" · ", new[] { e.Kind, e.Location, e.OutOfServiceUtc is DateTime since ? $"out of service since {ClinicalTimeText.Local(since)}" : "in service" }
+                    .Where(x => !string.IsNullOrWhiteSpace(x))),
+                $"/equipment?code={Uri.EscapeDataString(e.Code)}"))
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<LookupHitDto>> ExactLocationsAsync(string upper, CancellationToken ct)
+    {
+        if (_locations is null)
+        {
+            return [];
+        }
+
+        var items = await _locations.ListAsync(l => l.IsActive && l.Code.ToUpper().Replace(" ", "") == upper, ct);
+        return items
+            .Select(l => new LookupHitDto(LookupHitKind.StorageLocation, l.Id, true, l.Code, $"{l.Code} {l.Name}",
+                l.StorageTempMinC is decimal min && l.StorageTempMaxC is decimal max
+                    ? $"{Words(l.LocationType.ToString())} · range {min:0.0} to {max:0.0} °C"
+                    : $"{Words(l.LocationType.ToString())} · no temperature range set",
+                $"/storage-temps/report?device={l.Id}"))
+            .ToList();
+    }
+
     /// <summary>A code name in words: "EmergencyRelease" reads "Emergency release".</summary>
     private static string Words(string code)
     {
@@ -477,7 +523,7 @@ public sealed class UniversalLookupService
     }
 
     private static string NoMatch(string query) =>
-        $"No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, instrument sample, or HL7 message control ID matches \"{query}\".";
+        $"No patient, unit, specimen, order, visit, RhIG lot, reagent lot, shipment, delivery packing list, cooler in transit, deviation, instrument sample, HL7 message control ID, equipment, or storage location matches \"{query}\".";
 
     private async Task<IReadOnlyList<LookupHitDto>> ExactUnitsAsync(string upper, string? din, CancellationToken ct)
     {

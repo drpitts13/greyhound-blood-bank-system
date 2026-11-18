@@ -1158,6 +1158,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1042 / FRS-BB-1160 | End-user testing pass 264: lookup finds an instrument sample ID | `UniversalLookupService.cs`, `LookupDtos.cs`, `LookupRecordType.cs`, `GlobalLookupBar.razor` | TEST-BB-1290 | I | |
 | URS-BB-1043 / FRS-BB-1161 | End-user testing pass 265: lookup finds a packing list and an inbound shipment | `UniversalLookupService.cs`, `LookupDtos.cs`, `LookupRecordType.cs`, `GlobalLookupBar.razor` | TEST-BB-1291 | I | |
 | URS-BB-1044 / FRS-BB-1162 | End-user testing pass 266: lookup finds an HL7 control ID | `UniversalLookupService.cs`, `LookupDtos.cs`, `LookupRecordType.cs`, `GlobalLookupBar.razor` | TEST-BB-1292 | I | |
+| URS-BB-1045 / FRS-BB-1163 | End-user testing pass 267: lookup finds equipment and storage codes | `UniversalLookupService.cs`, `LookupDtos.cs`, `LookupRecordType.cs`, `GlobalLookupBar.razor`, `EquipmentPage.razor` | TEST-BB-1293 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
