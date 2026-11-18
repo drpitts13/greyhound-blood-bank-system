@@ -26717,3 +26717,25 @@ Opened Demo-Multi, Riley (MRN0022) › Products: two O+ red cells (W000123000920
 ### Tests
 
 - TEST-BB-1256. Full suite passed; the Help tests were rerun after the wording change (Web only).
+
+## Iteration 953 — End-user testing pass 233: discrepant ABO/Rh on the timeline (2026-11-17)
+
+### How it was tested
+
+Opened MRN0022's Test History (two verified results from ACC0022) and Timeline (39 events).
+
+### Found and fixed
+
+1. **A discrepant ABO/Rh read like any other result.** The timeline showed *ABORH resulted: A|Positive* on ACC-DEMO-RCV1 for a patient typed O+ on file, as plain information. A result that disagrees with the type on file can mean a wrong tube and is what a reviewer looks for. It is now marked **Attention** and says *New ABO/Rh A+ disagrees with historical O+.* (the worklist's ABO/Rh delta rule). Agreeing results, screens and invalidated results read as before.
+
+### Note
+
+- That A+ result and the Positive screen on the same tube were on ORD-E258306ED774, cancelled at specimen expiry before OCD-093 (pass 227); neither was verified. The order stays as recorded.
+
+### Retested live
+
+- The A+ result shows Attention with the disagreement. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1257. Full suite passed.

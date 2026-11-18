@@ -1265,5 +1265,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1254 | U | `OverdueTextTests.Badge_SaysHowLongOverdue` | URS-BB-1009 / FRS-BB-1127 |
 | TEST-BB-1255 | I | `MinimumStockOpenOrdersTests.OpenOrders_LeaveOutLinesCoveredByReservedOrIssuedUnits` | URS-BB-1010 / FRS-BB-1128 |
 | TEST-BB-1256 | U | `ReservationEndedTextTests.For_SaysWhenAReservationHasEnded` | URS-BB-1011 / FRS-BB-1129 |
+| TEST-BB-1257 | I | `PatientTimelineTests.AboRhResult_DisagreeingWithTheTypeOnFile_NeedsAttention` | URS-BB-1012 / FRS-BB-1130 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

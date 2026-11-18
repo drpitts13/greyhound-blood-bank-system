@@ -24,7 +24,7 @@ It shows:
 **Markings**
 
 - **Critical** (red edge): an antibody, an incompatible crossmatch, a suspected reaction, or a reaction report.
-- **Attention** (amber edge): a correction, an invalidation, a cancelled order, a rejected specimen, a special requirement, or an emergency or overridden issue.
+- **Attention** (amber edge): a correction, an invalidation, a cancelled order, a rejected specimen, a special requirement, an emergency or overridden issue, or an ABO/Rh result that disagrees with the type on file (*New ABO/Rh A+ disagrees with historical O+*).
 - Everything else is informational.
 
 Use the filter buttons to show one kind of event. **Warnings and critical only** hides the informational rows. Click an event to open its tab or the unit.

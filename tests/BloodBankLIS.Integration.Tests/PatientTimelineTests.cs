@@ -243,6 +243,38 @@ public class PatientTimelineTests : IDisposable
         Assert.Contains("Outside every recorded outage: Outage never recorded", issued);
     }
 
+    // TEST-BB-1257 (end-user testing pass 233): an ABO/Rh result that disagrees with the type on file needs attention on
+    // the timeline and says so; one that agrees, and a screen result, read as before.
+    [Fact]
+    public async Task AboRhResult_DisagreeingWithTheTypeOnFile_NeedsAttention()
+    {
+        await using var c = _factory.Create();
+        var patient = await AddPatientAsync(c, "MRN-TL-233");
+        var specimen = new Specimen
+        {
+            PatientId = patient.Id, AccessionNumber = "ACC-TL-233", SpecimenType = "EDTA", CollectedUtc = T(1), ExpiresUtc = T(200), Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(specimen);
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.TestResult, IsCurrent = true });
+        await c.SaveChangesAsync();
+        TestResult Result(string code, string value) => new()
+        {
+            SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = code, Value = value, Status = ResultStatus.Entered, EnteredUtc = T(3), EnteredBy = "tech"
+        };
+        var differs = Result("ABORH", "A|Positive");
+        var agrees = Result("ABORH", "O|Positive");
+        var screen = Result("ABSC", "Positive");
+        c.TestResults.AddRange(differs, agrees, screen);
+        await c.SaveChangesAsync();
+
+        var events = await Timeline(c).GetAsync(patient.Id);
+        var flagged = Event(events, $"res-{differs.Id}-enter");
+        Assert.Equal(TimelineSeverity.Warning, flagged.Severity);
+        Assert.Contains("disagrees with historical", flagged.Detail);
+        Assert.Equal(TimelineSeverity.Info, Event(events, $"res-{agrees.Id}-enter").Severity);
+        Assert.Equal(TimelineSeverity.Info, Event(events, $"res-{screen.Id}-enter").Severity);
+    }
+
     // TEST-BB-942 (Cycle 701, OCD-083): a transfusion the EHR reported over a recalled unit reads so on the timeline, as a
     // warning until a supervisor reviews it, then with the review.
     [Fact]

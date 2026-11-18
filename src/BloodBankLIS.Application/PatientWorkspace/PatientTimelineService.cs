@@ -3,6 +3,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
@@ -151,13 +152,15 @@ public sealed class PatientTimelineService
             }
         }
 
+        var bloodTypes = await _bloodTypes.ListAsync(x => x.PatientId == patientId, ct);
+        var typeOnFile = bloodTypes.Where(t => t.IsCurrent && t.InvalidatedUtc == null).OrderByDescending(t => t.Id).FirstOrDefault()?.BloodType;
         foreach (var r in await _results.ListAsync(x => x.PatientId == patientId, ct))
         {
             var accession = accessionById.GetValueOrDefault(r.SpecimenId) ?? $"specimen {r.SpecimenId}";
-            events.AddRange(ResultEvents(r, accession, $"{chart}?tab=test-history"));
+            events.AddRange(ResultEvents(r, accession, $"{chart}?tab=test-history", typeOnFile));
         }
 
-        foreach (var b in await _bloodTypes.ListAsync(x => x.PatientId == patientId, ct))
+        foreach (var b in bloodTypes)
         {
             events.Add(new(b.CreatedUtc, TimelineCategory.Testing, TimelineSeverity.Info,
                 $"Blood type recorded: {b.Abo} {b.RhD}",
@@ -348,15 +351,22 @@ public sealed class PatientTimelineService
     }
 
     /// <summary>Entered, verified, corrected, and invalidated events for one result. Shared with the specimen timeline.</summary>
-    internal static IEnumerable<TimelineEventDto> ResultEvents(TestResult r, string accession, string href)
+    internal static IEnumerable<TimelineEventDto> ResultEvents(TestResult r, string accession, string href, AboRh? typeOnFile = null)
     {
         var value = string.IsNullOrWhiteSpace(r.Interpretation) ? r.Value : r.Interpretation;
         if (r.EnteredUtc is DateTime entered)
         {
             var corrected = !string.IsNullOrWhiteSpace(r.CorrectionReason);
-            yield return new(entered, TimelineCategory.Testing, corrected ? TimelineSeverity.Warning : TimelineSeverity.Info,
+            // End-user testing pass 233: an ABO/Rh result that disagrees with the type on file (MRN0022, O+ on file, typed
+            // A+ on ACC-DEMO-RCV1) read like any other result on the timeline.
+            var delta = typeOnFile is not null && AboRhResultValue.TryParse(r.Value, out var typed)
+                && r.Status != ResultStatus.Invalidated
+                && AboRhDeltaRule.Evaluate(typeOnFile, typed) is { Severity: RuleSeverity.Warning } d
+                    ? d.Message
+                    : null;
+            yield return new(entered, TimelineCategory.Testing, corrected || delta is not null ? TimelineSeverity.Warning : TimelineSeverity.Info,
                 corrected ? $"{r.TestCode} corrected: {value}" : $"{r.TestCode} resulted: {value}",
-                Join($"Specimen {accession}", corrected ? $"Reason: {r.CorrectionReason}" : null,
+                Join($"Specimen {accession}", corrected ? $"Reason: {r.CorrectionReason}" : null, delta,
                     r.Status == ResultStatus.Corrected ? "Later replaced by a correction" : null),
                 r.EnteredBy, href, $"res-{r.Id}-enter");
         }

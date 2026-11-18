@@ -1017,3 +1017,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1009 | An issued unit not received by its due time says how long overdue it is. | P3 | FRS-BB-1127 |
 | URS-BB-1010 | Minimum stock's open orders leave out lines already covered by a reserved or issued unit. | P2 | FRS-BB-1128 |
 | URS-BB-1011 | The chart's Products tab marks a reserved unit whose reservation has ended. | P3 | FRS-BB-1129 |
+| URS-BB-1012 | The patient timeline marks an ABO/Rh result that disagrees with the type on file. | P2 | FRS-BB-1130 |
