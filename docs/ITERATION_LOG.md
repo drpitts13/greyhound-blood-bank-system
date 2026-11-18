@@ -27035,3 +27035,21 @@ Opened the newborn's chart (Newborn, Baby Boy, MRN0002: no mother linked, said o
 ### Tests
 
 - TEST-BB-1273. Full suite passed.
+
+## Iteration 970 — End-user testing pass 250: MTP issue names the physician who called the protocol (2026-11-18)
+
+### How it was tested
+
+Opened Issue & Transfuse › In transit (5 units: one standard issue to ICU 4 and four issued under MTP #1 for Demo-Massive, Morgan, MRN0021).
+
+### Found and fixed
+
+1. **The units issued under the massive transfusion protocol read "Authorized by: —".** The MTP panel above them says the protocol was called by *Dr. Demo Trauma (demo)*, and two of the four were uncrossmatched group O red cells. The worklists named an authorizer only when the issue carried an override. A massive-transfusion issue recorded without one now names the physician who called its protocol, marked *(called MTP #1)*, on the Retrospective, In transit and Final disposition worklists and on the patient's product history. An override's authorizer still comes first, and other issues without one still read —.
+
+### Retested live
+
+- In transit: W0001230009101 to W0001230009104 read *Authorized by: Dr. Demo Trauma (demo) (called MTP #1)*; the standard issue W0001230009204 still reads —. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1274, TEST-BB-1275. Full suite passed.

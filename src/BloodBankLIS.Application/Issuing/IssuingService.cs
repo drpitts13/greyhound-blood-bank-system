@@ -846,7 +846,7 @@ public sealed class IssuingService
             .Select(i =>
             {
                 var row = context.For(i, now);
-                authorizers.TryGetValue(i.OverrideId ?? 0, out var authorizer);
+                authorizers.TryGetValue(i.Id, out var authorizer);
                 return RetrospectiveCrossmatchWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
@@ -860,16 +860,21 @@ public sealed class IssuingService
         IReadOnlyList<Issue> rows,
         CancellationToken ct)
     {
+        // Keyed by issue id. Pass 250: an MTP issue with no override names the physician who called the protocol.
         var overrideIds = rows.Where(i => i.OverrideId is long).Select(i => i.OverrideId!.Value).Distinct().ToList();
-        if (overrideIds.Count == 0)
-        {
-            return [];
-        }
-
-        var overrides = await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct);
-        return overrides.ToDictionary(
-            o => o.Id,
-            o => string.IsNullOrWhiteSpace(o.AuthorizedBy) ? null : o.AuthorizedBy.Trim());
+        var overrides = overrideIds.Count == 0
+            ? new Dictionary<long, string?>()
+            : (await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct)).ToDictionary(o => o.Id, o => (string?)o.AuthorizedBy);
+        var mtpIds = rows.Where(i => i.MtpActivationId is long).Select(i => i.MtpActivationId!.Value).Distinct().ToList();
+        var callers = mtpIds.Count == 0 || _mtpActivations is null
+            ? new Dictionary<long, string>()
+            : (await _mtpActivations.ListAsync(a => mtpIds.Contains(a.Id), ct)).ToDictionary(a => a.Id, a => a.RequestedBy);
+        return rows.DistinctBy(i => i.Id).ToDictionary(
+            i => i.Id,
+            i => IssueAuthorizerText.For(
+                i.OverrideId is long oid ? overrides.GetValueOrDefault(oid) : null,
+                i.MtpActivationId,
+                i.MtpActivationId is long mid ? callers.GetValueOrDefault(mid) : null));
     }
 
     /// <summary>
@@ -899,7 +904,7 @@ public sealed class IssuingService
             .Select(i =>
             {
                 var row = context.For(i, now);
-                authorizers.TryGetValue(i.OverrideId ?? 0, out var authorizer);
+                authorizers.TryGetValue(i.Id, out var authorizer);
                 return InTransitWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
@@ -1029,7 +1034,7 @@ public sealed class IssuingService
             .Select(i =>
             {
                 var row = context.For(i, now);
-                authorizers.TryGetValue(i.OverrideId ?? 0, out var authorizer);
+                authorizers.TryGetValue(i.Id, out var authorizer);
                 var governed = true;
                 if (context.StorageLocationId(i) is long locationId && locations.TryGetValue(locationId, out var location))
                 {

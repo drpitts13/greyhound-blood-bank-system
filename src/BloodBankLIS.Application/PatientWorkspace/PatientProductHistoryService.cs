@@ -24,6 +24,7 @@ public sealed class PatientProductHistoryService
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
     private readonly IRepository<Override> _overrides;
     private readonly IRepository<InventoryLocation>? _locations;
+    private readonly IRepository<MtpActivation>? _mtpActivations;
 
     public PatientProductHistoryService(
         IRepository<Allocation> allocations,
@@ -38,7 +39,8 @@ public sealed class PatientProductHistoryService
         IRepository<Specimen> specimens,
         IRepository<PatientBloodTypeHistory> bloodTypes,
         IRepository<Override> overrides,
-        IRepository<InventoryLocation>? locations = null)
+        IRepository<InventoryLocation>? locations = null,
+        IRepository<MtpActivation>? mtpActivations = null)
     {
         _allocations = allocations;
         _crossmatches = crossmatches;
@@ -53,6 +55,7 @@ public sealed class PatientProductHistoryService
         _bloodTypes = bloodTypes;
         _overrides = overrides;
         _locations = locations;
+        _mtpActivations = mtpActivations;
     }
 
     public async Task<IReadOnlyList<PatientProductHistoryRowDto>> ListByPatientAsync(
@@ -278,18 +281,25 @@ public sealed class PatientProductHistoryService
         IReadOnlyList<Issue> issues,
         CancellationToken ct)
     {
+        // Keyed by issue id. Pass 250: an MTP issue with no override names the physician who called the protocol.
         var overrideIds = issues.Where(i => i.OverrideId is long).Select(i => i.OverrideId!.Value).Distinct().ToList();
-        if (overrideIds.Count == 0)
-        {
-            return [];
-        }
-
-        var overrides = await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct);
-        return overrides.ToDictionary(o => o.Id, o => Person(o.AuthorizedBy));
+        var overrides = overrideIds.Count == 0
+            ? new Dictionary<long, string?>()
+            : (await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct)).ToDictionary(o => o.Id, o => Person(o.AuthorizedBy));
+        var mtpIds = issues.Where(i => i.MtpActivationId is long).Select(i => i.MtpActivationId!.Value).Distinct().ToList();
+        var callers = mtpIds.Count == 0 || _mtpActivations is null
+            ? new Dictionary<long, string>()
+            : (await _mtpActivations.ListAsync(a => mtpIds.Contains(a.Id), ct)).ToDictionary(a => a.Id, a => a.RequestedBy);
+        return issues.DistinctBy(i => i.Id).ToDictionary(
+            i => i.Id,
+            i => IssueAuthorizerText.For(
+                i.OverrideId is long oid ? overrides.GetValueOrDefault(oid) : null,
+                i.MtpActivationId,
+                i.MtpActivationId is long mid ? callers.GetValueOrDefault(mid) : null));
     }
 
     private static string? Authorizer(Issue issue, IReadOnlyDictionary<long, string?> authorizers) =>
-        issue.OverrideId is long id && authorizers.TryGetValue(id, out var name) ? name : null;
+        authorizers.TryGetValue(issue.Id, out var name) ? name : null;
 
     private static string? WardReceiptAppearance(Issue issue) =>
         issue.WardReceivedUtc is null ? null : issue.WardAppearance.ToString();

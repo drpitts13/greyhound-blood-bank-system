@@ -40,6 +40,31 @@ public class DemoTransfusionConsistencyTests : IDisposable
         Assert.Contains(open, row => row.UnitNumber == "W0001230000099");
     }
 
+    // TEST-BB-1275 (end-user testing pass 250): a seeded massive-transfusion issue with no override names the physician who
+    // called its protocol as the authorizer on the patient's product history.
+    [Fact]
+    public async Task MtpIssueWithoutOverride_NamesThePhysicianWhoCalledTheProtocol()
+    {
+        await using (var db = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var v = _factory.Create();
+        var patient = await v.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0021");
+        var activation = await v.MtpActivations.Where(a => a.PatientId == patient.Id).OrderBy(a => a.Id).FirstAsync();
+        var history = await new PatientProductHistoryService(
+            new EfRepository<Allocation>(v), new EfRepository<Crossmatch>(v), new EfRepository<Issue>(v),
+            new EfRepository<Return>(v), new EfRepository<TransfusionEvent>(v), new EfRepository<BloodUnit>(v),
+            new EfRepository<ProductType>(v), new EfRepository<Encounter>(v), new EfRepository<Order>(v),
+            new EfRepository<Specimen>(v), new EfRepository<PatientBloodTypeHistory>(v), new EfRepository<Override>(v),
+            mtpActivations: new EfRepository<MtpActivation>(v))
+            .ListByPatientAsync(patient.Id);
+
+        var mtpIssue = history.First(h => h.UnitNumber == "W0001230009103" && h.EventSourceType == nameof(Issue));
+        Assert.Equal($"{activation.RequestedBy} (called MTP #{activation.Id})", mtpIssue.EmergencyReleaseAuthorizer);
+    }
+
     // TEST-BB-347: the chart and the timeline show a running transfusion as running, never as transfused.
     [Fact]
     public async Task RunningTransfusion_IsShownAsStarted_OnProductHistoryAndTimeline()
