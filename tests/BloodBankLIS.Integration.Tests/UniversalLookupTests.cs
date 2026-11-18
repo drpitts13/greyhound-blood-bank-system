@@ -20,7 +20,7 @@ public class UniversalLookupTests : IDisposable
             new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
             encounters: new EfRepository<Encounter>(c), issues: new EfRepository<Issue>(c),
             reagentLots: new EfRepository<ReagentLot>(c), reagents: new EfRepository<Reagent>(c),
-            deviations: new EfRepository<Deviation>(c));
+            deviations: new EfRepository<Deviation>(c), instrumentMessages: new EfRepository<InstrumentMessageLog>(c));
 
     [Fact]
     public async Task ScannedDin_OpensTheOneUnit()
@@ -631,5 +631,32 @@ public class UniversalLookupTests : IDisposable
             (hit.Kind, hit.Identifier, hit.Title, hit.Detail, hit.Href, hit.Exact));
         Assert.Empty((await Lookup(c).LookupAsync($"DEV-{deviation.Id + 1000}")).Hits);
         Assert.Equal("Deviation", LookupRecordType.For(LookupHitKind.Deviation));
+    }
+
+    // TEST-BB-1290 (end-user testing pass 264): a sample ID an instrument sent that matches no specimen finds its messages
+    // and opens Instrument Interfaces searched for it; a real accession with messages still opens the specimen directly.
+    [Fact]
+    public async Task InstrumentSampleWithNoSpecimen_OpensItsMessages()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient { MedicalRecordNumber = "MRN-LKINST", LastName = "Lookup", FirstName = "Inst", DateOfBirth = new DateOnly(1980, 1, 1) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        c.Specimens.Add(new Specimen { PatientId = patient.Id, AccessionNumber = "LK-ACC-INST", SpecimenType = "EDTA", Status = SpecimenStatus.Accepted, CollectedUtc = _factory.Clock.UtcNow });
+        var t = new DateTime(2026, 11, 17, 21, 10, 0, DateTimeKind.Utc);
+        c.InstrumentMessages.AddRange(
+            new InstrumentMessageLog { SpecimenId = "LK0651439A", Status = InstrumentMessageStatus.Failed, ReceivedUtc = t, RawMessage = "H|" },
+            new InstrumentMessageLog { SpecimenId = "LK0651439A", Status = InstrumentMessageStatus.Failed, ReceivedUtc = t.AddSeconds(7), RawMessage = "H|" },
+            new InstrumentMessageLog { SpecimenId = "LK-ACC-INST", Status = InstrumentMessageStatus.Processed, ReceivedUtc = t, RawMessage = "H|" });
+        await c.SaveChangesAsync();
+
+        var result = await Lookup(c).LookupAsync("lk0651439a");
+        var hit = Assert.Single(result.Hits);
+        Assert.Equal((LookupHitKind.InstrumentMessages, "Instrument sample LK0651439A: no specimen with this accession", $"2 messages · 2 failed, open · latest {BloodBankLIS.Domain.Rules.ClinicalTimeText.Local(t.AddSeconds(7))}", "/instruments?search=LK0651439A"),
+            (hit.Kind, hit.Title, hit.Detail, hit.Href));
+
+        var accession = await Lookup(c).LookupAsync("LK-ACC-INST");
+        Assert.True(accession.OpenDirectly);
+        Assert.Equal(LookupHitKind.Specimen, accession.Hits.Single().Kind);
     }
 }

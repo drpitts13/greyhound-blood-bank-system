@@ -20,6 +20,8 @@ public static class LookupRecordType
         LookupHitKind.Cooler => "Issue",
         LookupHitKind.ReagentLot => "ReagentLot",
         LookupHitKind.Deviation => "Deviation",
+        // The hit carries the latest message for the sample.
+        LookupHitKind.InstrumentMessages => "InstrumentMessageLog",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No record type for this lookup kind.")
     };
 }

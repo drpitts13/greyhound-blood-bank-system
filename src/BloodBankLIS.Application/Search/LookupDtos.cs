@@ -17,7 +17,11 @@ public enum LookupHitKind
     /// <summary>A reagent lot (vial label); opens Reagent QC with the lot's results (end-user testing pass 37).</summary>
     ReagentLot = 7,
     /// <summary>A deviation by its reference ("DEV-3", as alerts and reports name it); opens it on Deviations (pass 263).</summary>
-    Deviation = 8
+    Deviation = 8,
+    /// <summary>
+    /// A sample ID an instrument sent that matches no specimen: opens Instrument Interfaces searched for it (pass 264).
+    /// </summary>
+    InstrumentMessages = 9
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>

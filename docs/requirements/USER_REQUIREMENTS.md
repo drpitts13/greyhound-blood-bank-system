@@ -1047,3 +1047,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1039 | The expected inbound board says how long an overdue unit is past its due time. | P3 | FRS-BB-1157 |
 | URS-BB-1040 | Blood utilization shows, by product, units issued (with emergency and MTP issues), transfused, returned and discarded in the period. | P2 | FRS-BB-1158 |
 | URS-BB-1041 | The top-bar lookup finds a deviation by the reference alerts and reports give it (DEV-3). | P3 | FRS-BB-1159 |
+| URS-BB-1042 | The top-bar lookup finds an instrument's messages by a sample ID that matches no specimen. | P3 | FRS-BB-1160 |

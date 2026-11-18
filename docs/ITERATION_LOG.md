@@ -27288,3 +27288,21 @@ Opened Billing (10 charges waiting for an outbound interface), Printing, Lookbac
 ### Tests
 
 - TEST-BB-1289. Full suite passed.
+
+## Iteration 984 — End-user testing pass 264: lookup finds an instrument sample ID (2026-11-18)
+
+### How it was tested
+
+Followed up pass 263's lookup check: the analyzer's sample ID on the two failed Group results.
+
+### Found and fixed
+
+1. **A sample ID an instrument sent found nothing.** The ImmuLINK Echo's results for 0651439A failed (*No specimen matched accession 0651439A*), so a technologist holding that tube, or reading the ID off the failure, would type it in the lookup; it found nothing. A sample ID that matches no specimen now finds the instrument's messages (*Instrument sample 0651439A: no specimen with this accession · 2 messages · 2 failed, open*) and Enter opens Instrument Interfaces searched for it. A QC sample is named as one. A real accession still opens its specimen directly, even when an instrument has sent results for it.
+
+### Retested live
+
+- 0651439A in the lookup bar opened Instrument Interfaces with its two failed messages; ACC-DEMO-RCV1 still opened its specimen. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1290. Full suite passed.

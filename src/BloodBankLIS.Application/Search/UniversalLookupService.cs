@@ -42,6 +42,7 @@ public sealed class UniversalLookupService
     private readonly IRepository<Reagent>? _reagents;
     private readonly IRepository<ReactionInvestigation>? _reactions;
     private readonly IRepository<Deviation>? _deviations;
+    private readonly IRepository<InstrumentMessageLog>? _instrumentMessages;
     private readonly IAuditQuery? _auditQuery;
     private readonly ICurrentUser? _currentUser;
 
@@ -67,9 +68,11 @@ public sealed class UniversalLookupService
         IRepository<ReagentLot>? reagentLots = null,
         IRepository<Reagent>? reagents = null,
         IRepository<ReactionInvestigation>? reactions = null,
-        IRepository<Deviation>? deviations = null)
+        IRepository<Deviation>? deviations = null,
+        IRepository<InstrumentMessageLog>? instrumentMessages = null)
     {
         _deviations = deviations;
+        _instrumentMessages = instrumentMessages;
         _reactions = reactions;
         _reagentLots = reagentLots;
         _reagents = reagents;
@@ -128,6 +131,11 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactShipmentsAsync(upper, ct));
             hits.AddRange(await ExactCoolersAsync(upper, ct));
             hits.AddRange(await ExactDeviationAsync(upper, ct));
+            // Only when nothing else matched: a real accession keeps opening its specimen directly.
+            if (hits.Count == 0)
+            {
+                hits.AddRange(await ExactInstrumentSampleAsync(upper, ct));
+            }
         }
 
         if (hits.Count > 0)
@@ -250,6 +258,36 @@ public sealed class UniversalLookupService
             : [new LookupHitDto(LookupHitKind.Deviation, deviation.Id, true, $"DEV-{deviation.Id}", deviation.Title,
                 $"{Words(deviation.Severity.ToString())} · {Words(deviation.Status.ToString())} · reported {deviation.ReportedUtc:yyyy-MM-dd}",
                 $"/deviations?id={deviation.Id}")];
+    }
+
+    /// <summary>
+    /// End-user testing pass 264: an analyzer's result for sample 0651439A failed ("No specimen matched accession
+    /// 0651439A"), but the lookup found nothing for 0651439A. A sample ID an instrument sent, matching no specimen, opens
+    /// Instrument Interfaces searched for it, saying how many messages and how many are failures still open.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactInstrumentSampleAsync(string upper, CancellationToken ct)
+    {
+        if (_instrumentMessages is null)
+        {
+            return [];
+        }
+
+        var messages = await _instrumentMessages.ListAsync(m => m.SpecimenId != null && m.SpecimenId.ToUpper() == upper, ct);
+        if (messages.Count == 0)
+        {
+            return [];
+        }
+
+        var latest = messages.OrderByDescending(m => m.ReceivedUtc).ThenByDescending(m => m.Id).First();
+        var openFailures = messages.Count(m => m.Status == InstrumentMessageStatus.Failed && m.ResolvedUtc == null);
+        var detail = $"{messages.Count} message{(messages.Count == 1 ? "" : "s")}"
+            + (openFailures > 0 ? $" · {openFailures} failed, open" : "")
+            + $" · latest {ClinicalTimeText.Local(latest.ReceivedUtc)}";
+        return [new LookupHitDto(LookupHitKind.InstrumentMessages, latest.Id, true, latest.SpecimenId!,
+            latest.Status == InstrumentMessageStatus.QualityControl
+                ? $"Instrument QC sample {latest.SpecimenId}"
+                : $"Instrument sample {latest.SpecimenId}: no specimen with this accession", detail,
+            $"/instruments?search={Uri.EscapeDataString(latest.SpecimenId!)}")];
     }
 
     /// <summary>A code name in words: "EmergencyRelease" reads "Emergency release".</summary>

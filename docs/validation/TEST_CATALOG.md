@@ -1298,5 +1298,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1287 | U | `ExpectedInboundOverdueTests.OverdueUnit_SaysHowLong` | URS-BB-1039 / FRS-BB-1157 |
 | TEST-BB-1288 | I | `UtilizationServiceTests.ByProduct_CountsIssuesTransfusionsReturnsAndDiscards` | URS-BB-1040 / FRS-BB-1158 |
 | TEST-BB-1289 | I | `UniversalLookupTests.DeviationReference_OpensTheDeviation` | URS-BB-1041 / FRS-BB-1159 |
+| TEST-BB-1290 | I | `UniversalLookupTests.InstrumentSampleWithNoSpecimen_OpensItsMessages` | URS-BB-1042 / FRS-BB-1160 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
