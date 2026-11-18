@@ -26833,3 +26833,21 @@ Continued on Newborn, Baby Boy (MRN0002, 12 days old) with the RhIG tab.
 ### Tests
 
 - TEST-BB-1262. Full suite passed.
+
+## Iteration 959 — End-user testing pass 239: instrument list columns (2026-11-18)
+
+### How it was tested
+
+Opened MRN0029's DAT / Elution tab (no workup; whether one is required for an infant of a mother with anti-K is clinical policy, so nothing was added), then Administration › Instrument Interfaces.
+
+### Found and fixed
+
+1. **The instrument list read "Maps 16 / 43".** Two counts shared one column with no key: 16 field maps and 43 translations. They are now separate columns, **Field maps** 16 and **Translations** 43, beside Rules 18.
+
+### Retested live
+
+- ImmuLINK Echo reads *16 · 43 · 18* under Field maps, Translations and Rules. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1263. Full suite passed.

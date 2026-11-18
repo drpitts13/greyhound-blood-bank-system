@@ -14,6 +14,8 @@ routes:
 
 On this page you set the connection, the field map, the instrument's translations, and if/then rules that adjust a message before it files. **Help** on this screen lists the instrument catalog fields. Use that panel while you are editing. It stays current with the catalog.
 
+The list of interfaces counts each one's **Field maps**, **Translations** and **Rules** in their own columns.
+
 ## QC samples
 
 **Configuration › QC sample ID prefixes** lists the sample ID prefixes your analyzer gives its own QC samples (for example `QC-`, `CTRL`), separated by commas. A result whose sample ID starts with one is filed as a **QC sample**: it is not posted to any patient, it is not a failure, and the instrument gets its acknowledgement. The prefixes ship blank, because they come from how your analyzer is set up. Without them a QC run is taken for a patient specimen that does not exist and waits in the failures (*No specimen matched*). Record the QC itself under Reagent QC, which lists the QC samples the instruments reported in the last 24 hours with what they read. Changing the prefixes on an enabled interface needs a change reason, like any other change.

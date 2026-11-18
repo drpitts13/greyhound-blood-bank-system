@@ -1023,3 +1023,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1015 | Before a unit is started, the transfusion form says when it was issued and received on the ward. | P2 | FRS-BB-1133 |
 | URS-BB-1016 | The chart does not offer to record a recent pregnancy for an infant under one year. | P3 | FRS-BB-1134 |
 | URS-BB-1017 | An infant's RhIG tab points pregnancy events to the mother's chart and offers only other exposures. | P3 | FRS-BB-1135 |
+| URS-BB-1018 | The instrument interface list names its field map and translation counts in separate columns. | P3 | FRS-BB-1136 |

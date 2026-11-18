@@ -42,14 +42,14 @@
     {
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Name</th><th>Connection</th><th>Maps</th><th>Rules</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Connection</th><th>Field maps</th><th>Translations</th><th>Rules</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var item in _items)
                 {
                     <tr>
                         <td>@item.Name</td>
                         <td class="mono">@(item.Connection.IsServer ? $"listen :{item.Connection.Port}" : $"{item.Connection.IpAddress}:{item.Connection.Port}")</td>
-                        <td>@item.FieldMappings.Count / @item.Translations.Count</td>
+                        @* Pass 239: two counts read "16 / 43" under one heading. *@<td data-instrument-field-maps>@item.FieldMappings.Count</td><td data-instrument-translations>@item.Translations.Count</td>
                         <td>@item.Rules.Count</td>
                         <td>
                             @if (item.IsEnabled) { <span class="badge badge-green">Enabled</span> }
