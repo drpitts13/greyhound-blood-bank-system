@@ -27270,3 +27270,21 @@ Opened Storage temperatures (two open excursions back in range, waiting for thei
 ### Tests
 
 - TEST-BB-1288. Full suite passed.
+
+## Iteration 983 — End-user testing pass 263: lookup finds a deviation by its reference (2026-11-18)
+
+### How it was tested
+
+Opened Billing (10 charges waiting for an outbound interface), Printing, Lookback, the downtime snapshot, and tried the top-bar lookup with the references the screens give: an accession, a unit, a DIN, a name, an order, an RhIG lot, a reagent lot, an instrument's sample ID and a deviation.
+
+### Found and fixed
+
+1. **A deviation's reference found nothing.** The alerts read *Deviation DEV-3 is open* and the temperature history report names *DEV-3*, but typing DEV-3 in the lookup returned no result. The lookup now finds it (*DEV-3 · Storage temperature excursion at FRIDGE-1 · Major · Open · reported 2026-11-12*) and Enter opens it on Deviations.
+
+### Retested live
+
+- DEV-3 in the lookup bar opened *Update deviation #3: Storage temperature excursion at FRIDGE-1*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1289. Full suite passed.

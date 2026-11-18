@@ -15,7 +15,9 @@ public enum LookupHitKind
     /// <summary>A transport cooler with issued units still in transit; opens Check a cooler with it.</summary>
     Cooler = 6,
     /// <summary>A reagent lot (vial label); opens Reagent QC with the lot's results (end-user testing pass 37).</summary>
-    ReagentLot = 7
+    ReagentLot = 7,
+    /// <summary>A deviation by its reference ("DEV-3", as alerts and reports name it); opens it on Deviations (pass 263).</summary>
+    Deviation = 8
 }
 
 /// <summary>One record the top-bar lookup found. <see cref="Href"/> is the page that opens it.</summary>

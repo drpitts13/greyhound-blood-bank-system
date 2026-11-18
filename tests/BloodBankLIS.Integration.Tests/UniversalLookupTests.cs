@@ -19,7 +19,8 @@ public class UniversalLookupTests : IDisposable
         new(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), new EfRepository<Specimen>(c), new EfRepository<Order>(c),
             encounters: new EfRepository<Encounter>(c), issues: new EfRepository<Issue>(c),
-            reagentLots: new EfRepository<ReagentLot>(c), reagents: new EfRepository<Reagent>(c));
+            reagentLots: new EfRepository<ReagentLot>(c), reagents: new EfRepository<Reagent>(c),
+            deviations: new EfRepository<Deviation>(c));
 
     [Fact]
     public async Task ScannedDin_OpensTheOneUnit()
@@ -613,5 +614,22 @@ public class UniversalLookupTests : IDisposable
         var hit = Assert.Single((await Lookup(c).LookupAsync("lk-24092")).Hits);
         Assert.Equal((LookupHitKind.ReagentLot, "LK-ANTID Anti-D typing serum lot LK-24092", "Opened · expires 2027-01-21", $"/reagents?lot={lot.Id}"),
             (hit.Kind, hit.Title, hit.Detail, hit.Href));
+    }
+
+    // TEST-BB-1289 (end-user testing pass 263): a deviation reference as alerts name it ("DEV-3") opens the deviation;
+    // a number with no deviation, or text after DEV-, finds nothing.
+    [Fact]
+    public async Task DeviationReference_OpensTheDeviation()
+    {
+        await using var c = _factory.Create();
+        var deviation = new Deviation { Title = "Storage temperature excursion at LK-FRIDGE", Description = "d", Severity = DeviationSeverity.Major, ReportedUtc = new DateTime(2026, 11, 12, 11, 43, 0, DateTimeKind.Utc) };
+        c.Deviations.Add(deviation);
+        await c.SaveChangesAsync();
+
+        var hit = Assert.Single((await Lookup(c).LookupAsync($"dev-{deviation.Id}")).Hits);
+        Assert.Equal((LookupHitKind.Deviation, $"DEV-{deviation.Id}", "Storage temperature excursion at LK-FRIDGE", "Major · Open · reported 2026-11-12", $"/deviations?id={deviation.Id}", true),
+            (hit.Kind, hit.Identifier, hit.Title, hit.Detail, hit.Href, hit.Exact));
+        Assert.Empty((await Lookup(c).LookupAsync($"DEV-{deviation.Id + 1000}")).Hits);
+        Assert.Equal("Deviation", LookupRecordType.For(LookupHitKind.Deviation));
     }
 }

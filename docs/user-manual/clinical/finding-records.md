@@ -39,4 +39,4 @@ The find box only opens records. Opening a patient chart records the access in t
 
 Partial lists show up to 20 patients and 20 units. Type more to narrow the list.
 
-A **reagent lot** number (scanned or typed from the vial) finds the lot, with its reagent, state and expiry, and opens Reagent QC on that lot: the results tested with it and whether any are still to review. Order hits give the priority and status in words (for example *Emergency release · In process*).
+A **deviation** reference as alerts and reports name it (*DEV-3*) finds the deviation, with its severity, status and when it was reported, and opens it on Deviations. A **reagent lot** number (scanned or typed from the vial) finds the lot, with its reagent, state and expiry, and opens Reagent QC on that lot: the results tested with it and whether any are still to review. Order hits give the priority and status in words (for example *Emergency release · In process*).

@@ -41,6 +41,7 @@ public sealed class UniversalLookupService
     private readonly IRepository<ReagentLot>? _reagentLots;
     private readonly IRepository<Reagent>? _reagents;
     private readonly IRepository<ReactionInvestigation>? _reactions;
+    private readonly IRepository<Deviation>? _deviations;
     private readonly IAuditQuery? _auditQuery;
     private readonly ICurrentUser? _currentUser;
 
@@ -65,8 +66,10 @@ public sealed class UniversalLookupService
         IRepository<Issue>? issues = null,
         IRepository<ReagentLot>? reagentLots = null,
         IRepository<Reagent>? reagents = null,
-        IRepository<ReactionInvestigation>? reactions = null)
+        IRepository<ReactionInvestigation>? reactions = null,
+        IRepository<Deviation>? deviations = null)
     {
+        _deviations = deviations;
         _reactions = reactions;
         _reagentLots = reagentLots;
         _reagents = reagents;
@@ -124,6 +127,7 @@ public sealed class UniversalLookupService
             hits.AddRange(await ExactReagentLotsAsync(upper, ct));
             hits.AddRange(await ExactShipmentsAsync(upper, ct));
             hits.AddRange(await ExactCoolersAsync(upper, ct));
+            hits.AddRange(await ExactDeviationAsync(upper, ct));
         }
 
         if (hits.Count > 0)
@@ -226,6 +230,26 @@ public sealed class UniversalLookupService
                 $"{Words(l.State.ToString())} · expires {l.ExpiresUtc:yyyy-MM-dd}",
                 $"/reagents?lot={l.Id}"))
             .ToList();
+    }
+
+    /// <summary>
+    /// End-user testing pass 263: alerts, the storage temperature report and the deviation itself name a deviation
+    /// "DEV-3", but typing DEV-3 in the lookup found nothing. "DEV-" and the number open it on Deviations.
+    /// </summary>
+    private async Task<IReadOnlyList<LookupHitDto>> ExactDeviationAsync(string upper, CancellationToken ct)
+    {
+        if (_deviations is null || !upper.StartsWith("DEV-", StringComparison.Ordinal)
+            || !long.TryParse(upper.AsSpan(4), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id))
+        {
+            return [];
+        }
+
+        var deviation = await _deviations.FirstOrDefaultAsync(d => d.Id == id, ct);
+        return deviation is null
+            ? []
+            : [new LookupHitDto(LookupHitKind.Deviation, deviation.Id, true, $"DEV-{deviation.Id}", deviation.Title,
+                $"{Words(deviation.Severity.ToString())} · {Words(deviation.Status.ToString())} · reported {deviation.ReportedUtc:yyyy-MM-dd}",
+                $"/deviations?id={deviation.Id}")];
     }
 
     /// <summary>A code name in words: "EmergencyRelease" reads "Emergency release".</summary>

@@ -19,6 +19,7 @@ public static class LookupRecordType
         // The cooler hit carries its first issue; the cooler is recorded on Issue rows.
         LookupHitKind.Cooler => "Issue",
         LookupHitKind.ReagentLot => "ReagentLot",
+        LookupHitKind.Deviation => "Deviation",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "No record type for this lookup kind.")
     };
 }

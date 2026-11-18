@@ -1154,6 +1154,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1038 / FRS-BB-1156 | End-user testing pass 260: discrepancy board says how long missing | `Inventory.razor` | TEST-BB-1286 | I | |
 | URS-BB-1039 / FRS-BB-1157 | End-user testing pass 261: expected inbound says how long overdue | `Inventory.razor` | TEST-BB-1287 | U | |
 | URS-BB-1040 / FRS-BB-1158 | End-user testing pass 262: utilization by product | `UtilizationService.cs`, `Utilization.razor` | TEST-BB-1288 | I | |
+| URS-BB-1041 / FRS-BB-1159 | End-user testing pass 263: lookup finds a deviation by its reference | `UniversalLookupService.cs`, `LookupDtos.cs`, `LookupRecordType.cs`, `GlobalLookupBar.razor` | TEST-BB-1289 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |
