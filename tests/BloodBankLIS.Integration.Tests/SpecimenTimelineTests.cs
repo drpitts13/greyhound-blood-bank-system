@@ -27,6 +27,31 @@ public class SpecimenTimelineTests : IDisposable
             audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
             currentUser: _factory.CurrentUser);
 
+    // TEST-BB-1258 (end-user testing pass 234): on the specimen's history, as on the patient timeline (pass 233), an
+    // ABO/Rh result that disagrees with the type on file needs attention.
+    [Fact]
+    public async Task DisagreeingAboRh_NeedsAttention_OnTheSpecimenHistory()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c, SpecimenStatus.Accepted);
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = f.Specimen.PatientId, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.TestResult, IsCurrent = true });
+        var typed = new TestResult
+        {
+            SpecimenId = f.Specimen.Id, PatientId = f.Specimen.PatientId, TestCode = "ABORH", Value = "A|Positive",
+            Status = ResultStatus.Entered, EnteredUtc = _factory.Clock.UtcNow.AddMinutes(-30), EnteredBy = "tech"
+        };
+        c.TestResults.Add(typed);
+        await c.SaveChangesAsync();
+
+        var timeline = new SpecimenTimelineService(new EfRepository<Specimen>(c), new EfRepository<TestResult>(c), new EfRepository<OrderSpecimen>(c),
+            new EfRepository<Order>(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<Override>(c), new AuditQuery(c), _factory.Clock,
+            bloodTypes: new EfRepository<PatientBloodTypeHistory>(c));
+        var row = Assert.Single((await timeline.GetAsync(f.Specimen.Id))!.Events, e => e.SourceKey == $"res-{typed.Id}-enter");
+        Assert.Equal(TimelineSeverity.Warning, row.Severity);
+        Assert.Contains("disagrees with historical O+", row.Detail);
+    }
+
     [Fact]
     public async Task UnknownSpecimen_ReturnsNull()
     {

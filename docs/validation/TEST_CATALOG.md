@@ -1266,5 +1266,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1255 | I | `MinimumStockOpenOrdersTests.OpenOrders_LeaveOutLinesCoveredByReservedOrIssuedUnits` | URS-BB-1010 / FRS-BB-1128 |
 | TEST-BB-1256 | U | `ReservationEndedTextTests.For_SaysWhenAReservationHasEnded` | URS-BB-1011 / FRS-BB-1129 |
 | TEST-BB-1257 | I | `PatientTimelineTests.AboRhResult_DisagreeingWithTheTypeOnFile_NeedsAttention` | URS-BB-1012 / FRS-BB-1130 |
+| TEST-BB-1258 | I | `SpecimenTimelineTests.DisagreeingAboRh_NeedsAttention_OnTheSpecimenHistory` | URS-BB-1013 / FRS-BB-1131 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

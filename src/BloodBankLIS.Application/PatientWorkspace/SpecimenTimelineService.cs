@@ -32,6 +32,7 @@ public sealed class SpecimenTimelineService
     private readonly IRepository<BloodUnit> _units;
     private readonly IRepository<Override> _overrides;
     private readonly IRepository<SpecimenStorageEvent>? _storage;
+    private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
     private readonly IAuditQuery _audit;
     private readonly IClock _clock;
 
@@ -46,8 +47,10 @@ public sealed class SpecimenTimelineService
         IRepository<Override> overrides,
         IAuditQuery audit,
         IClock clock,
-        IRepository<SpecimenStorageEvent>? storage = null)
+        IRepository<SpecimenStorageEvent>? storage = null,
+        IRepository<PatientBloodTypeHistory>? bloodTypes = null)
     {
+        _bloodTypes = bloodTypes;
         _storage = storage;
         _specimens = specimens;
         _results = results;
@@ -60,6 +63,13 @@ public sealed class SpecimenTimelineService
         _audit = audit;
         _clock = clock;
     }
+
+    // Pass 234: the patient's current ABO/Rh, so a disagreeing typing result needs attention here as on the timeline.
+    private async Task<BloodBankLIS.Domain.ValueObjects.AboRh?> TypeOnFileAsync(long patientId, CancellationToken ct) =>
+        _bloodTypes is null
+            ? null
+            : (await _bloodTypes.ListAsync(t => t.PatientId == patientId && t.IsCurrent && t.InvalidatedUtc == null, ct))
+                .OrderByDescending(t => t.Id).FirstOrDefault()?.BloodType;
 
     public async Task<SpecimenTimelineDto?> GetAsync(long specimenId, CancellationToken ct = default)
     {
@@ -138,9 +148,10 @@ public sealed class SpecimenTimelineService
                 o.OrderingProvider ?? o.CreatedBy, $"{chart}?tab=orders", $"ord-{o.Id}"));
         }
 
+        var typeOnFile = await TypeOnFileAsync(specimen.PatientId, ct);
         foreach (var r in await _results.ListAsync(r => r.SpecimenId == specimen.Id, ct))
         {
-            events.AddRange(PatientTimelineService.ResultEvents(r, label, $"{chart}?tab=test-history"));
+            events.AddRange(PatientTimelineService.ResultEvents(r, label, $"{chart}?tab=test-history", typeOnFile));
         }
 
         var crossmatches = await _crossmatches.ListAsync(x => x.SpecimenId == specimen.Id, ct);

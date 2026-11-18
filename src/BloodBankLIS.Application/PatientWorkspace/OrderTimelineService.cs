@@ -34,6 +34,7 @@ public sealed class OrderTimelineService
     private readonly IRepository<Override> _overrides;
     private readonly IAuditQuery _audit;
     private readonly IClock _clock;
+    private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
 
     public OrderTimelineService(
         IRepository<Order> orders,
@@ -48,8 +49,10 @@ public sealed class OrderTimelineService
         IRepository<BloodUnit> units,
         IRepository<Override> overrides,
         IAuditQuery audit,
-        IClock clock)
+        IClock clock,
+        IRepository<PatientBloodTypeHistory>? bloodTypes = null)
     {
+        _bloodTypes = bloodTypes;
         _orders = orders;
         _orderSpecimens = orderSpecimens;
         _specimens = specimens;
@@ -64,6 +67,13 @@ public sealed class OrderTimelineService
         _audit = audit;
         _clock = clock;
     }
+
+    // Pass 234: the patient's current ABO/Rh, so a disagreeing typing result needs attention here as on the timeline.
+    private async Task<BloodBankLIS.Domain.ValueObjects.AboRh?> TypeOnFileAsync(long patientId, CancellationToken ct) =>
+        _bloodTypes is null
+            ? null
+            : (await _bloodTypes.ListAsync(t => t.PatientId == patientId && t.IsCurrent && t.InvalidatedUtc == null, ct))
+                .OrderByDescending(t => t.Id).FirstOrDefault()?.BloodType;
 
     /// <summary>The order's history, or null when the order is not this patient's.</summary>
     public async Task<OrderTimelineDto?> GetAsync(long patientId, long orderId, CancellationToken ct = default)
@@ -136,9 +146,10 @@ public sealed class OrderTimelineService
             }
         }
 
+        var typeOnFile = await TypeOnFileAsync(order.PatientId, ct);
         foreach (var r in await _results.ListAsync(r => r.OrderId == order.Id, ct))
         {
-            events.AddRange(PatientTimelineService.ResultEvents(r, accessionById.GetValueOrDefault(r.SpecimenId) ?? $"specimen {r.SpecimenId}", $"{chart}?tab=test-history"));
+            events.AddRange(PatientTimelineService.ResultEvents(r, accessionById.GetValueOrDefault(r.SpecimenId) ?? $"specimen {r.SpecimenId}", $"{chart}?tab=test-history", typeOnFile));
         }
 
         var allocations = await _allocations.ListAsync(a => a.OrderId == order.Id, ct);

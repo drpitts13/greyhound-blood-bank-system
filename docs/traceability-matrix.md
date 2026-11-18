@@ -1124,6 +1124,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1010 / FRS-BB-1128 | End-user testing pass 231: open orders on Minimum stock match Blood orders to prepare | `MinimumStockService.cs` | TEST-BB-1255 | I | |
 | URS-BB-1011 / FRS-BB-1129 | End-user testing pass 232: reservation ended on the chart | `ReservationEndedText.cs`, `PatientChartProductsTab.razor` | TEST-BB-1256 | U | |
 | URS-BB-1012 / FRS-BB-1130 | End-user testing pass 233: discrepant ABO/Rh on the timeline | `PatientTimelineService.cs` | TEST-BB-1257 | I | |
+| URS-BB-1013 / FRS-BB-1131 | End-user testing pass 234: discrepant ABO/Rh on order and specimen history | `OrderTimelineService.cs`, `SpecimenTimelineService.cs` | TEST-BB-1258 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

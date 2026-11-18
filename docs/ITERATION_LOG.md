@@ -26739,3 +26739,21 @@ Opened MRN0022's Test History (two verified results from ACC0022) and Timeline (
 ### Tests
 
 - TEST-BB-1257. Full suite passed.
+
+## Iteration 954 — End-user testing pass 234: discrepant ABO/Rh on order and specimen history (2026-11-17)
+
+### How it was tested
+
+After pass 233, opened the History of ORD-E258306ED774 on MRN0022's Orders tab and checked the specimen history service that the Specimens tab uses.
+
+### Found and fixed
+
+1. **The order's History still read the A+ result as plain.** Pass 233 flagged the disagreeing ABO/Rh on the patient timeline, but the order and specimen histories build the same result events without the patient's type, so *ABORH resulted: A|Positive* stayed plain there. Both now pass the type on file and mark it **Attention** with *New ABO/Rh A+ disagrees with historical O+.*
+
+### Retested live
+
+- ORD-E258306ED774's History shows the Attention row. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1258. Full suite passed.
