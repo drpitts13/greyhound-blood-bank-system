@@ -231,8 +231,13 @@
                             <span class="sub mono">@(item.AccessionNumber ?? "—")</span>
                             @if (item.SpecimenExpiresUtc is DateTime expires)
                             {
-                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                @* Pass 255: say "expired" in words, not only in red, and what a pending test on it needs. *@
+                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap" data-specimen-expiry>@expires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(item.SpecimenExpired ? $" · {WorklistSpecimenExpiryText.Expired}" : "")</span>
                                 <VerificationDeadlineBadge Item="item" />
+                                @if (WorklistSpecimenExpiryText.Note(item.SpecimenExpired, item.CurrentResultStatus) is { } expiredNote)
+                                {
+                                    <span class="sub" data-specimen-expired-note>@expiredNote</span>
+                                }
                             }
                             else
                             {

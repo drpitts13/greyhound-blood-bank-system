@@ -27125,3 +27125,21 @@ Went through Ready to issue (7 rows; W0001230000001 correctly waits for its rety
 ### Tests
 
 - TEST-BB-1279. Full suite passed.
+
+## Iteration 975 — End-user testing pass 255: worklist says a specimen expired (2026-11-18)
+
+### How it was tested
+
+Opened the mother and infant charts (DEMO-MATAB, Lena MRN0028 and her newborn MRN0029: each links the other, the infant shows the maternal anti-K with *Add K-negative requirement*), the HL7 interface (2 errors, 10 outbound waiting with no interface), and the Test Worklist (5 pending).
+
+### Found and fixed
+
+1. **An expired specimen was shown only in red.** Febrile, Marcus's reaction workup ABO/Rh rows were on ACC0014 (expired 2026-11-09, result entered) and ACC-RXN-POST1 (expired 2026-11-15, nothing entered), and the worklist showed only the dates, in a red badge, with **Enter** offered on the second. Entering a new result on an expired specimen is refused except as downtime back-entry. The date now reads *· expired*, and a row with nothing entered says *Specimen expired: collect a new specimen to test.* A result entered while in date can still be verified (OCD-093), so that row says only that it expired.
+
+### Retested live
+
+- ACC0014 reads *2026-11-09 01:50 · expired*; ACC-RXN-POST1 *2026-11-15 19:17 · expired · Specimen expired: collect a new specimen to test.*; ACC-UAT-001 still *Verify before tomorrow 00:52*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1280. Full suite passed.

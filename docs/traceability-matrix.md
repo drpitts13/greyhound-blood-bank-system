@@ -1145,6 +1145,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1031 / FRS-BB-1149 | End-user testing pass 252: equipment card names equipment out of service | `DashboardQueueCatalog.cs`, `Home.razor` | TEST-BB-1277 | A | |
 | URS-BB-1032 / FRS-BB-1150 | End-user testing pass 253: blood order names units reserved off the order | `BloodOrderWorklistService.cs`, `BloodOrders.razor` | TEST-BB-1278 | I | |
 | URS-BB-1033 / FRS-BB-1151 | End-user testing pass 254: instrument rule trace as a table | `InstrumentRuleTraceView.cs`, `Instruments.razor` | TEST-BB-1279 | A | |
+| URS-BB-1034 / FRS-BB-1152 | End-user testing pass 255: worklist says a specimen expired | `WorklistSpecimenExpiryText.cs`, `TestWorklist.razor` | TEST-BB-1280 | A | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

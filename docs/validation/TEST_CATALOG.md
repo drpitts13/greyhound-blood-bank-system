@@ -1288,5 +1288,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1277 | A | `DashboardQueueCatalogTests.EquipmentCard_CountsAndNamesEquipmentOutOfService` | URS-BB-1031 / FRS-BB-1149 |
 | TEST-BB-1278 | I | `BloodOrderWorklistTests.OrdersToPrepare_AreListedWithWhatIsStillNeeded` | URS-BB-1032 / FRS-BB-1150 |
 | TEST-BB-1279 | A | `InstrumentRuleTraceViewTests.Rows_ReadTheTrace_AndCountRepeats`, `InstrumentRuleTraceViewTests.Rows_AreEmpty_ForNoTraceOrUnexpectedText` | URS-BB-1033 / FRS-BB-1151 |
+| TEST-BB-1280 | A | `WorklistSpecimenExpiryTextTests.Note_OnlyForAnExpiredSpecimenWithNothingEntered` | URS-BB-1034 / FRS-BB-1152 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
