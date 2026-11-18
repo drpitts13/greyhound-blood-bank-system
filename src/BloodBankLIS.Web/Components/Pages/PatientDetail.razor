@@ -3098,8 +3098,9 @@ else
         return map;
     }
 
+    // Pass 256: a subtest panel (an antibody screen) reads as its readings, not the stored JSON.
     private static string DisplayResultValue(TestResultDto r) =>
-        r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : (r.Value ?? "—");
+        r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : ResultValueText.For(r.Value);
 
     private List<TestResultDto> PriorVersions(TestResultDto current) =>
         _results

@@ -27143,3 +27143,22 @@ Opened the mother and infant charts (DEMO-MATAB, Lena MRN0028 and her newborn MR
 ### Tests
 
 - TEST-BB-1280. Full suite passed.
+
+## Iteration 976 — End-user testing pass 256: reaction workup on an expired tube; screen result read as readings (2026-11-18)
+
+### How it was tested
+
+Opened reaction investigation #1 (Febrile, Marcus) after pass 255, to see how its workup specimens read.
+
+### Found and fixed
+
+1. **Pass 255 told the bench to collect a new specimen for a reaction workup test that may use the expired tube.** The investigation marks both workup tubes *Expired: workup allowed*: a reaction workup order may be resulted on its expired tube (OCD-058), and result entry allows it. The worklist row for RXN-1-POST-2 (ACC-RXN-POST1) said *Specimen expired: collect a new specimen to test.* A reaction workup row on an expired tube now says *Reaction workup: may be tested on this expired tube (OCD-058).* Other tests keep the pass 255 wording.
+2. **The post-transfusion antibody screen showed as its stored JSON.** The investigation's workup table read `{"version":2,"subtests":{"Cell1":{"IS":"0",…` for the verified screen; the printable reaction report and one result display on the chart did the same for any result other than ABO/Rh. They now use the shared result formatter: *Cell1 IS:0 · Cell1 37C:0 · Cell1 AHG:0 · Cell1 CC:2+ · …*.
+
+### Retested live
+
+- Investigation #1's screen reads as above. The worklist rows for ACC0014 and ACC-RXN-POST1 read *· expired · Reaction workup: may be tested on this expired tube (OCD-058).* Nothing was changed.
+
+### Tests
+
+- TEST-BB-1281, TEST-BB-1282. Full suite passed.

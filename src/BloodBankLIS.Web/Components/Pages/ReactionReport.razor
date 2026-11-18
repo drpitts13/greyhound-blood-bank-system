@@ -103,7 +103,7 @@ else if (_report is { } r)
                         {
                             <tr>
                                 <td>@line.TestName (@line.TestCode)</td>
-                                <td class="mono">@(line.Value is null ? "—" : AboRhResultValue.FormatDisplay(line.Value))</td>
+                                <td class="mono">@ResultValueText.For(line.Value)</td>
                                 <td>@(line.Verified ? "Verified" : line.Status?.ToString() ?? "Pending")</td>
                             </tr>
                         }

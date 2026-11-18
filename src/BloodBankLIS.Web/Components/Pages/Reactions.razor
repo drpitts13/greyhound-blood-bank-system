@@ -291,7 +291,7 @@ else
                                     {
                                         <tr>
                                             <td>@line.TestName <span class="sub mono">@line.TestCode</span></td>
-                                            <td class="mono">@(line.Value is null ? "—" : AboRhResultValue.FormatDisplay(line.Value))</td>
+                                            <td class="mono">@ResultValueText.For(line.Value)</td>
                                             <td>
                                                 @if (line.Verified)
                                                 {
