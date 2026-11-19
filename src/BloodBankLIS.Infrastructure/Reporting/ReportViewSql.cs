@@ -389,7 +389,11 @@ public static class ReportViewSql
                 o.OrderNumber AS order_number,
                 s.AccessionNumber AS accession_number,
                 {Minutes("o.OrderedUtc", "r.VerifiedUtc")} AS minutes_order_to_verify,
-                CASE WHEN s.ReceivedUtc IS NULL THEN NULL ELSE {Minutes("s.ReceivedUtc", "r.VerifiedUtc")} END AS minutes_receipt_to_verify,
+                -- End-user testing pass 278: from receipt, or from the order when the tube was received before it was ordered
+                -- (a reaction workup ordered on a stored tube read 9693 minutes from receipt and 18 from order).
+                CASE WHEN s.ReceivedUtc IS NULL THEN NULL
+                     WHEN s.ReceivedUtc >= o.OrderedUtc THEN {Minutes("s.ReceivedUtc", "r.VerifiedUtc")}
+                     ELSE {Minutes("o.OrderedUtc", "r.VerifiedUtc")} END AS minutes_receipt_to_verify,
                 p.MedicalRecordNumber AS mrn,
                 {person} AS patient_name
             FROM TestResults r

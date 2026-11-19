@@ -1169,6 +1169,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1053 / FRS-BB-1171 | End-user testing pass 275: supplier order list says how long overdue | `SupplierOrderArrivalText.cs`, `SupplierOrders.razor` | TEST-BB-1301 | U | |
 | URS-BB-1054 / FRS-BB-1172 | End-user testing pass 276: unmapped value opens its message | `UnmappedMessageLink.cs`, `AdminHl7Translations.razor`, `Hl7.razor` | TEST-BB-1302 | U | |
 | URS-BB-1055 / FRS-BB-1173 | End-user testing pass 277: issued and transfused report shows issue status | `ReportSeedCatalog.cs` | TEST-BB-1303 | I | |
+| URS-BB-1056 / FRS-BB-1174 | End-user testing pass 278: turnaround from the later of receipt and order | `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270216000000_TurnaroundFromLaterStart.cs` | TEST-BB-1304 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

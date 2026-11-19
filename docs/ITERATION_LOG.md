@@ -27540,3 +27540,21 @@ Restarted the loop. Opened Demo-Multi, Riley's and Febrile, Marcus's Specimens t
 ### Tests
 
 - TEST-BB-1303. Full suite passed.
+
+## Iteration 998 — End-user testing pass 278: turnaround from the later of receipt and order (2026-11-19)
+
+### How it was tested
+
+Ran the remaining seeded reports (discards, wastage, crossmatch and transfusion activity, specimen rejections, test turnaround, blood order turnaround, RhIG, reagent QC and equipment checks) and read their rows.
+
+### Found and fixed
+
+1. **A reaction workup on a stored tube inflated test turnaround.** Febrile, Marcus's DAT on ACC0014 (received 2026-11-06, the workup ordered 2026-11-12) read *18 minutes from order, 9693 minutes from receipt*: the six days the tube sat in the retention fridge before anyone ordered the test. The receipt measure now counts from the later of receipt and order, in the report and its SQL view (reinstalled by a new migration).
+
+### Retested live
+
+- ACC0014's DAT reads *18 · 18*; the other rows are unchanged (ACC-RXN-POST1 *28 · 28*). Nothing was changed.
+
+### Tests
+
+- TEST-BB-1304. Full suite passed.

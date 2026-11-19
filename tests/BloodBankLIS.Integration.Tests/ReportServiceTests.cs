@@ -358,6 +358,59 @@ public class ReportServiceTests : IDisposable
         Assert.Equal(("Stat", "75"), (sqlRun.Value.Rows[2][1], sqlRun.Value.Rows[2][3]));
     }
 
+    // TEST-BB-1304 (end-user testing pass 278): a test ordered on a tube received days earlier (a reaction workup on a
+    // stored tube) counts from the order, not from the tube's receipt, in the visual report and in rpt_test_turnaround.
+    [Fact]
+    public async Task TestTurnaround_StoredTube_CountsFromTheOrder()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-TAT2", LastName = "Stored", FirstName = "Tube", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        db.Patients.Add(patient);
+        await db.SaveChangesAsync();
+        var t0 = new DateTime(2026, 11, 6, 2, 10, 0, DateTimeKind.Utc);
+        var specimen = new Specimen { AccessionNumber = "ACC-TAT2", PatientId = patient.Id, SpecimenType = "EDTA", CollectedUtc = t0.AddMinutes(-20), ReceivedUtc = t0, Status = SpecimenStatus.Accepted };
+        var encounter = new Encounter { PatientId = patient.Id, VisitNumber = "VIS-TAT2", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = t0.AddDays(-1) };
+        var location = new OrderingLocation { Code = "LOC-TAT2", Name = "3N", IsActive = true };
+        db.AddRange(specimen, encounter, location);
+        await db.SaveChangesAsync();
+        var ordered = t0.AddDays(6).AddHours(17);
+        var order = new Order
+        {
+            OrderNumber = "ORD-TAT2", PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderCategory = OrderCategory.Test, OrderName = "Reaction workup",
+            OrderType = OrderType.TransfusionReactionWorkup, Priority = OrderPriority.Stat, Status = OrderStatus.Completed, Source = OrderSource.Manual, OrderedUtc = ordered
+        };
+        db.Orders.Add(order);
+        await db.SaveChangesAsync();
+        db.TestResults.Add(new TestResult
+        {
+            SpecimenId = specimen.Id, PatientId = patient.Id, OrderId = order.Id, TestCode = "DAT", Value = "Negative",
+            Status = ResultStatus.Verified, EnteredUtc = ordered.AddMinutes(10), VerifiedUtc = ordered.AddMinutes(18)
+        });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var detail = await service.RunAsync(list.Single(r => r.Code == "RPT-TAT").Id, new Dictionary<string, string?>());
+        Assert.True(detail.Succeeded, detail.Error);
+        var columns = detail.Value!.Columns.ToList();
+        var row = detail.Value.Rows.Single(r => r[columns.IndexOf("order_number")] == "ORD-TAT2");
+        Assert.Equal(("18", "18"), (row[columns.IndexOf("minutes_order_to_verify")], row[columns.IndexOf("minutes_receipt_to_verify")]));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-TAT2-SQL",
+            Name = "SQL stored tube turnaround",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT minutes_receipt_to_verify FROM rpt_test_turnaround WHERE order_number = 'ORD-TAT2'"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal("18", sqlRun.Value!.Rows.Single()[0]);
+    }
+
     // TEST-BB-1162: the equipment check record lists every check recorded across equipment, with the check, pass or
     // fail, who performed it and the note; the SQL view gives the same (end-user testing pass 140: checks were listed one
     // piece of equipment at a time, the last 50).

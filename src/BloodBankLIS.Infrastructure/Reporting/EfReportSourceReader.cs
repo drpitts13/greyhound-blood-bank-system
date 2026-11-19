@@ -615,7 +615,8 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("order_number", ReportValueFormat.Text(row.OrderNumber)),
             ("accession_number", ReportValueFormat.Text(row.AccessionNumber)),
             ("minutes_order_to_verify", Minutes(row.OrderedUtc, row.VerifiedUtc)),
-            ("minutes_receipt_to_verify", Minutes(row.ReceivedUtc, row.VerifiedUtc)),
+            // Pass 278: from receipt, or from the order when the tube was received before it was ordered (a stored tube).
+            ("minutes_receipt_to_verify", Minutes(row.ReceivedUtc is DateTime received && received < row.OrderedUtc ? row.OrderedUtc : row.ReceivedUtc, row.VerifiedUtc)),
             ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
             ("patient_name", ReportValueFormat.Name(row.LastName, row.FirstName)))).ToList();
     }
