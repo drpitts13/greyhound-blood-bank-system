@@ -386,7 +386,19 @@
     [SupplyParameterFromQuery]
     public long? MessageId { get; set; }
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    /// <summary>Pass 276: a control ID (or MRN, order, unit) to search the message log for, from the Unmapped values list.</summary>
+    [SupplyParameterFromQuery(Name = "search")]
+    public string? SearchQuery { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            _logSearch = SearchQuery.Trim();
+        }
+
+        await LoadAsync();
+    }
 
     protected override async Task OnParametersSetAsync()
     {

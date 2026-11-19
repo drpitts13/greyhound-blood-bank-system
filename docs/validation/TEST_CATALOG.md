@@ -1310,5 +1310,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1299 | U | `LinkedDeviationsStatusTests.LinkedDeviation_StatusReadsInWords` | URS-BB-1051 / FRS-BB-1169 |
 | TEST-BB-1300 | U | `AntigenResultTextTests.AntigenResult_ReadsInWords` | URS-BB-1052 / FRS-BB-1170 |
 | TEST-BB-1301 | U | `SupplierOrderArrivalTextTests.Line_SaysHowLateAnOverdueArrivalIs` | URS-BB-1053 / FRS-BB-1171 |
+| TEST-BB-1302 | U | `UnmappedMessageLinkTests.Href_OpensTheMessageWhereItCameIn` | URS-BB-1054 / FRS-BB-1172 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

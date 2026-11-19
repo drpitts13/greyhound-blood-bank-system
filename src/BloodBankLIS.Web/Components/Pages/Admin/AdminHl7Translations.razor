@@ -307,7 +307,17 @@ else
                             <td class="right">@u.Count</td>
                             <td class="nowrap">@u.FirstSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="nowrap">@u.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@(u.LastMessageControlId ?? "—")</td>
+                            <td>
+                                @* Pass 276: open the message the value came in. *@
+                                @if (UnmappedMessageLink.Href(u.LastMessageControlId, u.InstrumentInterfaceId is not null) is { } messageHref)
+                                {
+                                    <a href="@messageHref" data-unmapped-last-message>@u.LastMessageControlId</a>
+                                }
+                                else
+                                {
+                                    <span>—</span>
+                                }
+                            </td>
                             <td class="right nowrap">
                                 @if (u.ResolvedUtc is not null)
                                 {

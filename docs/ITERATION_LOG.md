@@ -27504,3 +27504,21 @@ Opened Issue & Transfuse › Second ABO/Rh (Kline, Nora, 2 reserved, an ABO/Rh t
 ### Tests
 
 - TEST-BB-1301. Full suite passed.
+
+## Iteration 996 — End-user testing pass 276: unmapped value opens its message (2026-11-18)
+
+### How it was tested
+
+Opened Minimum stock (2 below minimum) and the interface Unmapped values list (8 values from the EHR and the ImmuLINK Echo).
+
+### Found and fixed
+
+1. **An unmapped value's last message could not be opened.** The list named it (*UAT-ORM-CA-3*, *Specimen QC-ABSC-POS*) as plain text, so checking what the EHR or analyzer actually sent meant finding the message by hand. The message now links to the HL7 message log searched for the control ID, or for an instrument to Instrument Interfaces searched for the sample ID.
+
+### Retested live
+
+- UAT-ORM-CA-3 opened the HL7 log searched for it, listing its two messages; *Specimen QC-ABSC-POS* links to Instrument Interfaces for QC-ABSC-POS. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1302. Full suite passed.
