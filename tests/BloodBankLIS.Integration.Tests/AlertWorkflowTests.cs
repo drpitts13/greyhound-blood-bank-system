@@ -172,6 +172,10 @@ public class AlertWorkflowTests : IDisposable
         var work = (await reagents.ListWorkAsync()).Where(w => w.LotId == lotId).ToList();
         Assert.DoesNotContain(work, w => w.Kind == ReagentQcWorklistRule.Failed);
         Assert.Equal(1, work.Single(w => w.Kind == ReagentQcWorklistRule.ReviewResults).ResultsToReview);
+        // TEST-BB-1315 (pass 288): the unreviewed failed reading is marked QcFailed; the unreviewed passing ones are not.
+        var unreviewed = work.Where(w => w.Kind == ReagentQcWorklistRule.Unreviewed).ToList();
+        Assert.Equal(3, unreviewed.Count);
+        Assert.Contains("read 0 (failed)", Assert.Single(unreviewed, w => w.QcFailed).Message);
         Assert.True((await reagents.ResultsForLotAsync(lotId)).Value!.Single(r => r.ResultId == resultId).ToReview);
         // TEST-BB-1205 (pass 182): the lot's results say how many units the patient was issued after the result.
         Assert.Equal(1, (await reagents.ResultsForLotAsync(lotId)).Value!.Single(r => r.ResultId == resultId).UnitsIssuedSince);

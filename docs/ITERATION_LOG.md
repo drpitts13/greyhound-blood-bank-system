@@ -27724,3 +27724,22 @@ Opened Compatibility, chose Demo-Multi, Riley (MRN0022) for a crossmatch, and op
 ### Tests
 
 - TEST-BB-1313. Full suite passed.
+
+## Iteration 1008 — End-user testing pass 288: failed QC first on the supervisor queue (2026-11-19)
+
+### How it was tested
+
+Worked down the Supervisor queue as a supervisor starting a shift: reagent QC, quarantine releases, a missing unit, an operational hold and an emergency-release override review. Nothing was reviewed or released.
+
+### Found and fixed
+
+1. **The failed anti-D QC reading sat among seven passing ones.** *Reagent QC unreviewed — lot AD-24092 … expected 3+, read 0 (failed)* was listed fifth of the unreviewed QC rows, in lot order, with nothing to set it apart: once a later QC of the lot passed, the failure was an ordinary unreviewed row. It is now titled *Reagent QC unreviewed (failed)* and listed first, and the Reagent QC worklist marks it **Failed**.
+2. **The red badge said "Due before specimen expiry" on every first-to-do row.** It was written for results to verify, but also showed on failed reagent QC and on transfusions the EHR reported, which have no specimen. It now says why for each kind: *QC failed*, *Review first*.
+
+### Retested live
+
+- The Supervisor queue opens on *QC failed · Reagent QC unreviewed (failed) — lot AD-24092*, then the lot's results to review and the passing rows. Reagent QC marks the AD-24092 reading **Failed**.
+
+### Tests
+
+- TEST-BB-1314, TEST-BB-1315. Full suite passed.

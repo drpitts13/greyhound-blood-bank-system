@@ -52,13 +52,13 @@ public class SupervisorQueueReagentQcTests : IDisposable
             permissions: new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify), reagentQc: reagents).ListAsync();
         var qc = verifier.Value!.Where(i => i.Kind == SupervisorQueueRule.KindReagentQc).ToList();
         Assert.Contains(qc, i => i.Title == "Reagent QC failed — lot SQ-1" && i.DueSoon && i.Href == "/reagents");
-        Assert.Contains(qc, i => i.Title == "Reagent QC unreviewed — lot SQ-1");
+        Assert.Contains(qc, i => i.Title == "Reagent QC unreviewed (failed) — lot SQ-1" && i.DueSoon);
         Assert.DoesNotContain(qc, i => i.Title.Contains("overdue", StringComparison.Ordinal));
         // TEST-BB-1246 (end-user testing pass 224): QC the signed-in user performed is not offered to them to review.
         var own = Assert.Single(qc, i => i.Title == "Reagent QC unreviewed — lot SQ-2");
         Assert.Equal("Open", own.NextAction);
         Assert.EndsWith("You performed it: another person reviews it.", own.Detail);
-        Assert.Equal("Review", Assert.Single(qc, i => i.Title == "Reagent QC unreviewed — lot SQ-1").NextAction);
+        Assert.Equal("Review", Assert.Single(qc, i => i.Title == "Reagent QC unreviewed (failed) — lot SQ-1").NextAction);
 
         var releaseOnly = await new SupervisorQueueService(_factory.CurrentUser,
             permissions: new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease), reagentQc: reagents).ListAsync();

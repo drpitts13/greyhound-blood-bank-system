@@ -136,12 +136,13 @@ public sealed class SupervisorQueueService
                     && string.Equals(w.PerformedBy.Trim(), _currentUser.UserName?.Trim(), StringComparison.OrdinalIgnoreCase);
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindReagentQc,
-                    $"Reagent QC {ReagentQcWorklistRule.KindText(w.Kind)} — lot {w.LotNumber}",
+                    // Pass 288: an unreviewed failed reading says so in its title and comes first, like an open failure.
+                    $"Reagent QC {ReagentQcWorklistRule.KindText(w.Kind)}{(w.QcFailed ? " (failed)" : string.Empty)} — lot {w.LotNumber}",
                     own ? $"{w.Message} You performed it: another person reviews it." : w.Message,
                     "/reagents",
                     w.Kind == ReagentQcWorklistRule.ReviewResults ? $"{w.ResultsToReview} results to review" : own ? "Open" : "Review",
                     ContextId: w.QcId ?? w.LotId,
-                    DueSoon: w.Kind == ReagentQcWorklistRule.Failed));
+                    DueSoon: w.Kind == ReagentQcWorklistRule.Failed || w.QcFailed));
             }
         }
 

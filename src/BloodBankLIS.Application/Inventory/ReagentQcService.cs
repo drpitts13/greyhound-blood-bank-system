@@ -133,6 +133,12 @@ public sealed record ReagentQcWorkItemDto(
     /// review it (end-user testing pass 213).
     /// </summary>
     public string? PerformedBy { get; init; }
+
+    /// <summary>
+    /// True for an Unreviewed item whose QC reading failed (end-user testing pass 288): the supervisor queue listed the
+    /// unreviewed failed anti-D reading among seven passing ones, in lot order, with nothing to set it apart.
+    /// </summary>
+    public bool QcFailed { get; init; }
 }
 
 public sealed record SaveReagentRequest(string Code, string Name, string? TestCodes = null);
@@ -792,7 +798,9 @@ public sealed class ReagentQcService
                 item.QcId,
                 item.Message)
             {
-                PerformedBy = item.QcId is long qcId ? rows.FirstOrDefault(q => q.Id == qcId)?.PerformedBy : null
+                PerformedBy = item.QcId is long qcId ? rows.FirstOrDefault(q => q.Id == qcId)?.PerformedBy : null,
+                QcFailed = item.Kind == ReagentQcWorklistRule.Unreviewed
+                    && item.QcId is long failedId && rows.FirstOrDefault(q => q.Id == failedId)?.Passed == false
             })
             .ToList();
         if (_resultLots is null)

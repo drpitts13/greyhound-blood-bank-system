@@ -70,7 +70,8 @@ else
                             <span class="badge badge-gray">@KindLabel(row.Kind)</span>
                             @if (row.DueSoon)
                             {
-                                <span class="badge badge-red" data-due-soon title="Verify before the specimen expires">Due before specimen expiry</span>
+                                var firstBadge = SupervisorQueueRule.FirstBadge(row.Kind);
+                                <span class="badge badge-red" data-due-soon title="@firstBadge.Title">@firstBadge.Text</span>
                             }
                         </td>
                         <td>

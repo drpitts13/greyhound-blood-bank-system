@@ -34,7 +34,13 @@
                 @foreach (var row in _work)
                 {
                     <tr>
-                        <td>@Ui.CodeNameText(row.Kind)</td>
+                        <td>@Ui.CodeNameText(row.Kind)
+                            @if (row.QcFailed)
+                            {
+                                @* Pass 288: an unreviewed reading that failed is set apart from the passing ones. *@
+                                <span class="badge badge-red" data-qc-failed>Failed</span>
+                            }
+                        </td>
                         <td class="mono">@row.LotNumber</td>
                         <td>@row.Message</td>
                         <td>

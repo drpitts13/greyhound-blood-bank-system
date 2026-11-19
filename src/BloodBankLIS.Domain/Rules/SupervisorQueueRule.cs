@@ -80,4 +80,16 @@ public static class SupervisorQueueRule
         KindOverrideReview => 7,
         _ => 99
     };
+
+    /// <summary>
+    /// The badge on an item marked to deal with first, and its hover text (end-user testing pass 288: every such item read
+    /// "Due before specimen expiry", including failed reagent QC and transfusions the EHR reported, which have no specimen).
+    /// </summary>
+    public static (string Text, string Title) FirstBadge(string kind) => kind switch
+    {
+        KindResultVerify => ("Due before specimen expiry", "Verify before the specimen expires"),
+        KindReagentQc => ("QC failed", "A failed QC reading: review it, and the results tested with the lot, first"),
+        KindTransfusionReported => ("Review first", "A transfusion the EHR reported over the unit's status"),
+        _ => ("First", "Deal with this item first")
+    };
 }
