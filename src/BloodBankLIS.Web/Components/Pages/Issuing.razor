@@ -675,6 +675,11 @@
                                 @if (row.UnitRecalled)
                                 {
                                     <span class="badge badge-red" title="@(row.RecallReason ?? "Recalled")" data-transit-recalled>Recalled: do not accept, return it</span>
+                                    @if (!string.IsNullOrWhiteSpace(row.RecallReason))
+                                    {
+                                        @* Pass 283: the recall reason in view. *@
+                                        <span class="sub" data-recall-reason>@row.RecallReason</span>
+                                    }
                                 }
                             </td>
                             <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
@@ -821,6 +826,11 @@
                                 @if (row.UnitRecalled)
                                 {
                                     <span class="badge badge-red" title="@(row.RecallReason ?? "Recalled")" data-issued-recalled>Recalled: do not transfuse, return it</span>
+                                    @if (!string.IsNullOrWhiteSpace(row.RecallReason))
+                                    {
+                                        @* Pass 283: the recall reason in view. *@
+                                        <span class="sub" data-recall-reason>@row.RecallReason</span>
+                                    }
                                 }
                             </td>
                             <td class="right nowrap">

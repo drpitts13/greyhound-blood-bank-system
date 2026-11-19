@@ -27630,3 +27630,21 @@ After pass 281, searched the operational pages for other badges whose reason is 
 ### Tests
 
 - TEST-BB-1308. Full suite passed.
+
+## Iteration 1003 — End-user testing pass 283: QC review, recall and hold reasons in view (2026-11-19)
+
+### How it was tested
+
+Finished pass 282's search for reasons given only in hover text, then opened Kellerman, Diane's chart (MRN0004).
+
+### Found and fixed
+
+1. **Three more reasons were hover-only.** The chart header's *Under QC review* (Kellerman's type tested with ANTI-D lot AD-24092, whose QC failed), the *Recalled: do not accept / do not transfuse, return it* badges on In transit and Issued units (the recall reason), and the reaction board's *Cannot hold* (why the remainder could not be quarantined). Each reason is now written out. The workup *Incomplete* badge already sits beside the written progress, so it was left.
+
+### Retested live
+
+- Kellerman's header reads *Under QC review · ABO/Rh tested with ANTI-D lot AD-24092, whose QC failed; the result is to review on Reagent QC before relying on it.* No recalled unit is out and no remainder is unholdable in the development data. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1309. Full suite passed.

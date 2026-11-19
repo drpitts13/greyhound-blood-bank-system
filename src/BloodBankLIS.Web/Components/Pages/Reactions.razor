@@ -149,6 +149,8 @@ else
                                 else if (!string.IsNullOrWhiteSpace(r.RemainderHoldNote))
                                 {
                                     <span class="badge badge-amber" title="@r.RemainderHoldNote">Cannot hold</span>
+                                    @* Pass 283: why, in view. *@
+                                    <span class="sub" data-reaction-hold-note>@r.RemainderHoldNote</span>
                                 }
                                 else
                                 {
