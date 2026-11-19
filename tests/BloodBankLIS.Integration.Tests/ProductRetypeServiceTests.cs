@@ -298,6 +298,26 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("discrepancy", unit.QuarantineReason, StringComparison.OrdinalIgnoreCase);
     }
 
+    // TEST-BB-1311 (end-user testing pass 285): a unit waiting for its retype with no retype row yet names the test Enter
+    // will use (the product's retype test for its labelled Rh), marked not started, instead of "—".
+    [Fact]
+    public async Task PendingList_UnitWithNoRetypeRow_NamesTheTestToUse()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("RT-NOROW", AboGroup.B, RhType.Negative);
+        await using var context = _factory.Create();
+        context.ProductRetypeResults.RemoveRange(await context.ProductRetypeResults.Where(r => r.BloodProductId == unitId).ToListAsync());
+        await context.SaveChangesAsync();
+
+        var row = Assert.Single(await Retype(context).ListPendingAsync(), p => p.UnitId == unitId);
+        Assert.Equal(AboRhRetypeRule.TestCode, row.TestCode);
+        Assert.Equal("ABO/Rh Retype", row.TestName);
+        Assert.True(row.TestNotStarted);
+        Assert.Null(row.ResultStatus);
+
+        var (_, startedId) = await SeedReceivedUnitAsync("RT-STARTED", AboGroup.O, RhType.Positive);
+        Assert.False(Assert.Single(await Retype(context).ListPendingAsync(), p => p.UnitId == startedId).TestNotStarted);
+    }
+
     [Fact]
     public async Task PendingList_IncludesOnlyReceivedRetypeUnits()
     {

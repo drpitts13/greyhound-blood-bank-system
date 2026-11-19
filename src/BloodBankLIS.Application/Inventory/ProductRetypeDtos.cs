@@ -38,6 +38,12 @@ public sealed record ProductRetypeWorkItemDto(
     /// </summary>
     public string? LookbackDin { get; init; }
 
+    /// <summary>
+    /// True when no retype has been started on the unit and <see cref="TestCode"/> names the test Enter will use (the
+    /// product's Rh+ / Rh− retype test, or the catalog ABO/Rh retype) (end-user testing pass 285).
+    /// </summary>
+    public bool TestNotStarted { get; init; }
+
     public static ProductRetypeWorkItemDto From(
         BloodUnit unit,
         ProductRetypeResult? latest = null,

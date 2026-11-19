@@ -77,10 +77,21 @@ public sealed class ProductRetypeService
                 g => g.Key,
                 g => g.OrderByDescending(r => r.EnteredUtc).ThenByDescending(r => r.Id).First());
 
-        var testIds = latestByUnit.Values.Select(r => r.TestDefinitionId).Distinct().ToList();
+        // End-user testing pass 285: a unit with no retype row yet showed "—" in the Test column although Enter opens it
+        // with the product's Rh+ / Rh− retype test (or the catalog ABO/Rh retype). The board names that test, marked as
+        // not started, the same way the entry resolves it.
+        var assignedByUnit = units
+            .Where(u => !latestByUnit.ContainsKey(u.Id) && u.ProductType is not null)
+            .Select(u => (u.Id, TestId: ProductRetypeAssignment.ResolveTestId(u.ProductType!, u.RhD)))
+            .Where(x => x.TestId is not null)
+            .ToDictionary(x => x.Id, x => x.TestId!.Value);
+        var testIds = latestByUnit.Values.Select(r => r.TestDefinitionId).Concat(assignedByUnit.Values).Distinct().ToList();
         var tests = testIds.Count == 0
             ? new Dictionary<long, TestDefinition>()
             : (await _tests.ListAsync(t => testIds.Contains(t.Id), ct)).ToDictionary(t => t.Id);
+        var fallback = units.Any(u => !latestByUnit.ContainsKey(u.Id))
+            ? await _tests.FirstOrDefaultAsync(t => t.Code == AboRhRetypeRule.TestCode && t.IsActive, ct)
+            : null;
 
         var now = _clock.UtcNow;
         // Pass 132: soonest-expiring first, outdated units last.
@@ -91,6 +102,20 @@ public sealed class ProductRetypeService
             if (latest is not null && tests.TryGetValue(latest.TestDefinitionId, out var test))
             {
                 testName = test.Name;
+            }
+
+            if (latest is null)
+            {
+                var assigned = assignedByUnit.TryGetValue(unit.Id, out var assignedId)
+                    && tests.TryGetValue(assignedId, out var byProduct) && byProduct.IsActive
+                    ? byProduct
+                    : fallback;
+                return ProductRetypeWorkItemDto.From(unit, null, null, now) with
+                {
+                    TestCode = assigned?.Code,
+                    TestName = assigned?.Name,
+                    TestNotStarted = assigned is not null
+                };
             }
 
             return ProductRetypeWorkItemDto.From(unit, latest, testName, now);

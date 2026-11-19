@@ -256,10 +256,14 @@
                                 {
                                     <strong>@(row.TestName ?? row.TestCode)</strong>
                                     <span class="mono muted">@row.TestCode</span>
+                                    @if (row.TestNotStarted)
+                                    {
+                                        <div class="sub muted" data-retype-not-started>Not started</div>
+                                    }
                                 }
                                 else
                                 {
-                                    <span class="muted">—</span>
+                                    <span class="muted" data-retype-no-test>No retype test set up for this product</span>
                                 }
                             </td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>

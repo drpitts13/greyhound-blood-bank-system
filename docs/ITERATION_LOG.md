@@ -27666,3 +27666,25 @@ Opened DEMO-RHIG, Noor's RhIG evaluation (delivery 11 days ago, fetal bleed scre
 ### Tests
 
 - TEST-BB-1310. Full suite passed.
+
+## Iteration 1005 — End-user testing pass 285: retype test named before a retype is started (2026-11-19)
+
+### How it was tested
+
+Walked the mother/baby chart (DEMO-MATAB, Baby Boy Lena, linked to a mother with anti-K), the RhIG queue, Blood orders to prepare, Alerts, the inventory search and the Retype board.
+
+### Found and fixed
+
+1. **The Retype board said "—" for the test on units that have one.** Most units waiting for a retype showed "—" in the Test column, which reads as "no retype test set up"; but **Enter** on W000123DMG0001 (B−, expires in 2 days) opened *Rh− Retype ABORH-RETYPE-NEG*. The board only named a test once a retype row existed. It now names the test the entry will use (the product's Rh+ / Rh− retype test, else the catalog ABO/Rh retype), with *Not started* under it, and says *No retype test set up for this product* when none can be used.
+
+### Noted, not changed
+
+- Older alerts and unit numbers in the demo data predate earlier fixes: alert notes written in UTC (current alerts are written in local time) and unit `=W0000261234561`, received with the scan's "=" before scanned DINs were stored as the 13-character DIN (TEST-BB-1007).
+
+### Retested live
+
+- The Retype board shows W000123DMG0001 as *Rh− Retype ABORH-RETYPE-NEG / Not started* and the Rh+ units as *Rh+ Retype ABORH-RETYPE-POS / Not started*, matching their entry forms. Nothing was recorded.
+
+### Tests
+
+- TEST-BB-1311. Full suite passed.
