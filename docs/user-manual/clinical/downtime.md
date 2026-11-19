@@ -28,7 +28,7 @@ Recording and ending an outage are written to the audit trail with who did it.
 
 ## Before an outage: print the patient summary
 
-Open **Downtime patient summary** from the link on Downtime Snapshot (or go to /downtime/patients) before a planned outage, or as soon as an unplanned one starts, and keep the printout at the issue bench. You need the *issue.create* permission. It lists every patient the blood bank is working for now: anyone with a specimen that has not expired, a unit reserved, or a unit issued and still out. For each patient it shows:
+Open **Downtime patient summary** from the link on Downtime Snapshot (or go to /downtime/patients) before a planned outage, or as soon as an unplanned one starts, and keep the printout at the issue bench. You need the *issue.create* permission. It lists every patient the blood bank is working for now: anyone with a specimen that has not expired, a unit reserved, a unit issued and still out, or a massive transfusion protocol still active. For each patient it shows:
 
 - name, MRN, and date of birth
 - ABO/Rh on file, and **No second determination on file** when the second ABO/Rh that issue requires is missing
@@ -36,6 +36,7 @@ Open **Downtime patient summary** from the link on Downtime Snapshot (or go to /
 - For an infant linked to its mother, **Maternal:** with her MRN and active antibodies, which may be present in the infant (*Mother MRN0028: anti-K*)
 - active antibodies
 - special requirements in effect, with informational notes below them
+- **Massive transfusion protocol active** while one is open: its number, when it was called and by whom, and where (*MTP #1, called 2026-11-06 09:05 by Dr. Demo Trauma (Trauma Bay 1)*)
 - prior transfusion reactions, newest first: type, severity, the date reported, and **investigation open** while the workup is not closed
 - current specimens with their expiration
 - reserved and issued units: unit number, product, ABO/Rh, unit expiration, and when the reservation ends

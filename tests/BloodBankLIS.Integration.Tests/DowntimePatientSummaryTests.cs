@@ -510,4 +510,42 @@ public class DowntimePatientSummaryTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("K", row.MaternalAntibodies);
         Assert.Null(Assert.Single((await Service(c, withAttributes: false).GetAsync(mother.Id)).Patients).MaternalAntibodies);
     }
+
+    // TEST-BB-1319 (end-user testing pass 292): a patient with an active massive transfusion protocol is on the sheet,
+    // even with nothing else current, and the sheet says the protocol is active; a closed protocol does not show.
+    [Fact]
+    public async Task Sheet_SaysAMassiveTransfusionProtocolIsActive()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var bleeding = NewPatient(key, "Mtp");
+        var closed = NewPatient(key, "MtpClosed");
+        c.Patients.AddRange(bleeding, closed);
+        await c.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        var active = new MtpActivation
+        {
+            PatientId = bleeding.Id, Status = MtpActivationStatus.Active, RequestedBy = "Dr. Trauma", Reason = "Haemorrhage",
+            Location = "Trauma Bay 1", ActivatedUtc = now.AddHours(-2), ActivatedBy = "tech"
+        };
+        c.MtpActivations.AddRange(active, new MtpActivation
+        {
+            PatientId = closed.Id, Status = MtpActivationStatus.Closed, RequestedBy = "Dr. Trauma", Reason = "Haemorrhage",
+            ActivatedUtc = now.AddDays(-2), ActivatedBy = "tech", ClosedUtc = now.AddDays(-1), ClosedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+
+        DowntimePatientSummaryService WithMtp() => new(
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c), new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c),
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
+            c, _factory.Clock, mtp: new EfRepository<MtpActivation>(c));
+
+        var sheet = await WithMtp().GetAsync();
+        var row = Assert.Single(sheet.Patients, p => p.PatientId == bleeding.Id);
+        Assert.Equal(new DowntimeMtpLine(active.Id, active.ActivatedUtc, "Dr. Trauma", "Trauma Bay 1"), Assert.Single(row.ActiveMtp));
+        Assert.DoesNotContain(sheet.Patients, p => p.PatientId == closed.Id);
+        Assert.Empty(Assert.Single((await WithMtp().GetAsync(closed.Id)).Patients).ActiveMtp);
+    }
 }

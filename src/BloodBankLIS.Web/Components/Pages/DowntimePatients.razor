@@ -147,6 +147,11 @@ else
                                 {
                                     <div class="sub">Note: @note</div>
                                 }
+                                @foreach (var mtp in p.ActiveMtp)
+                                {
+                                    @* Pass 292: a massive transfusion protocol still open, for the bench issuing on paper. *@
+                                    <div data-downtime-mtp><strong>Massive transfusion protocol active:</strong> MTP #@mtp.ActivationId, called @mtp.ActivatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(string.IsNullOrWhiteSpace(mtp.RequestedBy) ? "" : $" by {mtp.RequestedBy}")@(string.IsNullOrWhiteSpace(mtp.Location) ? "" : $" ({mtp.Location})")</div>
+                                }
                                 @foreach (var reaction in p.Reactions)
                                 {
                                     @* Pass 104: a prior reaction, and an open workup, for the bench issuing on paper. *@

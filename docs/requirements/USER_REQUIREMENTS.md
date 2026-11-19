@@ -1075,3 +1075,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1067 | The reaction investigation shows what the bedside reported with the suspected reaction while the case is worked, not only on the printed report. | P2 | FRS-BB-1185 |
 | URS-BB-1068 | What a cooler check with differences found is written on the issue desk, not only in hover text. | P3 | FRS-BB-1186 |
 | URS-BB-1069 | A cooler check or stock count summary names only the counts that are not zero. | P3 | FRS-BB-1187 |
+| URS-BB-1070 | The downtime patient summary says when a patient's massive transfusion protocol is still active, and lists that patient. | P2 | FRS-BB-1188 |

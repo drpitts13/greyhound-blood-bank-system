@@ -37,6 +37,12 @@ public sealed record DowntimeReactionLine(string? ReactionType, ReactionSeverity
         + (InvestigationOpen ? "; investigation open" : "");
 }
 
+/// <summary>
+/// A massive transfusion protocol still open for the patient (end-user testing pass 292: the sheet listed the emergency
+/// units issued under it with no word that the protocol was still active, so the bench issuing on paper did not know).
+/// </summary>
+public sealed record DowntimeMtpLine(long ActivationId, DateTime ActivatedUtc, string RequestedBy, string? Location);
+
 public sealed record DowntimeSpecimenLine(string AccessionNumber, DateTime CollectedUtc, DateTime? ExpiresUtc);
 
 public sealed record DowntimePatientRow(
@@ -78,6 +84,9 @@ public sealed record DowntimePatientRow(
     /// testing pass 208: the sheet read "None on file" for an infant whose mother has anti-K).
     /// </summary>
     public string? MaternalAntibodies { get; init; }
+
+    /// <summary>Massive transfusion protocols still active for the patient (pass 292).</summary>
+    public IReadOnlyList<DowntimeMtpLine> ActiveMtp { get; init; } = [];
 }
 
 public sealed record DowntimePatientSummary(DateTime GeneratedUtc, IReadOnlyList<DowntimePatientRow> Patients);
@@ -108,6 +117,7 @@ public sealed class DowntimePatientSummaryService
     private readonly IRepository<TestResult>? _results;
     private readonly IRepository<ReactionInvestigation>? _reactions;
     private readonly BloodBankLIS.Application.Inventory.ReagentQcService? _reagentQc;
+    private readonly IRepository<MtpActivation>? _mtp;
 
     public DowntimePatientSummaryService(
         IRepository<Patient> patients,
@@ -128,8 +138,10 @@ public sealed class DowntimePatientSummaryService
         IRepository<BloodAttributeDefinition>? attributes = null,
         IRepository<TestResult>? results = null,
         IRepository<ReactionInvestigation>? reactions = null,
-        BloodBankLIS.Application.Inventory.ReagentQcService? reagentQc = null)
+        BloodBankLIS.Application.Inventory.ReagentQcService? reagentQc = null,
+        IRepository<MtpActivation>? mtp = null)
     {
+        _mtp = mtp;
         _reagentQc = reagentQc;
         _reactions = reactions;
         _results = results;
@@ -182,9 +194,15 @@ public sealed class DowntimePatientSummaryService
             ? []
             : (await _bloodOrders.ListAsync(ct)).Where(o => patientId == null || o.PatientId == patientId).ToList();
 
+        // Pass 292: an active massive transfusion protocol puts the patient on the sheet and says so.
+        var activeMtp = _mtp is null
+            ? []
+            : (await _mtp.ListAsync(m => m.Status == MtpActivationStatus.Active && (patientId == null || m.PatientId == patientId), ct)).ToList();
+
         var patientIds = patientId is long one
             ? new HashSet<long> { one }
             : specimens.Select(s => s.PatientId)
+                .Concat(activeMtp.Select(m => m.PatientId))
                 .Concat(reserved.Select(a => a.PatientId))
                 .Concat(issued.Select(i => i.PatientId))
                 .Concat(rhigOpen.Select(e => e.PatientId))
@@ -311,6 +329,10 @@ public sealed class DowntimePatientSummaryService
                         && BloodBankLIS.Application.Patients.PatientBloodBankFlags.ActiveAntibodies(maternalAntibodies[motherId]) is { Count: > 0 } maternal
                         ? $"Mother {mother.MedicalRecordNumber}: {string.Join(", ", maternal)}"
                         : null,
+                    ActiveMtp = activeMtp.Where(m => m.PatientId == p.Id)
+                        .OrderBy(m => m.ActivatedUtc)
+                        .Select(m => new DowntimeMtpLine(m.Id, m.ActivatedUtc, m.RequestedBy, m.Location))
+                        .ToList(),
                     Reactions = reactionsByPatient[p.Id]
                         .OrderByDescending(r => r.ReportedUtc)
                         .Select(r => new DowntimeReactionLine(

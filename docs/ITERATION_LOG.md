@@ -27797,3 +27797,21 @@ Read the cooler-check notes added in pass 290 on the In transit board as the iss
 ### Tests
 
 - TEST-BB-1318. Full suite passed.
+
+## Iteration 1012 — End-user testing pass 292: active MTP on the downtime sheet (2026-11-19)
+
+### How it was tested
+
+Walked Storage temperatures (FRIDGE-1 last read 6 days ago; the reading interval is a facility setting left unset), Billing, the Downtime snapshot and the downtime patient summary. Nothing was recorded or printed.
+
+### Found and fixed
+
+1. **The downtime sheet did not say an MTP was active.** Demo-Massive, Morgan (MRN0021) has massive transfusion protocol #1 still open, but the sheet listed only the four emergency units issued under it, with type *Not on file*. A bench issuing on paper did not know the patient was still under the protocol. The sheet now says *Massive transfusion protocol active: MTP #1, called 2026-11-06 09:05 by Dr. Demo Trauma (demo) (Trauma Bay 1)*, and a patient with an active protocol is on the sheet even with nothing else current.
+
+### Retested live
+
+- Morgan's row shows the MTP line; no other patient does.
+
+### Tests
+
+- TEST-BB-1319. Full suite passed.
