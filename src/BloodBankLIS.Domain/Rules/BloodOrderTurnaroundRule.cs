@@ -17,12 +17,15 @@ public static class BloodOrderTurnaroundRule
 
     /// <summary>
     /// "Yes" when the first unit was ready at or before the needed-by time, "No" when after it; null when the order has
-    /// no needed-by time or no unit has been ready yet.
+    /// no needed-by time or no unit has been ready yet. End-user testing pass 279: given the time now, an order whose
+    /// needed-by time has passed with no unit ready is "No" too (ORD-SURG-DEMO, needed by 2026-11-10 with nothing reserved,
+    /// read blank, like an order not yet due).
     /// </summary>
-    public static string? ReadyByNeededBy(DateTime? firstReadyUtc, DateTime? neededByUtc) =>
-        firstReadyUtc is DateTime ready && neededByUtc is DateTime needed
-            ? (ready <= needed ? Met : Missed)
-            : null;
+    public static string? ReadyByNeededBy(DateTime? firstReadyUtc, DateTime? neededByUtc, DateTime? nowUtc = null) =>
+        neededByUtc is not DateTime needed ? null
+        : firstReadyUtc is DateTime ready ? (ready <= needed ? Met : Missed)
+        : nowUtc is DateTime now && now > needed ? Missed
+        : null;
 
     /// <summary>Whole minutes between two times, or null when either is missing.</summary>
     public static int? Minutes(DateTime? fromUtc, DateTime? toUtc) =>

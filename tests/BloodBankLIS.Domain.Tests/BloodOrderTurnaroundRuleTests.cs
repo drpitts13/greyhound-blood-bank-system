@@ -20,6 +20,11 @@ public class BloodOrderTurnaroundRuleTests
         Assert.Equal("No", BloodOrderTurnaroundRule.ReadyByNeededBy(t0.AddMinutes(1), t0));
         Assert.Null(BloodOrderTurnaroundRule.ReadyByNeededBy(null, t0));
         Assert.Null(BloodOrderTurnaroundRule.ReadyByNeededBy(t0, null));
+        // TEST-BB-1305 (end-user testing pass 279): a needed-by time passed with no unit ready is missed; one not yet due
+        // says nothing.
+        Assert.Equal("No", BloodOrderTurnaroundRule.ReadyByNeededBy(null, t0, t0.AddDays(9)));
+        Assert.Null(BloodOrderTurnaroundRule.ReadyByNeededBy(null, t0, t0.AddHours(-1)));
+        Assert.Null(BloodOrderTurnaroundRule.ReadyByNeededBy(null, null, t0));
 
         Assert.Equal(90, BloodOrderTurnaroundRule.Minutes(t0, t0.AddMinutes(89.6)));
         Assert.Null(BloodOrderTurnaroundRule.Minutes(t0, null));

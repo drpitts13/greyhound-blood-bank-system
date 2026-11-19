@@ -1062,3 +1062,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1054 | An unmapped value's last message opens where it came in: the HL7 log or Instrument Interfaces. | P3 | FRS-BB-1172 |
 | URS-BB-1055 | The units issued and transfused report says whether each unit is still out, returned or transfused. | P2 | FRS-BB-1173 |
 | URS-BB-1056 | Test turnaround from receipt does not count time a stored tube waited before the test was ordered. | P2 | FRS-BB-1174 |
+| URS-BB-1057 | Blood order turnaround marks an order whose needed-by time has passed with no unit ready as not ready by then. | P2 | FRS-BB-1175 |

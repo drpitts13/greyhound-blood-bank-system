@@ -1313,5 +1313,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1302 | U | `UnmappedMessageLinkTests.Href_OpensTheMessageWhereItCameIn` | URS-BB-1054 / FRS-BB-1172 |
 | TEST-BB-1303 | I | `ReportServiceTests.IssuedAndTransfusedReport_ShowsTheIssueStatus` | URS-BB-1055 / FRS-BB-1173 |
 | TEST-BB-1304 | I | `ReportServiceTests.TestTurnaround_StoredTube_CountsFromTheOrder` | URS-BB-1056 / FRS-BB-1174 |
+| TEST-BB-1305 | D, I | `BloodOrderTurnaroundRuleTests.FirstReady_ReadyByNeededBy_AndMinutes`, `ReportServiceTests.BloodOrderTurnaround_MinutesToFirstUnit_ByPriority` | URS-BB-1057 / FRS-BB-1175 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

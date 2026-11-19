@@ -27558,3 +27558,21 @@ Ran the remaining seeded reports (discards, wastage, crossmatch and transfusion 
 ### Tests
 
 - TEST-BB-1304. Full suite passed.
+
+## Iteration 999 — End-user testing pass 279: missed needed-by with nothing ready (2026-11-19)
+
+### How it was tested
+
+Continued pass 278's read of the seeded reports with *Blood order turnaround*.
+
+### Found and fixed
+
+1. **An order that missed its needed-by time with nothing ready read blank.** ORD-SURG-DEMO for Demo-Multi, Riley was needed by 2026-11-10 04:50 and has no unit reserved or issued, nine days later; *Ready by needed-by* was blank, as for an order with no needed-by time. Only an order whose first unit was ready late read *No*. A needed-by time that has passed with nothing ready now reads *No* too, in the report and its SQL view (reinstalled by a new migration); an order not yet due stays blank.
+
+### Retested live
+
+- ORD-SURG-DEMO reads *Ready by needed-by: No*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1305. Full suite passed.

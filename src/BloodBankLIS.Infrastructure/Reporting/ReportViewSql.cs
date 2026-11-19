@@ -419,7 +419,9 @@ public static class ReportViewSql
                 CASE WHEN fr.FirstReservedUtc IS NULL THEN NULL ELSE {Minutes("o.OrderedUtc", "fr.FirstReservedUtc")} END AS minutes_order_to_reserve,
                 CASE WHEN fi.FirstIssuedUtc IS NULL THEN NULL ELSE {Minutes("o.OrderedUtc", "fi.FirstIssuedUtc")} END AS minutes_order_to_issue,
                 o.NeededByUtc AS needed_by_utc,
-                CASE WHEN o.NeededByUtc IS NULL OR ({firstReady}) IS NULL THEN NULL
+                -- End-user testing pass 279: a needed-by time passed with no unit ready is missed too.
+                CASE WHEN o.NeededByUtc IS NULL THEN NULL
+                     WHEN ({firstReady}) IS NULL THEN CASE WHEN o.NeededByUtc < {(sqlServer ? "SYSUTCDATETIME()" : "strftime('%Y-%m-%d %H:%M:%f', 'now')")} THEN '{BloodOrderTurnaroundRule.Missed}' ELSE NULL END
                      WHEN ({firstReady}) <= o.NeededByUtc THEN '{BloodOrderTurnaroundRule.Met}' ELSE '{BloodOrderTurnaroundRule.Missed}' END AS ready_by_needed_by,
                 p.MedicalRecordNumber AS mrn,
                 {person} AS patient_name

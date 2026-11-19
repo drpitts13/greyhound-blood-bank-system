@@ -651,7 +651,8 @@ public class ReportServiceTests : IDisposable
         };
         var early = NewOrder("BOT-1", OrderPriority.Stat, t0.AddMinutes(60));
         var late = NewOrder("BOT-2", OrderPriority.Stat, t0.AddMinutes(30));
-        var waiting = NewOrder("BOT-3", OrderPriority.Routine, null);
+        // Pass 279: needed by a time long passed, with nothing reserved.
+        var waiting = NewOrder("BOT-3", OrderPriority.Routine, t0.AddHours(2));
         var cancelled = NewOrder("BOT-4", OrderPriority.Routine, null, OrderStatus.Cancelled);
         var testOnly = NewOrder("BOT-5", OrderPriority.Routine, null);
         db.Orders.AddRange(early, late, waiting, cancelled, testOnly);
@@ -685,7 +686,8 @@ public class ReportServiceTests : IDisposable
         Assert.Equal(new[] { "BOT-1", "BOT-2", "BOT-3" }, detail.Value.Rows.Select(r => r[columns.IndexOf("order_number")]).Order().ToArray());
         Assert.Equal(("2", "20", "80", "Yes"), (Cell("BOT-1", "units_ordered"), Cell("BOT-1", "minutes_order_to_reserve"), Cell("BOT-1", "minutes_order_to_issue"), Cell("BOT-1", "ready_by_needed_by")));
         Assert.Equal(("45", null, "No"), (Cell("BOT-2", "minutes_order_to_reserve"), Cell("BOT-2", "minutes_order_to_issue"), Cell("BOT-2", "ready_by_needed_by")));
-        Assert.Equal(("3", null, null), (Cell("BOT-3", "units_ordered"), Cell("BOT-3", "minutes_order_to_reserve"), Cell("BOT-3", "ready_by_needed_by")));
+        // TEST-BB-1305 (end-user testing pass 279): a needed-by time passed with no unit ready reads "No".
+        Assert.Equal(("3", null, "No"), (Cell("BOT-3", "units_ordered"), Cell("BOT-3", "minutes_order_to_reserve"), Cell("BOT-3", "ready_by_needed_by")));
 
         var byPriority = await service.RunAsync(list.Single(r => r.Code == "RPT-BLOOD-ORDER-TAT-BY-PRIORITY").Id, new Dictionary<string, string?>());
         Assert.True(byPriority.Succeeded, byPriority.Error);
@@ -706,6 +708,7 @@ public class ReportServiceTests : IDisposable
         Assert.Equal(new[] { "2", "20", "80", "Yes", "Stat" }, sqlRun.Value.Rows[0].Skip(1).ToArray());
         Assert.Equal(("45", "No"), (sqlRun.Value.Rows[1][2], sqlRun.Value.Rows[1][4]));
         Assert.True(string.IsNullOrEmpty(sqlRun.Value.Rows[2][2]));
+        Assert.Equal("No", sqlRun.Value.Rows[2][4]);
     }
 
     // TEST-BB-1270 (end-user testing pass 246): the Lookback report names the unit transfused and the date the

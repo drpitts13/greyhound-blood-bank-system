@@ -678,7 +678,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 ("minutes_order_to_reserve", Number(BloodOrderTurnaroundRule.Minutes(row.OrderedUtc, reserved))),
                 ("minutes_order_to_issue", Number(BloodOrderTurnaroundRule.Minutes(row.OrderedUtc, issued))),
                 ("needed_by_utc", ReportValueFormat.Date(row.NeededByUtc)),
-                ("ready_by_needed_by", BloodOrderTurnaroundRule.ReadyByNeededBy(ready, row.NeededByUtc)),
+                ("ready_by_needed_by", BloodOrderTurnaroundRule.ReadyByNeededBy(ready, row.NeededByUtc, DateTime.UtcNow)),
                 ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
                 ("patient_name", ReportValueFormat.Name(row.LastName, row.FirstName)));
         }).ToList();
