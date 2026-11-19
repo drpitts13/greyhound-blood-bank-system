@@ -1173,6 +1173,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1057 / FRS-BB-1175 | End-user testing pass 279: missed needed-by with nothing ready | `BloodOrderTurnaroundRule.cs`, `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270217000000_ReadyByNeededByMissed.cs` | TEST-BB-1305 | D, I | |
 | URS-BB-1058 / FRS-BB-1176 | End-user testing pass 280: block reason in view | `TestWorklist.razor`, `PatientChartTestsTab.razor` | TEST-BB-1306 | U | |
 | URS-BB-1059 / FRS-BB-1177 | End-user testing pass 281: Ready to issue reasons in view | `ReadyToIssueFormCue.cs`, `Issuing.razor` | TEST-BB-1307 | A | |
+| URS-BB-1060 / FRS-BB-1178 | End-user testing pass 282: ABO/Rh discrepancy detail in view | `TestWorklist.razor`, `PatientChartTestsTab.razor`, `Reactions.razor` | TEST-BB-1308 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -88,6 +88,7 @@ else
                                 @if (r.RepeatPatientAboRhDiscrepancy)
                                 {
                                     <span class="badge badge-red" title="@r.RepeatAboRhDetail">Repeat disagrees</span>
+                                    <span class="sub" data-reaction-repeat-detail>@r.RepeatAboRhDetail</span>
                                 }
                             </td>
                             <td>
@@ -95,10 +96,16 @@ else
                                 @if (r.AboRhIncompatible)
                                 {
                                     <span class="badge badge-red" title="@r.AboRhCompatibilityAlert">ABO/Rh incompatible</span>
+                                    @* Pass 282: the alert in view, not only on hover. *@
+                                    <span class="sub" data-reaction-abo-alert>@r.AboRhCompatibilityAlert</span>
                                 }
                                 @if (r.RepeatUnitAboRhDiscrepancy)
                                 {
                                     <span class="badge badge-red" title="@r.RepeatAboRhDetail">Repeat disagrees</span>
+                                    @if (!r.RepeatPatientAboRhDiscrepancy)
+                                    {
+                                        <span class="sub" data-reaction-repeat-detail>@r.RepeatAboRhDetail</span>
+                                    }
                                 }
                             </td>
                             <td>

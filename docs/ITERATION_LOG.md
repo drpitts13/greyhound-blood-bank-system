@@ -27612,3 +27612,21 @@ After pass 280, read Ready to issue (7 rows) for other reasons given only in hov
 ### Tests
 
 - TEST-BB-1307. Full suite passed.
+
+## Iteration 1002 — End-user testing pass 282: ABO/Rh discrepancy detail in view (2026-11-19)
+
+### How it was tested
+
+After pass 281, searched the operational pages for other badges whose reason is only in hover text.
+
+### Found and fixed
+
+1. **ABO/Rh warnings said what, not how.** The Test Worklist's and the chart Tests tab's *Discrepancy* badge (an ABO/Rh result disagreeing with the patient's history, held from verification), and the reaction board's *Repeat disagrees* and *ABO/Rh incompatible*, gave the detail only in hover text. The detail is now written under each badge. (Move units already wrote its *Not moved* reason out.)
+
+### Retested
+
+- No development patient has a held discrepancy or a reaction ABO/Rh alert at present, so this was checked by a rendered-page test. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1308. Full suite passed.

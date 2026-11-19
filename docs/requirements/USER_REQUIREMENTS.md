@@ -1065,3 +1065,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1057 | Blood order turnaround marks an order whose needed-by time has passed with no unit ready as not ready by then. | P2 | FRS-BB-1175 |
 | URS-BB-1058 | A test line that cannot be resulted shows why in view, not only in hover text. | P3 | FRS-BB-1176 |
 | URS-BB-1059 | A Ready to issue row says in words why it needs attention, not only in badge hover text. | P2 | FRS-BB-1177 |
+| URS-BB-1060 | An ABO/Rh discrepancy on the worklist, the chart and the reaction board says how it disagrees in view. | P2 | FRS-BB-1178 |
