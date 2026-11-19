@@ -34,6 +34,8 @@ The repeat patient ABO/Rh is the verified ABO/Rh on the post-transfusion specime
 
 The case shows the vital signs taken at the bedside before and after the transfusion, when the nurse entered them on the transfusion desk, and the temperature change between them (for example *Temperature +1.7 °C from before the transfusion*). The printable report shows the same line. The change is stated, not interpreted: the reaction concluded is chosen by the reviewer.
 
+Below it, **Reported at the bedside** shows what the nurse documented with the suspected reaction: what was done (for example *Transfusion stopped at 12 minutes. Temperature rose 1.8C with rigors.*) and what was seen (*Observations: …*), the same as the printable report. Nothing shows when the bedside reported neither.
+
 ## What you record
 
 Record the clerical check and the visual check of the unit, the repeat unit ABO/Rh, and the elution when it applies, along with the symptoms and the timeline the ward reported. The investigation stays open while those items, or any workup test, are incomplete. Closing is a separate step with its own gate and a signature when the close action requires one.

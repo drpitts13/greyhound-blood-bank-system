@@ -370,6 +370,11 @@ else
             </div>
             <h4>AABB workup checklist</h4>
             <p data-case-vitals><strong>Bedside vital signs:</strong> @(_bedsideVitals ?? "…")</p>
+            @if (_bedsideReport is not null)
+            {
+                @* Pass 289: what the bedside reported, which was only on the printed report. *@
+                <p data-case-bedside-report><strong>Reported at the bedside:</strong> @_bedsideReport</p>
+            }
             <p class="muted">The clerical check and visual inspection are recorded here; the workup specimens above must have every test verified before close. Compare patient <strong>@(_selected.CurrentBloodType ?? "—")</strong> with labeled unit <strong>@(_selected.UnitBloodType ?? "—")</strong> <span class="mono">@(_selected.UnitNumber ?? "")</span>. Checking remainder holds the bag in quality quarantine when the unit is still Issued, stopped, or Transfused.</p>
             @if (_selected.AboRhIncompatible)
             {
@@ -786,15 +791,18 @@ else
     // The bedside vitals before and after, from the transfusion record, beside the workup (end-user testing,
     // 2026-11-12): a febrile reaction is judged from the rise over the baseline.
     private string? _bedsideVitals;
+    private string? _bedsideReport;
 
     private async Task LoadBedsideVitalsAsync(long id)
     {
         _bedsideVitals = null;
+        _bedsideReport = null;
         _sameDonation = null;
         var report = await Api.GetReactionReportAsync(id);
         if (report.Succeeded && report.Value is { } r && _selected?.Id == id)
         {
             _sameDonation = r.SameDonationUnits;
+            _bedsideReport = ReactionBedsideReportText.For(r.ReactionActions, r.PostTransfusionObservations);
             _bedsideVitals = r.VitalsBefore is null && r.VitalsAfter is null
                 ? "Not recorded at the bedside."
                 : $"Before: {r.VitalsBefore ?? "not recorded"} · After: {r.VitalsAfter ?? "not recorded"}{(r.TemperatureChange is null ? "" : $" · {r.TemperatureChange}")}";

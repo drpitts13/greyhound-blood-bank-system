@@ -1180,6 +1180,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1064 / FRS-BB-1182 | End-user testing pass 286: which message applied an errored HL7 copy | `Hl7Endpoints.cs`, `ViewModels.cs`, `Hl7.razor` | TEST-BB-1312 | U | |
 | URS-BB-1065 / FRS-BB-1183 | End-user testing pass 287: crossmatch form says what is missing | `CrossmatchMissingText.cs`, `Compatibility.razor` | TEST-BB-1313 | U | |
 | URS-BB-1066 / FRS-BB-1184 | End-user testing pass 288: failed QC first on the supervisor queue | `ReagentQcService.cs`, `SupervisorQueueService.cs`, `SupervisorQueueRule.cs`, `SupervisorQueue.razor`, `Reagents.razor` | TEST-BB-1314, TEST-BB-1315 | U, I | |
+| URS-BB-1067 / FRS-BB-1185 | End-user testing pass 289: bedside report on the reaction case | `ReactionBedsideReportText.cs`, `Reactions.razor` | TEST-BB-1316 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -27743,3 +27743,21 @@ Worked down the Supervisor queue as a supervisor starting a shift: reagent QC, q
 ### Tests
 
 - TEST-BB-1314, TEST-BB-1315. Full suite passed.
+
+## Iteration 1009 — End-user testing pass 289: bedside report on the reaction case (2026-11-19)
+
+### How it was tested
+
+Opened Shift handoff (every count links to its queue) and the two open transfusion reaction investigations: Febrile, Marcus (MRN0006) and Demo-Multi, Riley (MRN0022). Nothing was saved.
+
+### Found and fixed
+
+1. **The case did not show what the bedside reported.** Febrile, Marcus's case said *Bedside vital signs: Not recorded at the bedside.* and nothing more, though the nurse had documented *Transfusion stopped at 12 minutes. Temperature rose 1.8C with rigors…* and *Febrile non-haemolytic reaction suspected; no visible haemoglobinuria.* That was only on the printable reaction report, so the technologist working the case judged it without the reported signs. The case now shows **Reported at the bedside** under the vital signs.
+
+### Retested live
+
+- Investigation 1 shows the bedside report; investigation 2 (vitals recorded, no bedside report) shows its vitals and no empty line.
+
+### Tests
+
+- TEST-BB-1316. Full suite passed.
