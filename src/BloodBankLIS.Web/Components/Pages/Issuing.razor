@@ -481,6 +481,11 @@
                                 {
                                     <div class="sub" data-ready-reason>@reason</div>
                                 }
+                                @if (row.SpecialRequirementsMet is { Count: > 0 } met)
+                                {
+                                    @* Pass 300: the patient's special requirements this unit meets, checked at the window. *@
+                                    <div class="sub muted" data-ready-requirements-met>Meets: @string.Join(", ", met)</div>
+                                }
                             </td>
                         </tr>
                         @if (_releasingReadyId == row.AllocationId)

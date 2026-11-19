@@ -5231,6 +5231,12 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Null(rows.Single(r => r.BloodUnitId == meets.UnitId).SpecialRequirementNotice);
         Assert.Null(rows.Single(r => r.BloodUnitId == acknowledgment.UnitId).SpecialRequirementNotice);
         Assert.Null(rows.Single(r => r.BloodUnitId == ended.UnitId).SpecialRequirementNotice);
+        // TEST-BB-1327 (end-user testing pass 300): the row says which of the patient's requirements the unit meets; a
+        // unit that fails it, an acknowledgment-only requirement, and an ended one name none.
+        Assert.Equal(["Irradiated"], rows.Single(r => r.BloodUnitId == meets.UnitId).SpecialRequirementsMet);
+        Assert.Empty(missingRow.SpecialRequirementsMet ?? []);
+        Assert.Empty(rows.Single(r => r.BloodUnitId == acknowledgment.UnitId).SpecialRequirementsMet ?? []);
+        Assert.Empty(rows.Single(r => r.BloodUnitId == ended.UnitId).SpecialRequirementsMet ?? []);
     }
 
     [Fact]

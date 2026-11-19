@@ -23,7 +23,7 @@ Each board says *Loading…* until its list has been read. If a list could not b
 
 > New specimen. A unit blocked for want of a usable specimen offers **New specimen**, and Retrospective offers **Accession** when a released unit's specimen is missing or expired. Both open the patient's accession form, which links the new tube to the orders waiting for one.
 
-> What the badges mean. Under its buttons, a Ready to issue row writes out the reason behind each badge (*Crossmatch*, *Specimen*, *Retype*, *Reaction* and the others), so it can be read without hovering.
+> What the badges mean. Under its buttons, a Ready to issue row writes out the reason behind each badge (*Crossmatch*, *Specimen*, *Retype*, *Reaction* and the others), so it can be read without hovering. For a patient with special requirements, the row also says which of them the unit meets (*Meets: Irradiated red cells, CMV-negative red cells*), from its product attributes and the tests recorded on the unit, so you can check it at the window before handing it over.
 
 > Times on badges. A short time is today's. Any other day is named: "Needed tomorrow 07:30", "Transfusing since yesterday 22:10", or the date for days further away.
 

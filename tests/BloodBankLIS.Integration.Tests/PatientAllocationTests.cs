@@ -1556,6 +1556,9 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         var after = await Allocations(c, includeSpecialRequirements: true).ListActiveAsync(patient.Id);
         Assert.Contains("must be group O", after.Single(r => r.BloodUnitId == groupA.Id).SpecialRequirementNotice);
         Assert.Null(after.Single(r => r.BloodUnitId == groupO.Id).SpecialRequirementNotice);
+        // Pass 299: the unit that meets it says so on the chart; the one that does not names nothing.
+        Assert.Equal(["Group O red cells only"], after.Single(r => r.BloodUnitId == groupO.Id).SpecialRequirementsMet);
+        Assert.Empty(after.Single(r => r.BloodUnitId == groupA.Id).SpecialRequirementsMet);
     }
 
     [Fact]

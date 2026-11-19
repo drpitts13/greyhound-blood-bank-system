@@ -27941,3 +27941,21 @@ Ran Utilization, then opened Demo-Special, Avery (MRN0023), who requires irradia
 ### Tests
 
 - TEST-BB-1326. Full suite passed.
+
+## Iteration 1020 — End-user testing pass 300: requirements met at the issue window (2026-11-19)
+
+### How it was tested
+
+Followed Demo-Special, Avery's reserved unit W000026123460 from the chart (pass 299) to Ready to issue, where it is handed over.
+
+### Found and fixed
+
+1. **The issue window said nothing about the patient's special requirements.** Ready to issue named only what blocked the unit (crossmatch, specimen); a unit meeting Avery's irradiated and CMV-negative requirements read the same as one for a patient with none, at the point it leaves the bank. The row now says *Meets: Irradiated red cells, CMV-negative red cells*, as the chart does. The chart's line (pass 299) is now also covered by an integration check.
+
+### Retested live
+
+- W000026123460 on Ready to issue shows the line; no other row does.
+
+### Tests
+
+- TEST-BB-1327 (with the pass 299 chart check in `PatientAllocationTests`). Full suite passed.

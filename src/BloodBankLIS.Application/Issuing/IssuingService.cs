@@ -1197,18 +1197,21 @@ public sealed class IssuingService
             var openWorkup = openWorkupPatientIds.Contains(allocation.PatientId);
             string? specialRequirementNotice = null;
             string? antigenNotice = null;
+            IReadOnlyList<string> requirementsMet = [];
             if (unit is not null)
             {
                 var bloodAttrs = await _bloodAttributeCompat.LoadAsync(allocation.PatientId, unit.Id, ct);
+                var patientRequirements = requirementsByPatient.GetValueOrDefault(allocation.PatientId) ?? [];
+                var unitAttributes = attributesByProduct.GetValueOrDefault(unit.ProductTypeId)
+                    ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var typing = unit.ProductType is { } typedProduct
+                    ? SpecialRequirementLoader.Typing(unit, typedProduct.ComponentClass, negativeTestsByUnit)
+                    : null;
                 specialRequirementNotice = SpecialTransfusionRequirementRule.ReadyToIssueNotice(
-                    requirementsByPatient.GetValueOrDefault(allocation.PatientId) ?? [],
-                    attributesByProduct.GetValueOrDefault(unit.ProductTypeId)
-                        ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                    bloodAttrs.UnitAntigens,
-                    now,
-                    unit.ProductType is { } typedProduct
-                        ? SpecialRequirementLoader.Typing(unit, typedProduct.ComponentClass, negativeTestsByUnit)
-                        : null);
+                    patientRequirements, unitAttributes, bloodAttrs.UnitAntigens, now, typing);
+                // Pass 300: and which of the patient's requirements the unit meets, read at the window before handing it over.
+                requirementsMet = SpecialTransfusionRequirementRule.MetUnitRequirements(
+                    patientRequirements, unitAttributes, bloodAttrs.UnitAntigens, now, typing);
                 if (unit.ProductType is { } issuedProduct)
                 {
                     antigenNotice = BloodAttributeCompatibilityRule.ReadyToIssueNotice(
@@ -1285,6 +1288,7 @@ public sealed class IssuingService
                 OpenReactionInvestigationId = openReactions.TryGetValue(allocation.PatientId, out var reaction) ? reaction.Id : null,
                 OpenReactionReportedUtc = openReactions.TryGetValue(allocation.PatientId, out var reported) ? reported.ReportedUtc : null,
                 RetypeNotice = unit is null ? null : IssueGate.RetypeNotice(unit.Status),
+                SpecialRequirementsMet = requirementsMet,
                 MaternalAntibodies = patient?.MotherPatientId is long motherId
                     ? BloodBankLIS.Application.Patients.PatientBloodBankFlags.ActiveAntibodies(maternalAntibodies[motherId])
                     : null
