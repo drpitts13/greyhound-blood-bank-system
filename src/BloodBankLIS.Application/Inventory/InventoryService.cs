@@ -2546,7 +2546,12 @@ public sealed class InventoryService
                 },
                 reason: dto.Reconciled
                     ? $"Stock count at {locationName}: all {dto.Expected} units found."
-                    : $"Stock count at {locationName}: {dto.Found.Count} of {dto.Expected} found, {dto.Missing.Count} missing, {dto.Elsewhere.Count} recorded elsewhere, {dto.NotOnHand.Count} not on hand, {dto.Problems.Count} unresolved scans.");
+                    : $"Stock count at {locationName}: " + CountPartsText.With(
+                        $"{dto.Found.Count} of {dto.Expected} found",
+                        (dto.Missing.Count, "missing"),
+                        (dto.Elsewhere.Count, "recorded elsewhere"),
+                        (dto.NotOnHand.Count, "not on hand"),
+                        (dto.Problems.Count, "unresolved scans")) + ".");
             await _unitOfWork.SaveChangesAsync(ct);
         }
 

@@ -587,7 +587,7 @@ public static partial class DatabaseSeeder
         var packed = issues.Count - notPacked.Count;
         var reason = notPacked.Count == 0
             ? $"{CoolerCheckReasonPrefix}{cooler}: all {issues.Count} units packed."
-            : $"{CoolerCheckReasonPrefix}{cooler}: {packed} of {issues.Count} packed, {notPacked.Count} missing, 0 issued to another cooler, 0 not issued, 0 unresolved scans.";
+            : $"{CoolerCheckReasonPrefix}{cooler}: {packed} of {issues.Count} packed, {notPacked.Count} missing.";
         var checkedUtc = issues.Max(i => i.IssuedUtc).AddMinutes(2);
         foreach (var issue in issues)
         {

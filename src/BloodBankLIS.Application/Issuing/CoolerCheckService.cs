@@ -277,7 +277,12 @@ public sealed class CoolerCheckService
         {
             var reason = dto.Ready
                 ? $"{CheckReasonPrefix}{dto.CoolerId}: all {dto.Expected} units packed."
-                : $"{CheckReasonPrefix}{dto.CoolerId}: {dto.Packed.Count} of {dto.Expected} packed, {dto.Missing.Count} missing, {dto.OtherCooler.Count} issued to another cooler, {dto.NotIssued.Count} not issued, {dto.Problems.Count} unresolved scans.";
+                : $"{CheckReasonPrefix}{dto.CoolerId}: " + CountPartsText.With(
+                    $"{dto.Packed.Count} of {dto.Expected} packed",
+                    (dto.Missing.Count, "missing"),
+                    (dto.OtherCooler.Count, "issued to another cooler"),
+                    (dto.NotIssued.Count, "not issued"),
+                    (dto.Problems.Count, "unresolved scans")) + ".";
             foreach (var (issue, unit) in expectedLines)
             {
                 _audit.Record(
@@ -345,7 +350,8 @@ public sealed class CoolerCheckService
         var reason = check.Reason ?? string.Empty;
         var text = reason.StartsWith(CheckReasonPrefix, StringComparison.Ordinal) ? reason[CheckReasonPrefix.Length..] : reason;
         var colon = text.IndexOf(": ", StringComparison.Ordinal);
-        text = (colon >= 0 ? text[(colon + 2)..] : text).Trim().TrimEnd('.');
+        // Pass 291: a check recorded with every count reads without its zero counts.
+        text = CountPartsText.DropZeroParts((colon >= 0 ? text[(colon + 2)..] : text).Trim().TrimEnd('.'));
         try
         {
             using var doc = System.Text.Json.JsonDocument.Parse(check.NewValueJson ?? "{}");

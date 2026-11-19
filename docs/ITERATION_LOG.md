@@ -27779,3 +27779,21 @@ Opened Lookback (the open notification for DIN W123426000001, whose other compon
 ### Tests
 
 - TEST-BB-1317. Full suite passed.
+
+## Iteration 1011 — End-user testing pass 291: count summaries without zeros (2026-11-19)
+
+### How it was tested
+
+Read the cooler-check notes added in pass 290 on the In transit board as the issue desk would.
+
+### Found and fixed
+
+1. **The one problem was buried among zeros.** The note read *3 of 4 packed, 1 missing, 0 issued to another cooler, 0 not issued, 0 unresolved scans. Missing: W0001230009101.* A cooler check's summary, and a stock count's (*… 0 recorded elsewhere, 0 not on hand, 0 unresolved scans*), now name only the counts that are not zero; a check recorded before reads the same way.
+
+### Retested live
+
+- The MTP cooler's note reads *Checked 2026-11-06 09:11 by tech2: 3 of 4 packed, 1 missing. Missing: W0001230009101.*
+
+### Tests
+
+- TEST-BB-1318. Full suite passed.
