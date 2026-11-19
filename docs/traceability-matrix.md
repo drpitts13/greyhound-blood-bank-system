@@ -1171,6 +1171,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1055 / FRS-BB-1173 | End-user testing pass 277: issued and transfused report shows issue status | `ReportSeedCatalog.cs` | TEST-BB-1303 | I | |
 | URS-BB-1056 / FRS-BB-1174 | End-user testing pass 278: turnaround from the later of receipt and order | `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270216000000_TurnaroundFromLaterStart.cs` | TEST-BB-1304 | I | |
 | URS-BB-1057 / FRS-BB-1175 | End-user testing pass 279: missed needed-by with nothing ready | `BloodOrderTurnaroundRule.cs`, `EfReportSourceReader.cs`, `ReportViewSql.cs`, `20270217000000_ReadyByNeededByMissed.cs` | TEST-BB-1305 | D, I | |
+| URS-BB-1058 / FRS-BB-1176 | End-user testing pass 280: block reason in view | `TestWorklist.razor`, `PatientChartTestsTab.razor` | TEST-BB-1306 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

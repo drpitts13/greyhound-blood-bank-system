@@ -315,6 +315,11 @@
                                     data-bench-toggle data-bench-open="@(_expandedLineId == item.OrderLineId ? "true" : "false")">
                                 @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabelFor(Session.UserName))
                             </button>
+                            @if (!item.CanEnterResults && !string.IsNullOrWhiteSpace(item.BlockReason))
+                            {
+                                @* Pass 280: why it is blocked, in view, not only on hover. *@
+                                <span class="sub" data-block-reason>@item.BlockReason</span>
+                            }
                         </td>
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)

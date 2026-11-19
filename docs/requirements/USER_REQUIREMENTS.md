@@ -1063,3 +1063,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1055 | The units issued and transfused report says whether each unit is still out, returned or transfused. | P2 | FRS-BB-1173 |
 | URS-BB-1056 | Test turnaround from receipt does not count time a stored tube waited before the test was ordered. | P2 | FRS-BB-1174 |
 | URS-BB-1057 | Blood order turnaround marks an order whose needed-by time has passed with no unit ready as not ready by then. | P2 | FRS-BB-1175 |
+| URS-BB-1058 | A test line that cannot be resulted shows why in view, not only in hover text. | P3 | FRS-BB-1176 |

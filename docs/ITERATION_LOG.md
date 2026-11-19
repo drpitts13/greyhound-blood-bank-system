@@ -27576,3 +27576,21 @@ Continued pass 278's read of the seeded reports with *Blood order turnaround*.
 ### Tests
 
 - TEST-BB-1305. Full suite passed.
+
+## Iteration 1000 — End-user testing pass 280: block reason in view (2026-11-19)
+
+### How it was tested
+
+Opened Demo, Patricia's Tests tab (MRN0001): a Stat crossmatch, ORD0002, pending for 12 days.
+
+### Found and fixed
+
+1. **"Blocked" did not say why.** The line's button read *Blocked*; the reason, *No specimen is linked to this order. Accession a specimen and link it before entering results.*, was only in its hover text, which a touch screen at the bench never shows. The reason is now written under the button, on the chart's Tests tab and the Test Worklist.
+
+### Retested live
+
+- ORD0002's crossmatch shows the reason under *Blocked*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1306. Full suite passed.
