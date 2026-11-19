@@ -27688,3 +27688,21 @@ Walked the mother/baby chart (DEMO-MATAB, Baby Boy Lena, linked to a mother with
 ### Tests
 
 - TEST-BB-1311. Full suite passed.
+
+## Iteration 1006 — End-user testing pass 286: which message applied an errored HL7 copy (2026-11-19)
+
+### How it was tested
+
+Walked Reagent QC (seven lots with no QC for seven days, the failed ANTI-D QC awaiting review; a facility policy already blocks resulting while QC is overdue, failed or unreviewed) and the HL7 interface: the error queue, the outbound waiting list and the message log.
+
+### Found and fixed
+
+1. **An errored message said "Applied" without saying by what.** Messages 14, 19 and 30 read *Errored* with **Applied** beside them, and why ("This control id already applied. Replay is not offered.") was only hover text, which a touch screen never shows; nothing said which message applied it. The row now says *Applied by message 15; replay is not offered.* (14 → 15, 19 → 25, 30 → 31) with **View 15** to open it, in the error queue and the message log.
+
+### Retested live
+
+- The message log shows the three notes; **View 15** opens message 15 (UAT-ORM-1, Replayed). Nothing was replayed or resolved.
+
+### Tests
+
+- TEST-BB-1312. Full suite passed.

@@ -30,7 +30,9 @@ public sealed record Hl7MessageDto(
     bool? ReplayAllowed = null,
     int? RetryCount = null,
     bool? RetriesExhausted = null,
-    bool? ControlAlreadyApplied = null)
+    bool? ControlAlreadyApplied = null,
+    // End-user testing pass 286: the inbound message that applied this control id, so an errored copy says which one.
+    long? AppliedByMessageId = null)
 {
     public static Hl7MessageDto From(Hl7MessageLog m, long? patientId = null, bool? replayAllowed = null)
     {
@@ -71,7 +73,9 @@ public sealed record Hl7ErrorDto(
     DateTime? ResolvedUtc = null,
     string? ResolutionNote = null,
     // When the error was queued, so the queue and the home card say how long it has waited.
-    DateTime? QueuedUtc = null)
+    DateTime? QueuedUtc = null,
+    // End-user testing pass 286: the inbound message that applied this control id, so an errored copy says which one.
+    long? AppliedByMessageId = null)
 {
     public static Hl7ErrorDto From(
         InterfaceErrorQueueItem e,
@@ -200,7 +204,7 @@ public static class Hl7Endpoints
                 .Distinct()
                 .ToList();
             var appliedControls = controlIds.Count == 0
-                ? new HashSet<string>(StringComparer.Ordinal)
+                ? new Dictionary<string, long>(StringComparer.Ordinal)
                 : (await logs.ListAsync(
                     m => m.Direction == Hl7Direction.Inbound
                          && controlIds.Contains(m.MessageControlId)
@@ -208,8 +212,8 @@ public static class Hl7Endpoints
                              || m.Status == Hl7MessageStatus.Acked
                              || m.Status == Hl7MessageStatus.Replayed),
                     ct))
-                    .Select(m => m.MessageControlId)
-                    .ToHashSet(StringComparer.Ordinal);
+                    .GroupBy(m => m.MessageControlId, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.Max(m => m.Id), StringComparer.Ordinal);
             var dtos = errors
                 .OrderByDescending(e => e.Id)
                 .Select(e =>
@@ -219,9 +223,9 @@ public static class Hl7Endpoints
                     if (message is not null
                         && message.Direction == Hl7Direction.Inbound
                         && !string.IsNullOrWhiteSpace(message.MessageControlId)
-                        && appliedControls.Contains(message.MessageControlId))
+                        && appliedControls.TryGetValue(message.MessageControlId, out var appliedBy))
                     {
-                        dto = dto with { ControlAlreadyApplied = true };
+                        dto = dto with { ControlAlreadyApplied = true, AppliedByMessageId = appliedBy };
                     }
 
                     return dto;
@@ -340,14 +344,14 @@ public static class Hl7Endpoints
             .Where(m => m.Direction == Hl7Direction.Inbound
                 && !string.IsNullOrWhiteSpace(m.MessageControlId)
                 && m.Status is Hl7MessageStatus.Processed or Hl7MessageStatus.Acked or Hl7MessageStatus.Replayed)
-            .Select(m => m.MessageControlId)
-            .ToHashSet(StringComparer.Ordinal);
+            .GroupBy(m => m.MessageControlId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Max(m => m.Id), StringComparer.Ordinal);
         return rows
             .Select(m => m.Direction == Hl7Direction.Inbound
                 && m.Status is not (Hl7MessageStatus.Processed or Hl7MessageStatus.Acked or Hl7MessageStatus.Replayed)
                 && !string.IsNullOrWhiteSpace(m.MessageControlId)
-                && applied.Contains(m.MessageControlId)
-                    ? m with { ControlAlreadyApplied = true }
+                && applied.TryGetValue(m.MessageControlId, out var appliedBy)
+                    ? m with { ControlAlreadyApplied = true, AppliedByMessageId = appliedBy }
                     : m)
             .ToList();
     }

@@ -18,6 +18,8 @@ Each open error says how long it has **Waiting** (hover for when it was queued).
 
 Open an error and read the reason. A rejected order or result did not update the chart. Replaying a message sends it through processing again. Replay when the failure was transient or when the map has been fixed. Do not replay a message that filed on the wrong patient until the map or the translation is corrected, or you will file it wrong again.
 
+An errored inbound message whose control id another message has since applied (usually its replay) is not replayed again. Its row, in the error queue and the message log, says **Applied by message 15; replay is not offered.** with **View 15** to open the message that applied it. Resolve the error with that as the reason.
+
 Every error that closes keeps a note of why: the reason you gave on **Resolve**, a replay that applied, or a later send the receiver acknowledged. **Recently resolved** under the error queue lists the latest ones with who closed them and when.
 
 **Waiting to send** lists outbound messages (results to the EHR, charges to billing) not yet acknowledged, oldest first, with why each has not gone: no enabled outbound interface is set up to take it (it sends once one is), the last send failed and it will be retried, its retries are spent (fix the interface, then **Send**), or it is simply queued for the next attempt within a minute. A wait longer than 15 minutes is marked: such a message will not go by itself. None of these is an error, so they do not appear in the error queue. In the message log an outbound message not yet sent reads **Queued**. A charge withheld because it was cancelled before sending is not listed.

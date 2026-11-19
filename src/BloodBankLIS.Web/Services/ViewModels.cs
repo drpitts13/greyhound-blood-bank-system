@@ -38,7 +38,8 @@ public sealed record Hl7MessageVm(
     bool? ReplayAllowed = null,
     int? RetryCount = null,
     bool? RetriesExhausted = null,
-    bool? ControlAlreadyApplied = null);
+    bool? ControlAlreadyApplied = null,
+    long? AppliedByMessageId = null);
 
 public sealed record Hl7MessageDetailVm(Hl7MessageVm Message, string? Raw);
 
@@ -68,7 +69,8 @@ public sealed record Hl7ErrorVm(
     string? ResolvedBy = null,
     DateTime? ResolvedUtc = null,
     string? ResolutionNote = null,
-    DateTime? QueuedUtc = null);
+    DateTime? QueuedUtc = null,
+    long? AppliedByMessageId = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 

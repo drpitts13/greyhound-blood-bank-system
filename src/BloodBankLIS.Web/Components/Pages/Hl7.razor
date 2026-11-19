@@ -79,6 +79,11 @@
                                 else if (e.ControlAlreadyApplied == true)
                                 {
                                     <span class="muted" title="This control id already applied. Replay is not offered.">Applied</span>
+                                    @if (e.AppliedByMessageId is long errorAppliedBy)
+                                    {
+                                        @* End-user testing pass 286: which message applied it, in view (hover text never shows on a touch screen). *@
+                                        <div class="sub muted" data-applied-by="@errorAppliedBy">Applied by message @errorAppliedBy; replay is not offered. <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(errorAppliedBy)">View @errorAppliedBy</button></div>
+                                    }
                                 }
                                 else
                                 {
@@ -295,6 +300,11 @@
                                     || m.ControlAlreadyApplied == true)
                                 {
                                     <span class="muted" title="This control id already applied. Replay is not offered.">Applied</span>
+                                    @if (m.AppliedByMessageId is long logAppliedBy)
+                                    {
+                                        @* End-user testing pass 286: an errored copy says which message applied its control id. *@
+                                        <div class="sub muted" data-applied-by="@logAppliedBy">Applied by message @logAppliedBy; replay is not offered. <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(logAppliedBy)">View @logAppliedBy</button></div>
+                                    }
                                 }
                                 else
                                 {

@@ -1069,3 +1069,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1061 | A type under QC review, a recalled unit out of the bank and a reaction remainder that cannot be held say why in view. | P2 | FRS-BB-1179 |
 | URS-BB-1062 | An instrument failure for a test not ordered on a specimen that has since expired does not tell the bench to order and replay. | P2 | FRS-BB-1180 |
 | URS-BB-1063 | The retype board names the retype test each waiting unit will be retyped with, even before a retype is started. | P3 | FRS-BB-1181 |
+| URS-BB-1064 | An errored HL7 message whose control id another message already applied says which message applied it, in view. | P3 | FRS-BB-1182 |
