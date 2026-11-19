@@ -1318,5 +1318,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1307 | A | `ReadyToIssueFormCueTests.Reasons_ListTheBadgesNotices` | URS-BB-1059 / FRS-BB-1177 |
 | TEST-BB-1308 | U | `BlockReasonVisibleTests.AboRhDiscrepancy_ShowsTheDetail` | URS-BB-1060 / FRS-BB-1178 |
 | TEST-BB-1309 | U | `QcReviewHeaderDetailTests.UnderQcReview_NamesTheLotInView` | URS-BB-1061 / FRS-BB-1179 |
+| TEST-BB-1310 | U | `InstrumentFailureNextStepTests.NotOrdered_OnAnExpiredSpecimen_SaysToResolve` | URS-BB-1062 / FRS-BB-1180 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

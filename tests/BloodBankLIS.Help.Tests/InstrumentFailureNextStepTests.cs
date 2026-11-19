@@ -25,4 +25,16 @@ public class InstrumentFailureNextStepTests
         Assert.Null(InstrumentFailureNextStep.For("Unable to parse ASTM message.", "ACC-4", "MRN1"));
         Assert.Null(InstrumentFailureNextStep.For(null, "ACC-4", "MRN1"));
     }
+
+    // TEST-BB-1310 (end-user testing pass 284): a test not ordered on a specimen that has since expired does not send the
+    // bench to order and replay; it says the result can no longer post there and to resolve it.
+    [Fact]
+    public void NotOrdered_OnAnExpiredSpecimen_SaysToResolve()
+    {
+        var expired = new DateTime(2026, 11, 12, 23, 52, 0, DateTimeKind.Utc);
+        var step = InstrumentFailureNextStep.For("Test DAT is not ordered on specimen ACC-DEMO-RCV1 (INST-NOT-ORDERED): not posted.", "ACC-DEMO-RCV1", "MRN0022", expired);
+        Assert.StartsWith($"Specimen ACC-DEMO-RCV1 expired {expired.ToLocalTime():yyyy-MM-dd HH:mm}, so this result can no longer be posted to it", step!.Text);
+        Assert.Contains("Resolve this message with the reason", step.Text);
+        Assert.DoesNotContain("then Replay", step.Text);
+    }
 }

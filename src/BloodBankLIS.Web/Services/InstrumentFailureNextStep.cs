@@ -13,7 +13,7 @@ public static class InstrumentFailureNextStep
 
     public sealed record Step(string Text, IReadOnlyList<Link> Links);
 
-    public static Step? For(string? errorDetail, string? specimenId, string? patientId)
+    public static Step? For(string? errorDetail, string? specimenId, string? patientId, DateTime? specimenExpiredUtc = null)
     {
         if (string.IsNullOrWhiteSpace(errorDetail))
         {
@@ -31,6 +31,15 @@ public static class InstrumentFailureNextStep
         {
             var id = patientId.Trim();
             links.Add(new Link($"Find patient {id}", $"/patients?q={Uri.EscapeDataString(id)}"));
+        }
+
+        if (errorDetail.Contains(InstrumentTranslationKeys.NotOrderedCode, StringComparison.Ordinal) && specimenExpiredUtc is DateTime expired)
+        {
+            // End-user testing pass 284: message 8's specimen, ACC-DEMO-RCV1, expired the night the DAT came in, so ordering
+            // the test and replaying would be refused by the specimen check.
+            return new Step(
+                $"Specimen {specimenId?.Trim()} expired {expired.ToLocalTime():yyyy-MM-dd HH:mm}, so this result can no longer be posted to it (except to a transfusion reaction workup order, OCD-058). Resolve this message with the reason, and test a new specimen if the test is still needed.",
+                links.Where(l => l.Href.StartsWith("/patients", StringComparison.Ordinal)).ToList());
         }
 
         if (errorDetail.Contains(InstrumentTranslationKeys.NotOrderedCode, StringComparison.Ordinal))

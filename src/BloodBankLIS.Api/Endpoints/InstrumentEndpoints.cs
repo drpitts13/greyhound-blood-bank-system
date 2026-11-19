@@ -87,6 +87,8 @@ public static class InstrumentEndpoints
             long id,
             IRepository<InstrumentMessageLog> messages,
             IInstrumentInterfaceRepository interfaces,
+            IRepository<Specimen> specimens,
+            IClock clock,
             CancellationToken ct) =>
         {
             var message = await messages.GetByIdAsync(id, ct);
@@ -102,7 +104,11 @@ public static class InstrumentEndpoints
                 view.RawDisplay,
                 view.ParsedFields,
                 view.MappedValues,
-                FormatRuleTrace(message.RuleTraceJson)));
+                FormatRuleTrace(message.RuleTraceJson))
+            {
+                // Pass 284: say when the specimen has expired, so the next step does not send the bench to order and replay.
+                SpecimenExpiredUtc = await SpecimenExpiredAsync(specimens, message.SpecimenId, clock.UtcNow, ct)
+            });
         });
 
         group.MapPost("/messages/{id:long}/replay", async (long id, AstmInboundProcessor processor, CancellationToken ct) =>
@@ -201,6 +207,18 @@ public static class InstrumentEndpoints
 
     private static EchoSimulatorPreviewDto ToPreview(EchoSimulatorResult result) =>
         new(result.Assay, InstrumentMessageViewBuilder.FormatRaw(result.RawMessage), result.Records);
+
+    private static async Task<DateTime?> SpecimenExpiredAsync(IRepository<Specimen> specimens, string? accession, DateTime nowUtc, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(accession))
+        {
+            return null;
+        }
+
+        var key = accession.Trim();
+        var specimen = await specimens.FirstOrDefaultAsync(s => s.AccessionNumber == key, ct);
+        return specimen?.ExpiresUtc is DateTime expires && expires <= nowUtc ? expires : null;
+    }
 
     private static string? FormatRuleTrace(string? json)
     {

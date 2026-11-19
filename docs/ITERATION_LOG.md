@@ -27648,3 +27648,21 @@ Finished pass 282's search for reasons given only in hover text, then opened Kel
 ### Tests
 
 - TEST-BB-1309. Full suite passed.
+
+## Iteration 1004 — End-user testing pass 284: instrument failure on an expired specimen (2026-11-19)
+
+### How it was tested
+
+Opened DEMO-RHIG, Noor's RhIG evaluation (delivery 11 days ago, fetal bleed screen not done, no dose calculated; the catalog has no fetal bleed test to order, a facility decision), the Antibody identification worklist, and the open instrument failures.
+
+### Found and fixed
+
+1. **A failure told the bench to order and replay on a tube that had expired.** Message 8, *Test DAT is not ordered on specimen ACC-DEMO-RCV1*, said to order the test on the chart and replay; but ACC-DEMO-RCV1 expired at 23:52 that night, and the specimen check refuses any result on an expired specimen, so the replay would fail. When the specimen has expired, the next step now says the result can no longer be posted to it (except to a transfusion reaction workup order, OCD-058), and to resolve the message and test a new specimen if needed.
+
+### Retested live
+
+- Message 8 reads *Specimen ACC-DEMO-RCV1 expired 2026-11-12 23:52, so this result can no longer be posted to it … Resolve this message with the reason, and test a new specimen if the test is still needed.* Nothing was changed.
+
+### Tests
+
+- TEST-BB-1310. Full suite passed.

@@ -187,7 +187,7 @@
             <div class="alert alert-danger">@_detail.Message.ErrorDetail</div>
         }
         @* Pass 215: what to do next, with links to the specimen and the patient. *@
-        @if (_detail.Message.OpenFailure && InstrumentFailureNextStep.For(_detail.Message.ErrorDetail, _detail.Message.SpecimenId, _detail.Message.PatientId) is { } nextStep)
+        @if (_detail.Message.OpenFailure && InstrumentFailureNextStep.For(_detail.Message.ErrorDetail, _detail.Message.SpecimenId, _detail.Message.PatientId, _detail.SpecimenExpiredUtc) is { } nextStep)
         {
             <p class="muted" style="margin:.3rem 0;" data-inst-next-step>
                 @nextStep.Text

@@ -122,7 +122,11 @@ public sealed record InstrumentMessageDetailDto(
     string RawMessage,
     IReadOnlyList<InstrumentParsedFieldDto> ParsedFields,
     IReadOnlyList<InstrumentMappedValueDto> MappedValues,
-    string? RuleTraceJson);
+    string? RuleTraceJson)
+{
+    /// <summary>When the message's specimen expired, if it has (end-user testing pass 284); null otherwise.</summary>
+    public DateTime? SpecimenExpiredUtc { get; init; }
+}
 
 public sealed record EchoSimulatorPreviewRequest(
     string Assay,

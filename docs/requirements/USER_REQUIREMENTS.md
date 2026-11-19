@@ -1067,3 +1067,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1059 | A Ready to issue row says in words why it needs attention, not only in badge hover text. | P2 | FRS-BB-1177 |
 | URS-BB-1060 | An ABO/Rh discrepancy on the worklist, the chart and the reaction board says how it disagrees in view. | P2 | FRS-BB-1178 |
 | URS-BB-1061 | A type under QC review, a recalled unit out of the bank and a reaction remainder that cannot be held say why in view. | P2 | FRS-BB-1179 |
+| URS-BB-1062 | An instrument failure for a test not ordered on a specimen that has since expired does not tell the bench to order and replay. | P2 | FRS-BB-1180 |
