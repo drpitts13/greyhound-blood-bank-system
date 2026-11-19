@@ -174,4 +174,50 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(RuleSeverity.Pass, SpecimenStorageRule.Evaluate(SpecimenStatus.Rejected, null, "Rejected bin").Severity);
         Assert.Equal(RuleSeverity.HardStop, SpecimenStorageRule.Evaluate(SpecimenStatus.Accepted, null, new string('x', 101)).Severity);
     }
+
+    // TEST-BB-1320 (end-user testing pass 293): a tube waiting to be stored that Discard would refuse says why (an
+    // unfinished order on it); a tube free to discard says nothing.
+    [Fact]
+    public async Task NotStoredList_SaysWhichTubesAreKept()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patient = new Patient { MedicalRecordNumber = $"MRN-KPT-{key}", LastName = "Kept", FirstName = "Tube", DateOfBirth = new DateOnly(1970, 1, 1) };
+        var location = new OrderingLocation { Code = $"LOC-{key}", Name = "BB", IsActive = true };
+        c.Patients.Add(patient);
+        c.OrderingLocations.Add(location);
+        await c.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        var encounter = new Encounter
+        {
+            PatientId = patient.Id, VisitNumber = $"VIS-KPT-{key}", EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active, AdmitUtc = now.AddDays(-1)
+        };
+        c.Encounters.Add(encounter);
+        await c.SaveChangesAsync();
+        Specimen Tube(string suffix) => new()
+        {
+            PatientId = patient.Id, AccessionNumber = $"ACC-KPT-{suffix}-{key}", SpecimenType = "EDTA",
+            CollectedUtc = now.AddDays(-5), ReceivedUtc = now.AddDays(-5), ExpiresUtc = now.AddDays(-2), Status = SpecimenStatus.Expired
+        };
+        var onOrder = Tube("ORD");
+        var free = Tube("FREE");
+        c.Specimens.AddRange(onOrder, free);
+        var order = new Order
+        {
+            PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderNumber = $"ORD-KPT-{key}",
+            OrderCategory = OrderCategory.Test, OrderName = "ABSC", Status = OrderStatus.New, OrderedUtc = now.AddDays(-5)
+        };
+        c.Orders.Add(order);
+        await c.SaveChangesAsync();
+        c.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = onOrder.Id, IsPrimary = true });
+        await c.SaveChangesAsync();
+
+        var service = new SpecimenStorageService(new EfRepository<Specimen>(c), new EfRepository<SpecimenStorageEvent>(c), new EfRepository<Patient>(c), c,
+            _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            orderSpecimens: new EfRepository<OrderSpecimen>(c), orders: new EfRepository<Order>(c), investigations: new EfRepository<ReactionInvestigation>(c));
+        var rows = (await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id).ToList();
+        Assert.Equal($"Kept: order ORD-KPT-{key} not finished", Assert.Single(rows, r => r.SpecimenId == onOrder.Id).KeptBecause);
+        Assert.Null(Assert.Single(rows, r => r.SpecimenId == free.Id).KeptBecause);
+    }
 }

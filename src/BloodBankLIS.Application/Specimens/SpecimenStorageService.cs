@@ -43,6 +43,12 @@ public sealed record TubeInPlaceDto(
     /// waited to be put away).
     /// </summary>
     public DateTime? ReceivedUtc { get; init; }
+
+    /// <summary>
+    /// Why the tube cannot be discarded now, when it is kept: an unfinished order on it, or an open transfusion reaction
+    /// investigation (end-user testing pass 293: the lists offered Discard on such tubes, which the scan then refused).
+    /// </summary>
+    public string? KeptBecause { get; init; }
 }
 
 /// <summary>A tube scanned to be thrown away; a reason is needed before its retention date or when none is set.</summary>
@@ -185,6 +191,7 @@ public sealed class SpecimenStorageService
 
         var ids = tubes.Select(t => t.PatientId).Distinct().ToList();
         var patients = (await _patients.ListAsync(p => ids.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var kept = await KeptBecauseAsync(tubes, ct);
         return tubes
             .Select(t =>
             {
@@ -192,9 +199,55 @@ public sealed class SpecimenStorageService
                 return new TubeInPlaceDto(
                     t.Id, t.AccessionNumber, t.SpecimenType, t.Status, t.PatientId, PatientName(patient, t.PatientId),
                     patient?.MedicalRecordNumber ?? "—", t.CollectedUtc, t.StoredUtc, t.StoredBy, t.StorageLocation,
-                    SpecimenDiscardRule.KeepUntil(t.CollectedUtc, t.ExpiresUtc, retentionDays));
+                    SpecimenDiscardRule.KeepUntil(t.CollectedUtc, t.ExpiresUtc, retentionDays))
+                {
+                    KeptBecause = kept.GetValueOrDefault(t.Id)
+                };
             })
             .ToList();
+    }
+
+    // Pass 293: the same checks Discard applies (open orders, open reaction investigation), for every listed tube at once.
+    private async Task<Dictionary<long, string>> KeptBecauseAsync(IReadOnlyList<Specimen> tubes, CancellationToken ct)
+    {
+        var result = new Dictionary<long, string>();
+        if (_orderSpecimens is null || _orders is null || _investigations is null)
+        {
+            return result;
+        }
+
+        var specimenIds = tubes.Select(t => t.Id).ToList();
+        var investigations = await _investigations.ListAsync(
+            r => r.Status != ReactionInvestigationStatus.Closed
+                 && ((r.PreTransfusionSpecimenId != null && specimenIds.Contains(r.PreTransfusionSpecimenId.Value))
+                     || (r.PostTransfusionSpecimenId != null && specimenIds.Contains(r.PostTransfusionSpecimenId.Value))), ct);
+        foreach (var r in investigations)
+        {
+            foreach (var id in new[] { r.PreTransfusionSpecimenId, r.PostTransfusionSpecimenId }.OfType<long>())
+            {
+                result[id] = "Kept: on a transfusion reaction investigation that is still open";
+            }
+        }
+
+        var links = await _orderSpecimens.ListAsync(os => specimenIds.Contains(os.SpecimenId), ct);
+        var orderIds = links.Select(l => l.OrderId).Distinct().ToList();
+        var openOrders = orderIds.Count == 0
+            ? new Dictionary<long, string>()
+            : (await _orders.ListAsync(o => orderIds.Contains(o.Id)
+                    && o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled && o.Status != OrderStatus.Discontinued, ct))
+                .ToDictionary(o => o.Id, o => o.OrderNumber);
+        foreach (var group in links.Where(l => openOrders.ContainsKey(l.OrderId)).GroupBy(l => l.SpecimenId))
+        {
+            if (result.ContainsKey(group.Key))
+            {
+                continue;
+            }
+
+            var numbers = group.Select(l => openOrders[l.OrderId]).Distinct().Order(StringComparer.OrdinalIgnoreCase).ToList();
+            result[group.Key] = $"Kept: {(numbers.Count == 1 ? "order" : "orders")} {string.Join(", ", numbers)} not finished";
+        }
+
+        return result;
     }
 
     private static string PatientName(Patient? patient, long patientId) =>

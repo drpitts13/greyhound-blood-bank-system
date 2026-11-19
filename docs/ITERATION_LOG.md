@@ -27815,3 +27815,21 @@ Walked Storage temperatures (FRIDGE-1 last read 6 days ago; the reading interval
 ### Tests
 
 - TEST-BB-1319. Full suite passed.
+
+## Iteration 1013 — End-user testing pass 293: kept tubes say why (2026-11-19)
+
+### How it was tested
+
+Opened Store tubes: 19 received tubes not yet stored, all expired, each offering **Store** and **Discard**. Nothing was stored or discarded.
+
+### Found and fixed
+
+1. **Discard was offered on a tube that would be refused.** ACC-UAT-001 (Demo-Special, Avery) is on order ORD0024, not finished, and Discard refuses a tube on an unfinished order or an open reaction investigation; but the list offered **Discard** like the others, so the bench learned only after scanning it. A kept tube now says why under its status (*Kept: order ORD0024 not finished*) and offers no Discard; the due-for-discard list marks it the same way.
+
+### Retested live
+
+- ACC-UAT-001 shows the note and no Discard; the other 18 rows still offer it.
+
+### Tests
+
+- TEST-BB-1320. Full suite passed.

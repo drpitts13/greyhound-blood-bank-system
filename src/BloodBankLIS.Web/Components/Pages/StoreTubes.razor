@@ -102,11 +102,20 @@ else
                             <td class="nowrap">@t.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             @* Pass 185: the list is ordered by receipt; say when and how long it has waited to be put away. *@
                             <td class="nowrap" data-not-stored-received="@t.AccessionNumber">@(t.ReceivedUtc is DateTime received ? $"{received.ToLocalTime():yyyy-MM-dd HH:mm}" : "—")@if (t.ReceivedUtc is DateTime since) { <span class="sub"> · @BloodOrderWaitText.Waiting(since, DateTime.UtcNow)</span> }</td>
-                            <td>@Ui.EnumText(t.Status)</td>
+                            <td>@Ui.EnumText(t.Status)
+                                @if (t.KeptBecause is { } keptWhy)
+                                {
+                                    @* Pass 293: a tube Discard would refuse says why, and is not offered for discard. *@
+                                    <div class="sub muted" data-tube-kept="@t.AccessionNumber">@keptWhy</div>
+                                }
+                            </td>
                             <td class="right nowrap">
                                 <button type="button" class="btn btn-secondary btn-sm" @onclick="() => PickTubeAsync(t.AccessionNumber)">Store</button>
                                 @* Pass 249: most tubes waiting here were expired, but only Store was offered; the text said to discard what is no longer needed. *@
-                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => PickDiscardAsync(t.AccessionNumber)" data-pick-discard="@t.AccessionNumber">Discard</button>
+                                @if (t.KeptBecause is null)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => PickDiscardAsync(t.AccessionNumber)" data-pick-discard="@t.AccessionNumber">Discard</button>
+                                }
                             </td>
                         </tr>
                     }
@@ -142,6 +151,10 @@ else
                                     @if (t.KeepUntilUtc is { } keepUntil)
                                     {
                                         <span class="muted">@AlertInboxView.OpenFor(keepUntil, DateTime.UtcNow) past</span>
+                                    }
+                                    @if (t.KeptBecause is { } dueKeptWhy)
+                                    {
+                                        <div class="sub muted" data-tube-kept="@t.AccessionNumber">@dueKeptWhy</div>
                                     }
                                 </td>
                             </tr>
