@@ -1079,3 +1079,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1071 | Store tubes says which listed tubes are kept and why, before anyone tries to discard them. | P3 | FRS-BB-1189 |
 | URS-BB-1072 | Minimum stock compares the minimum with available units not reserved for a patient, and shows the reserved ones apart. | P2 | FRS-BB-1190 |
 | URS-BB-1073 | The supplier order list says which drafts have not been sent, for how long, and for which patients. | P3 | FRS-BB-1191 |
+| URS-BB-1074 | The home screen does not list as clear a card whose note names work still to do. | P2 | FRS-BB-1192 |

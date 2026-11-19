@@ -73,6 +73,20 @@ public class DashboardHomeTests
         }
     }
 
+    // TEST-BB-1323 (end-user testing pass 296): a card counting none whose note names work left (excursions back in range
+    // with their deviations open) is shown with its note among the queues, not listed as clear.
+    [Fact]
+    public void ZeroCount_WithANote_IsNotClear()
+    {
+        var layout = DashboardHome.Arrange(
+            [State(TemperatureExcursions, 0, "2 back in range: close their deviations"), State(PendingTests, 0)], WorkFocus.Everything);
+
+        Assert.Equal([TemperatureExcursions], layout.Queues.Select(c => c.Card.Key));
+        Assert.Equal("2 back in range: close their deviations", layout.Queues[0].Note);
+        Assert.Equal([PendingTests], layout.Clear.Select(c => c.Card.Key));
+        Assert.Empty(layout.Attention);
+    }
+
     [Fact]
     public void AllClear_HasNoStartHere()
     {

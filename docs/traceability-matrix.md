@@ -1187,6 +1187,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1071 / FRS-BB-1189 | End-user testing pass 293: kept tubes say why | `SpecimenStorageService.cs`, `StoreTubes.razor` | TEST-BB-1320 | I | |
 | URS-BB-1072 / FRS-BB-1190 | End-user testing pass 294: reserved units not counted as stock | `MinimumStockService.cs`, `MinimumStock.razor` | TEST-BB-1321 | I | |
 | URS-BB-1073 / FRS-BB-1191 | End-user testing pass 295: unsent drafts say so | `SupplierOrderDraftText.cs`, `SupplierOrders.razor` | TEST-BB-1322 | U | |
+| URS-BB-1074 / FRS-BB-1192 | End-user testing pass 296: a zero card with work left is not clear | `DashboardHomeLayout.cs` | TEST-BB-1323 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

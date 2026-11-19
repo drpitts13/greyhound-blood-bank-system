@@ -93,8 +93,10 @@ public static class DashboardHome
             .OrderBy(c => Rank(c.Card.Key))
             .ToList();
         var rest = all.Where(c => c.Count is not null && !attention.Contains(c)).ToList();
-        var queues = rest.Where(c => c.Count > 0 && InFocus(c.Card.Key, focus)).ToList();
-        var clear = rest.Where(c => c.Count == 0 && InFocus(c.Card.Key, focus)).ToList();
+        // End-user testing pass 296: a card counting none but whose note names work left (temperature excursions back in
+        // range with their deviations still open) was listed as clear, and its note was never shown.
+        var queues = rest.Where(c => (c.Count > 0 || HasNote(c)) && InFocus(c.Card.Key, focus)).ToList();
+        var clear = rest.Where(c => c.Count == 0 && !HasNote(c) && InFocus(c.Card.Key, focus)).ToList();
         var other = rest.Where(c => !InFocus(c.Card.Key, focus)).ToList();
 
         return new DashboardHomeLayout(
@@ -105,6 +107,8 @@ public static class DashboardHome
             unavailable,
             other);
     }
+
+    private static bool HasNote(DashboardCardState card) => !string.IsNullOrWhiteSpace(card.Note);
 
     private static int Rank(string key)
     {

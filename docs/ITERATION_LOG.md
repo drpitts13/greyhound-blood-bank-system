@@ -27869,3 +27869,21 @@ Opened Supplier orders after the pass 294 shortage (the new *Below minimum stock
 ### Tests
 
 - TEST-BB-1322. Full suite passed.
+
+## Iteration 1016 — End-user testing pass 296: a zero card with work left is not clear (2026-11-19)
+
+### How it was tested
+
+Walked Equipment (the centrifuge and cell washer checks overdue, the heat block out of service; results already record the equipment and warn) and the home dashboard, card by card, against the pages they open.
+
+### Found and fixed
+
+1. **Two open excursions were listed as clear.** The home screen put **Temperature excursions** under *Clear*, but Storage temperatures listed two open excursions (OR-FRIDGE 7.2 °C, FRIDGE-1 8.5 °C), both back in range with their deviations still to close, and the shift handoff counted them. The card counts only excursions still out of range (pass 40) and names the recovered ones in its note; with a count of zero it was sorted as clear and the note was never shown. A card that counts zero but has a note is now shown with the queues: *Temperature excursions 0 · 2 back in range: close their deviations*.
+
+### Retested live
+
+- The card shows under *Queues with work* with its note, and is gone from *Clear*.
+
+### Tests
+
+- TEST-BB-1323. Full suite passed.

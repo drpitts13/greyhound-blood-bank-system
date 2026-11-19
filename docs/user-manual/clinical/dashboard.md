@@ -65,7 +65,7 @@ The page is arranged in this order:
 2. **Needs attention**: any queue with an overdue or follow-up note, plus temperature excursions, reaction investigations, instrument failures, HL7 errors, expired units on a shelf, products below minimum stock, and an open shift handoff whenever they are above zero. These show **whatever the focus is**, so changing focus never hides them. The most urgent comes first: temperature excursions, reactions, retrospective crossmatch, in transit, second ABO/Rh with nothing ordered, instrument failures, HL7 errors, shift handoff, then near expiry with reserved units.
 3. **Queues with work**: focus queues above zero, in workflow order.
 4. **Could not load**: any queue whose count failed. It is never counted as clear. Open it to check.
-5. **Clear**: focus queues at zero, as small links.
+5. **Clear**: focus queues at zero with nothing else to say, as small links. A card that counts zero but names work left is shown with the queues instead, for example **Temperature excursions** *0 · 2 back in range: close their deviations* (none still out of range, two deviations to close).
 6. **Other desks**: queues outside the focus, folded. The heading counts their items.
 
 Every queue you can open is still on the page. Focus changes only the order and grouping.

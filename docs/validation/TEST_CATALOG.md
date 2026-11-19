@@ -1331,5 +1331,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1320 | I | `SpecimenStorageTests.NotStoredList_SaysWhichTubesAreKept` | URS-BB-1071 / FRS-BB-1189 |
 | TEST-BB-1321 | I | `MinimumStockOpenOrdersTests.OnHand_LeavesOutUnitsReservedForPatients` | URS-BB-1072 / FRS-BB-1190 |
 | TEST-BB-1322 | U | `SupplierOrderDraftTextTests.Draft_SaysNotSent_HowLong_AndForWhom` | URS-BB-1073 / FRS-BB-1191 |
+| TEST-BB-1323 | U | `DashboardHomeTests.ZeroCount_WithANote_IsNotClear` | URS-BB-1074 / FRS-BB-1192 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
