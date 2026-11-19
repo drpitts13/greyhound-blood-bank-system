@@ -1060,3 +1060,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1052 | Antigen results read in words (Not tested) on the unit page, the chart antigen profile and antibody identification. | P3 | FRS-BB-1170 |
 | URS-BB-1053 | The supplier order list says how long an order's arrival is overdue. | P3 | FRS-BB-1171 |
 | URS-BB-1054 | An unmapped value's last message opens where it came in: the HL7 log or Instrument Interfaces. | P3 | FRS-BB-1172 |
+| URS-BB-1055 | The units issued and transfused report says whether each unit is still out, returned or transfused. | P2 | FRS-BB-1173 |

@@ -812,6 +812,34 @@ public class ReportServiceTests : IDisposable
         Assert.Equal(new[] { "Dr. Amy Lee", $"Dr. Trauma (called MTP #{activation.Id})" }, sqlRun.Value!.Rows.Select(r => r[1] ?? "").ToArray());
     }
 
+    // TEST-BB-1303 (end-user testing pass 277): the seeded Units issued and transfused report shows each issue's status, so a
+    // unit that came back reads Returned rather than a blank disposition like one still out.
+    [Fact]
+    public async Task IssuedAndTransfusedReport_ShowsTheIssueStatus()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-ITX", LastName = "Issued", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        var product = new ProductType { ProductCode = "RBC-ITX", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        db.AddRange(patient, product);
+        await db.SaveChangesAsync();
+        var units = Enumerable.Range(1, 2).Select(i => new BloodUnit { UnitNumber = $"W-ITX-{i}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Issued }).ToList();
+        db.BloodUnits.AddRange(units);
+        await db.SaveChangesAsync();
+        db.Issues.AddRange(
+            new Issue { BloodProductId = units[0].Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-2), IssuedBy = "tech", Status = IssueStatus.Returned },
+            new Issue { BloodProductId = units[1].Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-1), IssuedBy = "tech", Status = IssueStatus.Issued });
+        await db.SaveChangesAsync();
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var run = await service.RunAsync(list.Single(r => r.Code == "RPT-ISSUE-TRANSFUSE").Id, new Dictionary<string, string?>());
+        Assert.True(run.Succeeded, run.Error);
+        var columns = run.Value!.Columns.ToList();
+        string? Status(string unit) => run.Value.Rows.Single(r => r[columns.IndexOf("unit_number")] == unit)[columns.IndexOf("issue_status")];
+        Assert.Equal(("Returned", "Issued"), (Status("W-ITX-1"), Status("W-ITX-2")));
+    }
+
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>
         new(
             new ReportDefinitionStore(db),

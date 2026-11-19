@@ -27522,3 +27522,21 @@ Opened Minimum stock (2 below minimum) and the interface Unmapped values list (8
 ### Tests
 
 - TEST-BB-1302. Full suite passed.
+
+## Iteration 997 — End-user testing pass 277: issued and transfused report shows issue status (2026-11-19)
+
+### How it was tested
+
+Restarted the loop. Opened Demo-Multi, Riley's and Febrile, Marcus's Specimens tabs, the Issue form for Riley's reserved unit (the open reaction investigation is named before issue), the Transfusion form for W0001230009206 (it says the unit was issued 12 d 21 h ago and to check its time out of storage), Compatibility, and ran *Units issued and transfused*.
+
+### Found and fixed
+
+1. **A returned unit read like one still out.** W0001230001004, the emergency release to Trauma, John Doe, was returned after a failed return inspection, but the report row was blank after the issue type, exactly as for the units still out. The source already had the issue status; the seeded report now shows it (*Issued*, *Returned*, *Transfused*).
+
+### Retested live
+
+- W0001230001004 reads *Emergency release · Returned*; W0001230009204 *Standard · Issued*; W0001230009203 *Standard · Transfused · Completed*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1303. Full suite passed.

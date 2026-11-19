@@ -19,7 +19,7 @@ public static class ReportSeedCatalog
         Visual("RPT-ISSUE-TRANSFUSE", "Units issued and transfused",
             "Issues in a date range, with transfusion times when a transfusion was documented.",
             ReportSourceCatalog.IssueTransfusion,
-            ["issued_utc", "unit_number", "product_name", "mrn", "patient_name", "issue_type", "transfusion_start_utc", "disposition"],
+            ["issued_utc", "unit_number", "product_name", "mrn", "patient_name", "issue_type", "issue_status", "transfusion_start_utc", "disposition"],
             filters: [DateRange("issued-range", "issued_utc")],
             sorts: [Sort("issued_utc", ReportSortDirection.Descending)]),
         Visual("RPT-DISCARDS", "Discards and waste",

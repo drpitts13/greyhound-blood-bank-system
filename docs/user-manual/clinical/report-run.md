@@ -24,6 +24,8 @@ Status, type, severity and similar columns read in words (*On hold*, *Under revi
 
 In *Emergency releases and overrides*, an override names its unit and patient, as the supervisor queue does: through the issue, reservation or crossmatch it was recorded on. **Authorized by** says who authorized each row: an override's authorizer; for an emergency or massive-transfusion issue, the authorizer of its override, or, for a massive-transfusion issue without one, the physician who called its protocol (*Dr. Demo Trauma (called MTP #1)*). **Actor** is still who recorded it.
 
+In *Units issued and transfused*, **Issue status** says whether each issued unit is still out (*Issued*), came back (*Returned*) or was transfused, so a returned unit is not read as one still waiting for its transfusion record.
+
 In *Lookback and recall notifications*, each row names the unit transfused and the date the notification was opened, as the Lookback page does.
 
 In *Open deviations*, each row names the related record (the unit, patient, specimen or temperature reading) as the Deviations page does, with who it is assigned to, when it is due and whether it is FDA reportable.
