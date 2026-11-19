@@ -1336,5 +1336,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1325 | I | `ReportServiceTests.ReactionsReport_CarriesWhatHemovigilanceNeeds` | URS-BB-1076 / FRS-BB-1194 |
 | TEST-BB-1326 | U | `SpecialRequirementCategoryRuleTests.MetUnitRequirements_NamesTheOnesTheUnitMeets` | URS-BB-1077 / FRS-BB-1195 |
 | TEST-BB-1327 | I | `Phase4IssuingTests.ListReadyToIssue_MarksUnmetSpecialRequirementWithoutOfferingIssue` | URS-BB-1078 / FRS-BB-1196 |
+| TEST-BB-1328 | U | `MotherCandidatesTests.From_OffersPossibleMothersByName` | URS-BB-1079 / FRS-BB-1197 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

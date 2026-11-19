@@ -27959,3 +27959,21 @@ Followed Demo-Special, Avery's reserved unit W000026123460 from the chart (pass 
 ### Tests
 
 - TEST-BB-1327 (with the pass 299 chart check in `PatientAllocationTests`). Full suite passed.
+
+## Iteration 1021 — End-user testing pass 301: choose the mother rather than type her MRN (2026-11-19)
+
+### How it was tested
+
+Checked the issue form's informational requirements (Avery's *Call the transfusion service physician* shows there before issue), the Return form, the patient list, and Newborn, Baby Boy (MRN0002, NICU, no mother linked). Nothing was linked or changed.
+
+### Found and fixed
+
+1. **Linking a newborn's mother took an MRN typed from memory.** **Link mother** opened a bare *Mother's MRN* box: the bench had to know or look up the mother's MRN elsewhere, and nothing showed whose chart a typed number was before linking. It now opens a patient picker searched by name or MRN, listing female (or sex unknown) patients born before the infant and not merged, each with MRN, location and type (*Gravid, Elena (MRN0007) · Inpatient · L&D 2 · no type on file*); **Link** is available once one is chosen. It suggests no one: the user chooses.
+
+### Retested live
+
+- Searching *Gravid* finds MRN0007; *Trauma* finds no one (both such charts are male); **Link** stays disabled until a choice is made. Nothing was linked.
+
+### Tests
+
+- TEST-BB-1328. Full suite passed.

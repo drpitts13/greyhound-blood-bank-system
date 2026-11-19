@@ -118,14 +118,24 @@
                     @if (_linking)
                     {
                         <span class="flex gap" style="display:inline-flex;align-items:center;">
-                            <input @bind="_motherMrn" placeholder="Mother's MRN" style="max-width:12rem;" data-mother-mrn />
-                            <button type="button" class="btn btn-primary btn-sm" disabled="@_familyBusy" @onclick="LinkMotherAsync" data-mother-link>Link</button>
+                            @* Pass 301: choose the mother by name or MRN from the patient list, rather than typing an MRN from memory. *@
+                            <span style="min-width:18rem;" data-mother-picker>
+                                <FilterableComboBox TItem="PatientDto" TValue="long?"
+                                    Items="_motherCandidates"
+                                    @bind-Value="_motherId"
+                                    DisplayText="@(p => p.PickerLabel)"
+                                    ItemValue="@(p => p.Id)"
+                                    SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
+                                    Clearable="true"
+                                    Placeholder="Mother: search name or MRN" />
+                            </span>
+                            <button type="button" class="btn btn-primary btn-sm" disabled="@(_familyBusy || _motherId is null)" @onclick="LinkMotherAsync" data-mother-link>Link</button>
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _linking = false">Cancel</button>
                         </span>
                     }
                     else
                     {
-                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _linking = true" data-mother-link-open>Link mother</button>
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="OpenMotherLinkAsync" data-mother-link-open>Link mother</button>
                     }
                 }
             </div>
@@ -482,7 +492,17 @@ else if (ReactionNotice is not null)
     private bool _linking;
     private bool _unlinking;
     private bool _familyBusy;
-    private string _motherMrn = string.Empty;
+    private long? _motherId;
+    private IReadOnlyList<PatientDto> _motherCandidates = [];
+
+    private async Task OpenMotherLinkAsync()
+    {
+        _linking = true;
+        var patients = await Api.GetPatientsAsync();
+        _motherCandidates = patients.Succeeded && patients.Value is { } list
+            ? MotherCandidates.From(list, Patient.Id, Patient.DateOfBirth)
+            : [];
+    }
     private string _unlinkReason = string.Empty;
     private Feedback? _familyFb;
 
@@ -523,14 +543,20 @@ else if (ReactionNotice is not null)
 
     private async Task LinkMotherAsync()
     {
+        var mother = _motherCandidates.FirstOrDefault(p => p.Id == _motherId);
+        if (mother is null)
+        {
+            return;
+        }
+
         _familyBusy = true;
-        var r = await Api.LinkMotherAsync(Patient.Id, new LinkMotherRequest(_motherMrn));
+        var r = await Api.LinkMotherAsync(Patient.Id, new LinkMotherRequest(mother.MedicalRecordNumber));
         _familyBusy = false;
         _familyFb = r.ToFeedback("Mother linked.");
         if (r.Succeeded)
         {
             _linking = false;
-            _motherMrn = string.Empty;
+            _motherId = null;
             await LoadFamilyAsync();
         }
     }
