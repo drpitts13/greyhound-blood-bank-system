@@ -27851,3 +27851,21 @@ Opened Minimum stock and compared each row with the inventory list.
 ### Tests
 
 - TEST-BB-1321. Full suite passed.
+
+## Iteration 1015 — End-user testing pass 295: unsent drafts say so (2026-11-19)
+
+### How it was tested
+
+Opened Supplier orders after the pass 294 shortage (the new *Below minimum stock: RBC-LR group O* alert raised as expected) and opened each order. Nothing was signed, sent or changed.
+
+### Found and fixed
+
+1. **A patient's special order sat in Draft for a week, reading only "Draft".** SO-20261112-001 asks for O Pos irradiated, CMV-negative red cells for Demo-Special, Avery (MRN0023); it was created 7 days ago and never signed and sent. The home card counted it, but the order list gave no sign that it had not gone or for whom. A draft now says *Not sent · 7 d 7 h · for Demo-Special, Avery (MRN0023)* under its status.
+
+### Retested live
+
+- SO-20261112-001 shows the note; the submitted and received orders show none.
+
+### Tests
+
+- TEST-BB-1322. Full suite passed.
