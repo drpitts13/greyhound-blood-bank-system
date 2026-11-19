@@ -27486,3 +27486,21 @@ Continued pass 273's search of the page markup, checking the result columns.
 ### Tests
 
 - TEST-BB-1300. Full suite passed.
+
+## Iteration 995 — End-user testing pass 275: supplier order list says how long overdue (2026-11-18)
+
+### How it was tested
+
+Opened Issue & Transfuse › Second ABO/Rh (Kline, Nora, 2 reserved, an ABO/Rh to order) and Supplier orders (3 orders).
+
+### Found and fixed
+
+1. **The order list said only "Arrival overdue".** SO-DEMO-002, promised for 2026-11-13 09:00, read *Submitted · Arrival overdue* in the list; only the order itself said *overdue 5 d 10 h*. The list badge now says how long (*Arrival overdue 5 d 10 h*), as the inventory boards now do.
+
+### Retested live
+
+- SO-DEMO-002 reads *Arrival overdue 5 d 10 h*. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1301. Full suite passed.

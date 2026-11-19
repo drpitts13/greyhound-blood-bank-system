@@ -10,4 +10,10 @@ public static class SupplierOrderArrivalText
         $"{(promised ? "Promised by the supplier for" : "Arrival due")} {dueUtc.ToLocalTime():yyyy-MM-dd HH:mm}"
         + (overdue ? $": overdue {ElapsedText.FromMinutes((int)Math.Max(0, (nowUtc - dueUtc).TotalMinutes))}, chase the supplier" : string.Empty)
         + ".";
+
+    /// <summary>The list badge (pass 275): "Arrival overdue 5 d" rather than "Arrival overdue".</summary>
+    public static string Badge(DateTime? dueUtc, DateTime nowUtc) =>
+        dueUtc is DateTime due && nowUtc > due
+            ? $"Arrival overdue {ElapsedText.FromMinutes((int)(nowUtc - due).TotalMinutes)}"
+            : "Arrival overdue";
 }

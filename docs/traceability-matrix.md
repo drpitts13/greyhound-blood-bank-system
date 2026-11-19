@@ -1166,6 +1166,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1050 / FRS-BB-1168 | End-user testing pass 272: recipient traceback in words | `Lookback.razor` | TEST-BB-1298 | U | |
 | URS-BB-1051 / FRS-BB-1169 | End-user testing pass 273: statuses in words across pages | `LinkedDeviations.razor`, `Reagents.razor`, `PatientChartOrdersTab.razor`, `SupplierOrders.razor`, `Instruments.razor` | TEST-BB-1299 | U | |
 | URS-BB-1052 / FRS-BB-1170 | End-user testing pass 274: antigen results in words | `UnitDetail.razor`, `PatientChartOverviewTab.razor`, `AntibodyIdentification.razor` | TEST-BB-1300 | U | |
+| URS-BB-1053 / FRS-BB-1171 | End-user testing pass 275: supplier order list says how long overdue | `SupplierOrderArrivalText.cs`, `SupplierOrders.razor` | TEST-BB-1301 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

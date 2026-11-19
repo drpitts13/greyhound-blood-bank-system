@@ -67,7 +67,7 @@
                             }
                             @if (order.ArrivalOverdue)
                             {
-                                <span class="badge badge-red" style="margin-left:.25rem;" title="Not received by @order.ArrivalDueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"); chase the supplier" data-arrival-overdue>Arrival overdue</span>
+                                <span class="badge badge-red" style="margin-left:.25rem;" title="Not received by @order.ArrivalDueUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"); chase the supplier" data-arrival-overdue>@SupplierOrderArrivalText.Badge(order.ArrivalDueUtc, DateTime.UtcNow)</span>
                             }
                         </td>
                         <td class="right">@order.UnitsOrdered</td>
