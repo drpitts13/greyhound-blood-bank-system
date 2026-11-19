@@ -93,10 +93,11 @@ else
                                 <td>@d.Id</td>
                                 <td>
                                     <strong>@d.Title</strong>
-                                    <span class="sub">@d.Description</span>
+                                    @* Pass 302: saved UTC times shown in local time, as the Reported column is. *@
+                                    <span class="sub">@SavedTimeText.Local(d.Description)</span>
                                     @if (!string.IsNullOrWhiteSpace(d.RootCause))
                                     {
-                                        <span class="sub" data-root-cause>Root cause: @d.RootCause</span>
+                                        <span class="sub" data-root-cause>Root cause: @SavedTimeText.Local(d.RootCause)</span>
                                     }
                                     @if (!string.IsNullOrWhiteSpace(d.CorrectiveAction))
                                     {
@@ -182,7 +183,7 @@ else
                 @* Keyed so switching rows re-adds the panel and it scrolls into view again. *@
                 <div @key="_statusId" class="alert alert-info" style="margin-top:1rem;" data-scroll-on-show>
                     <strong>Update deviation #@_statusId: @_rows.FirstOrDefault(r => r.Id == _statusId)?.Title</strong>
-                    <div class="muted">@_rows.FirstOrDefault(r => r.Id == _statusId)?.Description</div>
+                    <div class="muted">@SavedTimeText.Local(_rows.FirstOrDefault(r => r.Id == _statusId)?.Description)</div>
                     <div class="field" style="margin-top:.5rem;"><label>Status</label>
                         <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
                     </div>

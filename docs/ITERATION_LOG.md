@@ -27977,3 +27977,21 @@ Checked the issue form's informational requirements (Avery's *Call the transfusi
 ### Tests
 
 - TEST-BB-1328. Full suite passed.
+
+## Iteration 1022 — End-user testing pass 302: saved UTC times shown in local time (2026-11-19)
+
+### How it was tested
+
+Read the open deviations and the alerts as a quality reviewer. Nothing was changed.
+
+### Found and fixed
+
+1. **The same event appeared five hours apart.** Deviation DEV-3 read *Main Blood Bank Refrigerator read 8.5 °C at 2026-11-12 16:43 UTC … 17:22 UTC: 30 unit(s) quarantined*, beside a Reported time of 11:43; the OR-FRIDGE alert likewise read *17:31 UTC* beside Raised 12:31. Text saved with a record keeps its times in UTC by design (it reads correctly anywhere), but the screen now shows them in local time, as every other column does (*read 8.5 °C at 2026-11-12 11:43*). The saved text is unchanged. (Pass 285 had noted the alert times as legacy data; the deviation shows they are written this way by design, so the fix is at display.)
+
+### Retested live
+
+- Deviations and Alerts show no *UTC*; DEV-3's reading reads 11:43, matching its Reported time.
+
+### Tests
+
+- TEST-BB-1329. Full suite passed.

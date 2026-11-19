@@ -165,7 +165,7 @@
             <td><span class="badge @SeverityClass(alert.Severity)">@Ui.EnumText(alert.Severity)</span></td>
             <td>
                 <div>@if (alert.Link is not null) { <a href="@alert.Link">@alert.Title</a> } else { @alert.Title }</div>
-                <div class="muted">@alert.Message</div>
+                <div class="muted">@SavedTimeText.Local(alert.Message)</div>
             </td>
             <td class="nowrap">@alert.RaisedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub" data-open-for>open @AlertInboxView.OpenFor(alert.RaisedUtc, DateTime.UtcNow)</span></td>
             @* Kept as typed, so Enter acknowledges with the note without leaving the field first. *@

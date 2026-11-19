@@ -10,6 +10,8 @@ routes:
 
 **Alerts** collects conditions that need someone to look. The **Alerts** button in the top bar shows how many are open. It turns red when there is at least one and refreshes when you move between pages and every minute.
 
+An alert's note shows its times in local time, as **Raised** does, even when the note was saved with UTC times.
+
 Alerts come from thirteen places:
 
 - **Temperature excursion**: a storage reading outside the location range. Critical.
