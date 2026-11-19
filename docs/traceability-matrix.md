@@ -1178,6 +1178,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1062 / FRS-BB-1180 | End-user testing pass 284: instrument failure on an expired specimen | `InstrumentAdminDtos.cs`, `InstrumentEndpoints.cs`, `InstrumentFailureNextStep.cs`, `Instruments.razor` | TEST-BB-1310 | U | |
 | URS-BB-1063 / FRS-BB-1181 | End-user testing pass 285: retype test named before a retype is started | `ProductRetypeService.cs`, `ProductRetypeDtos.cs`, `Inventory.razor` | TEST-BB-1311 | I | |
 | URS-BB-1064 / FRS-BB-1182 | End-user testing pass 286: which message applied an errored HL7 copy | `Hl7Endpoints.cs`, `ViewModels.cs`, `Hl7.razor` | TEST-BB-1312 | U | |
+| URS-BB-1065 / FRS-BB-1183 | End-user testing pass 287: crossmatch form says what is missing | `CrossmatchMissingText.cs`, `Compatibility.razor` | TEST-BB-1313 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

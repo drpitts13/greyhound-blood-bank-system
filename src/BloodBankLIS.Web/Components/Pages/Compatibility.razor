@@ -110,9 +110,13 @@
                 </div>
             }
             <button class="btn btn-primary" disabled="@(_busy || _xm.BloodUnitId is null || _xm.PatientId == 0 || _xm.SpecimenId == 0)" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
-            @if (CrossmatchMissing.Count > 0)
+            @if (CrossmatchMissingText.For(_xm.PatientId != 0, _xm.SpecimenId != 0, _xm.BloodUnitId is not null, _xmSpecimens, DateTime.UtcNow) is { } xmMissing)
             {
-                <span class="muted" style="margin-left:.5rem;">Choose @string.Join(", ", CrossmatchMissing) first.</span>
+                <span class="muted" style="margin-left:.5rem;" data-xm-missing>@xmMissing</span>
+                @if (_xm.PatientId != 0 && _xm.SpecimenId == 0 && CrossmatchMissingText.NoCurrentSpecimen(_xmSpecimens, DateTime.UtcNow))
+                {
+                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{_xm.PatientId}?tab=specimens")" data-xm-open-specimens>Open chart · Specimens</a>
+                }
             }
             @if (_lastCrossmatch is not null)
             {
@@ -212,17 +216,6 @@
 
     private XmModel _xm = new();
 
-    private List<string> CrossmatchMissing
-    {
-        get
-        {
-            var missing = new List<string>();
-            if (_xm.PatientId == 0) missing.Add("a patient");
-            if (_xm.SpecimenId == 0) missing.Add("a specimen (accession one on the patient chart if none is listed)");
-            if (_xm.BloodUnitId is null) missing.Add("a unit");
-            return missing;
-        }
-    }
     private Feedback? _xmFb;
 
     private long? XmPatientId

@@ -1321,5 +1321,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1310 | U | `InstrumentFailureNextStepTests.NotOrdered_OnAnExpiredSpecimen_SaysToResolve` | URS-BB-1062 / FRS-BB-1180 |
 | TEST-BB-1311 | I | `ProductRetypeServiceTests.PendingList_UnitWithNoRetypeRow_NamesTheTestToUse` | URS-BB-1063 / FRS-BB-1181 |
 | TEST-BB-1312 | U | `Hl7ErrorQueueTests.ErroredCopy_SaysWhichMessageApplied` | URS-BB-1064 / FRS-BB-1182 |
+| TEST-BB-1313 | U | `CrossmatchMissingTextTests.Missing_JoinsWithAnd_AndNamesTheLatestExpiredSpecimen` | URS-BB-1065 / FRS-BB-1183 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

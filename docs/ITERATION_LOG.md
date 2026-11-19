@@ -27706,3 +27706,21 @@ Walked Reagent QC (seven lots with no QC for seven days, the failed ANTI-D QC aw
 ### Tests
 
 - TEST-BB-1312. Full suite passed.
+
+## Iteration 1007 — End-user testing pass 287: crossmatch form says what is missing (2026-11-19)
+
+### How it was tested
+
+Opened Compatibility, chose Demo-Multi, Riley (MRN0022) for a crossmatch, and opened the specimen and crossmatch test pickers. Nothing was recorded or reserved.
+
+### Found and fixed
+
+1. **The crossmatch hint was ungrammatical and pointed the wrong way.** Beside the disabled **Record crossmatch** it read *Choose a specimen (accession one on the patient chart if none is listed), a unit first.* MRN0022's two specimens were listed, but both had expired (ACC-DEMO-RCV1 at 2026-11-12 23:52, ACC0022 earlier), and a crossmatch on an expired specimen is refused. The hint now joins its parts with "and" and, when the patient has no current specimen, says *the latest, ACC-DEMO-RCV1, expired 2026-11-12 23:52; collect a new one and accession it on the chart*, with **Open chart · Specimens**.
+
+### Retested live
+
+- With no choices: *Choose a patient, a specimen and a unit first.* With MRN0022: the expired-specimen wording and a link to `/patients/12?tab=specimens`. With a prefilled patient and specimen: *Choose a unit first.*
+
+### Tests
+
+- TEST-BB-1313. Full suite passed.
