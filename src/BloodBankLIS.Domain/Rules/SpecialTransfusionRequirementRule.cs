@@ -233,6 +233,26 @@ public static class SpecialTransfusionRequirementRule
             .Select(r => r.Message)
             .ToList();
 
+    /// <summary>
+    /// The patient's unit requirements in effect that this unit meets, by name (end-user testing pass 299: the chart said
+    /// only when a reserved unit failed one, so a unit meeting "Irradiated red cells" and "CMV-negative red cells" read
+    /// the same as one for a patient with none, and the CMV result was only on the unit page).
+    /// </summary>
+    public static IReadOnlyList<string> MetUnitRequirements(
+        IReadOnlyList<RequirementRef> requirements,
+        IReadOnlySet<string> unitProductAttributeCodes,
+        IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> unitAntigens,
+        DateTime nowUtc,
+        UnitTyping? unit) =>
+        requirements
+            .Where(r => IsUnitFact(r.EnforcementKind)
+                        && SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, nowUtc)
+                        && r.AppliesTo(unit?.ComponentClass))
+            .Where(r => Evaluate([r], unitProductAttributeCodes, unitAntigens, nowUtc, unit: unit).All(x => x.Severity != RuleSeverity.HardStop))
+            .Select(r => r.Label)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
     /// <summary>Issue procedures (acknowledgment, A1/A2 subgroup) are met. These are never overridden.</summary>
     public static bool ProceduresMet(
         IReadOnlyList<RequirementRef> requirements,

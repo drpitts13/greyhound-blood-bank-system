@@ -1190,6 +1190,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1074 / FRS-BB-1192 | End-user testing pass 296: a zero card with work left is not clear | `DashboardHomeLayout.cs` | TEST-BB-1323 | U | |
 | URS-BB-1075 / FRS-BB-1193 | End-user testing pass 297: reserved units on the available tile | `AvailableStockText.cs`, `Home.razor` | TEST-BB-1324 | U | |
 | URS-BB-1076 / FRS-BB-1194 | End-user testing pass 298: hemovigilance fields on the reactions report | `ReportViewSql.cs`, `EfReportSourceReader.cs`, `ReportSourceCatalog.cs`, `ReportSeedCatalog.cs`, migration `20270218000000_ReactionsReportHemovigilance` | TEST-BB-1325 | I | |
+| URS-BB-1077 / FRS-BB-1195 | End-user testing pass 299: requirements a reserved unit meets | `SpecialTransfusionRequirementRule.cs`, `PatientAllocationService.cs`, `PatientAllocationDtos.cs`, `PatientChartProductsTab.razor` | TEST-BB-1326 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

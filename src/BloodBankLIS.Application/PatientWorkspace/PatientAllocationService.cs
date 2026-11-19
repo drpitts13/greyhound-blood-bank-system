@@ -233,16 +233,18 @@ public sealed class PatientAllocationService
             var thaw = await AutoThawMatchAsync(allocation, unit, product, issue, ct);
             var thawCode = thaw?.ProductCode;
             string? requirementNotice = null;
+            IReadOnlyList<string> requirementsMet = [];
             if (requirements.Count > 0 && allocation.Status == AllocationStatus.Reserved && issue is null && product is not null)
             {
                 var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);
+                var unitAttributes = attributesByProduct.GetValueOrDefault(unit.ProductTypeId) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var typing = SpecialRequirementLoader.Typing(unit, product.ComponentClass, negativeTestsByUnit);
                 requirementNotice = SpecialTransfusionRequirementRule.UnmetUnitRequirements(
-                        requirements,
-                        attributesByProduct.GetValueOrDefault(unit.ProductTypeId) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                        bloodAttrs.UnitAntigens,
-                        _clock.UtcNow,
-                        SpecialRequirementLoader.Typing(unit, product.ComponentClass, negativeTestsByUnit))
+                        requirements, unitAttributes, bloodAttrs.UnitAntigens, _clock.UtcNow, typing)
                     .FirstOrDefault();
+                // Pass 299: and which ones it meets.
+                requirementsMet = SpecialTransfusionRequirementRule.MetUnitRequirements(
+                    requirements, unitAttributes, bloodAttrs.UnitAntigens, _clock.UtcNow, typing);
             }
 
             rows.Add(new PatientAllocationRowDto(
@@ -284,7 +286,8 @@ public sealed class PatientAllocationService
                 thaw?.PooledShelfLifeHours,
                 thaw is not null && _autoThaw is not null && await _autoThaw.IsPooledAsync(unit, ct))
             {
-                OrderNumber = allocation.OrderId is long numbered ? orderNumbers.GetValueOrDefault(numbered) : null
+                OrderNumber = allocation.OrderId is long numbered ? orderNumbers.GetValueOrDefault(numbered) : null,
+                SpecialRequirementsMet = requirementsMet
             });
         }
 

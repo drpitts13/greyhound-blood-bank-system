@@ -1334,5 +1334,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1323 | U | `DashboardHomeTests.ZeroCount_WithANote_IsNotClear` | URS-BB-1074 / FRS-BB-1192 |
 | TEST-BB-1324 | U | `AvailableStockTextTests.ReservedNote_CountsUnitsReservedForPatients` | URS-BB-1075 / FRS-BB-1193 |
 | TEST-BB-1325 | I | `ReportServiceTests.ReactionsReport_CarriesWhatHemovigilanceNeeds` | URS-BB-1076 / FRS-BB-1194 |
+| TEST-BB-1326 | U | `SpecialRequirementCategoryRuleTests.MetUnitRequirements_NamesTheOnesTheUnitMeets` | URS-BB-1077 / FRS-BB-1195 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

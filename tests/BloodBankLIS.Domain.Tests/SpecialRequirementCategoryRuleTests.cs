@@ -183,4 +183,23 @@ public class SpecialRequirementCategoryRuleTests
         Assert.Equal("All categories", SpecialRequirementLabel.UnitCategory(SpecialRequirementCategory.UnitTyping, null));
         Assert.Equal(string.Empty, SpecialRequirementLabel.UnitCategory(SpecialRequirementCategory.Informational, null));
     }
+
+    // TEST-BB-1326 (end-user testing pass 299): a reserved unit names the patient's unit requirements it meets (an
+    // irradiated product and a CMV test recorded negative); one it fails, one for another component, and one not in
+    // effect are not named.
+    [Fact]
+    public void MetUnitRequirements_NamesTheOnesTheUnitMeets()
+    {
+        var irradiated = Req(SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.RedBloodCells, "IRRAD", name: "Irradiated red cells");
+        var cmv = Req(SpecialRequirementEnforcementKind.RequireUnitTestNegative, ComponentClass.RedBloodCells, unitTest: "CMV", name: "CMV-negative red cells");
+        var hbs = Req(SpecialRequirementEnforcementKind.RequireUnitTestNegative, ComponentClass.RedBloodCells, unitTest: "HBS", name: "HbS-negative red cells");
+        var platelets = Req(SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.Platelets, "IRRAD", name: "Irradiated platelets");
+        var ended = Req(SpecialRequirementEnforcementKind.RequireProductAttribute, ComponentClass.RedBloodCells, "IRRAD", start: Now.AddDays(-5), end: Now.AddDays(-1), name: "Old irradiated");
+        var unit = Unit(ComponentClass.RedBloodCells, negativeTests: "CMV");
+        var attributes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "IRRAD" };
+
+        Assert.Equal(["Irradiated red cells", "CMV-negative red cells"],
+            Rule.MetUnitRequirements([irradiated, cmv, hbs, platelets, ended], attributes, [], Now, unit));
+        Assert.Empty(Rule.MetUnitRequirements([hbs], attributes, [], Now, unit));
+    }
 }

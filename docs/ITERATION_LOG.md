@@ -27923,3 +27923,21 @@ Walked the Test Worklist (Avery's ABO/Rh on expired ACC-UAT-001 offers Verify, a
 ### Tests
 
 - TEST-BB-1325. Full suite passed.
+
+## Iteration 1019 — End-user testing pass 299: requirements a reserved unit meets (2026-11-19)
+
+### How it was tested
+
+Ran Utilization, then opened Demo-Special, Avery (MRN0023), who requires irradiated and CMV-negative red cells, and checked her reserved unit W000026123460 on the chart, the unit page and Ready to issue. Nothing was issued or changed.
+
+### Found and fixed
+
+1. **Nothing showed that the reserved unit met the patient's requirements.** W000026123460 is an irradiated product with a CMV test recorded Negative, so it meets both, but the chart's Products tab only says when a unit fails a requirement; a unit that met them read the same as one for a patient with none, and the CMV result was only on the unit page. The row now says *Meets: Irradiated red cells, CMV-negative red cells*.
+
+### Retested live
+
+- Avery's reserved unit shows the line; patients with no requirements show none.
+
+### Tests
+
+- TEST-BB-1326. Full suite passed.

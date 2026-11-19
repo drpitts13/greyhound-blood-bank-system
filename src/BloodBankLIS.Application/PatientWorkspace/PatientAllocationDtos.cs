@@ -50,6 +50,9 @@ public sealed record PatientAllocationRowDto(
     /// the cue was plain text, and the tech had to find the order on the Orders tab).
     /// </summary>
     public string? OrderNumber { get; init; }
+
+    /// <summary>The patient's special requirements this reserved, unissued unit meets, by name (end-user testing pass 299).</summary>
+    public IReadOnlyList<string> SpecialRequirementsMet { get; init; } = [];
 }
 
 /// <summary>Cycle 685: what the thaw prompt says before Yes, for the open-system box as it stands.</summary>
