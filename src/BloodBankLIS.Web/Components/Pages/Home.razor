@@ -107,6 +107,11 @@
     <a class="stat" href="/inventory?status=Available">
         <div class="label">Available units</div>
         <div class="value">@Format(_available)</div>
+        @if (_availableReserved is { } reservedNote)
+        {
+            @* Pass 297: units reserved for a patient are available in status but not free stock (as Minimum stock counts them). *@
+            <div class="sub muted" data-available-reserved>@reservedNote</div>
+        }
     </a>
     <a class="stat" href="/inventory?board=quarantine">
         <div class="label">In quarantine</div>
@@ -166,6 +171,7 @@
     private readonly Dictionary<string, string> _notes = new(StringComparer.Ordinal);
     private int? _patients;
     private int? _available;
+    private string? _availableReserved;
     private int? _quarantine;
     private int? _pendingCharges;
 
@@ -264,6 +270,7 @@
         if (available.Succeeded)
         {
             _available = available.Value!.Count;
+            _availableReserved = AvailableStockText.ReservedNote(available.Value!);
         }
 
         var quarantine = await Api.SearchUnitsAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine));

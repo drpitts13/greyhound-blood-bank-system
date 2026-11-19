@@ -27887,3 +27887,21 @@ Walked Equipment (the centrifuge and cell washer checks overdue, the heat block 
 ### Tests
 
 - TEST-BB-1323. Full suite passed.
+
+## Iteration 1017 — End-user testing pass 297: reserved units on the available tile (2026-11-19)
+
+### How it was tested
+
+Compared the home screen's stock tiles with Inventory and Minimum stock after pass 294.
+
+### Found and fixed
+
+1. **The home screen read 12 available units with no word that 4 were spoken for.** Minimum stock now counts only unreserved units (RBC-LR O *2 + 4 reserved*), but the home tile still read *Available units 12* plain, so the two disagreed and a reader would think there were 12 to hand out. The tile now says *4 reserved for patients* under the count.
+
+### Retested live
+
+- *Available units 12 · 4 reserved for patients*.
+
+### Tests
+
+- TEST-BB-1324. Full suite passed.
