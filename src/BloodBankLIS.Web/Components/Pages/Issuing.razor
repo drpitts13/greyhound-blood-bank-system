@@ -476,6 +476,11 @@
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginReleaseReady(row)">Release</button>
                                 }
+                                @* Pass 281: what the badges mean, in view rather than only on hover. *@
+                                @foreach (var reason in ReadyToIssueFormCue.Reasons(row))
+                                {
+                                    <div class="sub" data-ready-reason>@reason</div>
+                                }
                             </td>
                         </tr>
                         @if (_releasingReadyId == row.AllocationId)

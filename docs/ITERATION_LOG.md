@@ -27594,3 +27594,21 @@ Opened Demo, Patricia's Tests tab (MRN0001): a Stat crossmatch, ORD0002, pending
 ### Tests
 
 - TEST-BB-1306. Full suite passed.
+
+## Iteration 1001 — End-user testing pass 281: Ready to issue reasons in view (2026-11-19)
+
+### How it was tested
+
+After pass 280, read Ready to issue (7 rows) for other reasons given only in hover text.
+
+### Found and fixed
+
+1. **Ready to issue's badges said what, not why.** Each row needing attention showed short badges (*Reaction*, *Crossmatch*, *Specimen*, *Retype*, *Antigen*, *ABO discrepancy* …); the reason behind each was only in its hover text, which a touch screen at the issue window never shows. The row now writes the reasons out under its buttons, without repeats.
+
+### Retested live
+
+- W0001230009201 reads *This patient has a recorded transfusion reaction. · A compatible, unexpired crossmatch is required for this product. · No current specimen exists for this patient. Emergency release of this unit is possible with an authorized override (OCD-053).*; W000123UAG0001 the last two. Nothing was changed.
+
+### Tests
+
+- TEST-BB-1307. Full suite passed.

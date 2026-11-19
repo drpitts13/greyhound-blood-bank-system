@@ -175,6 +175,29 @@ public static class ReadyToIssueFormCue
         : acceptable ? "Within the return window"
         : "Return window passed: not returnable to stock";
 
+    /// <summary>
+    /// Why a Ready to issue row needs attention, in words (end-user testing pass 281: the row showed badges such as
+    /// "Crossmatch", "Specimen", "Retype" and "Reaction" with each reason only in hover text, which a touch screen at the
+    /// issue window never shows). The notices behind the row's badges, without repeats, in the order the badges appear.
+    /// </summary>
+    public static IReadOnlyList<string> Reasons(ReadyToIssueWorkItemDto row) =>
+        new[]
+        {
+            row.OpenAntibodyWorkup ? row.OpenAntibodyWorkupNotice : null,
+            row.ReactionNotice,
+            row.CrossmatchNotice,
+            row.SpecialRequirementNotice,
+            row.AntigenNotice,
+            row.AboRhDiscrepancyNotice,
+            row.RetypeNotice,
+            row.SpecimenBlocksIssue ? row.SpecimenBlockReason : null,
+            row.UnitOutdated ? row.UnitBlockReason : null
+        }
+        .Where(text => !string.IsNullOrWhiteSpace(text))
+        .Select(text => text!.Trim())
+        .Distinct(StringComparer.Ordinal)
+        .ToList();
+
     public static string TimeOutNotice(bool governed, bool acceptable) =>
         ReturnReissueRule.TimeOutLabel(governed, acceptable) switch
         {

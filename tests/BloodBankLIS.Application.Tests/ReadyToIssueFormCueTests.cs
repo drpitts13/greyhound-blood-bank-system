@@ -68,6 +68,18 @@ public class ReadyToIssueFormCueTests
         Assert.Empty(ReadyToIssueFormCue.Notices(Row()));
     }
 
+    // TEST-BB-1307 (end-user testing pass 281): a Ready to issue row lists, in words, the notices behind its badges: the
+    // specimen's reason only when it blocks issue, no repeats, nothing for a row with no notices.
+    [Fact]
+    public void Reasons_ListTheBadgesNotices()
+    {
+        var row = Row(specimenBlockReason: "Specimen expired.", crossmatchNotice: "Crossmatch expired.", antigenNotice: "Crossmatch expired.")
+            with { SpecimenBlocksIssue = true, ReactionNotice = "A transfusion reaction is under investigation." };
+        Assert.Equal(["A transfusion reaction is under investigation.", "Crossmatch expired.", "Specimen expired."], ReadyToIssueFormCue.Reasons(row));
+        Assert.Equal(["Crossmatch expired."], ReadyToIssueFormCue.Reasons(Row(specimenBlockReason: "Specimen expired.", crossmatchNotice: "Crossmatch expired.")));
+        Assert.Empty(ReadyToIssueFormCue.Reasons(Row()));
+    }
+
     private static ReadyToIssueWorkItemDto Row(
         string? specimenBlockReason = null,
         string? crossmatchNotice = null,
