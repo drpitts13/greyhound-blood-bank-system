@@ -8,7 +8,7 @@
 <PageTitle>Minimum stock &middot; HemoCore</PageTitle>
 
 <h1>Minimum stock</h1>
-<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group, one Rh(D) type, or both (for example O negative). <strong>Open orders</strong> counts product orders for that product still waiting for a unit (any ABO; each wants at least one). Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
+<p class="muted">Available units not reserved for a patient compared with a minimum for a product and, when set, one ABO group, one Rh(D) type, or both (for example O negative). <strong>Open orders</strong> counts product orders for that product still waiting for a unit (any ABO; each wants at least one). Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
 <Outcome Value="_feedback" />
 
 <div class="bb-card">
@@ -49,7 +49,13 @@
                         <td class="mono">@row.ProductCode</td>
                         <td>@ProductName(row.ProductTypeId)</td>
                         <td data-minimum-group>@row.GroupText</td>
-                        <td><a href="@OnHandUrl(row)" title="Show these units in Inventory">@row.OnHand</a></td>
+                        <td><a href="@OnHandUrl(row)" title="Show these units in Inventory">@row.OnHand</a>
+                            @if (row.ReservedOnHand > 0)
+                            {
+                                @* Pass 294: units reserved for patients are not counted as stock on hand. *@
+                                <div class="sub muted" data-reserved-on-hand>+ @row.ReservedOnHand reserved for patients</div>
+                            }
+                        </td>
                         <td>@row.MinimumAvailable</td>
                         <td>@(row.Shortfall > 0 ? row.Shortfall.ToString() : "—")</td>
                         <td data-on-order>

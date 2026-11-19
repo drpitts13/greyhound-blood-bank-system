@@ -1077,3 +1077,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1069 | A cooler check or stock count summary names only the counts that are not zero. | P3 | FRS-BB-1187 |
 | URS-BB-1070 | The downtime patient summary says when a patient's massive transfusion protocol is still active, and lists that patient. | P2 | FRS-BB-1188 |
 | URS-BB-1071 | Store tubes says which listed tubes are kept and why, before anyone tries to discard them. | P3 | FRS-BB-1189 |
+| URS-BB-1072 | Minimum stock compares the minimum with available units not reserved for a patient, and shows the reserved ones apart. | P2 | FRS-BB-1190 |

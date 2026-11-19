@@ -158,4 +158,37 @@ public class MinimumStockOpenOrdersTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(3, rows.Single(r => r.RhD is null).OnHand);
         Assert.Equal(1, rows.Single(r => r.RhD == RhType.Negative).OnHand);
     }
+
+    // TEST-BB-1321 (end-user testing pass 294): an available unit reserved for a patient is not counted as stock on hand
+    // against the minimum; it is counted apart, so a shortage shows.
+    [Fact]
+    public async Task OnHand_LeavesOutUnitsReservedForPatients()
+    {
+        await using var c = _factory.Create();
+        var product = new ProductType { ProductCode = $"RSV-{Guid.NewGuid():N}"[..12], Name = "Red cells" };
+        c.ProductTypes.Add(product);
+        var patient = new Patient { MedicalRecordNumber = $"RSV{Guid.NewGuid():N}"[..10], LastName = "Reserved", FirstName = "Stock", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var units = Enumerable.Range(0, 3).Select(_ => new BloodUnit
+        {
+            UnitNumber = $"U-RSV-{Guid.NewGuid():N}"[..14], ProductTypeId = product.Id, Status = UnitStatus.Available,
+            Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(30)
+        }).ToList();
+        c.BloodUnits.AddRange(units);
+        await c.SaveChangesAsync();
+        c.Allocations.AddRange(
+            new Allocation { PatientId = patient.Id, BloodProductId = units[0].Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow },
+            new Allocation { PatientId = patient.Id, BloodProductId = units[1].Id, Status = AllocationStatus.Released, AllocatedUtc = _factory.Clock.UtcNow });
+        await c.SaveChangesAsync();
+
+        var service = new MinimumStockService(
+            new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c,
+            allocations: new EfRepository<Allocation>(c));
+        var saved = await service.SaveAsync(new SaveMinimumStockRequest(product.Id, AboGroup.O, 3));
+        Assert.True(saved.Succeeded);
+        Assert.Equal((2, 1, 1), (saved.Value!.OnHand, saved.Value.ReservedOnHand, saved.Value.Shortfall));
+        var row = (await service.ListAsync()).Single(r => r.ProductTypeId == product.Id);
+        Assert.Equal((2, 1, 1), (row.OnHand, row.ReservedOnHand, row.Shortfall));
+    }
 }

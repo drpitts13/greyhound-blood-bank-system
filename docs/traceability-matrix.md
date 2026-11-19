@@ -1185,6 +1185,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1069 / FRS-BB-1187 | End-user testing pass 291: count summaries without zeros | `CountPartsText.cs`, `CoolerCheckService.cs`, `InventoryService.cs`, `DatabaseSeeder.DemoScenarios.cs` | TEST-BB-1318 | U | |
 | URS-BB-1070 / FRS-BB-1188 | End-user testing pass 292: active MTP on the downtime sheet | `DowntimePatientSummaryService.cs`, `DowntimePatients.razor` | TEST-BB-1319 | I | |
 | URS-BB-1071 / FRS-BB-1189 | End-user testing pass 293: kept tubes say why | `SpecimenStorageService.cs`, `StoreTubes.razor` | TEST-BB-1320 | I | |
+| URS-BB-1072 / FRS-BB-1190 | End-user testing pass 294: reserved units not counted as stock | `MinimumStockService.cs`, `MinimumStock.razor` | TEST-BB-1321 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

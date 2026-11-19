@@ -29,6 +29,13 @@ public sealed record MinimumStockRowDto(
     /// <summary>One Rh(D) type, when the minimum is set for one (pass 105).</summary>
     public RhType? RhD { get; init; }
 
+    /// <summary>
+    /// Available units of this product and group already reserved for a patient, not counted in <see cref="OnHand"/>
+    /// (end-user testing pass 294: RBC-LR group O read 6 on hand against a minimum of 6 while four of the six were reserved
+    /// for two patients, so the shortage of four never showed or alerted).
+    /// </summary>
+    public int ReservedOnHand { get; init; }
+
     /// <summary>"O Neg", "O", "Any".</summary>
     public string GroupText => MinimumStockRule.GroupText(Abo, RhD);
 }
@@ -85,11 +92,12 @@ public sealed class MinimumStockService
         var products = (await _products.ListAsync(ct)).ToDictionary(product => product.Id);
         var openOrders = await OpenOrderLinesByProductAsync(ct);
         var (onOrder, overdueOrderIds) = await SubmittedSupplierLinesAsync(ct);
+        var reservedUnitIds = await ReservedUnitIdsAsync(ct);
         var rows = new List<MinimumStockRowDto>();
         foreach (var level in levels.OrderBy(row => row.ProductTypeId).ThenBy(row => row.Abo).ThenBy(row => row.RhD))
         {
             products.TryGetValue(level.ProductTypeId, out var product);
-            var onHand = await CountAvailableAsync(level.ProductTypeId, level.Abo, level.RhD, ct);
+            var (onHand, reservedOnHand) = await CountAvailableAsync(level.ProductTypeId, level.Abo, level.RhD, reservedUnitIds, ct);
             rows.Add(new MinimumStockRowDto(
                 level.Id,
                 level.ProductTypeId,
@@ -102,7 +110,8 @@ public sealed class MinimumStockService
                 onOrder.Where(l => Covers(level, l)).Sum(l => l.Quantity),
                 onOrder.Where(l => Covers(level, l) && overdueOrderIds.Contains(l.SupplierOrderId)).Sum(l => l.Quantity))
             {
-                RhD = level.RhD
+                RhD = level.RhD,
+                ReservedOnHand = reservedOnHand
             });
         }
 
@@ -167,7 +176,7 @@ public sealed class MinimumStockService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
-        var onHand = await CountAvailableAsync(level.ProductTypeId, level.Abo, level.RhD, ct);
+        var (onHand, reservedOnHand) = await CountAvailableAsync(level.ProductTypeId, level.Abo, level.RhD, await ReservedUnitIdsAsync(ct), ct);
         return OperationResult<MinimumStockRowDto>.Ok(new MinimumStockRowDto(
             level.Id,
             level.ProductTypeId,
@@ -177,7 +186,8 @@ public sealed class MinimumStockService
             level.MinimumAvailable,
             MinimumStockRule.Shortfall(onHand, level.MinimumAvailable))
         {
-            RhD = level.RhD
+            RhD = level.RhD,
+            ReservedOnHand = reservedOnHand
         });
     }
 
@@ -223,10 +233,18 @@ public sealed class MinimumStockService
             .ToDictionary(g => g.Key, g => g.Count());
     }
 
-    private async Task<int> CountAvailableAsync(long productTypeId, AboGroup? abo, RhType? rhD, CancellationToken ct)
+    // Pass 294: an available unit reserved for a patient is not stock another patient can have.
+    private async Task<(int Free, int Reserved)> CountAvailableAsync(
+        long productTypeId, AboGroup? abo, RhType? rhD, IReadOnlySet<long> reservedUnitIds, CancellationToken ct)
     {
         var units = await _inventory.SearchAsync(
             new InventorySearchCriteria(Status: UnitStatus.Available, Abo: abo, RhD: rhD, ProductTypeId: productTypeId), ct);
-        return units.Count;
+        var reserved = units.Count(u => reservedUnitIds.Contains(u.Id));
+        return (units.Count - reserved, reserved);
     }
+
+    private async Task<IReadOnlySet<long>> ReservedUnitIdsAsync(CancellationToken ct) =>
+        _allocations is null
+            ? new HashSet<long>()
+            : (await _allocations.ListAsync(a => a.Status == AllocationStatus.Reserved, ct)).Select(a => a.BloodProductId).ToHashSet();
 }

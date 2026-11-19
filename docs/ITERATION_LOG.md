@@ -27833,3 +27833,21 @@ Opened Store tubes: 19 received tubes not yet stored, all expired, each offering
 ### Tests
 
 - TEST-BB-1320. Full suite passed.
+
+## Iteration 1014 — End-user testing pass 294: reserved units not counted as stock (2026-11-19)
+
+### How it was tested
+
+Opened Minimum stock and compared each row with the inventory list.
+
+### Found and fixed
+
+1. **Units reserved for patients were counted as free stock.** RBC-LR group O read 6 on hand against a minimum of 6 (no shortage), but four of the six available units were reserved: W0001230009201 and 9202 for Demo-Multi, Riley, W000123UAG0001 and UAG0002 for Kline, Nora. Only two could go to another patient, so a shortage of four never showed or alerted. On hand now leaves out reserved units and shows them apart (*2 + 4 reserved for patients*, short 4); the alert, home card and shift handoff use the same count.
+
+### Retested live
+
+- RBC-LR O: *2 + 4 reserved for patients*, minimum 6, short 4. Other rows unchanged (no reserved units).
+
+### Tests
+
+- TEST-BB-1321. Full suite passed.
