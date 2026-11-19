@@ -896,6 +896,48 @@ public class ReportServiceTests : IDisposable
         Assert.Equal(("Returned", "Issued"), (Status("W-ITX-1"), Status("W-ITX-2")));
     }
 
+    // TEST-BB-1325 (end-user testing pass 298): the seeded reaction investigations report carries what a hemovigilance
+    // report needs: the reaction concluded, imputability, when closed, and when and under what reference it was reported.
+    [Fact]
+    public async Task ReactionsReport_CarriesWhatHemovigilanceNeeds()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-HV", LastName = "Hemo", FirstName = "Vig", DateOfBirth = new DateOnly(1970, 1, 1), Sex = Sex.Unknown };
+        var product = new ProductType { ProductCode = "RBC-HV", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        db.AddRange(patient, product);
+        await db.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "W-HV-1", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Negative, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Status = UnitStatus.Transfused };
+        db.BloodUnits.Add(unit);
+        await db.SaveChangesAsync();
+        var issue = new Issue { BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddDays(-3), IssuedBy = "tech", Status = IssueStatus.Transfused };
+        db.Issues.Add(issue);
+        await db.SaveChangesAsync();
+        var tx = new TransfusionEvent { IssueId = issue.Id, BloodProductId = unit.Id, PatientId = patient.Id, ReactionSuspected = true, DocumentedBy = "rn" };
+        db.TransfusionEvents.Add(tx);
+        await db.SaveChangesAsync();
+        db.ReactionInvestigations.Add(new ReactionInvestigation
+        {
+            TransfusionEventId = tx.Id, PatientId = patient.Id, BloodProductId = unit.Id, ReportedUtc = _factory.Clock.UtcNow.AddDays(-3),
+            Status = ReactionInvestigationStatus.Closed, ClosedUtc = _factory.Clock.UtcNow.AddDays(-1),
+            ConcludedReactionText = "Febrile non-hemolytic transfusion reaction", Imputability = ReactionImputability.Probable,
+            HemovigilanceReportedOn = new DateOnly(2026, 11, 18), HemovigilanceReference = "NHSN-123"
+        });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var run = await service.RunAsync((await service.ListAsync()).Value!.Single(r => r.Code == "RPT-REACTIONS").Id, new Dictionary<string, string?>());
+        Assert.True(run.Succeeded, run.Error);
+        var columns = run.Value!.Columns.ToList();
+        var row = run.Value.Rows.Single(r => r[columns.IndexOf("unit_number")] == "W-HV-1");
+        Assert.Equal("Febrile non-hemolytic transfusion reaction", row[columns.IndexOf("concluded_reaction")]);
+        Assert.Equal("Probable", row[columns.IndexOf("imputability")]);
+        Assert.Equal("NHSN-123", row[columns.IndexOf("hemovigilance_reference")]);
+        Assert.StartsWith("2026-11-18", row[columns.IndexOf("hemovigilance_reported_on")]);
+        Assert.False(string.IsNullOrEmpty(row[columns.IndexOf("closed_utc")]));
+    }
+
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>
         new(
             new ReportDefinitionStore(db),

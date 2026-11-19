@@ -1081,3 +1081,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1073 | The supplier order list says which drafts have not been sent, for how long, and for which patients. | P3 | FRS-BB-1191 |
 | URS-BB-1074 | The home screen does not list as clear a card whose note names work still to do. | P2 | FRS-BB-1192 |
 | URS-BB-1075 | The home screen's available units count says how many are reserved for patients. | P3 | FRS-BB-1193 |
+| URS-BB-1076 | The reaction investigations report carries the reaction concluded, imputability, closing date and hemovigilance report for hemovigilance reporting. | P2 | FRS-BB-1194 |

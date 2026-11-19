@@ -1333,5 +1333,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1322 | U | `SupplierOrderDraftTextTests.Draft_SaysNotSent_HowLong_AndForWhom` | URS-BB-1073 / FRS-BB-1191 |
 | TEST-BB-1323 | U | `DashboardHomeTests.ZeroCount_WithANote_IsNotClear` | URS-BB-1074 / FRS-BB-1192 |
 | TEST-BB-1324 | U | `AvailableStockTextTests.ReservedNote_CountsUnitsReservedForPatients` | URS-BB-1075 / FRS-BB-1193 |
+| TEST-BB-1325 | I | `ReportServiceTests.ReactionsReport_CarriesWhatHemovigilanceNeeds` | URS-BB-1076 / FRS-BB-1194 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

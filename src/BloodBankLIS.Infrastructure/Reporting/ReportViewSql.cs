@@ -149,7 +149,12 @@ public static class ReportViewSql
                 p.MedicalRecordNumber AS mrn,
                 u.UnitNumber AS unit_number,
                 CASE WHEN r.ProductAtFault = 1 THEN 'Yes' ELSE 'No' END AS product_at_fault,
-                CASE WHEN r.IsFatality = 1 THEN 'Yes' ELSE 'No' END AS is_fatality
+                CASE WHEN r.IsFatality = 1 THEN 'Yes' ELSE 'No' END AS is_fatality,
+                r.ConcludedReactionText AS concluded_reaction,
+                {CaseEnum("r.Imputability", typeof(ReactionImputability))} AS imputability,
+                r.ClosedUtc AS closed_utc,
+                r.HemovigilanceReportedOn AS hemovigilance_reported_on,
+                r.HemovigilanceReference AS hemovigilance_reference
             FROM ReactionInvestigations r
             INNER JOIN Patients p ON p.Id = r.PatientId
             INNER JOIN BloodProducts u ON u.Id = r.BloodProductId

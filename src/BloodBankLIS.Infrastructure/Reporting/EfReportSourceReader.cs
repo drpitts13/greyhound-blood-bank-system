@@ -173,7 +173,12 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 patient.MedicalRecordNumber,
                 unit.UnitNumber,
                 reaction.ProductAtFault,
-                reaction.IsFatality
+                reaction.IsFatality,
+                reaction.ConcludedReactionText,
+                reaction.Imputability,
+                reaction.ClosedUtc,
+                reaction.HemovigilanceReportedOn,
+                reaction.HemovigilanceReference
             }).ToListAsync(cancellationToken);
 
         return rows.Select(row => ReportValueFormat.Row(
@@ -184,7 +189,13 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
             ("unit_number", ReportValueFormat.Text(row.UnitNumber)),
             ("product_at_fault", ReportValueFormat.YesNo(row.ProductAtFault)),
-            ("is_fatality", ReportValueFormat.YesNo(row.IsFatality)))).ToList();
+            ("is_fatality", ReportValueFormat.YesNo(row.IsFatality)),
+            // Pass 298: what a hemovigilance report needs.
+            ("concluded_reaction", ReportValueFormat.Text(row.ConcludedReactionText)),
+            ("imputability", row.Imputability.ToString()),
+            ("closed_utc", ReportValueFormat.Date(row.ClosedUtc)),
+            ("hemovigilance_reported_on", row.HemovigilanceReportedOn is DateOnly reportedOn ? ReportValueFormat.Date(reportedOn) : null),
+            ("hemovigilance_reference", ReportValueFormat.Text(row.HemovigilanceReference)))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> RhigAsync(CancellationToken cancellationToken)

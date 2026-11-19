@@ -27905,3 +27905,21 @@ Compared the home screen's stock tiles with Inventory and Minimum stock after pa
 ### Tests
 
 - TEST-BB-1324. Full suite passed.
+
+## Iteration 1018 — End-user testing pass 298: hemovigilance fields on the reactions report (2026-11-19)
+
+### How it was tested
+
+Walked the Test Worklist (Avery's ABO/Rh on expired ACC-UAT-001 offers Verify, as OCD-093 decided) and the Reports catalog, and ran *Transfusion reaction investigations*.
+
+### Found and fixed
+
+1. **The reactions report could not feed a hemovigilance report.** It listed reported date, status, severity, reaction type, MRN, unit, product at fault and fatality, but not what a hemovigilance (for example NHSN) report is built from: the reaction concluded, the imputability, when the case was closed, and when and under what reference it was reported, though every investigation records them. The report now carries **Reaction concluded**, **Imputability**, **Closed**, **Reported to hemovigilance** and **Hemovigilance reference**. Visual reports read through `EfReportSourceReader` and SQL reports through the view; both were extended.
+
+### Retested live
+
+- The report shows the new columns; both seeded investigations are open, so they read *Not determined* with the dates blank.
+
+### Tests
+
+- TEST-BB-1325. Full suite passed.

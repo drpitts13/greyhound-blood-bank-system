@@ -67,7 +67,13 @@ public static class ReportSourceCatalog
             Field("mrn", "MRN"),
             Field("unit_number", "Unit number"),
             Field("product_at_fault", "Product at fault"),
-            Field("is_fatality", "Fatality")),
+            Field("is_fatality", "Fatality"),
+            // Pass 298: for hemovigilance reporting.
+            Field("concluded_reaction", "Reaction concluded"),
+            Field("imputability", "Imputability", codeName: true),
+            Field("closed_utc", "Closed", ReportValueKind.Date),
+            Field("hemovigilance_reported_on", "Reported to hemovigilance", ReportValueKind.Date),
+            Field("hemovigilance_reference", "Hemovigilance reference")),
         // Pass 121: RhIG evaluations and doses given, for the review of RhIG practice.
         Source(Rhig, "RhIG evaluations", ReportViewCatalog.Rhig,
             Field("event_utc", "Event", ReportValueKind.Date),

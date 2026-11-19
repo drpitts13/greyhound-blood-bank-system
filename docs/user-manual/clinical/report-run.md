@@ -26,6 +26,8 @@ In *Emergency releases and overrides*, an override names its unit and patient, a
 
 In *Test turnaround*, **Minutes, receipt to verified** counts from the tube's receipt, or from the order when the tube was received before the test was ordered (for example a reaction workup ordered on a stored tube), so a stored tube does not count days it sat waiting for an order.
 
+*Transfusion reaction investigations* carries what a hemovigilance report needs: **Reaction concluded** and **Imputability** as the reviewer recorded them, **Closed**, and **Reported to hemovigilance** with its **Hemovigilance reference**. An open case reads *Not determined* with those blank.
+
 In *Blood order turnaround*, **Ready by needed-by** is *No* for an order whose needed-by time has passed with no unit reserved or issued yet, as well as for one first ready after it; it is blank only when the order has no needed-by time or is not yet due.
 
 In *Units issued and transfused*, **Issue status** says whether each issued unit is still out (*Issued*), came back (*Returned*) or was transfused, so a returned unit is not read as one still waiting for its transfusion record.
