@@ -2815,6 +2815,15 @@
         builder.AddAttribute(4, "data-cooler-check-badge", true);
         builder.AddContent(5, text);
         builder.CloseElement();
+        // Pass 290: what the check found, in view (the hover text above never shows on a touch screen).
+        if (CoolerCheckNoteText.For(check?.LastCheckedUtc, check?.LastCheckReady, check?.LastCheckSummary, check?.LastCheckedBy) is { } note)
+        {
+            builder.OpenElement(6, "div");
+            builder.AddAttribute(7, "class", "sub muted");
+            builder.AddAttribute(8, "data-cooler-check-note", true);
+            builder.AddContent(9, note);
+            builder.CloseElement();
+        }
     };
 
     private static RenderFragment AntibodyCell(bool hasHistory, string? summary) => builder =>

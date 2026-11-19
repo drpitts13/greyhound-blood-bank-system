@@ -1325,5 +1325,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1314 | U | `SupervisorQueueRuleTests.FirstBadge_SaysWhyForTheKind` | URS-BB-1066 / FRS-BB-1184 |
 | TEST-BB-1315 | I | `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-1066 / FRS-BB-1184 |
 | TEST-BB-1316 | U | `ReactionBedsideReportTextTests.For_JoinsWhatWasDoneAndSeen` | URS-BB-1067 / FRS-BB-1185 |
+| TEST-BB-1317 | U | `CoolerCheckNoteTextTests.For_WritesOutWhatTheCheckFound` | URS-BB-1068 / FRS-BB-1186 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

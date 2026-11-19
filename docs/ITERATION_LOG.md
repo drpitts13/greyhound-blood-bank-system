@@ -27761,3 +27761,21 @@ Opened Shift handoff (every count links to its queue) and the two open transfusi
 ### Tests
 
 - TEST-BB-1316. Full suite passed.
+
+## Iteration 1010 — End-user testing pass 290: cooler differences in view (2026-11-19)
+
+### How it was tested
+
+Opened Lookback (the open notification for DIN W123426000001, whose other component W000123LSIB001 is still in stock and is offered for recall) and the issue desk's In transit board: five units, four of them in Demo-Massive, Morgan's MTP cooler. Nothing was received or recalled.
+
+### Found and fixed
+
+1. **"Cooler differences" did not say what differed.** The four MTP units each showed **Cooler differences**, and what the check found (one of four units missing, W0001230009101) was only in hover text, which a touch screen never shows. It is now written under the badge: *Checked 2026-11-06 09:11 by tech2: 3 of 4 packed, 1 missing … Missing: W0001230009101.*
+
+### Retested live
+
+- The four rows show the note; Demo-Multi, Riley's cooler, checked ready, shows none.
+
+### Tests
+
+- TEST-BB-1317. Full suite passed.
