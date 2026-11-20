@@ -178,6 +178,25 @@ public static class ReportViewSql
             INNER JOIN Patients p ON p.Id = e.PatientId
             """);
 
+        // Pass 328: the patient antibody record, every antibody on file with whether it is active and where it was identified.
+        yield return (ReportViewCatalog.Antibodies, $"""
+            SELECT
+                a.CreatedUtc AS recorded_utc,
+                p.MedicalRecordNumber AS mrn,
+                p.LastName AS last_name,
+                p.FirstName AS first_name,
+                p.DateOfBirth AS date_of_birth,
+                a.AntibodySpecificity AS antibody,
+                {CaseEnum("a.Status", typeof(AntibodyStatus))} AS status,
+                CASE WHEN a.IsActive = 1 THEN 'Yes' ELSE 'No' END AS active,
+                CASE WHEN a.ReportingFacility IS NULL THEN 'This laboratory' ELSE a.ReportingFacility END AS identified_by,
+                a.IdentifiedOn AS identified_on,
+                a.ConfirmedUtc AS confirmed_utc,
+                a.DeactivationReason AS deactivation_reason
+            FROM AntibodyHistory a
+            INNER JOIN Patients p ON p.Id = a.PatientId
+            """);
+
         // Pass 139: every reagent QC reading, with its lot and reagent.
         yield return (ReportViewCatalog.ReagentQc, """
             SELECT

@@ -23,6 +23,7 @@ public static class ReportSourceCatalog
     public const string Rhig = "rhig";
     public const string ReagentQc = "reagent_qc";
     public const string EquipmentChecks = "equipment_checks";
+    public const string Antibodies = "antibodies";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -87,6 +88,20 @@ public static class ReportSourceCatalog
             Field("given_lot", "Lot"),
             Field("given_by", "Given by"),
             Field("hours_event_to_given", "Hours from event to given")),
+        // Pass 328: the patient antibody record (AABB: records of clinically significant antibodies are kept and reviewed).
+        Source(Antibodies, "Patient antibodies", ReportViewCatalog.Antibodies,
+            Field("recorded_utc", "Recorded", ReportValueKind.Date),
+            Field("mrn", "MRN"),
+            Field("last_name", "Last name"),
+            Field("first_name", "First name"),
+            Field("date_of_birth", "Date of birth"),
+            Field("antibody", "Antibody"),
+            Field("status", "Status", codeName: true),
+            Field("active", "Active"),
+            Field("identified_by", "Identified by"),
+            Field("identified_on", "Identified on"),
+            Field("confirmed_utc", "Confirmed here", ReportValueKind.Date),
+            Field("deactivation_reason", "Deactivation reason")),
         // Pass 139: every reagent QC reading, for the QC record of a period (the Reagents page shows 14 days).
         Source(ReagentQc, "Reagent QC", ReportViewCatalog.ReagentQc,
             Field("performed_utc", "Performed", ReportValueKind.Date),

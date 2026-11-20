@@ -38,6 +38,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.Reactions => ReactionsAsync(cancellationToken),
             ReportSourceCatalog.Lookback => LookbackAsync(cancellationToken),
             ReportSourceCatalog.Rhig => RhigAsync(cancellationToken),
+            ReportSourceCatalog.Antibodies => AntibodiesAsync(cancellationToken),
             ReportSourceCatalog.ReagentQc => ReagentQcAsync(cancellationToken),
             ReportSourceCatalog.EquipmentChecks => EquipmentChecksAsync(cancellationToken),
             ReportSourceCatalog.Deviations => DeviationsAsync(cancellationToken),
@@ -196,6 +197,42 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("closed_utc", ReportValueFormat.Date(row.ClosedUtc)),
             ("hemovigilance_reported_on", row.HemovigilanceReportedOn is DateOnly reportedOn ? ReportValueFormat.Date(reportedOn) : null),
             ("hemovigilance_reference", ReportValueFormat.Text(row.HemovigilanceReference)))).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> AntibodiesAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from a in _db.AntibodyHistory.AsNoTracking()
+            join patient in _db.Patients.AsNoTracking() on a.PatientId equals patient.Id
+            select new
+            {
+                a.CreatedUtc,
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName,
+                patient.DateOfBirth,
+                a.AntibodySpecificity,
+                a.Status,
+                a.IsActive,
+                a.ReportingFacility,
+                a.IdentifiedOn,
+                a.ConfirmedUtc,
+                a.DeactivationReason
+            }).ToListAsync(cancellationToken);
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("recorded_utc", ReportValueFormat.Date(row.CreatedUtc)),
+            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+            ("last_name", ReportValueFormat.Text(row.LastName)),
+            ("first_name", ReportValueFormat.Text(row.FirstName)),
+            ("date_of_birth", ReportValueFormat.Date(row.DateOfBirth)),
+            ("antibody", ReportValueFormat.Text(row.AntibodySpecificity)),
+            ("status", row.Status.ToString()),
+            ("active", row.IsActive ? "Yes" : "No"),
+            ("identified_by", string.IsNullOrWhiteSpace(row.ReportingFacility) ? "This laboratory" : row.ReportingFacility),
+            ("identified_on", row.IdentifiedOn is DateOnly on ? ReportValueFormat.Date(on) : null),
+            ("confirmed_utc", ReportValueFormat.Date(row.ConfirmedUtc)),
+            ("deactivation_reason", ReportValueFormat.Text(row.DeactivationReason)))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> RhigAsync(CancellationToken cancellationToken)

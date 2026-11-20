@@ -1112,3 +1112,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1104 | A Ready to issue row says when a second ABO/Rh is still due, whatever badge it shows. | P2 | FRS-BB-1222 |
 | URS-BB-1105 | An issued unit that never reached the ward can be recorded missing, and then leaves the transit and disposition boards. | P2 | FRS-BB-1223 |
 | URS-BB-1106 | A missing or damaged unit on the supervisor queue says how it is closed, including writing off a unit that cannot be found. | P2 | FRS-BB-1224 |
+| URS-BB-1107 | The blood bank can list its patient antibody record as a report. | P2 | FRS-BB-1225 |

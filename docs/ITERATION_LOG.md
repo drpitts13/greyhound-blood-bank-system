@@ -28487,3 +28487,25 @@ Opened the supervisor queue as the supervisor.
 ### Tests
 
 - TEST-BB-1366. Full suite passed.
+
+## Iteration 1050 — End-user testing pass 328: patient antibody record report (2026-11-20)
+
+### How it was tested
+
+Reviewed the retype board, antibody identification worklist, downtime snapshot and patient summary, then the report catalog as the supervisor preparing an antibody record review.
+
+### Found and fixed
+
+1. **No report of the patient antibody record.** The catalog had nineteen reports (RhIG, reactions, QC, wastage and others) but none listing patients with antibodies, which a blood bank keeps and reviews, pulls before an outage, and is asked for by other facilities; the only way to see Kellerman, Diane's and DEMO-MATAB, Lena's anti-K was each chart. **Patient antibody record** (RPT-ANTIBODIES) now lists every antibody on file with the patient, status, active or not, and whether identified here or reported by another facility and confirmed here; the SQL designer reads `rpt_antibodies`.
+
+### Also checked
+
+- `=W0000261234561` on the retype board is a unit received on 2026-11-12, before receipt stripped a scanned DIN's identifier; receipt now does.
+
+### Retested live
+
+- The report runs and lists both anti-K patients.
+
+### Tests
+
+- TEST-BB-1367 (and the seeded report count is now 20). Full suite passed.

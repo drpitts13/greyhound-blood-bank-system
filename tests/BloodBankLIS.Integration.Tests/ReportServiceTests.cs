@@ -51,7 +51,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(19, list.Value!.Count);
+        Assert.Equal(20, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)
@@ -552,6 +552,49 @@ public class ReportServiceTests : IDisposable
         Assert.Equal(new[] { "Postpartum", "Candidate", "LOT-R1", "30" }, sqlRun.Value!.Rows[0].ToArray());
         Assert.Equal("Antepartum", sqlRun.Value.Rows[1][0]);
         Assert.True(string.IsNullOrEmpty(sqlRun.Value.Rows[1][3]));
+    }
+
+    // TEST-BB-1367 (end-user testing pass 328): the patient antibody record lists every antibody on file with whether it
+    // is active and where it was identified; the SQL view gives the same.
+    [Fact]
+    public async Task AntibodiesReport_ListsThePatientAntibodyRecord()
+    {
+        await using var db = _factory.Create();
+        db.ReportDefinitions.AddRange(ReportSeedCatalog.Create());
+        var patient = new Patient { MedicalRecordNumber = "MRN-ABR", LastName = "Abrecord", FirstName = "Pat", DateOfBirth = new DateOnly(1962, 5, 6), Sex = Sex.Female };
+        db.Patients.Add(patient);
+        await db.SaveChangesAsync();
+        db.AntibodyHistory.AddRange(
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-K", Status = AntibodyStatus.Identified },
+            new AntibodyHistory { PatientId = patient.Id, AntibodySpecificity = "anti-Jka", Status = AntibodyStatus.Identified, ReportingFacility = "County General", IsActive = false, DeactivationReason = "Entered on the wrong chart" });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var list = (await service.ListAsync()).Value!;
+        var visual = await service.RunAsync(list.Single(r => r.Code == "RPT-ANTIBODIES").Id, new Dictionary<string, string?>());
+        Assert.True(visual.Succeeded, visual.Error);
+        var columns = visual.Value!.Columns.ToList();
+        var mine = visual.Value.Rows.Where(r => r[columns.IndexOf("mrn")] == "MRN-ABR").ToList();
+        Assert.Equal(2, mine.Count);
+        var outside = mine.Single(r => r[columns.IndexOf("antibody")] == "anti-Jka");
+        Assert.Equal(("County General", "No", "1962-05-06"),
+            (outside[columns.IndexOf("identified_by")], outside[columns.IndexOf("active")], outside[columns.IndexOf("date_of_birth")]));
+        Assert.Equal(("This laboratory", "Yes"), (mine.Single(r => r[columns.IndexOf("antibody")] == "anti-K")[columns.IndexOf("identified_by")],
+            mine.Single(r => r[columns.IndexOf("antibody")] == "anti-K")[columns.IndexOf("active")]));
+
+        var sql = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-ABR-SQL",
+            Name = "SQL antibodies",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT antibody, active, identified_by FROM rpt_antibodies WHERE mrn = 'MRN-ABR' ORDER BY antibody"
+        });
+        Assert.True(sql.Succeeded, sql.Error);
+        var sqlRun = await service.RunAsync(sql.Value!.Id, null);
+        Assert.True(sqlRun.Succeeded, sqlRun.Error);
+        Assert.Equal(new[] { "anti-Jka", "No", "County General" }, sqlRun.Value!.Rows[0].ToArray());
+        Assert.Equal(new[] { "anti-K", "Yes", "This laboratory" }, sqlRun.Value.Rows[1].ToArray());
     }
 
     // TEST-BB-1140: the emergency releases report says, for each release before testing was complete, whether the

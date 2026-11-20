@@ -20,6 +20,8 @@ System reports (those that came with the system) cannot be edited; clone one to 
 
 **RhIG evaluations and doses given** lists each RhIG evaluation by event (antepartum, postpartum or other exposure) with the decision, vials recommended, when it was completed and, when RhIG was given, the time, vials, lot, who gave it and the whole hours from the event, for the review of RhIG practice against your procedure. The SQL view is `rpt_rhig`.
 
+**Patient antibody record** lists every antibody on file for a patient: MRN, name and date of birth, the antibody, its status, whether it is active (and why it was deactivated), and whether it was identified in this laboratory or reported by another facility, with when that report was confirmed here. Use it for the periodic review of antibody records, before a planned outage, or to answer a request from another facility. The SQL designer reads it as `rpt_antibodies`.
+
 **Reagent QC record** lists every reagent QC reading for the period you choose: when it was performed, the reagent, lot, control, expected and observed reactions, pass or fail, who performed it and who reviewed it (blank until reviewed). Use it for the QC record of a month or an inspection; the Reagents page shows only the last 14 days. The SQL view is `rpt_reagent_qc`.
 
 **Equipment check record** lists every equipment check recorded, across all equipment, for the period you choose: when, the equipment (code, name, kind, location, serial number), the check, pass or fail, who performed it and the note. Use it for the month's maintenance record; each piece of equipment's History still lists its own checks. The SQL view is `rpt_equipment_checks`.
