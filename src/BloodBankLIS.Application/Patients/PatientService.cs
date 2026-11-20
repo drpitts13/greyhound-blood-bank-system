@@ -36,6 +36,7 @@ public sealed class PatientService
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
     private readonly IRepository<BloodAttributeDefinition>? _attributes;
     private readonly IRepository<ReactionInvestigation>? _reactions;
+    private readonly IRepository<Issue>? _issues;
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
     private readonly IRepository<Encounter>? _encounters;
 
@@ -65,8 +66,10 @@ public sealed class PatientService
         IRepository<Specimen>? specimenRows = null,
         IFacilityTimeZone? facilityTimeZone = null,
         IRepository<BloodAttributeDefinition>? attributes = null,
-        IRepository<ReactionInvestigation>? reactions = null)
+        IRepository<ReactionInvestigation>? reactions = null,
+        IRepository<Issue>? issues = null)
     {
+        _issues = issues;
         _reactions = reactions;
         _attributes = attributes;
         _facilityTimeZone = facilityTimeZone;
@@ -318,6 +321,17 @@ public sealed class PatientService
             .Where(pair => !dismissed.TryGetValue(OrderedKey(pair.First.Id, pair.Second.Id), out var reviewed)
                 || !PossibleDuplicatePatientRule.StillDismissed(pair.Reason, reviewed))
             .ToList();
+
+        // Pass 318: what each chart holds, so the reviewer keeps the one with the history.
+        var ids = pairs.SelectMany(p => new[] { p.First.Id, p.Second.Id }).Distinct().ToList();
+        var specimenCounts = _specimenRows is null || ids.Count == 0
+            ? new Dictionary<long, int>()
+            : (await _specimenRows.ListAsync(s => ids.Contains(s.PatientId), ct)).GroupBy(s => s.PatientId).ToDictionary(g => g.Key, g => g.Count());
+        var issueCounts = _issues is null || ids.Count == 0
+            ? new Dictionary<long, int>()
+            : (await _issues.ListAsync(i => ids.Contains(i.PatientId), ct)).GroupBy(i => i.PatientId).ToDictionary(g => g.Key, g => g.Count());
+        ChartActivityDto Activity(long id) => new(specimenCounts.GetValueOrDefault(id), issueCounts.GetValueOrDefault(id));
+        pairs = pairs.Select(p => p with { FirstActivity = Activity(p.First.Id), SecondActivity = Activity(p.Second.Id) }).ToList();
         return pairs.OrderBy(p => p.First.LastName, StringComparer.OrdinalIgnoreCase).ThenBy(p => p.First.MedicalRecordNumber).ToList();
 
         static (PatientDto First, PatientDto Second) Older(PatientDto a, PatientDto b) =>

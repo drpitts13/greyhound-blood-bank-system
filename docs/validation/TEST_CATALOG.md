@@ -1353,5 +1353,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1342 | I | `Phase4IssuingTests.UrgencyStatement_IsListedUntilRecorded` | URS-BB-1093 / FRS-BB-1211 |
 | TEST-BB-1343 | I | `PatientTimelineTests.MassiveTransfusionProtocol_IsOnTheTimeline` | URS-BB-1094 / FRS-BB-1212 |
 | TEST-BB-1344 | U | `MtpChartBannerTests.For_SaysTheProtocolIsOpen` | URS-BB-1095 / FRS-BB-1213 |
+| TEST-BB-1345 | I | `PatientServiceTests.PossibleDuplicatePairs_SayWhatEachChartHolds` | URS-BB-1096 / FRS-BB-1214 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

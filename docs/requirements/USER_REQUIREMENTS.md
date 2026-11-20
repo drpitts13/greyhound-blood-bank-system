@@ -1101,3 +1101,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1093 | The physician statements list names who authorized each issue, including the physician who called an MTP. | P3 | FRS-BB-1211 |
 | URS-BB-1094 | The patient timeline shows a massive transfusion protocol's activation and closure. | P3 | FRS-BB-1212 |
 | URS-BB-1095 | The patient chart says when the patient's massive transfusion protocol is open. | P2 | FRS-BB-1213 |
+| URS-BB-1096 | Each chart of a possible duplicate pair says what history it holds, so the reviewer keeps the right chart. | P2 | FRS-BB-1214 |

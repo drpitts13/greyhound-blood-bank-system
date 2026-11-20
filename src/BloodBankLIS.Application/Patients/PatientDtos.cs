@@ -15,7 +15,19 @@ public sealed record CreatePatientRequest(
     IReadOnlyList<string>? ConfirmedDifferentFromMrns = null);
 
 /// <summary>Two active charts that may be one person (<c>PossibleDuplicatePatientRule</c>), older registration first.</summary>
-public sealed record PossibleDuplicatePairDto(PatientDto First, PatientDto Second, string? Reason = null);
+public sealed record PossibleDuplicatePairDto(PatientDto First, PatientDto Second, string? Reason = null)
+{
+    /// <summary>
+    /// What each chart holds besides its type: specimens and units issued (end-user testing pass 318: the pair read "O+"
+    /// against "None on file", with nothing to say MRN0022 also held 4 issued units and a reaction under investigation,
+    /// which decides the chart to keep).
+    /// </summary>
+    public ChartActivityDto? FirstActivity { get; init; }
+
+    public ChartActivityDto? SecondActivity { get; init; }
+}
+
+public sealed record ChartActivityDto(int Specimens, int UnitsIssued);
 
 /// <summary>Another chart this patient's may duplicate, with why (pass 47).</summary>
 public sealed record PossibleDuplicateOfDto(PatientDto Other, string? Reason);

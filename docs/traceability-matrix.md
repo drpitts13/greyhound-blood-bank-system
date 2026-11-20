@@ -1209,6 +1209,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1093 / FRS-BB-1211 | End-user testing pass 315: MTP caller on physician statements | `IssuingService.cs` | TEST-BB-1342 | I | |
 | URS-BB-1094 / FRS-BB-1212 | End-user testing pass 316: MTP on the patient timeline | `PatientTimelineService.cs` | TEST-BB-1343 | I | |
 | URS-BB-1095 / FRS-BB-1213 | End-user testing pass 317: open MTP on the chart | `MtpChartBanner.cs`, `PatientChartHeader.razor` | TEST-BB-1344 | U | |
+| URS-BB-1096 / FRS-BB-1214 | End-user testing pass 318: what each possible duplicate holds | `PatientService.cs`, `PatientDtos.cs`, `PatientDuplicates.razor` | TEST-BB-1345 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

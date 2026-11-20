@@ -374,6 +374,39 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
     // TEST-BB-467: Possible duplicates pairs active charts by the registration rule (an ADT-style upper-case chart
     // included), older registration first, and leaves out merged charts and different first initials; it needs
     // patient.merge.
+    // TEST-BB-1345 (end-user testing pass 318): each chart of a possible duplicate pair says how many specimens and units
+    // issued it holds, so the reviewer keeps the chart with the history.
+    [Fact]
+    public async Task PossibleDuplicatePairs_SayWhatEachChartHolds()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var dob = new DateOnly(1922, 4, 5).AddDays(Random.Shared.Next(0, 3000));
+        await using var context = _factory.Create();
+        var holder = new Patient { MedicalRecordNumber = $"MRN-HLD-{key}", LastName = $"Hold{key}", FirstName = "Ann", DateOfBirth = dob };
+        context.Patients.Add(holder);
+        await context.SaveChangesAsync();
+        var empty = new Patient { MedicalRecordNumber = $"MRN-EMP-{key}", LastName = $"Hold{key}", FirstName = "Ann", DateOfBirth = dob };
+        var product = new ProductType { ProductCode = $"RBC-H{key}", Name = "Red cells", ComponentClass = ComponentClass.RedBloodCells };
+        context.AddRange(empty, product);
+        await context.SaveChangesAsync();
+        context.Specimens.AddRange(
+            new Specimen { PatientId = holder.Id, AccessionNumber = $"ACC-H1-{key}", SpecimenType = "EDTA", CollectedUtc = _factory.Clock.UtcNow, Status = SpecimenStatus.Accepted },
+            new Specimen { PatientId = holder.Id, AccessionNumber = $"ACC-H2-{key}", SpecimenType = "EDTA", CollectedUtc = _factory.Clock.UtcNow, Status = SpecimenStatus.Accepted });
+        var unit = new BloodUnit { UnitNumber = $"W-H-{key}", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = _factory.Clock.UtcNow.AddDays(5), Status = UnitStatus.Issued };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+        context.Issues.Add(new Issue { BloodProductId = unit.Id, PatientId = holder.Id, IssuedUtc = _factory.Clock.UtcNow, IssuedBy = "tech", Status = IssueStatus.Issued });
+        await context.SaveChangesAsync();
+
+        var service = new PatientService(new EfRepository<Patient>(context), context, _factory.Clock, Specimens(context, _factory),
+            currentUser: _factory.CurrentUser, permissions: new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge),
+            identifiers: new EfRepository<PatientIdentifier>(context), dismissals: new EfRepository<PatientDuplicateDismissal>(context),
+            specimenRows: new EfRepository<Specimen>(context), issues: new EfRepository<Issue>(context));
+        var pair = Assert.Single((await service.ListPossibleDuplicatePairsAsync()).Value!, p => p.First.Id == holder.Id);
+        Assert.Equal(new ChartActivityDto(2, 1), pair.FirstActivity);
+        Assert.Equal(new ChartActivityDto(0, 0), pair.SecondActivity);
+    }
+
     [Fact]
     public async Task PossibleDuplicatePairs_ListActiveMatches_OlderFirst()
     {

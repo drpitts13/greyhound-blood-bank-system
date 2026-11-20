@@ -28265,3 +28265,21 @@ Opened Demo-Massive, Morgan's chart after pass 316.
 ### Tests
 
 - TEST-BB-1344. Full suite passed.
+
+## Iteration 1038 — End-user testing pass 318: what each possible duplicate holds (2026-11-20)
+
+### How it was tested
+
+Opened Possible duplicates as a reviewer deciding which chart of Demo-Multi, Riley to keep.
+
+### Found and fixed
+
+1. **The pair did not say what each chart holds.** MRN0022 read *O+* against MRN9022's *None on file*, with no mention that MRN0022 also holds specimens, issued units and a reaction under investigation, the history a merge must keep together. Each chart's Blood bank history now adds its specimen count, units issued and *reaction under investigation*.
+
+### Retested live
+
+- MRN0022 reads *O+; 2 specimens; 4 units issued; reaction under investigation*; MRN9022 reads *None on file*.
+
+### Tests
+
+- TEST-BB-1345. Full suite passed.

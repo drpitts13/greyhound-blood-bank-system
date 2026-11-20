@@ -68,7 +68,7 @@ else
                             <td><a href="@($"/patients/{p.Id}")">@p.LastName, @p.FirstName</a> <span class="sub mono">@p.MedicalRecordNumber</span></td>
                             <td class="nowrap">@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
                             <td class="nowrap">@p.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd") <span class="sub">@p.CreatedBy</span></td>
-                            <td>@History(p)</td>
+                            <td data-duplicate-history="@p.Id">@History(p, p == pair.First ? pair.FirstActivity : pair.SecondActivity)</td>
                             <td class="right">
                                 <a class="btn btn-secondary btn-sm" href="@($"/patients/{p.Id}?mergeMrn={Uri.EscapeDataString(other.MedicalRecordNumber)}")"
                                    title="Opens this chart's merge form naming @other.MedicalRecordNumber; you give the reason and confirm">Keep this, merge @other.MedicalRecordNumber in</a>
@@ -119,7 +119,7 @@ else
         _pairs = r.Succeeded ? r.Value ?? new() : new();
     }
 
-    private static string History(PatientDto p)
+    private static string History(PatientDto p, ChartActivityDto? activity = null)
     {
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(p.CurrentBloodType))
@@ -135,6 +135,22 @@ else
         if (p.ActiveSpecialRequirements > 0)
         {
             parts.Add($"{p.ActiveSpecialRequirements} special requirement{(p.ActiveSpecialRequirements == 1 ? "" : "s")}");
+        }
+
+        // Pass 318: what else the chart holds.
+        if (activity is { Specimens: > 0 })
+        {
+            parts.Add($"{activity.Specimens} specimen{(activity.Specimens == 1 ? "" : "s")}");
+        }
+
+        if (activity is { UnitsIssued: > 0 })
+        {
+            parts.Add($"{activity.UnitsIssued} unit{(activity.UnitsIssued == 1 ? "" : "s")} issued");
+        }
+
+        if (p.ReactionUnderInvestigation)
+        {
+            parts.Add("reaction under investigation");
         }
 
         return parts.Count == 0 ? "None on file" : string.Join("; ", parts);
