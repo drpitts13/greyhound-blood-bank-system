@@ -28067,3 +28067,21 @@ Traced the other ways a patient antigen type is recorded after pass 305: besides
 ### Tests
 
 - TEST-BB-1333. Full suite passed.
+
+## Iteration 1027 — End-user testing pass 307: Modify names the product (2026-11-19)
+
+### How it was tested
+
+Opened Modify Products on FFP W0001230001008 (Plasma Freezer, A+) to see the thaw it offers. Nothing was modified.
+
+### Found and fixed
+
+1. **The selected unit's card did not say what the product was.** It read *Product code —* (the unit was received without an ISBT product code) and named no product anywhere, so the tech about to thaw or divide it had only the modification list to go by. The card now shows **Product: FFP — Fresh Frozen Plasma** beside **ISBT product code**.
+
+### Retested live
+
+- W0001230001008 shows *FFP — Fresh Frozen Plasma*.
+
+### Tests
+
+- TEST-BB-1334. Full suite passed.

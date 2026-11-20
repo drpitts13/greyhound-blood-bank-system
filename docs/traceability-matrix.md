@@ -1198,6 +1198,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1082 / FRS-BB-1200 | End-user testing pass 304: patient antigen type on a possible specificity | `AntibodyIdentificationAssistEvaluator.cs` | TEST-BB-1331 | U | |
 | URS-BB-1083 / FRS-BB-1201 | End-user testing pass 305: patient typing refreshes open workup assistance | `AntibodyIdentificationService.cs`, `ImmunohematologyEndpoints.cs` | TEST-BB-1332 | I | |
 | URS-BB-1084 / FRS-BB-1202 | End-user testing pass 306: opening a workup picks up a later patient type | `AntibodyIdentificationService.cs` | TEST-BB-1333 | I | |
+| URS-BB-1085 / FRS-BB-1203 | End-user testing pass 307: Modify names the product | `UnitProductText.cs`, `Modifications.razor` | TEST-BB-1334 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

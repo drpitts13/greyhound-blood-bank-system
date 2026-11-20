@@ -40,7 +40,9 @@
         <div class="bb-card-title"><h3>2. Selected unit</h3></div>
         <div class="form-row">
             <div class="field"><label>Unit number</label><div class="mono">@_unit.UnitNumber</div></div>
-            <div class="field"><label>Product code</label><div class="mono">@(SourceProductCode ?? "—")</div></div>
+            @* Pass 307: the product by name; the ISBT code alone read "—" for a unit received without one. *@
+            <div class="field"><label>Product</label><div data-source-product>@(UnitProductText.For(_productTypes, _unit.ProductTypeId) ?? "—")</div></div>
+            <div class="field"><label>ISBT product code</label><div class="mono">@(SourceProductCode ?? "—")</div></div>
             <div class="field"><label>Volume</label><div>@FormatVolume(_unit.Volume)</div></div>
             <div class="field"><label>Location</label><div>@FormatUnitLocation(_unit.CurrentLocationId)</div></div>
             <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
@@ -482,6 +484,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var productTypes = await Api.GetProductTypesAsync();
+        _productTypes = productTypes.Value ?? [];
+
         var equipment = await Api.GetEquipmentAsync();
         _equipmentInService = (equipment.Value ?? new()).Where(e => e.InService).OrderBy(e => e.Code).ToList();
 
@@ -525,6 +530,8 @@
 
     private static string RelativeLabel(ExpirationRelativeTo relativeTo) =>
         relativeTo == ExpirationRelativeTo.CollectionDateTime ? "collection" : "modification";
+
+    private List<ProductTypeDto> _productTypes = [];
 
     private string? SourceProductCode =>
         _unit is null
