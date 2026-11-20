@@ -177,6 +177,8 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
         await service.RecordAsync(new RecordStorageTemperatureRequest(stale.Id, 4m, _factory.Clock.UtcNow.AddHours(-5)));
 
         Assert.All((await service.ListLocationsAsync()).Where(l => l.Code.StartsWith("TMP-DUE")), l => Assert.Null(l.ReadingDue));
+        // TEST-BB-1350 (pass 323): with the interval not set, each location says so.
+        Assert.All((await service.ListLocationsAsync()).Where(l => l.Code.StartsWith("TMP-DUE")), l => Assert.True(l.ReadingIntervalNotSet));
 
         var setting = new SystemSetting { Key = FacilityPolicyKeys.TemperatureReadingIntervalHours, Value = "4" };
         c.SystemSettings.Add(setting);
@@ -187,6 +189,7 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
             Assert.Null(rows["TMP-DUE1"].ReadingDue);
             Assert.StartsWith("Due since ", rows["TMP-DUE2"].ReadingDue);
             Assert.Equal("No reading recorded", rows["TMP-DUE3"].ReadingDue);
+            Assert.False(rows["TMP-DUE1"].ReadingIntervalNotSet);
         }
         finally
         {

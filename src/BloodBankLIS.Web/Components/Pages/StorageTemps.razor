@@ -54,6 +54,11 @@
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>Locations</h3></div>
+    @if (StorageReadingText.IntervalNotSet(_locations) is { } intervalNote)
+    {
+        @* Pass 323: say that readings are not being marked due, rather than leave a week-old reading unremarked. *@
+        <p class="muted" data-reading-interval-not-set>@intervalNote</p>
+    }
     @if (_locations.Count == 0)
     {
         var locationsEmpty = WorklistEmptyText.For(_locationsLoaded, _locationsError, "No active storage locations.");

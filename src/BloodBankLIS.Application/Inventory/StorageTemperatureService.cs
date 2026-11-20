@@ -45,7 +45,14 @@ public sealed record StorageLocationTemperatureDto(
     StorageTemperatureStatus? LastStatus,
     int UnitsStored,
     // Pass 87: a reading is due under the facility's reading interval ("No reading recorded", "Due since …"), or null.
-    string? ReadingDue = null);
+    string? ReadingDue = null)
+{
+    /// <summary>
+    /// The facility's reading interval is not set, so no reading is marked due (end-user testing pass 323: FRIDGE-1 held
+    /// 35 units with its last reading 7 days old and nothing on the page said readings were not being tracked).
+    /// </summary>
+    public bool ReadingIntervalNotSet { get; init; }
+}
 
 public sealed record StorageDeviceDto(
     long LocationId,
@@ -499,7 +506,10 @@ public sealed class StorageTemperatureService
                     l.Id, l.Code, l.Name, l.StorageTempMinC, l.StorageTempMaxC,
                     last?.ReadingC, last?.ReadingUtc, last?.Status,
                     counts.GetValueOrDefault(l.Id),
-                    TemperatureReadingDueRule.Text(l.StorageTempMinC is not null || l.StorageTempMaxC is not null, last?.ReadingUtc, interval, now));
+                    TemperatureReadingDueRule.Text(l.StorageTempMinC is not null || l.StorageTempMaxC is not null, last?.ReadingUtc, interval, now))
+                {
+                    ReadingIntervalNotSet = interval <= 0
+                };
             })
             .ToList();
     }

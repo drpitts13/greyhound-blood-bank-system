@@ -18,4 +18,16 @@ public class StorageReadingTextTests
         Assert.Null(StorageReadingText.NoReadingWithUnits(null, 0));
         Assert.Null(StorageReadingText.NoReadingWithUnits(now, 6));
     }
+
+    // TEST-BB-1350 (pass 323): with the reading interval not set, the page says readings are not marked due and names
+    // the setting; with it set, or with no location that has a range, it says nothing.
+    [Fact]
+    public void IntervalNotSet_IsSaid()
+    {
+        BloodBankLIS.Application.Inventory.StorageLocationTemperatureDto Loc(decimal? min, bool notSet) =>
+            new(1, "FRIDGE-1", "Main", min, 6m, 4m, null, null, 35) { ReadingIntervalNotSet = notSet };
+        Assert.Contains("reading interval is not set", StorageReadingText.IntervalNotSet([Loc(1m, true)]));
+        Assert.Null(StorageReadingText.IntervalNotSet([Loc(1m, false)]));
+        Assert.Null(StorageReadingText.IntervalNotSet([]));
+    }
 }

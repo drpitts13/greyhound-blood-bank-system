@@ -18,7 +18,7 @@ Readings are never edited. If a reading is wrong, record the correct one and say
 
 ## Readings due
 
-When Facility Policies › Inventory › *Storage temperature reading interval (hours)* is set, each location with a temperature range whose last reading is that old or older is marked **Reading due** (*Due since …*), and one never read says *No reading recorded*. The home card **Temperature readings due** counts them. A location without a range, such as an issue window, is never marked. While the interval is not set (0, the default) nothing is marked; the interval is your procedure's (for example every 4 hours when readings are taken by hand).
+When Facility Policies › Inventory › *Storage temperature reading interval (hours)* is set, each location with a temperature range whose last reading is that old or older is marked **Reading due** (*Due since …*), and one never read says *No reading recorded*. The home card **Temperature readings due** counts them. A location without a range, such as an issue window, is never marked. While the interval is not set (0, the default) nothing is marked, and the Locations table says so above it (*Readings are not marked due: the storage temperature reading interval is not set …*), so check each location's last reading and its age yourself; the interval is your procedure's (for example every 4 hours when readings are taken by hand).
 
 Whatever the interval, **Time** says how old the last reading is (*5 d 3 h ago*), and a location holding units with no reading ever recorded says *No reading on record; 6 units stored here*.
 

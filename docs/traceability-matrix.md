@@ -1214,6 +1214,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1098 / FRS-BB-1216 | End-user testing pass 320: lookback reason on the notification lists | `LookbackService.cs`, `Lookback.razor` | TEST-BB-1347 | I | |
 | URS-BB-1099 / FRS-BB-1217 | End-user testing pass 321: screen times in local time | `SupplierOrders.razor`, `UnitDetail.razor`, `AccountMfa.razor` | TEST-BB-1348 | U | |
 | URS-BB-1100 / FRS-BB-1218 | End-user testing pass 322: unreviewed failed QC alert stands apart | `AlertScanner.cs` | TEST-BB-1349 | I | |
+| URS-BB-1101 / FRS-BB-1219 | End-user testing pass 323: reading interval not set on Storage temperatures | `StorageTemperatureService.cs`, `StorageReadingText.cs`, `StorageTemps.razor` | TEST-BB-1350 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -28357,3 +28357,21 @@ Reviewed Equipment, Utilization and Billing (issue charges for the seeded issues
 ### Tests
 
 - TEST-BB-1349. Full suite passed.
+
+## Iteration 1043 — End-user testing pass 323: reading interval not set on Storage temperatures (2026-11-20)
+
+### How it was tested
+
+Opened Storage temperatures as the technologist starting a shift.
+
+### Found and fixed
+
+1. **A week-old reading went unremarked.** FRIDGE-1 held 35 units and its last reading was 7 days 15 hours old; OR-FRIDGE's was as old. Nothing was marked reading due, and the home card and handoff counted none, because the facility's reading interval is not set (OCD left to the medical director); the page did not say so, so the bench could take the quiet as all readings being current. The Locations table now says *Readings are not marked due: the storage temperature reading interval is not set (Administration › Facility policies › Inventory)* and asks for each last reading to be checked against the procedure. No interval is assumed.
+
+### Retested live
+
+- Storage temperatures shows the note above Locations.
+
+### Tests
+
+- TEST-BB-1350. Full suite passed.
