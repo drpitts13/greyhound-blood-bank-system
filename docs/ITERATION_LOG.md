@@ -28828,3 +28828,22 @@ Reviewed the test builder (Admin › Test Definitions) for item 6. The catalog a
 ### Tests
 
 - TEST-BB-1384. Full suite passed.
+
+## Iteration 1068 — End-user testing loop 2, tick 3: freeze, deglycerolize, plasma reduction, rejuvenate (2026-11-20)
+
+### How it was tested
+
+Reviewed product modification setup (item 7): Admin › Modification Rules, Order actions, and Modify products.
+
+### Found and fixed
+
+1. **Some standard modifications could not be set up.** Rules offered divide, pool, irradiate, thaw, volume reduction, leukoreduction, wash and aliquot. The catalog carries Frozen and Deglycerolized red cells, but no rule could freeze or deglycerolize a unit, nor plasma-reduce or rejuvenate one. These four types are added; each works as a one-to-one modification (source retired, result in quarantine, dating from the expiration code), and deglycerolize and plasma reduction can be order actions for a patient.
+2. **Modify products showed the type as a code name** (*VolumeReduction*, *Perform VolumeReduction*); it now reads in words.
+
+### Retested live
+
+- The rule builder offers the twelve types in words. No rule was saved.
+
+### Tests
+
+- TEST-BB-1385. Full suite passed.

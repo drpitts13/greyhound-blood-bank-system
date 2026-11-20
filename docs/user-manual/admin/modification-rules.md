@@ -10,7 +10,7 @@ routes:
 
 ![Modification rules](figures/admin-modification-rules.png)
 
-**Modification Rules** define component processing: which source products can be pooled, divided, irradiated, washed, or otherwise modified, and what product code the resulting unit receives. The bench screen [Modify products](/help/clinical/modifications) only offers rules you activate here. A source or target choice keeps the product code. When the product name is blank, the choice says Product and the id. The code is not shown as the name.
+**Modification Rules** define component processing: which source products can be pooled, divided, irradiated, washed, or otherwise modified, and what product code the resulting unit receives. The types are divide, pool, aliquot, irradiate, thaw, wash, volume reduction, leukoreduction, freeze (glycerolize red cells), deglycerolize, plasma reduction, and rejuvenate; divide, pool and aliquot make several units, the others one. Deglycerolize and plasma reduction can also be ordered for a patient as order actions. The bench screen [Modify products](/help/clinical/modifications) only offers rules you activate here. A source or target choice keeps the product code. When the product name is blank, the choice says Product and the id. The code is not shown as the name.
 
 Resulting units start in quarantine. Build the release into the procedure. A rule that produces an unknown ISBT code will fail at the moment of modification, not when you save the rule. Confirm the code exists in the ISBT catalog first.
 

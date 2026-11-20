@@ -18,7 +18,10 @@ public static class OrderActionValidator
             or ModificationType.Wash
             or ModificationType.Thaw
             or ModificationType.VolumeReduction
-            or ModificationType.Leukoreduction;
+            or ModificationType.Leukoreduction
+            // Loop 2 tick 3: a patient's order may ask for a deglycerolized or plasma-reduced unit too.
+            or ModificationType.Deglycerolize
+            or ModificationType.PlasmaReduction;
 
     public static RuleEvaluation ValidateAttach(
         bool hasProductLine,

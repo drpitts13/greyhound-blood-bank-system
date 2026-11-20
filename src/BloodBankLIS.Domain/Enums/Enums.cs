@@ -802,7 +802,19 @@ public enum ModificationType
     Wash = 6,
 
     /// <summary>Removes part of the volume into a new unit and leaves the parent available.</summary>
-    Aliquot = 7
+    Aliquot = 7,
+
+    /// <summary>Glycerolizes and freezes red cells for long-term storage (loop 2 tick 3).</summary>
+    Freeze = 8,
+
+    /// <summary>Thaws and removes glycerol from frozen red cells (loop 2 tick 3).</summary>
+    Deglycerolize = 9,
+
+    /// <summary>Removes plasma from a unit, such as plasma-reduced platelets (loop 2 tick 3).</summary>
+    PlasmaReduction = 10,
+
+    /// <summary>Restores red cell 2,3-DPG and ATP with a rejuvenation solution (loop 2 tick 3).</summary>
+    Rejuvenate = 11
 }
 
 /// <summary>Catalog category for a clinical <c>ActionDefinition</c>.</summary>

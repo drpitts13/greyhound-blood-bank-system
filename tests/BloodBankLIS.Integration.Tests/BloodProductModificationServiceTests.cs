@@ -258,6 +258,12 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     [InlineData(ModificationType.Thaw)]
     [InlineData(ModificationType.VolumeReduction)]
     [InlineData(ModificationType.Leukoreduction)]
+    // TEST-BB-1385 (end-user testing loop 2 tick 3): freezing, deglycerolizing, plasma reduction and rejuvenation can be
+    // set up and performed like any one-to-one modification.
+    [InlineData(ModificationType.Freeze)]
+    [InlineData(ModificationType.Deglycerolize)]
+    [InlineData(ModificationType.PlasmaReduction)]
+    [InlineData(ModificationType.Rejuvenate)]
     public async Task ApplySingle_HappyPath_RetiresSourceAndCreatesResult(ModificationType type)
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync($"SINGLE-{type}");

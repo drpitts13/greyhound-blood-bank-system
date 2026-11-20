@@ -3,7 +3,7 @@ slug: modifications
 title: Modify products
 order: 240
 chapter: Inventory
-summary: Divide, pool, irradiate, thaw, wash, aliquot, volume-reduce, or leukoreduce a unit under the modification rules.
+summary: Divide, pool, irradiate, thaw, wash, aliquot, volume-reduce, leukoreduce, freeze, deglycerolize, plasma-reduce, or rejuvenate a unit under the modification rules.
 routes:
   - /inventory/modify
 ---
