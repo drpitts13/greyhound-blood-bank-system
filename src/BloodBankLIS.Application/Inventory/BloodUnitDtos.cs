@@ -74,6 +74,9 @@ public sealed record BloodUnitDto(
     // OCD-083: when the EHR reported this unit transfused while it was recalled, quarantined, damaged or missing.
     DateTime? TransfusionReportedUtc = null)
 {
+    /// <summary>Made by a thaw modification (pass 333: so the inventory list can say one is recorded in a freezer).</summary>
+    public bool Thawed { get; init; }
+
     public long? BloodSupplierId { get; init; }
 
     /// <summary>

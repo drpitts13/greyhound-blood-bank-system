@@ -67,11 +67,21 @@ public static class InventoryLocationPolicyRule
     /// </summary>
     public static string? WrongStorage(
         UnitStatus status, string locationCode, bool allowsRbc, bool allowsPlasma, bool allowsPlatelets, bool allowsCryo,
-        bool allowsWholeBlood, ComponentClass component) =>
-        (StorageTemperatureRule.StoredStatuses.Contains(status) || status == UnitStatus.Expired)
-        && !AllowsComponent(allowsRbc, allowsPlasma, allowsPlatelets, allowsCryo, allowsWholeBlood, component)
-            ? $"{locationCode} does not take {ComponentWords(component)}"
-            : null;
+        bool allowsWholeBlood, ComponentClass component, bool thawedInFreezer = false)
+    {
+        if (!(StorageTemperatureRule.StoredStatuses.Contains(status) || status == UnitStatus.Expired))
+        {
+            return null;
+        }
+
+        if (!AllowsComponent(allowsRbc, allowsPlasma, allowsPlatelets, allowsCryo, allowsWholeBlood, component))
+        {
+            return $"{locationCode} does not take {ComponentWords(component)}";
+        }
+
+        // Pass 333: a thawed unit recorded in a freezer (thawed plasma is not refrozen).
+        return thawedInFreezer ? $"{locationCode} is a freezer; this unit was thawed" : null;
+    }
 
     /// <summary>
     /// The inventory list's note over units in the wrong storage. Expired ones are to be discarded, not moved (end-user
@@ -85,7 +95,7 @@ public static class InventoryLocationPolicyRule
         }
 
         expired = Math.Clamp(expired, 0, misplaced);
-        var where = $"{misplaced} {(misplaced == 1 ? "unit is" : "units are")} stored where the location does not take the component (marked below).";
+        var where = $"{misplaced} {(misplaced == 1 ? "unit is" : "units are")} stored where the location does not suit {(misplaced == 1 ? "it" : "them")} (marked below).";
         if (expired == misplaced)
         {
             return $"{where} {(misplaced == 1 ? "It has" : misplaced == 2 ? "Both have" : "All have")} expired: discard {(misplaced == 1 ? "it" : "them")} (Discard expired) rather than moving {(misplaced == 1 ? "it" : "them")}.";

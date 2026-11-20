@@ -2639,6 +2639,22 @@ public sealed class InventoryService
         return evaluation.IsHardStopped ? InventoryActionResult.Blocked(evaluation) : null;
     }
 
+    /// <summary>Pass 333: of these units, the ones made by a thaw modification (so a list can say one is in a freezer).</summary>
+    public async Task<IReadOnlySet<long>> ThawedUnitIdsAsync(IEnumerable<BloodUnit> units, CancellationToken ct = default)
+    {
+        var byModification = units.Where(u => u.DerivedFromModificationId is not null)
+            .GroupBy(u => u.DerivedFromModificationId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(u => u.Id).ToList());
+        if (byModification.Count == 0 || _modifications is null)
+        {
+            return new HashSet<long>();
+        }
+
+        var ids = byModification.Keys.ToList();
+        var thaws = await _modifications.ListAsync(m => ids.Contains(m.Id) && m.ModificationType == ModificationType.Thaw, ct);
+        return thaws.SelectMany(m => byModification[m.Id]).ToHashSet();
+    }
+
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedTransferAsync(ct);

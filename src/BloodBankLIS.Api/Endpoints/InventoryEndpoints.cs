@@ -43,8 +43,9 @@ public static class InventoryEndpoints
             var units = await service.SearchAsync(criteria, ct);
             // Pass 157: who each unit is reserved for, when an open reservation holds it.
             var reserved = await service.ReservedPatientsAsync(units.Select(u => u.Id).ToList(), ct);
+            var thawed = await service.ThawedUnitIdsAsync(units, ct);
             return Results.Ok(units.Select(u => BloodUnitDto.From(u).WithReservation(
-                reserved.TryGetValue(u.Id, out var who) ? who : null)));
+                reserved.TryGetValue(u.Id, out var who) ? who : null) with { Thawed = thawed.Contains(u.Id) }));
         });
 
         group.MapGet("/units/expected", async (InventoryService service, CancellationToken ct) =>

@@ -28585,3 +28585,25 @@ Reviewed Compatibility and Discard expired as the technologist clearing expired 
 ### Tests
 
 - TEST-BB-1371. Full suite passed.
+
+## Iteration 1055 — End-user testing pass 333: thawed unit in a freezer marked wrong storage (2026-11-20)
+
+### How it was tested
+
+Searched Inventory for expired units, continuing from pass 332.
+
+### Found and fixed
+
+1. **A thawed unit in a freezer was not marked.** Inventory marks *Wrong storage* when a location does not take a unit's component (platelets in FRIDGE-1), but thawed plasma W0001230001002-M01, recorded in FREEZER-1, was not marked because the freezer takes plasma. It now reads *Wrong storage: FREEZER-1 is a freezer; this unit was thawed*, and the note above the results says units are stored where the location *does not suit* them rather than that it does not take the component.
+
+### Also found (configuration, not changed)
+
+- The dev data's FRIDGE-1 does not take plasma, so thawed plasma W0001230001005-M01 in it reads *FRIDGE-1 does not take plasma*. A facility that keeps thawed plasma in that refrigerator ticks plasma for it under Inventory locations.
+
+### Retested live
+
+- The expired search shows both marks; the note counts 10 units.
+
+### Tests
+
+- TEST-BB-1372 (pass 212's summary expectations updated for the wording). Full suite passed.

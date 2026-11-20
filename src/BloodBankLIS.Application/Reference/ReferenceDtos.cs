@@ -74,8 +74,9 @@ public sealed record InventoryLocationDto(
     public string ChoiceLabel => StorageLocationLabel.ForPicker(Id, Code, Name);
 
     /// <summary>"FRIDGE-1 does not take platelets" for a unit on this shelf whose component it does not take; else null.</summary>
-    public string? WrongStorageFor(UnitStatus status, ComponentClass component) =>
-        InventoryLocationPolicyRule.WrongStorage(status, Code, AllowsRbc, AllowsPlasma, AllowsPlatelets, AllowsCryo, AllowsWholeBlood, component);
+    public string? WrongStorageFor(UnitStatus status, ComponentClass component, bool thawed = false) =>
+        InventoryLocationPolicyRule.WrongStorage(status, Code, AllowsRbc, AllowsPlasma, AllowsPlatelets, AllowsCryo, AllowsWholeBlood, component,
+            thawed && LocationType == LocationType.Freezer);
 
     public static InventoryLocationDto From(InventoryLocation l) => new(
         l.Id, l.Code, l.Name, l.LocationType, l.IsActive,

@@ -28,13 +28,26 @@ public class WrongStorageRuleTests
     public void WrongStorageSummary_SaysToDiscardExpiredUnits()
     {
         Assert.Null(InventoryLocationPolicyRule.WrongStorageSummary(0, 0));
-        Assert.Equal("9 units are stored where the location does not take the component (marked below). All have expired: discard them (Discard expired) rather than moving them.",
+        Assert.Equal("9 units are stored where the location does not suit them (marked below). All have expired: discard them (Discard expired) rather than moving them.",
             InventoryLocationPolicyRule.WrongStorageSummary(9, 9));
-        Assert.Equal("1 unit is stored where the location does not take the component (marked below). It has expired: discard it (Discard expired) rather than moving it.",
+        Assert.Equal("1 unit is stored where the location does not suit it (marked below). It has expired: discard it (Discard expired) rather than moving it.",
             InventoryLocationPolicyRule.WrongStorageSummary(1, 1));
-        Assert.Equal("3 units are stored where the location does not take the component (marked below). 1 of them has expired: discard it (Discard expired). Move the rest, or correct the location record, following your storage procedure.",
+        Assert.Equal("3 units are stored where the location does not suit them (marked below). 1 of them has expired: discard it (Discard expired). Move the rest, or correct the location record, following your storage procedure.",
             InventoryLocationPolicyRule.WrongStorageSummary(3, 1));
-        Assert.Equal("2 units are stored where the location does not take the component (marked below). Move them, or correct the location record, following your storage procedure.",
+        Assert.Equal("2 units are stored where the location does not suit them (marked below). Move them, or correct the location record, following your storage procedure.",
             InventoryLocationPolicyRule.WrongStorageSummary(2, 0));
+    }
+
+    // TEST-BB-1372 (end-user testing pass 333): a thawed unit recorded in a freezer is marked wrong storage, though the
+    // freezer takes plasma; a thawed unit in a refrigerator and a frozen unit in the freezer are not.
+    [Fact]
+    public void ThawedUnitInAFreezer_IsWrongStorage()
+    {
+        string? Freezer(bool thawedInFreezer) => InventoryLocationPolicyRule.WrongStorage(UnitStatus.Expired, "FREEZER-1", allowsRbc: false,
+            allowsPlasma: true, allowsPlatelets: false, allowsCryo: true, allowsWholeBlood: false, ComponentClass.Plasma, thawedInFreezer);
+        Assert.Equal("FREEZER-1 is a freezer; this unit was thawed", Freezer(true));
+        Assert.Null(Freezer(false));
+        Assert.Equal("1 unit is stored where the location does not suit it (marked below). It has expired: discard it (Discard expired) rather than moving it.",
+            InventoryLocationPolicyRule.WrongStorageSummary(1, 1));
     }
 }

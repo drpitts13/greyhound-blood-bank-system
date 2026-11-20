@@ -1225,6 +1225,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1109 / FRS-BB-1227 | End-user testing pass 330: chart's Document transfusion opens ward receipt first | `Issuing.razor`, `ReferenceEndpoints.cs` | TEST-BB-1369 | U | |
 | URS-BB-1110 / FRS-BB-1228 | End-user testing pass 331: reaction under investigation on a blood order | `BloodOrderWorklistService.cs`, `BloodOrders.razor` | TEST-BB-1370 | I | |
 | URS-BB-1111 / FRS-BB-1229 | End-user testing pass 332: no thawed unit into a freezer | `InventoryService.cs`, `InventoryLocationPolicyRule.cs` | TEST-BB-1371 | I | |
+| URS-BB-1112 / FRS-BB-1230 | End-user testing pass 333: thawed unit in a freezer marked wrong storage | `InventoryLocationPolicyRule.cs`, `InventoryService.cs`, `InventoryEndpoints.cs`, `ReferenceDtos.cs`, `Inventory.razor` | TEST-BB-1372 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

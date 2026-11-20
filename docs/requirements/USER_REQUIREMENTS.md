@@ -1117,3 +1117,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1109 | Documenting a transfusion from the chart leads to ward receipt first when the unit has not been received and receipt is required. | P2 | FRS-BB-1227 |
 | URS-BB-1110 | A blood order says when the patient has a transfusion reaction under investigation. | P2 | FRS-BB-1228 |
 | URS-BB-1111 | A thawed unit cannot be moved into a freezer. | P1 | FRS-BB-1229 |
+| URS-BB-1112 | Inventory marks a thawed unit recorded in a freezer as wrong storage. | P2 | FRS-BB-1230 |

@@ -1169,7 +1169,7 @@
     private string? WrongStorage(BloodUnitDto u) =>
         u.CurrentLocationId is long id && _locations.FirstOrDefault(l => l.Id == id) is { } location
         && _productTypes.FirstOrDefault(p => p.Id == u.ProductTypeId) is { } product
-            ? location.WrongStorageFor(u.Status, product.ComponentClass)
+            ? location.WrongStorageFor(u.Status, product.ComponentClass, u.Thawed)
             : null;
 
     private string LocationName(long? id) =>
