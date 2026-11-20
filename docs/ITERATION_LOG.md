@@ -28469,3 +28469,21 @@ Reviewed In transit and Final disposition on Issue & Transfuse, then the unit pa
 ### Tests
 
 - TEST-BB-1365. Full suite passed.
+
+## Iteration 1049 — End-user testing pass 327: the way out for a missing unit (2026-11-20)
+
+### How it was tested
+
+Opened the supervisor queue as the supervisor.
+
+### Found and fixed
+
+1. **A missing unit had no way out but Locate.** W000123MISS001, missing 13 days since a stock count, read *Locate* with nothing to say what to do if it is never found; quarantine rows say *release … or discard*. A missing unit can be discarded (Missing to Discarded is allowed, and the unit page offers Discard), so the row now ends *Record where it was found, or, if it cannot be found, discard it (written off) with a reason*; a damaged unit's row ends *Inspect it, then release it if acceptable, or discard it*.
+
+### Retested live
+
+- W000123MISS001's row carries the sentence.
+
+### Tests
+
+- TEST-BB-1366. Full suite passed.

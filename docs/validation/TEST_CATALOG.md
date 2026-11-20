@@ -1374,5 +1374,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1363 | I | `InterfaceTransfusionAuthorizationTests.Document_UnitNoLongerIssued_IsHeldWhenTheFacilityChooses` | URS-BB-1103 / FRS-BB-1221 |
 | TEST-BB-1364 | U | `ReadyToIssueFormCueTests.Reasons_IncludeASecondAboStillDue` | URS-BB-1104 / FRS-BB-1222 |
 | TEST-BB-1365 | I | `CompetitorGapWorkflowTests.OverdueDisposition_LeavesOutAUnitRecordedMissing` | URS-BB-1105 / FRS-BB-1223 |
+| TEST-BB-1366 | I | `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesMissingUnit_UntilLocated` | URS-BB-1106 / FRS-BB-1224 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

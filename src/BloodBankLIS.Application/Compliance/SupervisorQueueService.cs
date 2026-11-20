@@ -196,7 +196,11 @@ public sealed class SupervisorQueueService
                 items.Add(new SupervisorQueueItemDto(
                     SupervisorQueueRule.KindDiscrepancy,
                     $"{(missing ? "Missing" : "Damaged")} — {u.UnitNumber}",
-                    $"{product} {u.Abo} {u.RhD}. {reason}." + (u.SinceText is null ? "" : $" {u.SinceText}.") + $" Last recorded at {u.LocationLabel}.",
+                    $"{product} {u.Abo} {u.RhD}. {reason}." + (u.SinceText is null ? "" : $" {u.SinceText}.") + $" Last recorded at {u.LocationLabel}."
+                    // Pass 327: the way out, as quarantine rows say it; a missing unit was offered only "Locate".
+                    + (missing
+                        ? " Record where it was found, or, if it cannot be found, discard it (written off) with a reason."
+                        : " Inspect it, then release it if acceptable, or discard it."),
                     $"/inventory/units/{u.UnitId}",
                     missing ? "Locate" : "Inspect",
                     ContextId: u.UnitId) { SortUtc = u.SinceUtc });
