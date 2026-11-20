@@ -902,6 +902,17 @@ public sealed class IssuingService
             : (await _transfusions.ListAsync(t => issueIds.Contains(t.IssueId), ct)).Select(t => t.IssueId).ToHashSet();
         rows = rows.Where(i => !documented.Contains(i.Id)).ToList();
 
+        // Pass 326: a unit recorded missing is no longer on its way to the ward; it is reviewed on the supervisor queue.
+        if (rows.Count > 0)
+        {
+            var transitUnitIds = rows.Select(i => i.BloodProductId).ToHashSet();
+            var missing = (await _inventory.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Missing), ct))
+                .Where(u => transitUnitIds.Contains(u.Id))
+                .Select(u => u.Id)
+                .ToHashSet();
+            rows = rows.Where(i => !missing.Contains(i.BloodProductId)).ToList();
+        }
+
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         var issuePlaces = await LoadIssuePlacesAsync(rows, ct);

@@ -926,7 +926,9 @@ else
         UnitStatus.Available or UnitStatus.Selected or UnitStatus.Assigned or UnitStatus.Allocated
         or UnitStatus.Crossmatched or UnitStatus.Received or UnitStatus.Returned
         or UnitStatus.Transferred or UnitStatus.CancelledAssignment or UnitStatus.Quarantine
-        or UnitStatus.OnHold or UnitStatus.Expected or UnitStatus.Recalled;
+        or UnitStatus.OnHold or UnitStatus.Expected or UnitStatus.Recalled
+        // Pass 326: an issued unit that never reached the ward (missing from its cooler) can be recorded missing.
+        or UnitStatus.Issued;
 
     private static bool CanMarkDamaged(UnitStatus status) => status is
         UnitStatus.Available or UnitStatus.Selected or UnitStatus.Assigned or UnitStatus.Allocated

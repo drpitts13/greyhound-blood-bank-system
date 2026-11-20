@@ -28451,3 +28451,21 @@ Reviewed the HL7 page (message times local; error queue and outbound reasons cle
 ### Tests
 
 - TEST-BB-1364. Full suite passed.
+
+## Iteration 1048 — End-user testing pass 326: record an issued unit missing (2026-11-20)
+
+### How it was tested
+
+Reviewed In transit and Final disposition on Issue & Transfuse, then the unit page of W0001230009101.
+
+### Found and fixed
+
+1. **A unit missing from its cooler could not be recorded missing.** W0001230009101 was missing from Demo-Massive, Morgan's MTP cooler when it was checked, and the boards said *find the unit*, but Mark missing on the unit page was offered only for units in the blood bank, not issued ones (the status rules allow Issued to Missing, and OCD-083 handles a transfusion reported for such a unit later). It stayed on In transit and the overdue disposition board, 12 days past due, with no way to close it. Mark missing is now offered for an issued unit; once recorded, the unit leaves In transit and the disposition board and waits on the supervisor queue; the cooler note says *find the unit, or record it missing on its unit page*.
+
+### Retested live
+
+- W0001230009101's Actions tab offers Mark missing (not saved: dev data unchanged).
+
+### Tests
+
+- TEST-BB-1365. Full suite passed.

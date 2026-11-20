@@ -234,6 +234,30 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.Empty(await board.ListAsync());
     }
 
+    // TEST-BB-1365 (end-user testing pass 326): an issued unit recorded missing has its outcome recorded, so it leaves the
+    // overdue final-disposition board.
+    [Fact]
+    public async Task OverdueDisposition_LeavesOutAUnitRecordedMissing()
+    {
+        await using var context = _factory.Create();
+        var patient = new Patient { MedicalRecordNumber = "MRN-LOST", LastName = "Lost", FirstName = "Pat", DateOfBirth = new DateOnly(1971, 4, 1) };
+        var product = new ProductType { ProductCode = "RBC-LOST", Name = "Red cells" };
+        context.Patients.Add(patient);
+        context.ProductTypes.Add(product);
+        await context.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "U-LOST-1", ProductTypeId = product.Id, Status = UnitStatus.Issued, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Abo = AboGroup.O, RhD = RhType.Negative };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+        context.Issues.Add(new Issue { BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-30), IssuedBy = "tech-test", Status = IssueStatus.Issued });
+        await context.SaveChangesAsync();
+
+        Assert.Contains(await Board(context).ListAsync(), r => r.UnitId == unit.Id);
+        unit.Status = UnitStatus.Missing;
+        await context.SaveChangesAsync();
+        Assert.DoesNotContain(await Board(context).ListAsync(), r => r.UnitId == unit.Id);
+        Assert.True(InventoryStatusTransition.IsAllowed(UnitStatus.Issued, UnitStatus.Missing));
+    }
+
     [Fact]
     public async Task MinimumStock_ShowsOnHandAgainstTheMinimum()
     {

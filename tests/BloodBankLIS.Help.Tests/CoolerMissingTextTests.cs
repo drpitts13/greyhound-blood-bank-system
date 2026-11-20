@@ -19,7 +19,7 @@ public class CoolerMissingTextTests
             MissingUnits = CoolerCheckService.CheckMissing(check)
         };
 
-        Assert.Equal($"Missing from Cooler 1 when it was checked ({ClinicalTimeText.Local(checkedUtc)}): find the unit.",
+        Assert.Equal($"Missing from Cooler 1 when it was checked ({ClinicalTimeText.Local(checkedUtc)}): find the unit, or record it missing on its unit page.",
             CoolerMissingText.For(cooler, "W0001230009101"));
         Assert.Null(CoolerMissingText.For(cooler, "W0001230009102"));
         Assert.Null(CoolerMissingText.For(cooler with { LastCheckedUtc = null }, "W0001230009101"));

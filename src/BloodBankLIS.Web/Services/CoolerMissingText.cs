@@ -13,6 +13,6 @@ public static class CoolerMissingText
     public static string? For(OpenCoolerDto? cooler, string? unitNumber) =>
         cooler is { LastCheckedUtc: DateTime checkedUtc } && !string.IsNullOrWhiteSpace(unitNumber)
         && cooler.MissingUnits.Any(u => string.Equals(u.Trim(), unitNumber.Trim(), StringComparison.OrdinalIgnoreCase))
-            ? $"Missing from {cooler.CoolerId} when it was checked ({ClinicalTimeText.Local(checkedUtc)}): find the unit."
+            ? $"Missing from {cooler.CoolerId} when it was checked ({ClinicalTimeText.Local(checkedUtc)}): find the unit, or record it missing on its unit page."
             : null;
 }

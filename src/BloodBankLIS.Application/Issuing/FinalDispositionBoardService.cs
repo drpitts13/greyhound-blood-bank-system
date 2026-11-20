@@ -65,7 +65,8 @@ public sealed class FinalDispositionBoardService
         foreach (var issue in issued.OrderBy(row => row.IssuedUtc))
         {
             var unit = await _inventory.GetUnitAsync(issue.BloodProductId, ct);
-            var discarded = unit?.Status == UnitStatus.Discarded;
+            // Pass 326: a unit recorded missing after issue has its outcome recorded (it is reviewed on the supervisor queue).
+            var discarded = unit?.Status is UnitStatus.Discarded or UnitStatus.Missing;
             if (!FinalDispositionDueRule.IsOverdue(
                     issue.IssuedUtc, now, hours, transfusionIds.Contains(issue.Id), returnIds.Contains(issue.Id), discarded))
             {

@@ -1110,3 +1110,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1102 | The test worklist says when rush tests are not timed because the STAT turnaround target is not set. | P2 | FRS-BB-1220 |
 | URS-BB-1103 | Decisions that belong to the medical director are facility settings, shipped at the decision already made, so each facility's medical director can set them. | P1 | FRS-BB-1221 |
 | URS-BB-1104 | A Ready to issue row says when a second ABO/Rh is still due, whatever badge it shows. | P2 | FRS-BB-1222 |
+| URS-BB-1105 | An issued unit that never reached the ward can be recorded missing, and then leaves the transit and disposition boards. | P2 | FRS-BB-1223 |
