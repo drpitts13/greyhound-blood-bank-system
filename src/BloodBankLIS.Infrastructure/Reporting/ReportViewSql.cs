@@ -197,6 +197,26 @@ public static class ReportViewSql
             INNER JOIN Patients p ON p.Id = a.PatientId
             """);
 
+        // Pass 329: every special transfusion requirement on file, with its term and whether it is active.
+        yield return (ReportViewCatalog.SpecialRequirements, $"""
+            SELECT
+                r.EffectiveUtc AS effective_utc,
+                p.MedicalRecordNumber AS mrn,
+                p.LastName AS last_name,
+                p.FirstName AS first_name,
+                p.DateOfBirth AS date_of_birth,
+                CASE WHEN d.Name IS NOT NULL THEN d.Name WHEN r.RequirementType = 0 THEN 'Irradiated' WHEN r.RequirementType = 1 THEN 'CMV-negative' WHEN r.RequirementType = 2 THEN 'Leukoreduced' WHEN r.RequirementType = 3 THEN 'Washed' WHEN r.RequirementType = 4 THEN 'Antigen-negative' ELSE 'Other' END AS requirement,
+                r.AntigenCode AS antigen,
+                r.Reason AS reason,
+                r.ExpiresUtc AS expires_utc,
+                CASE WHEN r.IsActive = 1 THEN 'Yes' ELSE 'No' END AS active,
+                r.EnteredBy AS entered_by,
+                r.DeactivationReason AS deactivation_reason
+            FROM SpecialTransfusionRequirements r
+            INNER JOIN Patients p ON p.Id = r.PatientId
+            LEFT JOIN SpecialRequirementDefinitions d ON d.Id = r.RequirementDefinitionId
+            """);
+
         // Pass 139: every reagent QC reading, with its lot and reagent.
         yield return (ReportViewCatalog.ReagentQc, """
             SELECT

@@ -39,6 +39,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.Lookback => LookbackAsync(cancellationToken),
             ReportSourceCatalog.Rhig => RhigAsync(cancellationToken),
             ReportSourceCatalog.Antibodies => AntibodiesAsync(cancellationToken),
+            ReportSourceCatalog.SpecialRequirements => SpecialRequirementsAsync(cancellationToken),
             ReportSourceCatalog.ReagentQc => ReagentQcAsync(cancellationToken),
             ReportSourceCatalog.EquipmentChecks => EquipmentChecksAsync(cancellationToken),
             ReportSourceCatalog.Deviations => DeviationsAsync(cancellationToken),
@@ -197,6 +198,45 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("closed_utc", ReportValueFormat.Date(row.ClosedUtc)),
             ("hemovigilance_reported_on", row.HemovigilanceReportedOn is DateOnly reportedOn ? ReportValueFormat.Date(reportedOn) : null),
             ("hemovigilance_reference", ReportValueFormat.Text(row.HemovigilanceReference)))).ToList();
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> SpecialRequirementsAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from r in _db.SpecialTransfusionRequirements.AsNoTracking()
+            join patient in _db.Patients.AsNoTracking() on r.PatientId equals patient.Id
+            join definition in _db.SpecialRequirementDefinitions.AsNoTracking() on r.RequirementDefinitionId equals definition.Id into defs
+            from definition in defs.DefaultIfEmpty()
+            select new
+            {
+                r.EffectiveUtc,
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName,
+                patient.DateOfBirth,
+                DefinitionName = definition == null ? null : definition.Name,
+                r.RequirementType,
+                r.AntigenCode,
+                r.Reason,
+                r.ExpiresUtc,
+                r.IsActive,
+                r.EnteredBy,
+                r.DeactivationReason
+            }).ToListAsync(cancellationToken);
+
+        return rows.Select(row => ReportValueFormat.Row(
+            ("effective_utc", ReportValueFormat.Date(row.EffectiveUtc)),
+            ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+            ("last_name", ReportValueFormat.Text(row.LastName)),
+            ("first_name", ReportValueFormat.Text(row.FirstName)),
+            ("date_of_birth", ReportValueFormat.Date(row.DateOfBirth)),
+            ("requirement", ReportValueFormat.Text(row.DefinitionName) ?? SpecialRequirementLabel.TypeName(row.RequirementType)),
+            ("antigen", ReportValueFormat.Text(row.AntigenCode)),
+            ("reason", ReportValueFormat.Text(row.Reason)),
+            ("expires_utc", ReportValueFormat.Date(row.ExpiresUtc)),
+            ("active", row.IsActive ? "Yes" : "No"),
+            ("entered_by", ReportValueFormat.Text(row.EnteredBy)),
+            ("deactivation_reason", ReportValueFormat.Text(row.DeactivationReason)))).ToList();
     }
 
     private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> AntibodiesAsync(CancellationToken cancellationToken)

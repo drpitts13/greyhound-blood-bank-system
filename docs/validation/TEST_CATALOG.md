@@ -1376,5 +1376,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1365 | I | `CompetitorGapWorkflowTests.OverdueDisposition_LeavesOutAUnitRecordedMissing` | URS-BB-1105 / FRS-BB-1223 |
 | TEST-BB-1366 | I | `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesMissingUnit_UntilLocated` | URS-BB-1106 / FRS-BB-1224 |
 | TEST-BB-1367 | I | `ReportServiceTests.AntibodiesReport_ListsThePatientAntibodyRecord` | URS-BB-1107 / FRS-BB-1225 |
+| TEST-BB-1368 | I | `ReportServiceTests.SpecialRequirementsReport_ListsEachRequirement` | URS-BB-1108 / FRS-BB-1226 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

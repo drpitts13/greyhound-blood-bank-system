@@ -24,6 +24,7 @@ public static class ReportSourceCatalog
     public const string ReagentQc = "reagent_qc";
     public const string EquipmentChecks = "equipment_checks";
     public const string Antibodies = "antibodies";
+    public const string SpecialRequirements = "special_requirements";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -101,6 +102,20 @@ public static class ReportSourceCatalog
             Field("identified_by", "Identified by"),
             Field("identified_on", "Identified on"),
             Field("confirmed_utc", "Confirmed here", ReportValueKind.Date),
+            Field("deactivation_reason", "Deactivation reason")),
+        // Pass 329: every special transfusion requirement on file (irradiated, CMV-negative, antigen-negative and others).
+        Source(SpecialRequirements, "Patient special requirements", ReportViewCatalog.SpecialRequirements,
+            Field("effective_utc", "In effect from", ReportValueKind.Date),
+            Field("mrn", "MRN"),
+            Field("last_name", "Last name"),
+            Field("first_name", "First name"),
+            Field("date_of_birth", "Date of birth"),
+            Field("requirement", "Requirement"),
+            Field("antigen", "Antigen"),
+            Field("reason", "Reason"),
+            Field("expires_utc", "Ends", ReportValueKind.Date),
+            Field("active", "Active"),
+            Field("entered_by", "Entered by"),
             Field("deactivation_reason", "Deactivation reason")),
         // Pass 139: every reagent QC reading, for the QC record of a period (the Reagents page shows 14 days).
         Source(ReagentQc, "Reagent QC", ReportViewCatalog.ReagentQc,

@@ -22,6 +22,7 @@ public static class ReportViewCatalog
     public const string ReagentQc = "rpt_reagent_qc";
     public const string EquipmentChecks = "rpt_equipment_checks";
     public const string Antibodies = "rpt_antibodies";
+    public const string SpecialRequirements = "rpt_special_requirements";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -39,6 +40,7 @@ public static class ReportViewCatalog
         BloodOrderTurnaround,
         Rhig,
         Antibodies,
+        SpecialRequirements,
         ReagentQc,
         EquipmentChecks
     };

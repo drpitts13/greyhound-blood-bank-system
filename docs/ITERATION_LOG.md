@@ -28509,3 +28509,21 @@ Reviewed the retype board, antibody identification worklist, downtime snapshot a
 ### Tests
 
 - TEST-BB-1367 (and the seeded report count is now 20). Full suite passed.
+
+## Iteration 1051 — End-user testing pass 329: patient special requirements report (2026-11-20)
+
+### How it was tested
+
+Continued from the report catalog after pass 328, as the supervisor reviewing special transfusion requirements.
+
+### Found and fixed
+
+1. **No report of patients' special transfusion requirements.** Requirements are enforced at every issue and need periodic review (for example a transplant patient's irradiation that should end), but the only place to see them was each chart; Demo-Special, Avery's three requirements appeared in no list. **Patient special requirements** (RPT-SPECIAL-REQUIREMENTS) now lists every requirement on file with the patient, the requirement as named in the catalog, antigen, reason, start and end, whether it is active and who entered it; the SQL designer reads `rpt_special_requirements`.
+
+### Retested live
+
+- The report lists Avery's irradiated, CMV-negative and call-the-physician requirements.
+
+### Tests
+
+- TEST-BB-1368 (the seeded report count is now 21). Full suite passed.
