@@ -88,7 +88,8 @@ public static class Ui
                 : t.ToLowerInvariant();
         }
 
-        return string.Join(' ', tokens);
+        // Loop 2 tick 2: "AboRh" reads as ABO/Rh, not "ABO rh" (test categories and value types read "ABO rh retype").
+        return System.Text.RegularExpressions.Regex.Replace(string.Join(' ', tokens), @"\bABO rh\b", "ABO/Rh");
     }
 
     public static string Badge(SpecimenStatus status) => status switch

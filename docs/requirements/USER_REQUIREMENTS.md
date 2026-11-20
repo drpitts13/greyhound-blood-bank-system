@@ -1129,3 +1129,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1121 | Blood utilization compares each C:T ratio with the facility's target, when one is set. | P2 | FRS-BB-1239 |
 | URS-BB-1122 | Reagent QC names active reagents not linked to any test, whose lots results do not record. | P2 | FRS-BB-1240 |
 | URS-BB-1123 | The ISBT catalog loads the standard published ABO/RhD group codes, and manual ISBT receipt prefills no codes. | P1 | FRS-BB-1241 |
+| URS-BB-1124 | Choices and catalog columns read ABO/Rh with its slash, and test value types read in words. | P3 | FRS-BB-1242 |

@@ -34,7 +34,11 @@ public partial class EnumTextTests
 
     [Theory]
     [InlineData("Hl7Message", "HL7 message")]
-    [InlineData("AboRhType", "ABO rh type")]
+    // TEST-BB-1384 (end-user testing loop 2 tick 2): ABO/Rh reads with its slash.
+    [InlineData("AboRhType", "ABO/Rh type")]
+    [InlineData("AboRhRetype", "ABO/Rh retype")]
+    [InlineData("AboRh", "ABO/Rh")]
+    [InlineData("FreeText", "Free text")]
     [InlineData("RhDNegative", "RhD negative")]
     [InlineData("DatPositive", "DAT positive")]
     [InlineData("XMCompatible", "XM compatible")]

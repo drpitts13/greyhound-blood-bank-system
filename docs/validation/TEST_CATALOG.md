@@ -1392,5 +1392,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1381 | U, I | `UtilizationRuleTests.AboveCtTarget_FollowsTheTarget`, `UtilizationServiceTests.Report_CarriesTheCtRatioTarget`, `UtilizationTargetTests.Row_MarksAboveTarget` | URS-BB-1121 / FRS-BB-1239 |
 | TEST-BB-1382 | U | `ReagentRegisterPageTests.UnlinkedReagents_AreNamed` | URS-BB-1122 / FRS-BB-1240 |
 | TEST-BB-1383 | I, U | `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent`, `IsbtReceiveDefaultsTests.ManualEntry_PrefillsNoCodes` | URS-BB-1123 / FRS-BB-1241 |
+| TEST-BB-1384 | U | `EnumTextTests.EnumText_KeepsAcronyms` | URS-BB-1124 / FRS-BB-1242 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

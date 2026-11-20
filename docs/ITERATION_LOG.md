@@ -28810,3 +28810,21 @@ Started the new review loop (navigation, clutter, builder tools, simplification,
 ### Tests
 
 - TEST-BB-1383. Full suite passed.
+
+## Iteration 1067 — End-user testing loop 2, tick 2: ABO/Rh and value types in words (2026-11-20)
+
+### How it was tested
+
+Reviewed the test builder (Admin › Test Definitions) for item 6. The catalog already covers each blood bank test kind: ABO/Rh, weak D (single and panel), neonatal type and screen, antibody screen and identification, DAT and DAT IgG/C3, elution, serologic, electronic and complex crossmatch, patient and unit antigen typing, ABO/Rh retypes, antibody and ABO titers, and fetal bleed quantitation, several as draft examples to activate; value types cover coded, numeric, free text, ABO/Rh, subtest panels, blood attributes, crossmatch and titer.
+
+### Found and fixed
+
+1. **Catalog columns read as code names.** Categories read *ABO rh* and *ABO rh retype*, and value types *FreeText* and *AboRh*, beside friendly ones such as *Blood attribute*. ABO/Rh now reads with its slash wherever an enum is shown in words, and every value type reads in words (*Free text*, *ABO/Rh*).
+
+### Retested live
+
+- Test Definitions reads *ABO/Rh*, *ABO/Rh retype*, *Free text*.
+
+### Tests
+
+- TEST-BB-1384. Full suite passed.

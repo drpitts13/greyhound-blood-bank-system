@@ -576,7 +576,8 @@
             ResultValueType.BloodAttribute => "Blood attribute",
             ResultValueType.Crossmatch => "Crossmatch",
             ResultValueType.ComplexCrossmatch => "Complex crossmatch",
-            _ => valueType.ToString()
+            // Loop 2 tick 2: the rest in words too (FreeText, AboRh read as code names).
+            _ => Ui.EnumText(valueType)
         };
 
     private void ToggleBloodAttrScope(string code, bool selected)
