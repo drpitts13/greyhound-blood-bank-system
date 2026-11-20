@@ -28527,3 +28527,21 @@ Continued from the report catalog after pass 328, as the supervisor reviewing sp
 ### Tests
 
 - TEST-BB-1368 (the seeded report count is now 21). Full suite passed.
+
+## Iteration 1052 — End-user testing pass 330: Document transfusion before ward receipt (2026-11-20)
+
+### How it was tested
+
+Reviewed Kellerman, Diane's chart (anti-K drives antigen-negative selection without a separate requirement), MTP packs, then Demo-Multi, Riley's Product History as the nurse documenting a transfusion.
+
+### Found and fixed
+
+1. **Document transfusion led to a form that would refuse the save.** Product History offered *Document transfusion* for W0001230009204, issued to ICU 4 but never received on the ward; the link opened the bedside form, and the facility documents a transfusion only after ward receipt (`TX-WARD-RECEIPT`), so the nurse would fill the form only to be refused. The link now opens **Ward receipt** with that unit and says *Unit W0001230009204 has not been received on the ward. Record its receipt here first; then document the transfusion.* With receipt not required, it opens the bedside form as before.
+
+### Retested live
+
+- `/issuing?desk=transfuse&issueId=10` opens Ward receipt with the note.
+
+### Tests
+
+- TEST-BB-1369. Full suite passed.

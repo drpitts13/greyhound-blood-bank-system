@@ -21,6 +21,8 @@ public static class ReferenceEndpoints
     private static readonly HashSet<string> ReadablePolicyKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         FacilityPolicyKeys.RequireSecondAboForCellularIssue,
+        // Pass 330: a chart's Document transfusion link opens ward receipt first when receipt is required.
+        FacilityPolicyKeys.RequireWardReceipt,
         // The deviation form checks closing against the facility's FDA reportability setting (OCD-090).
         FacilityPolicyKeys.DeviationFdaReportabilityToClose,
         // Record crossmatch does not offer Electronic while the facility has it off (end-user testing pass 174).

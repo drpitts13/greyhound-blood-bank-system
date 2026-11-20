@@ -1114,3 +1114,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1106 | A missing or damaged unit on the supervisor queue says how it is closed, including writing off a unit that cannot be found. | P2 | FRS-BB-1224 |
 | URS-BB-1107 | The blood bank can list its patient antibody record as a report. | P2 | FRS-BB-1225 |
 | URS-BB-1108 | The blood bank can list patients' special transfusion requirements as a report. | P2 | FRS-BB-1226 |
+| URS-BB-1109 | Documenting a transfusion from the chart leads to ward receipt first when the unit has not been received and receipt is required. | P2 | FRS-BB-1227 |

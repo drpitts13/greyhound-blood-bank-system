@@ -27,3 +27,5 @@ Each line keeps the unit number, product, patient identifiers used at issue, and
 > - **Infant, negative screen: group O issued without a crossmatch** under the neonatal rules.
 >
 > These were recorded with the issue and in the audit trail; the row repeats them so a review does not need the audit trail to find them.
+
+**Document transfusion** on an issued unit opens the bedside form on Issue & Transfuse. When the unit has not been received on the ward and your facility documents a transfusion only after ward receipt, it opens **Ward receipt** with that unit instead, saying to record the receipt first; then document the transfusion.

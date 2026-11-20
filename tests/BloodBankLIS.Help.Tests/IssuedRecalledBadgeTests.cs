@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Web.Components.Pages;
 using Bunit;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BloodBankLIS.Help.Tests;
 
@@ -82,5 +83,30 @@ public class IssuedRecalledBadgeTests : BunitContext
 
         Assert.Equal(["W0001230009101"], page.FindAll("[data-cooler-missing]").Select(n => n.GetAttribute("data-cooler-missing")));
         Assert.Equal(2, page.FindAll("[data-cooler-check-badge]").Count);
+    }
+
+    // TEST-BB-1369 (end-user testing pass 330): a chart's Document transfusion link for a unit not yet received on the
+    // ward opens ward receipt with that unit and says to receive it first, since the transfusion would be refused.
+    [Fact]
+    public void DocumentTransfusionLink_ForAUnitNotReceived_OpensWardReceipt()
+    {
+        var issued = DateTime.UtcNow.AddHours(-2);
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/issues/outstanding"] = new List<OutstandingIssueWorkItemDto>
+            {
+                new(42, 5, "MRN5", "Demo, Pat", "1980-01-01", 142, "W0001230009204", "O+", false, null,
+                    null, false, issued, null, null, null, "ICU 4", IssueStatus.Issued, ProductName: "Red Blood Cells")
+            },
+            ["/api/issues/in-transit"] = new List<InTransitWorkItemDto>
+            {
+                new(42, 5, "MRN5", "Demo, Pat", 142, "W0001230009204", "O+", false, null, null, false, issued, null, false, null, "ICU 4", IssueStatus.Issued)
+            }
+        });
+        Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().NavigateTo("/issuing?desk=transfuse&issueId=42");
+
+        var page = Render<Issuing>();
+        page.WaitForAssertion(() => Assert.Contains("has not been received on the ward", page.Markup));
+        Assert.Contains("Record its receipt here first; then document the transfusion.", page.Markup);
     }
 }
