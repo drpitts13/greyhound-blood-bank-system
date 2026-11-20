@@ -28755,3 +28755,21 @@ Worked the RhIG queue as the technologist following up DEMO-RHIG, Noor (delivery
 ### Tests
 
 - TEST-BB-1380. Full suite passed.
+
+## Iteration 1064 — End-user testing pass 342: C:T ratio target (2026-11-20)
+
+### How it was tested
+
+Checked equipment on the worklist, instrument failures, minimum stock, then ran Blood utilization for the last 30 days as the transfusion safety officer preparing utilization review.
+
+### Found and fixed
+
+1. **No C:T ratio target to review against.** The ICU line and the total ran 3.00 and 3.50, but the page only reported numbers and left the target to the reader; utilization review compares each location and provider with the facility's target. The target is now a facility setting, **C:T ratio target (tenths)** on Facility Policies (Quality), not set by default since the value is the medical director's or transfusion committee's. Once set, the page states it and marks each line above it, or with units crossmatched and none transfused, **Above target**. While unset, the page says no target is set.
+
+### Retested live
+
+- Blood utilization says no target is set and marks nothing; the setting is listed on Facility Policies. Dev data was not changed.
+
+### Tests
+
+- TEST-BB-1381. Full suite passed.

@@ -52,6 +52,9 @@ public static class FacilityPolicyKeys
     /// <summary>Minutes a STAT or urgent test may wait from order to verification before it is marked (pass 106). 0 = not set.</summary>
     public const string RushTestTurnaroundMinutes = "Testing.RushTurnaroundTargetMinutes";
 
+    /// <summary>The facility's crossmatch-to-transfusion ratio target, in tenths (20 = 2.0); 0 = not set (pass 342).</summary>
+    public const string UtilizationCtRatioTargetTenths = "Utilization.CtRatioTargetTenths";
+
     /// <summary>Minutes before a blood order's needed-by time that it is marked as needed soon (OCD-075). 0 = off.</summary>
     public const string BloodOrderNeededBySoonMinutes = "BloodOrder.NeededBySoonMinutes";
     public const string MtpIdleReminderMinutes = "Mtp.IdleReminderMinutes";

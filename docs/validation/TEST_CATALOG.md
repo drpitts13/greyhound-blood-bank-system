@@ -1389,5 +1389,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1378 | U | `ReactionWorkupCompletenessRuleTests.Outstanding_ListsEveryStepStillDue`, `ReactionWorkupRulesTests.CloseGate_NamesTheNextMissingStep_InOrder` | URS-BB-1118 / FRS-BB-1236 |
 | TEST-BB-1379 | I | `ReactionInvestigationServiceTests.PatientList_FlagsAReactionUnderInvestigation` | URS-BB-1119 / FRS-BB-1237 |
 | TEST-BB-1380 | U | `RhigQueueSuggestionTests.Queue_ShowsTheSuggestion` | URS-BB-1120 / FRS-BB-1238 |
+| TEST-BB-1381 | U, I | `UtilizationRuleTests.AboveCtTarget_FollowsTheTarget`, `UtilizationServiceTests.Report_CarriesTheCtRatioTarget`, `UtilizationTargetTests.Row_MarksAboveTarget` | URS-BB-1121 / FRS-BB-1239 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

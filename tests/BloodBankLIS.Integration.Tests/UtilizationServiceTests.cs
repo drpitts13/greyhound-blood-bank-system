@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Reporting;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Persistence;
 
 namespace BloodBankLIS.Integration.Tests;
@@ -121,6 +122,31 @@ public class UtilizationServiceTests : IDisposable
         Assert.Equal(0, report.Total.Crossmatched);
         Assert.Null(report.Total.CrossmatchToTransfusionRatio);
         Assert.True(report.FromUtc < report.ToUtc);
+    }
+
+    // TEST-BB-1381 (end-user testing pass 342): the report carries the facility's C:T ratio target, or none when unset.
+    [Fact]
+    public async Task Report_CarriesTheCtRatioTarget()
+    {
+        await using var c = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        UtilizationService WithPolicy() => new(new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c), new EfRepository<TransfusionEvent>(c),
+            new EfRepository<Order>(c), new EfRepository<OrderingLocation>(c), new EfRepository<OrderingProvider>(c), _factory.Clock,
+            policy: new BloodBankLIS.Application.Compliance.FacilityPolicyService(new EfRepository<SystemSetting>(c)));
+
+        Assert.Null((await WithPolicy().GetAsync(now.AddDays(-1), now)).CtRatioTarget);
+        var setting = new SystemSetting { Key = FacilityPolicyKeys.UtilizationCtRatioTargetTenths, Value = "25" };
+        c.SystemSettings.Add(setting);
+        await c.SaveChangesAsync();
+        try
+        {
+            Assert.Equal(2.5m, (await WithPolicy().GetAsync(now.AddDays(-1), now)).CtRatioTarget);
+        }
+        finally
+        {
+            c.SystemSettings.Remove(setting);
+            await c.SaveChangesAsync();
+        }
     }
 
     private sealed record Fixture(

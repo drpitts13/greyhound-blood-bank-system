@@ -33,4 +33,18 @@ public class UtilizationRuleTests
         Assert.Equal(0.0m, UtilizationRule.Percent(0, 3));
         Assert.Null(UtilizationRule.Percent(1, 0));
     }
+
+    // TEST-BB-1381 (end-user testing pass 342): a line is above the facility's C:T target when its ratio exceeds it or
+    // units were crossmatched and none transfused; with no target set nothing is above.
+    [Fact]
+    public void AboveCtTarget_FollowsTheTarget()
+    {
+        Assert.Equal(2.0m, UtilizationRule.CtTargetFromTenths(20));
+        Assert.Null(UtilizationRule.CtTargetFromTenths(0));
+        Assert.True(UtilizationRule.AboveCtTarget(7, 2, 2.0m));
+        Assert.False(UtilizationRule.AboveCtTarget(4, 2, 2.0m));
+        Assert.True(UtilizationRule.AboveCtTarget(1, 0, 2.0m));
+        Assert.False(UtilizationRule.AboveCtTarget(0, 0, 2.0m));
+        Assert.False(UtilizationRule.AboveCtTarget(7, 0, null));
+    }
 }

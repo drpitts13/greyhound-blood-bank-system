@@ -45,6 +45,7 @@ Decisions that belong to the transfusion service medical director are facility s
 | Setting | Category | Ships at | Choices |
 | --- | --- | --- | --- |
 | *FDA reportability needed to close a deviation* | Quality | 2 | 0 none; 1 every deviation; 2 major and critical; 3 critical only (OCD-090) |
+| *C:T ratio target (tenths)* | Quality | 0 | The C:T ratio Blood utilization marks lines above, in tenths (20 = 2.0); 0 not set (pass 342) |
 | *Open a deviation for an incompatible retrospective crossmatch* | Issue | on | off raises the critical alert and warning without a deviation (OCD-046) |
 | *Retrospective crossmatch on the expired pre-transfusion specimen* | Compatibility | on | off needs a specimen in date (OCD-050) |
 | *Emergency release before a specimen is drawn* | Issue | on | off refuses emergency and MTP release until a specimen is received (OCD-053) |

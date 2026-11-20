@@ -120,6 +120,10 @@ public sealed class FacilityPolicyService
     public Task<int> GetSpecimenRetentionDaysAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.SpecimenRetentionDays, 0, ct);
 
+    /// <summary>The C:T ratio target in tenths (pass 342); 0 = not set.</summary>
+    public Task<int> GetUtilizationCtRatioTargetTenthsAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.UtilizationCtRatioTargetTenths, 0, ct);
+
     /// <summary>Minutes before a blood order's needed-by time that it counts as needed soon (OCD-075); 0 = off.</summary>
     public Task<int> GetMtpIdleReminderMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.MtpIdleReminderMinutes, MtpIdleRule.DefaultReminderMinutes, ct);

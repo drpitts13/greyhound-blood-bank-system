@@ -1126,3 +1126,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1118 | A reaction investigation asks for the post-transfusion specimen early, right after the clerical check. | P2 | FRS-BB-1236 |
 | URS-BB-1119 | The patient list shows when a massive transfusion protocol is open for the patient. | P2 | FRS-BB-1237 |
 | URS-BB-1120 | The RhIG queue says why no dose was calculated for a suggested candidate. | P2 | FRS-BB-1238 |
+| URS-BB-1121 | Blood utilization compares each C:T ratio with the facility's target, when one is set. | P2 | FRS-BB-1239 |

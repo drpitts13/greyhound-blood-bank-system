@@ -5,7 +5,13 @@
     <td class="right">@Row.Crossmatched</td>
     <td class="right">@Row.Issued</td>
     <td class="right">@Row.Transfused</td>
-    <td class="right">@(Row.CrossmatchToTransfusionRatio is decimal r ? r.ToString("0.00") : "—")</td>
+    <td class="right" data-ct-ratio>@(Row.CrossmatchToTransfusionRatio is decimal r ? r.ToString("0.00") : "—")
+        @if (UtilizationRule.AboveCtTarget(Row.Crossmatched, Row.Transfused, Target))
+        {
+            @* Pass 342: above the facility's C:T ratio target, for utilization review. *@
+            <div><span class="badge badge-amber" title="Above the facility's C:T ratio target of @Target!.Value.ToString("0.0")" data-ct-above-target>Above target</span></div>
+        }
+    </td>
     <td class="right">@Pct(Row.TransfusedPercentOfCrossmatched)</td>
     <td class="right">@Pct(Row.TransfusedPercentOfIssued)</td>
 </tr>
@@ -14,6 +20,9 @@
     [Parameter, EditorRequired] public UtilizationRowDto Row { get; set; } = default!;
 
     [Parameter] public bool Bold { get; set; }
+
+    /// <summary>The facility's C:T ratio target, or null when not set.</summary>
+    [Parameter] public decimal? Target { get; set; }
 
     private static string Pct(decimal? value) => value is decimal v ? $"{v:0.0}%" : "—";
 }

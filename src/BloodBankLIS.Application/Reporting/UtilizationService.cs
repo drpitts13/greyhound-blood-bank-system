@@ -23,6 +23,9 @@ public sealed record UtilizationReportDto(
 {
     /// <summary>Issues, transfusions, returns and discards in the period by product (end-user testing pass 262).</summary>
     public IReadOnlyList<ProductUtilizationRowDto> ByProduct { get; init; } = [];
+
+    /// <summary>The facility's C:T ratio target (Facility Policies), or null when not set (end-user testing pass 342).</summary>
+    public decimal? CtRatioTarget { get; init; }
 }
 
 /// <summary>
@@ -55,6 +58,7 @@ public sealed class UtilizationService
     private readonly IRepository<BloodUnit>? _units;
     private readonly IRepository<ProductType>? _productTypes;
     private readonly IInventoryRepository? _inventory;
+    private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
 
     public UtilizationService(
         IRepository<Crossmatch> crossmatches,
@@ -66,8 +70,10 @@ public sealed class UtilizationService
         IClock clock,
         IRepository<BloodUnit>? units = null,
         IRepository<ProductType>? productTypes = null,
-        IInventoryRepository? inventory = null)
+        IInventoryRepository? inventory = null,
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _units = units;
         _productTypes = productTypes;
         _inventory = inventory;
@@ -136,7 +142,11 @@ public sealed class UtilizationService
             .ThenBy(r => r.OrderingProvider, StringComparer.OrdinalIgnoreCase)
             .ToList();
         var total = Row("All locations", "All providers", facts.Count, facts.Count(f => f.Issued), facts.Count(f => f.Transfused));
-        return new UtilizationReportDto(from, to, total, rows) { ByProduct = await ByProductAsync(from, to, ct) };
+        return new UtilizationReportDto(from, to, total, rows)
+        {
+            ByProduct = await ByProductAsync(from, to, ct),
+            CtRatioTarget = _policy is null ? null : UtilizationRule.CtTargetFromTenths(await _policy.GetUtilizationCtRatioTargetTenthsAsync(ct))
+        };
     }
 
     /// <summary>
