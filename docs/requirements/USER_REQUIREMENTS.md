@@ -1123,3 +1123,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1115 | The tube of an antibody identification still open cannot be discarded. | P1 | FRS-BB-1233 |
 | URS-BB-1116 | The tube of a DAT/elution workup still open cannot be discarded. | P2 | FRS-BB-1234 |
 | URS-BB-1117 | Tubes due for discard leave out tubes that are still kept. | P2 | FRS-BB-1235 |
+| URS-BB-1118 | A reaction investigation asks for the post-transfusion specimen early, right after the clerical check. | P2 | FRS-BB-1236 |

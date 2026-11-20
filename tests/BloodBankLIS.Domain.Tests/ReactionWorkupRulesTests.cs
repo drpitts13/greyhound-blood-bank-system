@@ -62,7 +62,9 @@ public class ReactionWorkupRulesTests
 
         Assert.Contains("Clerical check", Message(false, true, State()));
         Assert.Contains("Visual inspection", Message(true, false, State()));
-        Assert.Equal("Choose the pre-transfusion specimen to order its workup tests.", Message(true, true, State(pre: false, post: false)));
+        // Pass 339: the post-transfusion specimen comes before the visual inspection and the pre-transfusion specimen.
+        Assert.Equal("Accession or choose the post-transfusion specimen to order its workup tests.", Message(true, false, State(pre: false, post: false)));
+        Assert.Equal("Choose the pre-transfusion specimen to order its workup tests.", Message(true, true, State(pre: false)));
         Assert.Equal("Accession or choose the post-transfusion specimen to order its workup tests.", Message(true, true, State(post: false)));
         Assert.Equal("Result and verify the workup tests: 3 still to verify.", Message(true, true, State(prePending: 1, postPending: 2)));
         Assert.Contains("post-transfusion DAT is positive", Message(true, true, State(dat: true)));

@@ -23,8 +23,8 @@ public static class ReactionWorkupCompletenessRule
         bool PostDatPositive);
 
     /// <summary>
-    /// The close gate with the specimen workup: clerical check, visual inspection, both workup specimens with their
-    /// Test Group tests verified, then the elution when the verified post-transfusion DAT is positive. Each message
+    /// The close gate with the specimen workup: clerical check, the post-transfusion specimen (time-critical, pass 339),
+    /// visual inspection, the pre-transfusion specimen, both groups' tests verified, then the elution when the verified post-transfusion DAT is positive. Each message
     /// names the next thing to do.
     /// </summary>
     public static RuleResult Evaluate(
@@ -37,14 +37,16 @@ public static class ReactionWorkupCompletenessRule
         if (!clericalCheckCompleted)
             return RuleResult.HardStop(Code, "Clerical check (patient ID, unit number, ABO/Rh) has not been recorded.");
 
+        // Pass 339: the post-transfusion specimen comes right after the clerical check: its DAT and hemolysis check mean
+        // most drawn soon after the reaction, while the bag and the pre-transfusion tube can be inspected and chosen later.
+        if (!workup.PostLinked)
+            return RuleResult.HardStop(Code, "Accession or choose the post-transfusion specimen to order its workup tests.");
+
         if (!visualInspectionCompleted)
             return RuleResult.HardStop(Code, "Visual inspection of the returned unit or segments has not been recorded.");
 
         if (!workup.PreLinked)
             return RuleResult.HardStop(Code, "Choose the pre-transfusion specimen to order its workup tests.");
-
-        if (!workup.PostLinked)
-            return RuleResult.HardStop(Code, "Accession or choose the post-transfusion specimen to order its workup tests.");
 
         var pending = workup.PrePending + workup.PostPending;
         if (pending > 0)
@@ -71,12 +73,12 @@ public static class ReactionWorkupCompletenessRule
         var steps = new List<string>();
         if (!clericalCheckCompleted)
             steps.Add("Record the clerical check (patient ID, unit number, ABO/Rh).");
+        if (!workup.PostLinked)
+            steps.Add("Accession or choose the post-transfusion specimen to order its workup tests.");
         if (!visualInspectionCompleted)
             steps.Add("Record the visual inspection of the returned unit or segments.");
         if (!workup.PreLinked)
             steps.Add("Choose the pre-transfusion specimen to order its workup tests.");
-        if (!workup.PostLinked)
-            steps.Add("Accession or choose the post-transfusion specimen to order its workup tests.");
         var pending = workup.PrePending + workup.PostPending;
         if (pending > 0)
             steps.Add($"Result and verify the workup tests: {pending} still to verify.");

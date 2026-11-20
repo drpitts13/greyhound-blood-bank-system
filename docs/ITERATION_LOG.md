@@ -28701,3 +28701,21 @@ Followed passes 336 and 337 to the due-for-discard list behind the home card and
 ### Tests
 
 - TEST-BB-1377. Full suite passed.
+
+## Iteration 1061 — End-user testing pass 339: post-transfusion specimen asked for early (2026-11-20)
+
+### How it was tested
+
+Reviewed the unmapped interface values, users and the instrument simulator, then the reaction board as the technologist working Demo-Multi, Riley's investigation.
+
+### Found and fixed
+
+1. **The time-critical specimen came last.** Riley's next step was *visual inspection of the returned unit*, with the pre-transfusion specimen next and the post-transfusion specimen after that, although the post-transfusion DAT and hemolysis check mean most when the tube is drawn soon after the reaction, and the bag and the pre-transfusion tube can be inspected and chosen later. The workup now asks for the post-transfusion specimen right after the clerical check; Riley's next step reads *Accession or choose the post-transfusion specimen to order its workup tests.* What the close requires is unchanged.
+
+### Retested live
+
+- The board shows Riley's new next step; Febrile, Marcus's (*Result and verify the workup tests*) is unchanged.
+
+### Tests
+
+- TEST-BB-1378 (the order assertions in TEST-BB-446, pass 59 and the close-without-workup test updated). Full suite passed.

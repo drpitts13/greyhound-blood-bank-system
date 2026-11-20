@@ -216,7 +216,7 @@ public class ReactionWorkupServiceTests : IDisposable
         Assert.False(state.PreLinked);
         Assert.Null(workups[inv.Id].Pre);
         Assert.Equal("Choose the pre-transfusion specimen to order its workup tests.",
-            ReactionWorkupCompletenessRule.Evaluate(true, true, state, null).Message);
+            ReactionWorkupCompletenessRule.Evaluate(true, true, state with { PostLinked = true }, null).Message);
 
         var replaced = await Workup(c).AttachPreTransfusionSpecimenAsync(s.InvestigationId, new AttachWorkupSpecimenRequest(s.CrossmatchTubeId));
         Assert.True(replaced.Succeeded, replaced.Error);

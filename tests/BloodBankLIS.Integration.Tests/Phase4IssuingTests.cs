@@ -4161,7 +4161,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var withoutSpecimens = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
             null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1, ConcludedReactionCode: "NONE", TreatmentCodes: ["NONE"]));
         Assert.False(withoutSpecimens.Succeeded);
-        Assert.Contains("pre-transfusion specimen", withoutSpecimens.Error);
+        Assert.Contains("post-transfusion specimen", withoutSpecimens.Error); // pass 339: asked for first
         await ReactionWorkupTestData.CompleteAsync(ctx, inv.Id, _factory.Clock.UtcNow);
 
         var closeOk = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
