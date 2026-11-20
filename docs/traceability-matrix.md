@@ -1203,6 +1203,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1087 / FRS-BB-1205 | End-user testing pass 309: recent pregnancy in the chart header | `SpecimenWindowBanner.cs`, `PatientChartHeader.razor` | TEST-BB-1336 | U | |
 | URS-BB-1088 / FRS-BB-1206 | End-user testing pass 310: recent transfusion and the facility window in the chart header | `SpecimenService.cs`, `SpecimenDtos.cs`, `SpecimenEndpoints.cs`, `SpecimenWindowBanner.cs`, `PatientChartHeader.razor` | TEST-BB-1336, TEST-BB-1337 | U, I | |
 | URS-BB-1089 / FRS-BB-1207 | End-user testing pass 311: Document transfusion only while out | `PatientChartProductHistoryTab.razor` | TEST-BB-1338 | U | |
+| URS-BB-1090 / FRS-BB-1208 | End-user testing pass 312: missing-from-cooler on the unit's row | `CoolerCheckService.cs`, `CoolerMissingText.cs`, `Issuing.razor` | TEST-BB-1339 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

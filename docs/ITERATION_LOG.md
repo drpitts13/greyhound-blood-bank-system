@@ -28157,3 +28157,21 @@ On Demo, Patricia's chart, opened the accession form (the visit defaults to her 
 ### Tests
 
 - TEST-BB-1338. Full suite passed.
+
+## Iteration 1032 — End-user testing pass 312: missing-from-cooler on the unit's row (2026-11-20)
+
+### How it was tested
+
+Resumed the loop (the API had failed its first start because both servers built at once; it started cleanly after a build). Opened the issue desk's Final disposition board: six units 12 days past their window, four of them Demo-Massive, Morgan's MTP units in Cooler 1.
+
+### Found and fixed
+
+1. **The missing unit read like its cooler-mates.** Cooler 1's check found W0001230009101 missing (pass 290), but on Final disposition and In transit its row said only *not received on the ward*, the same as the three packed with it, so the one unit to look for did not stand out. Its row now says *Missing from Cooler 1 when it was checked (2026-11-06 09:11): find the unit.* on both boards.
+
+### Retested live
+
+- Only W0001230009101 carries the note, on both boards.
+
+### Tests
+
+- TEST-BB-1339. Full suite passed.

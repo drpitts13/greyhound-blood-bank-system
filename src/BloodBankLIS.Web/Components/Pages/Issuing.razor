@@ -707,6 +707,11 @@
                             <td>
                                 @IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)
                                 @CoolerCheckBadge(row.CoolerId)
+                                @if (CoolerMissingText.For(CoolerCheckFor(row.CoolerId), row.UnitNumber) is { } transitMissing)
+                                {
+                                    @* Pass 312: this unit is the one the cooler check found missing. *@
+                                    <div class="sub text-danger" data-cooler-missing="@row.UnitNumber">@transitMissing</div>
+                                }
                             </td>
                             <td>@(row.IssuedToLocation ?? "—")<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td class="nowrap">
@@ -887,7 +892,13 @@
                         <tr data-disposition-row="@row.IssueId">
                             <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
                             <td>@row.PatientLabel</td>
-                            <td data-disposition-sent-to>@row.SentTo</td>
+                            <td data-disposition-sent-to>@row.SentTo
+                                @if (CoolerMissingText.For(CoolerCheckFor(issued?.CoolerId), row.UnitNumber) is { } dispositionMissing)
+                                {
+                                    @* Pass 312: the cooler check found this unit missing. *@
+                                    <div class="sub text-danger" data-cooler-missing="@row.UnitNumber">@dispositionMissing</div>
+                                }
+                            </td>
                             <td>@row.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@row.DueUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") <span class="muted" data-past-due>@AlertInboxView.OpenFor(row.DueUtc, DateTime.UtcNow) past due</span></td>
                             <td class="right nowrap">
