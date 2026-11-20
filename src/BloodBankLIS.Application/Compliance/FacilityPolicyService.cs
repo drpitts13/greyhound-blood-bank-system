@@ -212,7 +212,8 @@ public sealed class FacilityPolicyService
         {
             RequireExclusionRationale = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdRequireExclusionRationale, true, ct),
             CompleteOnExpiredSpecimen = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdCompleteOnExpiredSpecimen, true, ct),
-            CompleteWithExpiredPanelLot = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdCompleteWithExpiredPanelLot, true, ct)
+            CompleteWithExpiredPanelLot = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdCompleteWithExpiredPanelLot, true, ct),
+            OnReceivedSpecimen = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdOnReceivedSpecimen, true, ct)
         };
     }
 
@@ -275,6 +276,15 @@ public sealed class FacilityPolicyService
 
     public Task<bool> GetBlockInactivePatientClinicalUseAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockInactivePatientClinicalUse, false, ct);
+
+    public Task<int> GetTransfusionReportedForUnitNotIssuedAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.TransfusionReportedForUnitNotIssued, 1, ct);
+
+    /// <summary>OCD-091: what a paper result on a since-expired specimen needs (0 refused, 1 before expiry with a reason, 2 also in an outage).</summary>
+    public Task<int> GetPaperResultOnExpiredSpecimenAsync(ExpiredSpecimenBackEntryRule.Kind kind, CancellationToken ct = default) =>
+        kind == ExpiredSpecimenBackEntryRule.Kind.Crossmatch
+            ? GetIntAsync(FacilityPolicyKeys.CrossmatchOnExpiredSpecimen, 1, ct)
+            : GetIntAsync(FacilityPolicyKeys.PatientTestOnExpiredSpecimen, 2, ct);
 
     public Task<bool> GetCorrectAfterSpecimenExpiryAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.CorrectAfterSpecimenExpiry, true, ct);

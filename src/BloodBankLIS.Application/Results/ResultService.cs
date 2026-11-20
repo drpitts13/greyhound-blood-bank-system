@@ -218,7 +218,8 @@ public sealed class ResultService
             {
                 var kind = await BackEntryKindAsync(request.TestCode, ct);
                 var backEntry = ExpiredSpecimenBackEntryRule.Evaluate(
-                    kind, paperTested, expiredGate.Value!.ExpiresUtc, await OutagesAsync(ct), request.ExpiredSpecimenReason);
+                    kind, paperTested, expiredGate.Value!.ExpiresUtc, await OutagesAsync(ct), request.ExpiredSpecimenReason,
+                    _policy is null ? null : await _policy.GetPaperResultOnExpiredSpecimenAsync(kind, ct));
                 if (backEntry.Severity == RuleSeverity.HardStop)
                 {
                     return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([backEntry]));
@@ -840,7 +841,8 @@ public sealed class ResultService
             var expiredGate = await ValidateSpecimenForEntryAsync(result.SpecimenId, result.TestCode, ct, allowExpired: true);
             if (expiredGate.Succeeded
                 && ExpiredSpecimenBackEntryRule.EvaluateTime(
-                    await BackEntryKindAsync(result.TestCode, ct), verifyTested, expiredGate.Value!.ExpiresUtc, await OutagesAsync(ct)).Severity != RuleSeverity.HardStop)
+                    await BackEntryKindAsync(result.TestCode, ct), verifyTested, expiredGate.Value!.ExpiresUtc, await OutagesAsync(ct),
+                    _policy is null ? null : await _policy.GetPaperResultOnExpiredSpecimenAsync(await BackEntryKindAsync(result.TestCode, ct), ct)).Severity != RuleSeverity.HardStop)
             {
                 specimenGate = expiredGate;
             }

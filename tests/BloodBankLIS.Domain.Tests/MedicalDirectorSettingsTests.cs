@@ -38,6 +38,10 @@ public class MedicalDirectorSettingsTests
     [InlineData(FacilityPolicyKeys.AntibodyIdCompleteOnExpiredSpecimen, "true")]
     [InlineData(FacilityPolicyKeys.AntibodyIdCompleteWithExpiredPanelLot, "true")]
     [InlineData(FacilityPolicyKeys.BlockInactivePatientClinicalUse, "false")]
+    [InlineData(FacilityPolicyKeys.AntibodyIdOnReceivedSpecimen, "true")]
+    [InlineData(FacilityPolicyKeys.TransfusionReportedForUnitNotIssued, "1")]
+    [InlineData(FacilityPolicyKeys.PatientTestOnExpiredSpecimen, "2")]
+    [InlineData(FacilityPolicyKeys.CrossmatchOnExpiredSpecimen, "1")]
     public void Decision_IsAFacilitySetting_DefaultingToTheDecisionMade(string key, string decided)
     {
         var definition = FacilityPolicyCatalog.Find(key);
@@ -164,5 +168,32 @@ public class MedicalDirectorSettingsTests
         Assert.Equal(RuleSeverity.HardStop, PatientMergeRule.EvaluateClinicalUse(PatientStatus.Inactive, blockInactive: true).Severity);
         Assert.Equal(RuleSeverity.HardStop, PatientMergeRule.EvaluateClinicalUse(PatientStatus.Merged).Severity);
         Assert.Equal(RuleSeverity.Pass, PatientMergeRule.EvaluateClinicalUse(PatientStatus.Active, blockInactive: true).Severity);
+    }
+
+    // TEST-BB-1362 (OCD-091, OCD-026): a paper result on a specimen expired since follows the setting for its kind (refused,
+    // tested before expiry, or also in a recorded outage), and a received specimen not yet accepted may be refused for
+    // antibody identification.
+    [Fact]
+    public void PaperResultsAndReceivedSpecimens_FollowTheSettings()
+    {
+        var expires = Now.AddDays(-1);
+        var tested = Now.AddDays(-2);
+        IReadOnlyCollection<DowntimeEpisode> none = [];
+        IReadOnlyCollection<DowntimeEpisode> covering = [new DowntimeEpisode { StartedUtc = tested.AddHours(-1), EndedUtc = tested.AddHours(1) }];
+        var test = ExpiredSpecimenBackEntryRule.Kind.PatientTest;
+        var xm = ExpiredSpecimenBackEntryRule.Kind.Crossmatch;
+
+        Assert.Equal(RuleSeverity.HardStop, ExpiredSpecimenBackEntryRule.EvaluateTime(test, tested, expires, none).Severity);
+        Assert.Equal(RuleSeverity.Pass, ExpiredSpecimenBackEntryRule.EvaluateTime(test, tested, expires, covering).Severity);
+        Assert.Equal(RuleSeverity.Pass, ExpiredSpecimenBackEntryRule.EvaluateTime(test, tested, expires, none, 1).Severity);
+        Assert.Equal(RuleSeverity.Pass, ExpiredSpecimenBackEntryRule.EvaluateTime(xm, tested, expires, none).Severity);
+        Assert.Equal(RuleSeverity.HardStop, ExpiredSpecimenBackEntryRule.EvaluateTime(xm, tested, expires, none, 2).Severity);
+        Assert.Equal(RuleSeverity.HardStop, ExpiredSpecimenBackEntryRule.EvaluateTime(xm, tested, expires, covering, 0).Severity);
+
+        RuleResult[] received = [AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenReadiness(SpecimenStatus.Received, completing: true)];
+        Assert.Equal(RuleSeverity.Warning, received[0].Severity);
+        Assert.Empty(AntibodyIdentificationPolicy.Default.RefusedWarnings(received));
+        Assert.Single((AntibodyIdentificationPolicy.Default with { OnReceivedSpecimen = false }).RefusedWarnings(received),
+            r => r.Severity == RuleSeverity.HardStop);
     }
 }

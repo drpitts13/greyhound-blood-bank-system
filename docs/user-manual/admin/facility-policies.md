@@ -65,6 +65,10 @@ Decisions that belong to the transfusion service medical director are facility s
 | *Titer score per grade* | Result | 0=0, w+=2, 1+=5, 2+=8, 3+=10, 4+=12 | grade=score, 0 to 20 (OCD-065) |
 | *Receipt temperature: lowest / highest (°C)* | Inventory | 1 and 10 | whole degrees (OCD-005) |
 | *Refuse clinical use of an inactive patient* | Patient | off | on refuses new orders, specimens, results, crossmatch and allocation, and issue for an Inactive record (OCD-009) |
+| *Identification on a received, not yet accepted, specimen* | Antibody ID | on | off refuses opening, completing and accepting until the specimen is accepted (OCD-026) |
+| *Transfusion reported for a unit no longer issued* | Transfusion | 1 | 1 record, keep the unit's status, flag for review; 2 hold the message unrecorded among HL7 errors (OCD-083) |
+| *Paper patient test on a specimen expired since* | Result | 2 | 0 refused; 1 tested before expiry with a reason; 2 also in a recorded outage (OCD-091) |
+| *Paper crossmatch on a specimen expired since* | Result | 1 | same choices; also governs whether such a specimen counts at a downtime back-entry issue (0 does not) (OCD-091) |
 
 A list setting is typed comma-separated; a value that does not fit its list (for example a status that is not one capital letter, or a test other than ABORH, ABSC or DAT) is refused when saved and says why.
 

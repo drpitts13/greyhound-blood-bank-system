@@ -205,4 +205,16 @@ public static class FacilityPolicyKeys
 
     /// <summary>OCD-009: an Inactive (not merged) patient record is refused for ordering, specimens, results, crossmatch and issue.</summary>
     public const string BlockInactivePatientClinicalUse = "Patient.BlockInactiveClinicalUse";
+
+    /// <summary>OCD-026: antibody identification on a received, not yet accepted, specimen (with a warning) or refused.</summary>
+    public const string AntibodyIdOnReceivedSpecimen = "AntibodyId.OnReceivedSpecimen";
+
+    /// <summary>OCD-083: an EHR transfusion report for a unit no longer issued (1 record and flag for review, 2 hold unrecorded).</summary>
+    public const string TransfusionReportedForUnitNotIssued = "Transfusion.ReportedForUnitNotIssued";
+
+    /// <summary>OCD-091: a patient test read on paper, entered on a specimen expired since (0 refused, 1 tested before expiry with a reason, 2 also in a recorded outage).</summary>
+    public const string PatientTestOnExpiredSpecimen = "Result.PaperTestOnExpiredSpecimen";
+
+    /// <summary>OCD-091: a crossmatch read on paper, entered on a specimen expired since (same choices).</summary>
+    public const string CrossmatchOnExpiredSpecimen = "Result.PaperCrossmatchOnExpiredSpecimen";
 }

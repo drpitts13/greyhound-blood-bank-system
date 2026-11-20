@@ -37,6 +37,7 @@ public sealed class InterfaceTransfusionService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly BillingService? _billing;
+    private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
 
     public InterfaceTransfusionService(
         IRepository<Patient> patients,
@@ -50,8 +51,10 @@ public sealed class InterfaceTransfusionService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        BillingService? billing = null)
+        BillingService? billing = null,
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _patients = patients;
         _units = units;
         _issues = issues;
@@ -171,6 +174,13 @@ public sealed class InterfaceTransfusionService
         var reportedOver = trackedUnit.Status is UnitStatus.Recalled or UnitStatus.Quarantine or UnitStatus.Damaged or UnitStatus.Missing
             ? trackedUnit.Status
             : (UnitStatus?)null;
+        // A facility setting (Transfusion.ReportedForUnitNotIssued): 2 holds the message unrecorded for review instead.
+        if (reportedOver is UnitStatus heldOver && _policy is not null && await _policy.GetTransfusionReportedForUnitNotIssuedAsync(ct) == 2)
+        {
+            throw new InvalidOperationException(
+                $"Unit {unitKey} is {heldOver} in the blood bank; the transfusion message is held for review and not recorded (facility setting, OCD-083).");
+        }
+
         if (reportedOver is null && trackedUnit.Status is not (UnitStatus.Issued or UnitStatus.TransfusionStarted))
         {
             throw new InvalidOperationException(

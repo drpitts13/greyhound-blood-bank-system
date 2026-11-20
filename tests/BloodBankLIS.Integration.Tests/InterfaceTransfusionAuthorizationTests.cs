@@ -158,6 +158,45 @@ public class InterfaceTransfusionAuthorizationTests : IClassFixture<SqliteContex
         Assert.Equal(UnitStatus.Discarded, (await verify.BloodUnits.FindAsync(unitId))!.Status);
     }
 
+    // TEST-BB-1363 (OCD-083 as a facility setting): with Transfusion.ReportedForUnitNotIssued set to 2, a transfusion
+    // message for a recalled unit is held unrecorded for review instead of being recorded and flagged.
+    [Fact]
+    public async Task Document_UnitNoLongerIssued_IsHeldWhenTheFacilityChooses()
+    {
+        var (unitId, issueId, key) = await SeedIssuedAsync(UnitStatus.Recalled);
+        await using (var c = _factory.Create())
+        {
+            var setting = new SystemSetting { Key = FacilityPolicyKeys.TransfusionReportedForUnitNotIssued, Value = "2" };
+            c.SystemSettings.Add(setting);
+            await c.SaveChangesAsync();
+            try
+            {
+                var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
+                var service = new InterfaceTransfusionService(
+                    new EfRepository<Patient>(c), new EfRepository<BloodUnit>(c), new EfRepository<Issue>(c), new EfRepository<TransfusionEvent>(c),
+                    new InventoryRepository(c),
+                    new ReactionInvestigationService(new EfRepository<ReactionInvestigation>(c), new EfRepository<TransfusionEvent>(c),
+                        new InventoryRepository(c), c, _factory.Clock, _factory.CurrentUser, audit),
+                    c, _factory.Clock, _factory.CurrentUser, audit,
+                    permissions: new FixedPermissionEvaluator(1, PermissionCodes.TransfusionDocument),
+                    policy: new FacilityPolicyService(new EfRepository<SystemSetting>(c)));
+                var result = await service.DocumentAsync(new InterfaceTransfusionRequest($"MRN-{key}", $"U-{key}", null,
+                    _factory.Clock.UtcNow.AddHours(-1), _factory.Clock.UtcNow, 300m, "4W", "RN Smith", false));
+                Assert.False(result.Succeeded);
+                Assert.Contains("held for review and not recorded (facility setting, OCD-083)", result.Error);
+            }
+            finally
+            {
+                c.SystemSettings.Remove(setting);
+                await c.SaveChangesAsync();
+            }
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+        Assert.Equal(UnitStatus.Recalled, (await verify.BloodUnits.FindAsync(unitId))!.Status);
+    }
+
     // TEST-BB-938 (Cycle 700): a reported transfusion waits on the supervisor queue until reviewed; a review needs a note and
     // a permission, is recorded and audited, cannot be repeated, and takes the item off the queue. The recalled unit is no
     // longer on the Recalled board.

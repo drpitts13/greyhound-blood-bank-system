@@ -35,11 +35,15 @@ public sealed record AntibodyIdentificationPolicy(
     /// <summary>OCD-027: completing after an attached panel lot expired is a warning to acknowledge (true) or refused (false).</summary>
     public bool CompleteWithExpiredPanelLot { get; init; } = true;
 
+    /// <summary>OCD-026: a received, not yet accepted, specimen is a warning to acknowledge (true) or refused (false).</summary>
+    public bool OnReceivedSpecimen { get; init; } = true;
+
     /// <summary>The completion or acceptance warnings this facility refuses instead (OCD-025, OCD-027), as hard stops.</summary>
     public IReadOnlyList<BloodBankLIS.Domain.Rules.RuleResult> RefusedWarnings(IEnumerable<BloodBankLIS.Domain.Rules.RuleResult> results) =>
         results
             .Where(r => r.Severity == BloodBankLIS.Domain.Rules.RuleSeverity.Warning
                 && ((!CompleteOnExpiredSpecimen && r.Code == BloodBankLIS.Domain.Rules.AntibodyIdentificationWorkupScopeRule.SpecimenExpiredCode)
+                    || (!OnReceivedSpecimen && r.Code == BloodBankLIS.Domain.Rules.AntibodyIdentificationWorkupScopeRule.SpecimenUnacceptedCode)
                     || (!CompleteWithExpiredPanelLot && r.Code == BloodBankLIS.Domain.Rules.AntibodyPanelLotValidityRule.ExpiredCode)))
             .Select(r => BloodBankLIS.Domain.Rules.RuleResult.HardStop(r.Code, r.Message + " This facility does not complete identification on it (facility setting)."))
             .ToList();

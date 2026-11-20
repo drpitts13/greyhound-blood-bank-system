@@ -193,9 +193,12 @@ Decided 2026-11-20 (product owner, in conversation): anything that needs a medic
 | OCD-061 (tests) | `Result.BatchVerifyTests` | ABORH,ABSC,DAT |
 | OCD-065 (scores) | `Titer.GradeScores` | 0=0,w+=2,1+=5,2+=8,3+=10,4+=12 |
 | OCD-009 | `Patient.BlockInactiveClinicalUse` | false (inactive records stay usable) |
+| OCD-026 | `AntibodyId.OnReceivedSpecimen` | true (warning to acknowledge) |
+| OCD-083 | `Transfusion.ReportedForUnitNotIssued` | 1 (record and flag; 2 holds unrecorded) |
+| OCD-091 | `Result.PaperTestOnExpiredSpecimen`, `Result.PaperCrossmatchOnExpiredSpecimen` | 2 (patient tests: before expiry, in an outage), 1 (crossmatches: before expiry) |
 
 Already settings before this change: OCD-002, OCD-003, OCD-006, OCD-008, OCD-013, OCD-020 (counts), OCD-021, OCD-036, OCD-037, OCD-038, OCD-039, OCD-040, OCD-056, OCD-061 (on/off), OCD-064, OCD-067, OCD-068 (per product), OCD-069 (dose), OCD-070, OCD-074, OCD-075, OCD-076, OCD-077, OCD-086, OCD-087, OCD-088 (per interface), OCD-089.
 
-Still built in, to convert next: OCD-026 (identification on a specimen not yet accepted), OCD-083 (transfusion reported for a unit no longer issued: options A, C and D need new behavior) and OCD-091 (results on a since-expired specimen: several combined rules).
+Every decided medical director decision that was built in is now a setting. OCD-083 offers options B (record and flag, as decided) and a hold of the message unrecorded for review (C and D); option A (record and set the unit Transfused) is not offered because it would erase the recall or quarantine status the lookback and the supervisor review rely on.
 
 Not made settings: rules that keep an ABO-incompatible or wrong-patient unit from being given (OCD-001, OCD-044, OCD-082), label identifier requirements (OCD-080), record retention and audit (OCD-007), and decisions that are permissions (already set per role), interface transport, or software design (OCD-004, OCD-010, OCD-012, OCD-014, OCD-015, OCD-022, OCD-023, OCD-033, OCD-034, OCD-043, OCD-047, OCD-048, OCD-054, OCD-055, OCD-062, OCD-063, OCD-066, OCD-092).

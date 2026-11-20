@@ -318,12 +318,15 @@ public sealed class IssuingService
         var gateTime = DowntimeBackEntryRule.GateTime(backEntry, requestedIssuedUtc, now);
         var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
         var bloodType = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
+        // OCD-091, a facility setting (crossmatch on paper): 0 means a specimen expired since does not count at back-entry.
+        var expiredSinceCounts = !backEntry
+            || await _policy.GetPaperResultOnExpiredSpecimenAsync(ExpiredSpecimenBackEntryRule.Kind.Crossmatch, ct) > 0;
         var specimen = backEntry
             ? (await _specimens.ListAsync(
                 // OCD-091 (option B): a specimen that has expired since still counts when it was acceptable at the paper time.
                 s => s.PatientId == request.PatientId && s.CollectedUtc <= gateTime
                     && (s.Status == SpecimenStatus.Accepted
-                        || (s.Status == SpecimenStatus.Expired && (s.ExpiresUtc == null || s.ExpiresUtc > gateTime))), ct))
+                        || (expiredSinceCounts && s.Status == SpecimenStatus.Expired && (s.ExpiresUtc == null || s.ExpiresUtc > gateTime))), ct))
                 .OrderByDescending(s => s.CollectedUtc)
                 .FirstOrDefault()
             : await GetCurrentSpecimenAsync(request.PatientId, ct);

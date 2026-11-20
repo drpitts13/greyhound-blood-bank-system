@@ -19,27 +19,40 @@ public static class ExpiredSpecimenBackEntryRule
         Crossmatch
     }
 
+    /// <summary>The facility setting's default for each kind (OCD-091 as decided): 2 for patient tests, 1 for crossmatches.</summary>
+    public static int DefaultRequirement(Kind kind) => kind == Kind.Crossmatch ? 1 : 2;
+
     /// <summary>The checks that hold at entry and again at verification (no reason needed then).</summary>
-    public static RuleResult EvaluateTime(Kind kind, DateTime testedUtc, DateTime? specimenExpiresUtc, IEnumerable<DowntimeEpisode> outages)
+    /// <param name="requirement">Facility setting: 0 refused; 1 tested before expiry; 2 also in a recorded outage. The decided default when null.</param>
+    public static RuleResult EvaluateTime(Kind kind, DateTime testedUtc, DateTime? specimenExpiresUtc, IEnumerable<DowntimeEpisode> outages,
+        int? requirement = null)
     {
+        var need = requirement ?? DefaultRequirement(kind);
+        if (need <= 0)
+        {
+            return RuleResult.HardStop(Code,
+                $"The specimen has expired. This facility does not enter a {(kind == Kind.Crossmatch ? "crossmatch" : "patient test")} read on paper on a specimen that has expired since (OCD-091); test a new specimen.");
+        }
+
         if (specimenExpiresUtc is DateTime expires && testedUtc >= expires)
         {
             return RuleResult.HardStop(Code,
                 $"The specimen had expired ({ClinicalTimeText.Local(expires)}) before the time tested; the result cannot be entered on it.");
         }
 
-        if (kind == Kind.PatientTest && DowntimeEpisodeRule.Covering(outages, testedUtc) is null)
+        if (need >= 2 && DowntimeEpisodeRule.Covering(outages, testedUtc) is null)
         {
             return RuleResult.HardStop(Code,
-                "The specimen has expired. A patient test read on paper can be entered on it only when the time tested falls in a recorded outage (OCD-091). Record the outage on the Downtime page first, or check the time tested.");
+                $"The specimen has expired. A {(kind == Kind.Crossmatch ? "crossmatch" : "patient test")} read on paper can be entered on it only when the time tested falls in a recorded outage (OCD-091). Record the outage on the Downtime page first, or check the time tested.");
         }
 
         return RuleResult.Pass(Code);
     }
 
-    public static RuleResult Evaluate(Kind kind, DateTime testedUtc, DateTime? specimenExpiresUtc, IEnumerable<DowntimeEpisode> outages, string? reason)
+    public static RuleResult Evaluate(Kind kind, DateTime testedUtc, DateTime? specimenExpiresUtc, IEnumerable<DowntimeEpisode> outages, string? reason,
+        int? requirement = null)
     {
-        var time = EvaluateTime(kind, testedUtc, specimenExpiresUtc, outages);
+        var time = EvaluateTime(kind, testedUtc, specimenExpiresUtc, outages, requirement);
         if (time.Severity == RuleSeverity.HardStop)
         {
             return time;

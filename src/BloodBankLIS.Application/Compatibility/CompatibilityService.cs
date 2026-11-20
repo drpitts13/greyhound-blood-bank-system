@@ -36,6 +36,7 @@ public sealed class CompatibilityService
     private readonly IRepository<Issue>? _issues;
     private readonly IAuditWriter? _audit;
     private readonly FacilityPolicyService? _policy;
+    private readonly IRepository<DowntimeEpisode>? _outages;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
     private readonly CrossmatchSettingsReader? _crossmatchSettings;
@@ -82,8 +83,10 @@ public sealed class CompatibilityService
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
         IRepository<ProductAttributeAssignment>? productAttributeAssignments = null,
         IRepository<ProductAttribute>? productAttributes = null,
-        IRepository<BloodComponentSpecialTest>? unitSpecialTests = null)
+        IRepository<BloodComponentSpecialTest>? unitSpecialTests = null,
+        IRepository<DowntimeEpisode>? outages = null)
     {
+        _outages = outages;
         _specialRequirements = specialRequirements;
         _requirementDefinitions = requirementDefinitions;
         _productAttributeAssignments = productAttributeAssignments;
@@ -195,6 +198,19 @@ public sealed class CompatibilityService
         if (specimenCheck.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([specimenCheck]));
+        }
+
+        // OCD-091, a facility setting: a crossmatch read on paper on a specimen that has expired since.
+        if (specimenCheck.Severity == RuleSeverity.Pass && request.PerformedUtc is not null
+            && specimen.ExpiresUtc is DateTime nowExpired && nowExpired <= _clock.UtcNow && _policy is not null)
+        {
+            var paper = ExpiredSpecimenBackEntryRule.EvaluateTime(ExpiredSpecimenBackEntryRule.Kind.Crossmatch, performedUtc, nowExpired,
+                _outages is null ? [] : await _outages.ListAsync(ct),
+                await _policy.GetPaperResultOnExpiredSpecimenAsync(ExpiredSpecimenBackEntryRule.Kind.Crossmatch, ct));
+            if (paper.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([paper]));
+            }
         }
 
         if (specimenCheck.Severity == RuleSeverity.Warning)

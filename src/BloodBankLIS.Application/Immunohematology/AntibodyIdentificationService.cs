@@ -217,7 +217,7 @@ public sealed class AntibodyIdentificationService
                 return EvaluationResult<AntibodyIdWorkupDetailDto>.Fail("Specimen was not found for this patient.");
             }
 
-            specimenChecks.AddRange(EvaluateSpecimenForScope(specimen, completing: false));
+            specimenChecks.AddRange(await EvaluateSpecimenForScopeAsync(specimen, completing: false, ct));
             var specimenGate = new RuleEvaluation(specimenChecks);
             if (specimenGate.IsHardStopped)
             {
@@ -338,7 +338,7 @@ public sealed class AntibodyIdentificationService
             return EvaluationResult<AntibodyIdWorkupDetailDto>.Fail("Specimen was not found for this patient.");
         }
 
-        var usability = EvaluateSpecimenForScope(specimen, completing: false);
+        var usability = await EvaluateSpecimenForScopeAsync(specimen, completing: false, ct);
         var usabilityEval = new RuleEvaluation(usability);
         if (usabilityEval.IsHardStopped)
         {
@@ -1172,7 +1172,7 @@ public sealed class AntibodyIdentificationService
             var linkedSpecimen = await _specimens.GetByIdAsync(linkedSpecimenId, ct);
             if (linkedSpecimen is not null)
             {
-                var atComplete = EvaluateSpecimenForScope(linkedSpecimen, completing: true);
+                var atComplete = await EvaluateSpecimenForScopeAsync(linkedSpecimen, completing: true, ct);
                 if (atComplete.Any(r => r.Severity == RuleSeverity.HardStop))
                 {
                     return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(
@@ -1666,7 +1666,7 @@ public sealed class AntibodyIdentificationService
             var specimen = await _specimens.GetByIdAsync(specimenId, ct);
             if (specimen is not null)
             {
-                results.AddRange(EvaluateSpecimenForScope(specimen, completing: true));
+                results.AddRange(await EvaluateSpecimenForScopeAsync(specimen, completing: true, ct));
             }
         }
 
@@ -1875,12 +1875,27 @@ public sealed class AntibodyIdentificationService
         return open.Any(w => w.SpecimenId is long id && unusable.Contains(id));
     }
 
-    private IReadOnlyList<RuleResult> EvaluateSpecimenForScope(Specimen specimen, bool completing) =>
-    [
-        AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenUsable(specimen.Status, completing),
-        AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenExpiration(specimen.ExpiresUtc, _clock.UtcNow, completing),
-        AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenReadiness(specimen.Status, completing)
-    ];
+    private async Task<IReadOnlyList<RuleResult>> EvaluateSpecimenForScopeAsync(Specimen specimen, bool completing, CancellationToken ct)
+    {
+        IReadOnlyList<RuleResult> results =
+        [
+            AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenUsable(specimen.Status, completing),
+            AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenExpiration(specimen.ExpiresUtc, _clock.UtcNow, completing),
+            AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenReadiness(specimen.Status, completing)
+        ];
+
+        // OCD-026, a facility setting: a received specimen not yet accepted may be refused instead of warned.
+        var policy = await _policies.GetAntibodyIdentificationPolicyAsync(ct);
+        if (policy.OnReceivedSpecimen)
+        {
+            return results;
+        }
+
+        var refused = policy.RefusedWarnings(results.Where(r => r.Code == AntibodyIdentificationWorkupScopeRule.SpecimenUnacceptedCode));
+        return results.Where(r => r.Code != AntibodyIdentificationWorkupScopeRule.SpecimenUnacceptedCode || r.Severity != RuleSeverity.Warning)
+            .Concat(refused)
+            .ToList();
+    }
 
     private async Task<long?> ResolveSourceResultIdAsync(long? specimenId, CancellationToken ct)
     {

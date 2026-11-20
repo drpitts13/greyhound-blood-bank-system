@@ -291,7 +291,19 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-027"),
         new(FacilityPolicyKeys.BlockInactivePatientClinicalUse, "Patient", "Refuse clinical use of an inactive patient",
             "When true, a patient record marked Inactive (not merged) is refused for new orders, specimens, results, crossmatch and allocation, and issue, as a merged record is; reactivate the record first. When false, an inactive record stays usable. Default off. Set by the medical director.",
-            FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-009")
+            FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-009"),
+        new(FacilityPolicyKeys.AntibodyIdOnReceivedSpecimen, "Antibody ID", "Identification on a received, not yet accepted, specimen",
+            "When true, an antibody identification may be opened, completed and accepted on a specimen that is received but not yet accepted, with a warning to acknowledge. When false, the specimen must be accepted first. A collected specimen not yet received is refused either way. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-026"),
+        new(FacilityPolicyKeys.TransfusionReportedForUnitNotIssued, "Transfusion", "Transfusion reported for a unit no longer issued",
+            "When the EHR reports a transfusion of a unit that was recalled, quarantined, or reported damaged or missing after it was issued: 1 = record the transfusion, keep the unit's status, and flag it for a supervisor's review (default); 2 = hold the message unrecorded among HL7 errors for review. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "1", "Medical director / OCD-083", 1, 2),
+        new(FacilityPolicyKeys.PatientTestOnExpiredSpecimen, "Result", "Paper patient test on a specimen expired since",
+            "A patient test read on paper while its specimen was acceptable, entered after the specimen expired: 0 = refused; 1 = allowed when the time tested is before the specimen expired and a reason is given; 2 = as 1, and the time tested must fall in a recorded outage (default). Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "2", "Medical director / OCD-091", 0, 2),
+        new(FacilityPolicyKeys.CrossmatchOnExpiredSpecimen, "Result", "Paper crossmatch on a specimen expired since",
+            "A crossmatch read on paper while its specimen was acceptable, entered after the specimen expired: 0 = refused; 1 = allowed when the time tested is before the specimen expired and a reason is given (default); 2 = as 1, and the time tested must fall in a recorded outage. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "1", "Medical director / OCD-091", 0, 2)
     ];
 
     /// <summary>The catalog default of a list policy; empty for a key the catalog does not define.</summary>

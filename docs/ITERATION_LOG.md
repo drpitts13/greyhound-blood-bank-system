@@ -28415,3 +28415,21 @@ OCD-026, OCD-083 and OCD-091, which need new alternative behavior or several com
 ### Tests
 
 - TEST-BB-1352 to TEST-BB-1361. Full suite passed.
+
+## Iteration 1046 — Medical director decisions as facility settings, part 2 (2026-11-20)
+
+### Request
+
+Product owner, 2026-11-20: convert the last three decisions still built in.
+
+### Changed
+
+- OCD-026: *Identification on a received, not yet accepted, specimen* (default on, a warning to acknowledge; off refuses at create, link, complete and accept).
+- OCD-083: *Transfusion reported for a unit no longer issued* (1 record and flag for review, as decided; 2 hold the message unrecorded among HL7 errors). Option A is not offered: setting the unit Transfused would erase the recall or quarantine status the lookback and review rely on.
+- OCD-091: *Paper patient test* and *Paper crossmatch on a specimen expired since* (0 refused, 1 tested before expiry with a reason, 2 also in a recorded outage; shipped 2 and 1 as decided), applied at result entry and verification, crossmatch recording, and downtime back-entry issue.
+
+With these, every medical director decision that was built in is a facility setting, except those kept on purpose (OPEN_CLINICAL_DECISIONS.md).
+
+### Tests
+
+- TEST-BB-1362, TEST-BB-1363. Full suite passed.
