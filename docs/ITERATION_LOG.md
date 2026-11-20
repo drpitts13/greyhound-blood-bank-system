@@ -28139,3 +28139,21 @@ Followed up pass 309 against how specimen expiry is actually computed (`Specimen
 ### Tests
 
 - TEST-BB-1336 (rewritten for the new form), TEST-BB-1337. Full suite passed.
+
+## Iteration 1031 — End-user testing pass 311: Document transfusion only while out (2026-11-19)
+
+### How it was tested
+
+On Demo, Patricia's chart, opened the accession form (the visit defaults to her one open visit; the specimen-window note from pass 310 matches the form's preview) without saving, then Product History.
+
+### Found and fixed
+
+1. **A transfused unit still offered Document transfusion.** W0001230000099's Issued row, disposition *Transfused*, with the Transfused event just above it, still offered **Document transfusion**, inviting a second record of the same transfusion. It is now offered only while the issue is out (no transfusion or return recorded).
+
+### Retested live
+
+- Patricia's history offers none; Demo-Multi, Riley's two units still out (W0001230009204, W0001230009206) keep it.
+
+### Tests
+
+- TEST-BB-1338. Full suite passed.

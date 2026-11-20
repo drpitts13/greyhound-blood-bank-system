@@ -136,7 +136,8 @@
                                 @if (h.IssueId is long historyIssueId && h.UnitId is long issueUnitId)
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
-                                    @if (h.EventType == PatientProductHistoryEventType.Issued && Session.Has(PermissionCodes.TransfusionDocument))
+                                    @* Pass 311: only while the issue is still out (not transfused or returned). *@
+                                    @if (h.EventType == PatientProductHistoryEventType.Issued && h.IsOpenAssignment && Session.Has(PermissionCodes.TransfusionDocument))
                                     {
                                         @* The full bedside form: identifiers, unit scan, verifier, and expiration are all checked there. *@
                                         <a class="btn btn-secondary btn-sm" href="@($"/issuing?desk=transfuse&issueId={historyIssueId}")">Document transfusion</a>

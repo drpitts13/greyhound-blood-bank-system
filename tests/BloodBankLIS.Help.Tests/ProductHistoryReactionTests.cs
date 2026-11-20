@@ -45,4 +45,23 @@ public class ProductHistoryReactionTests : BunitContext
         Assert.Equal(["Entered from a paper issue record after downtime", "Outside every recorded outage: Unrecorded outage"], notes);
         Assert.Contains("W000123PAPR001", tab.FindAll("[data-history-entry-note]")[0].Closest("tr")!.TextContent);
     }
+
+    // TEST-BB-1338 (end-user testing pass 311): Document transfusion is offered on an issue still out, and not on one
+    // already transfused (or returned).
+    [Fact]
+    public void DocumentTransfusion_OnlyWhileTheIssueIsOut()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>());
+        var tab = Render<PatientChartProductHistoryTab>(p => p
+            .Add(c => c.PatientId, 6)
+            .Add(c => c.Rows, new List<PatientProductHistoryRowDto>
+            {
+                Issued(1, "W000123OUT0001", null) with { IsOpenAssignment = true },
+                Issued(2, "W0001230000099", null) with { FinalDisposition = "Transfused", IsOpenAssignment = false }
+            }));
+
+        var links = tab.FindAll("a").Where(a => a.TextContent.Trim() == "Document transfusion").ToList();
+        var link = Assert.Single(links);
+        Assert.Equal("/issuing?desk=transfuse&issueId=1", link.GetAttribute("href"));
+    }
 }
