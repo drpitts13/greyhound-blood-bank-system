@@ -28545,3 +28545,21 @@ Reviewed Kellerman, Diane's chart (anti-K drives antigen-negative selection with
 ### Tests
 
 - TEST-BB-1369. Full suite passed.
+
+## Iteration 1053 — End-user testing pass 331: reaction under investigation on a blood order (2026-11-20)
+
+### How it was tested
+
+Checked every link the screens and queues build against the pages that exist (none broken), then Blood orders to prepare as the technologist choosing what to crossmatch next.
+
+### Found and fixed
+
+1. **A blood order did not say a reaction was under investigation.** Demo-Multi, Riley's ORD-SURG-DEMO read like any other order (collect a specimen, then reserve a unit) while her transfusion reaction was still under investigation; Ready to issue and the issue gate say it, but only once units are prepared. The order now shows **Reaction under investigation**, opening the investigation, with *Check with the physician before preparing more units*.
+
+### Retested live
+
+- Riley's order shows the badge linking to `/reactions?id=2`; Demo, Patricia's does not.
+
+### Tests
+
+- TEST-BB-1370. Full suite passed.

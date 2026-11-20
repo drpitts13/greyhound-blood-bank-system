@@ -22,3 +22,5 @@ Each row shows the patient with the current ABO/Rh, any active antibodies, **Mat
 An order drops off the list once its units are all reserved or issued, or when it is completed or cancelled. The home screen's **Blood orders to prepare** card counts the orders and says how many are rush and how many need a specimen.
 
 > Demo data. In a development database, ORD-PREP-DEMO is a STAT order for two red cell units for MRN0001 with nothing reserved yet. ORD-SURG-DEMO is a routine order for one red cell unit for MRN0022, needed a day after that patient's current specimen expires: it shows **Expires before needed-by** and **Collect a new specimen**.
+
+When the patient has a transfusion reaction under investigation, the order says so (**Reaction under investigation**, opening the investigation) with *Check with the physician before preparing more units*: another unit while the reaction is open is the physician's decision, and issuing it follows the facility's setting for that (OCD-078).

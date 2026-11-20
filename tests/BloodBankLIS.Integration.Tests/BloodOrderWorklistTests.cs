@@ -18,6 +18,51 @@ public class BloodOrderWorklistTests
     // TEST-BB-803: a patient with no usable specimen but a tube drawn and not yet received is told to receive that tube
     // (linked to Pending specimens), not to draw again; an expired drawn tube, or one that expires before the order is
     // needed, does not count, so those orders still say collect a specimen.
+    // TEST-BB-1370 (end-user testing pass 331): an order for a patient with a transfusion reaction under investigation
+    // names the investigation, so more units are prepared only on the physician's decision; once it closes it does not.
+    [Fact]
+    public async Task OpenReaction_IsNamedOnTheOrder()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var now = factory.Clock.UtcNow;
+        var product = new ProductType { ProductCode = "RBC-RX", Name = "Red Blood Cells", ComponentClass = ComponentClass.RedBloodCells };
+        var location = new OrderingLocation { Code = "LOC-RX", Name = "ICU", IsActive = true };
+        var patient = new Patient { MedicalRecordNumber = "MRN-RX-1", LastName = "Reacting", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.AddRange(product, location, patient);
+        await c.SaveChangesAsync();
+        var visit = new Encounter { PatientId = patient.Id, VisitNumber = "VIS-RX-1", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddHours(-5) };
+        var unit = new BloodUnit { UnitNumber = "W-RX-1", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = now.AddDays(10), Status = UnitStatus.TransfusionStopped };
+        c.AddRange(visit, unit);
+        await c.SaveChangesAsync();
+        var order = new Order
+        {
+            OrderNumber = "RX-1", PatientId = patient.Id, EncounterId = visit.Id, OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product, OrderName = "Red cells", OrderType = OrderType.Other, ProductTypeId = product.Id,
+            Priority = OrderPriority.Routine, Status = OrderStatus.InProcess, OrderedUtc = now.AddHours(-1)
+        };
+        var issue = new Issue { BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = now.AddHours(-4), IssuedBy = "tech", Status = IssueStatus.Transfused };
+        c.AddRange(order, issue);
+        await c.SaveChangesAsync();
+        c.OrderLines.Add(new OrderLine { OrderId = order.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells", ProductTypeId = product.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered });
+        var transfusion = new TransfusionEvent { IssueId = issue.Id, BloodProductId = unit.Id, PatientId = patient.Id, StartUtc = now.AddHours(-3), DocumentedBy = "nurse" };
+        c.TransfusionEvents.Add(transfusion);
+        await c.SaveChangesAsync();
+        var reaction = new ReactionInvestigation { TransfusionEventId = transfusion.Id, PatientId = patient.Id, BloodProductId = unit.Id, ReportedUtc = now.AddHours(-2) };
+        c.ReactionInvestigations.Add(reaction);
+        await c.SaveChangesAsync();
+
+        BloodOrderWorklistService Service() => new(
+            new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c),
+            new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c), factory.Clock, reactions: new EfRepository<ReactionInvestigation>(c));
+        Assert.Equal(reaction.Id, Assert.Single(await Service().ListAsync(), r => r.OrderNumber == "RX-1").OpenReactionInvestigationId);
+
+        reaction.Status = ReactionInvestigationStatus.Closed;
+        await c.SaveChangesAsync();
+        Assert.Null(Assert.Single(await Service().ListAsync(), r => r.OrderNumber == "RX-1").OpenReactionInvestigationId);
+    }
+
     [Fact]
     public async Task TubeAwaitingReceipt_IsOfferedInsteadOfANewDraw()
     {

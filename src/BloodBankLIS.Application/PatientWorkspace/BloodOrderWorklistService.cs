@@ -60,6 +60,12 @@ public sealed record BloodOrderToPrepareDto(
     /// so the bench does not reserve more units than the patient needs.
     /// </summary>
     public IReadOnlyList<string> ReservedOffOrder { get; init; } = [];
+
+    /// <summary>
+    /// The patient's transfusion reaction investigation still open, if any (end-user testing pass 331: Demo-Multi, Riley's
+    /// order read like any other while her reaction was under investigation; another unit is the physician's decision).
+    /// </summary>
+    public long? OpenReactionInvestigationId { get; init; }
 }
 
 /// <summary>
@@ -84,6 +90,8 @@ public sealed class BloodOrderWorklistService
     private readonly IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? _requirementDefinitions;
     private readonly IRepository<BloodUnit>? _units;
 
+    private readonly IRepository<ReactionInvestigation>? _reactions;
+
     public BloodOrderWorklistService(
         IRepository<Order> orders,
         IRepository<OrderLine> lines,
@@ -99,8 +107,10 @@ public sealed class BloodOrderWorklistService
         IRepository<BloodBankLIS.Domain.Entities.Configuration.SpecialRequirementDefinition>? requirementDefinitions = null,
         BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
-        IRepository<BloodUnit>? units = null)
+        IRepository<BloodUnit>? units = null,
+        IRepository<ReactionInvestigation>? reactions = null)
     {
+        _reactions = reactions;
         _orderSpecimens = orderSpecimens;
         _units = units;
         _policy = policy;
@@ -167,6 +177,12 @@ public sealed class BloodOrderWorklistService
 
         var patientIds = orders.Values.Select(o => o.PatientId).Distinct().ToList();
         var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        // Pass 331: a reaction still under investigation, so preparing more units waits on the physician.
+        var openReactions = _reactions is null
+            ? new Dictionary<long, long>()
+            : (await _reactions.ListAsync(r => patientIds.Contains(r.PatientId) && r.Status != ReactionInvestigationStatus.Closed, ct))
+                .GroupBy(r => r.PatientId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.ReportedUtc).First().Id);
         // Pass 253: the patient's reservations, to name those not on a given order.
         var patientReservations = (await _allocations.ListAsync(a => patientIds.Contains(a.PatientId) && a.Status == AllocationStatus.Reserved, ct)).ToList();
         var reservedUnitIds = patientReservations.Select(a => a.BloodProductId).Distinct().ToList();
@@ -275,7 +291,8 @@ public sealed class BloodOrderWorklistService
                     .Where(a => a.PatientId == order.PatientId && a.OrderId != order.Id)
                     .OrderBy(a => a.Id)
                     .Select(a => reservedUnitNumbers.GetValueOrDefault(a.BloodProductId) ?? $"unit {a.BloodProductId}")
-                    .ToList()
+                    .ToList(),
+                OpenReactionInvestigationId = openReactions.TryGetValue(order.PatientId, out var reactionId) ? reactionId : null
             });
         }
 
