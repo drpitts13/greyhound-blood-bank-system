@@ -28229,3 +28229,21 @@ Checked the printed-time wording elsewhere (the only other UTC wording is a fall
 ### Tests
 
 - TEST-BB-1342. Full suite passed.
+
+## Iteration 1036 — End-user testing pass 316: MTP on the patient timeline (2026-11-20)
+
+### How it was tested
+
+Checked the remaining places that name an authorizer (override-only uses are correct there), then opened Demo-Massive, Morgan's timeline.
+
+### Found and fixed
+
+1. **The timeline showed the MTP units but not the protocol.** Morgan's timeline listed the four units issued under massive transfusion, but not that MTP #1 was called (09:05, by Dr. Demo Trauma, Trauma Bay 1) or that it is still open. It now shows *Massive transfusion protocol #1 activated (still open)* with who called it, where and why, marked for attention, and a *closed* event with the reason once closed.
+
+### Retested live
+
+- Morgan's timeline returns the activation with *Called by Dr. Demo Trauma (demo) · Trauma Bay 1 · Demo scenario: hemorrhage after motor vehicle collision*.
+
+### Tests
+
+- TEST-BB-1343. Full suite passed.

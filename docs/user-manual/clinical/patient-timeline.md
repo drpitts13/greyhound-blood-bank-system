@@ -19,12 +19,13 @@ It shows:
 - **Antibodies and requirements**: each recorded antibody and each special transfusion requirement. An antibody reported by another facility has a second event when this laboratory confirms it, with how (for example the panel or the antibody identification workup) and who.
 - **Products and transfusion**: reservations (each saying what became of it: still reserved, issued, released with the reason, or ended because the unit expired, naming the unit and when), crossmatches with their result, issues, receipt on the ward, returns, transfusions, and reaction reports. A transfusion still running shows as "transfusion started, in progress", not as transfused. An emergency or overridden issue shows the override rule, reason, and who authorized it.
   A transfusion the EHR reported while the blood bank had the unit recalled, quarantined, damaged or missing says so, and stays a warning until a supervisor has reviewed it (then it names the reviewer and what was found).
+  A massive transfusion protocol shows when it was activated, by whom it was called, where and why (*Massive transfusion protocol #1 activated (still open)* while open), and when it was closed, with the reason.
   An issue also says how it was entered when that was not at the time at the issue desk: a late entry, a paper record entered after downtime, a time outside every recorded outage (with the reason), or an infant given group O without a crossmatch.
 
 **Markings**
 
 - **Critical** (red edge): an antibody, an incompatible crossmatch, a suspected reaction, or a reaction report.
-- **Attention** (amber edge): a correction, an invalidation, a cancelled order, a rejected specimen, a special requirement, an emergency or overridden issue, or an ABO/Rh result that disagrees with the type on file (*New ABO/Rh A+ disagrees with historical O+*).
+- **Attention** (amber edge): a correction, an invalidation, a cancelled order, a rejected specimen, a special requirement, an emergency or overridden issue, a massive transfusion protocol activated, or an ABO/Rh result that disagrees with the type on file (*New ABO/Rh A+ disagrees with historical O+*).
 
 An order's **History** and a specimen's history mark the same events the same way, including an ABO/Rh result that disagrees with the type on file.
 - Everything else is informational.

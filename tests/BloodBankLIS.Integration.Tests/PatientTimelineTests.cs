@@ -23,6 +23,37 @@ public class PatientTimelineTests : IDisposable
 
     private DateTime T(int hours) => _factory.Clock.UtcNow.AddHours(-100 + hours);
 
+    // TEST-BB-1343 (end-user testing pass 316): a massive transfusion protocol is on the timeline: activated (marked for
+    // attention, with who called it and why, and "still open" while open) and, once closed, closed with the reason.
+    [Fact]
+    public async Task MassiveTransfusionProtocol_IsOnTheTimeline()
+    {
+        await using var c = _factory.Create();
+        var patient = await AddPatientAsync(c, "MRN-TL-MTP");
+        var open = new MtpActivation { PatientId = patient.Id, RequestedBy = "Dr. Trauma", Reason = "Haemorrhage", Location = "Trauma Bay 1", ActivatedUtc = T(10), ActivatedBy = "tech" };
+        var closed = new MtpActivation
+        {
+            PatientId = patient.Id, RequestedBy = "Dr. Surgeon", Reason = "Bleed", ActivatedUtc = T(1), ActivatedBy = "tech",
+            Status = MtpActivationStatus.Closed, ClosedUtc = T(3), ClosedBy = "tech2", CloseReason = "Bleeding controlled"
+        };
+        c.MtpActivations.AddRange(open, closed);
+        await c.SaveChangesAsync();
+
+        var timeline = await new PatientTimelineService(
+            new EfRepository<Encounter>(c), new EfRepository<Order>(c), new EfRepository<Specimen>(c),
+            new EfRepository<TestResult>(c), new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
+            new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<SpecialRequirementDefinition>(c),
+            new EfRepository<Allocation>(c), new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c),
+            new EfRepository<Return>(c), new EfRepository<TransfusionEvent>(c), new EfRepository<ReactionInvestigation>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<Override>(c), mtp: new EfRepository<MtpActivation>(c)).GetAsync(patient.Id);
+
+        var activated = Assert.Single(timeline, e => e.Title == $"Massive transfusion protocol #{open.Id} activated (still open)");
+        Assert.Equal(TimelineSeverity.Warning, activated.Severity);
+        Assert.Equal("Called by Dr. Trauma · Trauma Bay 1 · Haemorrhage", activated.Detail);
+        Assert.Contains(timeline, e => e.Title == $"Massive transfusion protocol #{closed.Id} activated");
+        Assert.Equal("Bleeding controlled", Assert.Single(timeline, e => e.Title == $"Massive transfusion protocol #{closed.Id} closed").Detail);
+    }
+
     [Fact]
     public async Task NewPatient_HasAnEmptyTimeline()
     {

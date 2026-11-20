@@ -61,6 +61,7 @@ public sealed class PatientTimelineService
     private readonly IRepository<BloodUnit> _units;
     private readonly IRepository<Override> _overrides;
     private readonly IRepository<RhigEvaluation>? _rhig;
+    private readonly IRepository<MtpActivation>? _mtp;
 
     public PatientTimelineService(
         IRepository<Encounter> encounters,
@@ -79,9 +80,11 @@ public sealed class PatientTimelineService
         IRepository<ReactionInvestigation> reactions,
         IRepository<BloodUnit> units,
         IRepository<Override> overrides,
-        IRepository<RhigEvaluation>? rhig = null)
+        IRepository<RhigEvaluation>? rhig = null,
+        IRepository<MtpActivation>? mtp = null)
     {
         _rhig = rhig;
+        _mtp = mtp;
         _encounters = encounters;
         _orders = orders;
         _specimens = specimens;
@@ -321,7 +324,39 @@ public sealed class PatientTimelineService
             }
         }
 
+        if (_mtp is not null)
+        {
+            foreach (var a in await _mtp.ListAsync(x => x.PatientId == patientId, ct))
+            {
+                events.AddRange(MtpEvents(a));
+            }
+        }
+
         return Order(events);
+    }
+
+    /// <summary>
+    /// A massive transfusion protocol on the timeline: called (by whom, why, where) and closed (end-user testing pass 316:
+    /// Demo-Massive, Morgan's timeline showed the four units issued under MTP #1 but not the protocol, its caller or that
+    /// it was still open).
+    /// </summary>
+    internal static IEnumerable<TimelineEventDto> MtpEvents(MtpActivation a)
+    {
+        var called = string.Join(" · ", new[]
+        {
+            string.IsNullOrWhiteSpace(a.RequestedBy) ? null : $"Called by {a.RequestedBy.Trim()}",
+            string.IsNullOrWhiteSpace(a.Location) ? null : a.Location.Trim(),
+            string.IsNullOrWhiteSpace(a.Reason) ? null : a.Reason.Trim()
+        }.Where(s => s is not null));
+        yield return new(a.ActivatedUtc, TimelineCategory.Product, TimelineSeverity.Warning,
+            $"Massive transfusion protocol #{a.Id} activated{(a.Status == MtpActivationStatus.Active ? " (still open)" : string.Empty)}",
+            string.IsNullOrEmpty(called) ? null : called, a.ActivatedBy, "/issuing", $"mtp-{a.Id}");
+        if (a.ClosedUtc is DateTime closed)
+        {
+            yield return new(closed, TimelineCategory.Product, TimelineSeverity.Info,
+                $"Massive transfusion protocol #{a.Id} closed", string.IsNullOrWhiteSpace(a.CloseReason) ? null : a.CloseReason.Trim(),
+                a.ClosedBy, "/issuing", $"mtp-{a.Id}-close");
+        }
     }
 
     /// <summary>An RhIG evaluation on the timeline: recorded, completed, and the RhIG given (lot and vials).</summary>
