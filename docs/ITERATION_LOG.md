@@ -28031,3 +28031,21 @@ Opened Kellerman, Diane's antibody identification workup (#1, pending interpreta
 ### Tests
 
 - TEST-BB-1331. Full suite passed.
+
+## Iteration 1025 — End-user testing pass 305: patient typing refreshes open workup assistance (2026-11-19)
+
+### How it was tested
+
+Followed up pass 304: the antibody workup's assistance findings are stored, and were refreshed only when reactions, lots, DAT or specimen changed.
+
+### Found and fixed
+
+1. **Typing the patient did not update the open workup.** The bench types the patient for the antigen of a possible antibody (for Kellerman, Diane, E) on the chart; the workup kept *not typed for E*, and a patient typed antigen-positive kept a possible alloantibody without the phenotype-conflict warning, until someone re-ran assistance. Saving a patient antigen result now re-evaluates assistance on the patient's open workups that have run it. Interpretation and review are not changed.
+
+### Retested live
+
+- The API starts with the new wiring and the antigen-profile endpoints answer; no antigen result was saved (it would change Kellerman's data). Covered by the integration test.
+
+### Tests
+
+- TEST-BB-1332. Full suite passed.

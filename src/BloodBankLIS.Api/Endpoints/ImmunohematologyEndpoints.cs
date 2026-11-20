@@ -99,13 +99,16 @@ public static class ImmunohematologyEndpoints
                 }));
         });
 
-        patients.MapPost("/{patientId:long}/antigen-profiles", async (long patientId, SaveAntigenProfileRequest request, ImmunohematologyService service, BloodBankDbContext context, CancellationToken ct) =>
+        patients.MapPost("/{patientId:long}/antigen-profiles", async (long patientId, SaveAntigenProfileRequest request, ImmunohematologyService service, AntibodyIdentificationService antibodyId, BloodBankDbContext context, CancellationToken ct) =>
         {
             var result = await service.SaveAntigenProfileAsync(patientId, request, ct);
             if (!result.Succeeded || result.Value is null)
             {
                 return EndpointResults.From(result, p => p);
             }
+
+            // Pass 305: an open antibody workup's assistance reads the patient's type; evaluate it again.
+            await antibodyId.RefreshOpenWorkupsAfterPatientTypingAsync(patientId, ct);
 
             var def = await context.BloodAttributeDefinitions.AsNoTracking()
                 .FirstAsync(d => d.Id == result.Value.BloodAttributeDefinitionId, ct);

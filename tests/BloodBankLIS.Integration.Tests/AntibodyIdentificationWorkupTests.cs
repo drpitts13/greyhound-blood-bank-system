@@ -1252,6 +1252,53 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
             w.Code == AntibodyIdentificationInterpretationRule.IdentifiedPhenotypeConflictCode);
     }
 
+    // TEST-BB-1332 (end-user testing pass 305): typing the patient refreshes an open workup's assistance, so a possible
+    // anti-K that read "not typed for K" reads "K-negative, as expected" once the patient is typed K-negative.
+    [Fact]
+    public async Task PatientTyping_RefreshesOpenWorkupAssistance()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-TYPE");
+        long workupId;
+        long kellPosCell;
+        long kellNegCell;
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            kellPosCell = created.Value.Cells.First(c =>
+                c.Role == PanelCellRole.Panel && c.Antigens.Any(a => a.AntigenCode == "K" && a.Expression != AntigenExpression.Absent)).CellId;
+            kellNegCell = created.Value.Cells.First(c =>
+                c.Role == PanelCellRole.Panel && c.Antigens.Any(a => a.AntigenCode == "K" && a.Expression == AntigenExpression.Absent)).CellId;
+        }
+
+        string? KellRationale(BloodBankLIS.Infrastructure.Persistence.BloodBankDbContext c) => c.AntibodyIdentificationFindings
+            .Where(f => f.WorkupId == workupId && f.Source == AntibodyIdSource.Assist && f.Specificity == "anti-K")
+            .OrderByDescending(f => f.Id).Select(f => f.Rationale).FirstOrDefault();
+
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Svc(context).RecordReactionsAsync(workupId,
+            [
+                new RecordAntibodyIdReactionRequest(kellPosCell, "AHG", ReactionGrade.ThreePlus),
+                new RecordAntibodyIdReactionRequest(kellNegCell, "AHG", ReactionGrade.Negative)
+            ])).Succeeded);
+            Assert.True((await Svc(context).RunAssistAsync(workupId)).Succeeded);
+            Assert.Contains("not typed for K", KellRationale(context));
+        }
+
+        await using (var context = _factory.Create())
+        {
+            context.AntigenProfiles.Add(new AntigenProfile { PatientId = patientId, BloodAttributeDefinitionId = attrId, Result = AntigenResult.Negative, Method = "Serologic" });
+            await context.SaveChangesAsync();
+            Assert.Equal(1, await Svc(context).RefreshOpenWorkupsAfterPatientTypingAsync(patientId));
+        }
+
+        await using var check = _factory.Create();
+        Assert.Contains("K-negative, as expected for anti-K", KellRationale(check));
+    }
+
     [Fact]
     public async Task Assist_MolecularMethod_UsesGenotypeConflict()
     {

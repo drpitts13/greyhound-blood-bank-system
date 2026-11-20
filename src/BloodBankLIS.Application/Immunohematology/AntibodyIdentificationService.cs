@@ -630,6 +630,44 @@ public sealed class AntibodyIdentificationService
         return OperationResult<AntibodyIdWorkupDetailDto>.Ok(await MapDetailAsync(workup.Value, ct));
     }
 
+    /// <summary>
+    /// After the patient's antigen type changes, the open workups whose assistance has run are evaluated again, since a
+    /// possible specificity reads the patient's type (end-user testing pass 305: findings were refreshed only when
+    /// reactions, lots, DAT or specimen changed, so typing the patient E-negative left "not typed for E" in place, and a
+    /// patient typed K-positive kept a possible anti-K without the warning). Assistance is advisory; no judgment changes.
+    /// Returns how many workups were refreshed.
+    /// </summary>
+    public async Task<int> RefreshOpenWorkupsAfterPatientTypingAsync(long patientId, CancellationToken ct = default)
+    {
+        var open = (await _workups.ListAsync(w => w.PatientId == patientId
+                && w.Status != AntibodyWorkupStatus.Completed && w.Status != AntibodyWorkupStatus.Voided, ct))
+            .ToList();
+        var refreshed = 0;
+        foreach (var listed in open)
+        {
+            if (!await _findings.AnyAsync(f => f.WorkupId == listed.Id && f.Source == AntibodyIdSource.Assist, ct))
+            {
+                continue;
+            }
+
+            var workup = await _workups.GetByIdAsync(listed.Id, ct);
+            if (workup is null)
+            {
+                continue;
+            }
+
+            await RefreshAssistFindingsAsync(workup, ct);
+            refreshed++;
+        }
+
+        if (refreshed > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return refreshed;
+    }
+
     public async Task<EvaluationResult<AntibodyIdAssistDto>> RunAssistAsync(long workupId, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync<AntibodyIdAssistDto>(
