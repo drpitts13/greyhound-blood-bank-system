@@ -180,6 +180,11 @@
                                 @* Pass 187: a transfusion reaction is being investigated for this patient. *@
                                 <a class="badge badge-red" href="@($"/patients/{p.Id}")" title="A transfusion reaction investigation is open for this patient; see the chart before issuing" data-reaction-alert>Reaction under investigation</a>
                             }
+                            @if (p.MtpActive)
+                            {
+                                @* Pass 340: a massive transfusion protocol is open for this patient. *@
+                                <a class="badge badge-red" href="/issuing" title="A massive transfusion protocol is open for this patient; packs are issued on Issue &amp; Transfuse" data-mtp-alert>Massive transfusion protocol active</a>
+                            }
                             @if (_duplicatesOf.TryGetValue(p.Id, out var dupOf))
                             {
                                 @* Pass 248: this chart may be the same person as another; review the pair before relying on its history. *@

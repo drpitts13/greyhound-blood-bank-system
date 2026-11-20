@@ -28719,3 +28719,21 @@ Reviewed the unmapped interface values, users and the instrument simulator, then
 ### Tests
 
 - TEST-BB-1378 (the order assertions in TEST-BB-446, pass 59 and the close-without-workup test updated). Full suite passed.
+
+## Iteration 1062 — End-user testing pass 340: open MTP flagged on the patient list (2026-11-20)
+
+### How it was tested
+
+Looked up Demo-Massive, Morgan (MRN0021, MTP #1 open) on the Patients list, as a technologist confirming the patient before issuing.
+
+### Found and fixed
+
+1. **The patient list did not show an open massive transfusion protocol.** Pass 317 put it on the chart header only; the list's Alerts column showed reactions under investigation but not an active protocol, the most urgent state a patient can be in for the blood bank. The row now shows **Massive transfusion protocol active** in red, linking to Issue & Transfuse, until the protocol is closed.
+
+### Retested live
+
+- Morgan's row shows the badge; no other patient does.
+
+### Tests
+
+- TEST-BB-1379. Full suite passed.

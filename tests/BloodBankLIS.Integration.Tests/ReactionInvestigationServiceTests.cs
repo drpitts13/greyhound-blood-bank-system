@@ -541,9 +541,18 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             new BloodBankLIS.Application.Specimens.SpecimenService(new EfRepository<Specimen>(context), new EfRepository<Patient>(context),
                 new EfRepository<BloodBankLIS.Domain.Entities.Configuration.SpecimenTypeDefinition>(context), context, _factory.Clock,
                 currentUser: _factory.CurrentUser),
-            reactions: new EfRepository<ReactionInvestigation>(context));
+            reactions: new EfRepository<ReactionInvestigation>(context), mtps: new EfRepository<MtpActivation>(context));
 
         Assert.True((await Patients().ListDtosAsync()).Single(p => p.Id == transfusion.PatientId).ReactionUnderInvestigation);
+        // TEST-BB-1379 (end-user testing pass 340): an open massive transfusion protocol is flagged on the list, and not once closed.
+        Assert.False((await Patients().ListDtosAsync()).Single(p => p.Id == transfusion.PatientId).MtpActive);
+        var mtp = new MtpActivation { PatientId = transfusion.PatientId, RequestedBy = "Dr Trauma", Reason = "Hemorrhage", ActivatedUtc = _factory.Clock.UtcNow, ActivatedBy = "tech" };
+        context.MtpActivations.Add(mtp);
+        await context.SaveChangesAsync();
+        Assert.True((await Patients().ListDtosAsync()).Single(p => p.Id == transfusion.PatientId).MtpActive);
+        mtp.Status = MtpActivationStatus.Closed;
+        await context.SaveChangesAsync();
+        Assert.False((await Patients().ListDtosAsync()).Single(p => p.Id == transfusion.PatientId).MtpActive);
         // TEST-BB-1211 (pass 188): the top-bar lookup's patient hit carries the flag too.
         var mrn = (await context.Patients.SingleAsync(p => p.Id == transfusion.PatientId)).MedicalRecordNumber;
         var lookup = new BloodBankLIS.Application.Search.UniversalLookupService(new EfRepository<Patient>(context), new EfRepository<PatientIdentifier>(context),

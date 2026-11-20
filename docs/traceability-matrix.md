@@ -1232,6 +1232,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1116 / FRS-BB-1234 | End-user testing pass 337: keep the tube of an open DAT/elution workup | `SpecimenDiscardRule.cs`, `SpecimenStorageService.cs` | TEST-BB-1376 | U, I | |
 | URS-BB-1117 / FRS-BB-1235 | End-user testing pass 338: kept tubes not due for discard | `SpecimenStorageService.cs` | TEST-BB-1377 | I | |
 | URS-BB-1118 / FRS-BB-1236 | End-user testing pass 339: post-transfusion specimen asked for early | `ReactionWorkupCompletenessRule.cs` | TEST-BB-1378 | U | |
+| URS-BB-1119 / FRS-BB-1237 | End-user testing pass 340: open MTP flagged on the patient list | `PatientService.cs`, `Patients.razor` | TEST-BB-1379 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

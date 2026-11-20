@@ -1387,5 +1387,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1376 | U, I | `SpecimenDiscardRuleTests.Evaluate_KeepsANeededTube_AndAsksForAReasonWhenEarly`, `SpecimenStorageTests.NotStoredList_SaysWhichTubesAreKept` | URS-BB-1116 / FRS-BB-1234 |
 | TEST-BB-1377 | I | `SpecimenDiscardTests.KeptTube_IsNotDueForDiscard` | URS-BB-1117 / FRS-BB-1235 |
 | TEST-BB-1378 | U | `ReactionWorkupCompletenessRuleTests.Outstanding_ListsEveryStepStillDue`, `ReactionWorkupRulesTests.CloseGate_NamesTheNextMissingStep_InOrder` | URS-BB-1118 / FRS-BB-1236 |
+| TEST-BB-1379 | I | `ReactionInvestigationServiceTests.PatientList_FlagsAReactionUnderInvestigation` | URS-BB-1119 / FRS-BB-1237 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

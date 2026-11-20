@@ -164,6 +164,11 @@ public sealed record PatientDto(
     public bool ReactionUnderInvestigation { get; init; }
 
     /// <summary>
+    /// True when a massive transfusion protocol is still open for the patient (end-user testing pass 340).
+    /// </summary>
+    public bool MtpActive { get; init; }
+
+    /// <summary>
     /// For an infant linked to its mother (patient list only): her active antibodies, which may be present in the infant
     /// (end-user testing pass 209: the list showed nothing for an infant whose mother has anti-K).
     /// </summary>

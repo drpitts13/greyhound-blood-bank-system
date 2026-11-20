@@ -36,6 +36,7 @@ public sealed class PatientService
     private readonly IRepository<SpecialTransfusionRequirement>? _requirements;
     private readonly IRepository<BloodAttributeDefinition>? _attributes;
     private readonly IRepository<ReactionInvestigation>? _reactions;
+    private readonly IRepository<MtpActivation>? _mtps;
     private readonly IRepository<Issue>? _issues;
     private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
     private readonly IRepository<Encounter>? _encounters;
@@ -67,8 +68,10 @@ public sealed class PatientService
         IFacilityTimeZone? facilityTimeZone = null,
         IRepository<BloodAttributeDefinition>? attributes = null,
         IRepository<ReactionInvestigation>? reactions = null,
-        IRepository<Issue>? issues = null)
+        IRepository<Issue>? issues = null,
+        IRepository<MtpActivation>? mtps = null)
     {
+        _mtps = mtps;
         _issues = issues;
         _reactions = reactions;
         _attributes = attributes;
@@ -127,6 +130,10 @@ public sealed class PatientService
         var underInvestigation = _reactions is null
             ? new HashSet<long>()
             : (await _reactions.ListAsync(r => r.Status != ReactionInvestigationStatus.Closed, ct)).Select(r => r.PatientId).ToHashSet();
+        // Pass 340: a massive transfusion protocol still open for the patient.
+        var mtpActive = _mtps is null
+            ? new HashSet<long>()
+            : (await _mtps.ListAsync(m => m.Status == MtpActivationStatus.Active, ct)).Select(m => m.PatientId).ToHashSet();
 
         return patients
             .OrderBy(p => p.LastName, StringComparer.OrdinalIgnoreCase)
@@ -139,6 +146,7 @@ public sealed class PatientService
                 ActiveSpecialRequirements = PatientBloodBankFlags.RequirementsInEffect(requirements[p.Id], now, informational),
                 InformationalNotes = PatientBloodBankFlags.NotesInEffect(requirements[p.Id], now, informational),
                 ReactionUnderInvestigation = underInvestigation.Contains(p.Id),
+                MtpActive = mtpActive.Contains(p.Id),
                 MaternalAntibodies = p.MotherPatientId is long motherId
                     ? PatientBloodBankFlags.ActiveAntibodies(antibodies[motherId])
                     : []
