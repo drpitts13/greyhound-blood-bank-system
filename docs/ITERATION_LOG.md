@@ -28847,3 +28847,25 @@ Reviewed product modification setup (item 7): Admin › Modification Rules, Orde
 ### Tests
 
 - TEST-BB-1385. Full suite passed.
+
+## Iteration 1069 — End-user testing loop 2, tick 4: Administration menu by task (2026-11-20)
+
+### How it was tested
+
+Reviewed blocking (item 5) on Admin › Exceptions, then navigation (item 1) through the Administration menu.
+
+### Blocking reviewed
+
+- Four issue hard stops are not overridable: ABO incompatibility, unknown ABO/Rh, Rh(D) incompatibility and a missing compatible crossmatch. ABO incompatibility and unknown type are imminent hemolytic risks; the urgent case for unknown type or no crossmatch goes through emergency release; Rh(D) acceptance is already a facility choice in each product's Rh compatibility table by patient sex group. The rest are overridable with a security level. No change.
+
+### Found and fixed
+
+1. **The Administration menu was hard to navigate.** *Catalog* held 26 pages in one alphabetical list mixing test building, products, billing and reason lists; test setup was split across Catalog and Rules & safety, and product setup (products, modification rules, expiration codes) across all three groups. *Refrigerators & Freezers* was in no menu at all. The menu is now grouped by task: Tests & specimens, Products & inventory, Transfusion & safety, Ordering, Billing, Interfaces & printing, Directory & audit, and links every admin page.
+
+### Retested live
+
+- Opening Modification Rules opens Products & inventory; the groups hold 12, 11, 9, 3, 5, 4 and 4 pages.
+
+### Tests
+
+- TEST-BB-1386. Full suite passed.

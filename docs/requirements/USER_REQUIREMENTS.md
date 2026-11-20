@@ -1131,3 +1131,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1123 | The ISBT catalog loads the standard published ABO/RhD group codes, and manual ISBT receipt prefills no codes. | P1 | FRS-BB-1241 |
 | URS-BB-1124 | Choices and catalog columns read ABO/Rh with its slash, and test value types read in words. | P3 | FRS-BB-1242 |
 | URS-BB-1125 | Modification rules can be built for freezing, deglycerolizing, plasma reduction and rejuvenation. | P2 | FRS-BB-1243 |
+| URS-BB-1126 | The Administration menu is grouped by task and reaches every admin page. | P2 | FRS-BB-1244 |

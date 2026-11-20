@@ -1239,6 +1239,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1123 / FRS-BB-1241 | End-user testing loop 2: known ABO/RhD codes; no prefilled receipt codes | `UsPublicAboRhdCodeSeed.cs`, `DatabaseSeeder.cs`, `IsbtReceive.razor` | TEST-BB-1383 | I, U | |
 | URS-BB-1124 / FRS-BB-1242 | End-user testing loop 2 tick 2: ABO/Rh and value types in words | `Ui.cs`, `AdminTests.razor` | TEST-BB-1384 | U | |
 | URS-BB-1125 / FRS-BB-1243 | End-user testing loop 2 tick 3: freeze, deglycerolize, plasma reduction, rejuvenate | `Enums.cs`, `OrderActionValidator.cs`, `Modifications.razor`, `AdminActions.razor` | TEST-BB-1385 | U, I | |
+| URS-BB-1126 / FRS-BB-1244 | End-user testing loop 2 tick 4: Administration menu by task | `NavMenu.razor` | TEST-BB-1386 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

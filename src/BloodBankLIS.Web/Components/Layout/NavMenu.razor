@@ -153,60 +153,68 @@
             }
             @if (Session.Has(PermissionCodes.AdminConfigView))
             {
-                <details class="nav-group" open="@SectionOpen(CatalogPaths)">
-                    <summary>Catalog</summary>
+                @* Loop 2 tick 4: grouped by task (test setup, product setup, safety, ordering, billing, interfaces) instead of one long catalog list. *@
+                <details class="nav-group" open="@SectionOpen(TestSetupPaths)">
+                    <summary>Tests &amp; specimens</summary>
+                    <NavLink href="admin/tests" ActiveClass="active">Tests</NavLink>
+                    <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
+                    <NavLink href="admin/phases" ActiveClass="active">Phases</NavLink>
+                    <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
+                    <NavLink href="admin/reflex-rules" ActiveClass="active">Reflex Rules</NavLink>
+                    <NavLink href="admin/rules" ActiveClass="active">Order &amp; Test Rules</NavLink>
+                    <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
+                    <NavLink href="admin/specimen-labels" ActiveClass="active">Specimen Labels</NavLink>
+                    <NavLink href="admin/specimen-rejection-reasons" ActiveClass="active">Specimen Rejection Reasons</NavLink>
                     <NavLink href="admin/antibody-panel-lots" ActiveClass="active">Antibody Panel Lots</NavLink>
                     <NavLink href="admin/blood-attributes" ActiveClass="active">Blood Attributes</NavLink>
-                    <NavLink href="admin/action-billing" ActiveClass="active">Action Billing</NavLink>
-                    <NavLink href="admin/actions" ActiveClass="active">Actions</NavLink>
-                    <NavLink href="admin/charge-codes" ActiveClass="active">Charge Codes</NavLink>
                     <NavLink href="admin/coded-comments" ActiveClass="active">Coded Comments</NavLink>
-                    <NavLink href="admin/order-cancellation-reasons" ActiveClass="active">Order Cancellation Reasons</NavLink>
-                    <NavLink href="admin/discard-reasons" ActiveClass="active">Discard Reasons</NavLink>
-                    <NavLink href="admin/specimen-rejection-reasons" ActiveClass="active">Specimen Rejection Reasons</NavLink>
-                    <NavLink href="admin/reaction-lists" ActiveClass="active">Reactions and Treatments</NavLink>
-                    <NavLink href="admin/transfusion-criteria" ActiveClass="active">Transfusion Criteria</NavLink>
-                    <NavLink href="admin/mtp-packs" ActiveClass="active">MTP Packs</NavLink>
-                    <NavLink href="admin/transport-containers" ActiveClass="active">Transport Containers</NavLink>
-                    <NavLink href="admin/locations" ActiveClass="active">Ordering Locations</NavLink>
-                    <NavLink href="admin/phases" ActiveClass="active">Phases</NavLink>
-                    <NavLink href="admin/product-billing" ActiveClass="active">Product Billing</NavLink>
+                </details>
+                <details class="nav-group" open="@SectionOpen(ProductSetupPaths)">
+                    <summary>Products &amp; inventory</summary>
                     <NavLink href="admin/products" ActiveClass="active">Products</NavLink>
-                    <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>
-                    <NavLink href="admin/ptag" ActiveClass="active">P-tag Layout</NavLink>
-                    <NavLink href="admin/special-requirements" ActiveClass="active">Special Requirements</NavLink>
-                    <NavLink href="admin/specimen-labels" ActiveClass="active">Specimen Labels</NavLink>
-                    <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
-                    <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
-                    <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
-                    <NavLink href="admin/test-service-billing" ActiveClass="active">Test/Service Billing</NavLink>
-                    <NavLink href="admin/tests" ActiveClass="active">Tests</NavLink>
-                </details>
-                <details class="nav-group" open="@SectionOpen(RulesPaths)">
-                    <summary>Rules &amp; safety</summary>
-                    <NavLink href="admin/charge-rules" ActiveClass="active">Charge Rules</NavLink>
-                    <NavLink href="admin/compatibility-rules" ActiveClass="active">Compatibility Tables</NavLink>
-                    <NavLink href="admin/crossmatch-settings" ActiveClass="active">Crossmatch Settings</NavLink>
-                    <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
-                    <NavLink href="admin/facility-policies" ActiveClass="active">Facility Policy</NavLink>
+                    <NavLink href="admin/isbt-product-codes" ActiveClass="active">ISBT Product Codes</NavLink>
                     <NavLink href="admin/modification-rules" ActiveClass="active">Modification Rules</NavLink>
-                    <NavLink href="admin/reaction-workup" ActiveClass="active">Reaction Workup</NavLink>
-                    <NavLink href="admin/rules" ActiveClass="active">Order &amp; Test Rules</NavLink>
-                    <NavLink href="admin/reflex-rules" ActiveClass="active">Reflex Rules</NavLink>
-                </details>
-                <details class="nav-group" open="@SectionOpen(InventoryAdminPaths)">
-                    <summary>Inventory / ISBT</summary>
                     <NavLink href="admin/expiration-codes" ActiveClass="active">Expiration Codes</NavLink>
+                    <NavLink href="admin/actions" ActiveClass="active">Actions</NavLink>
                     <NavLink href="admin/auto-thaw-products" ActiveClass="active">Auto thaw products</NavLink>
                     <NavLink href="admin/blood-suppliers" ActiveClass="active">Blood Suppliers</NavLink>
                     <NavLink href="admin/inventory-locations" ActiveClass="active">Inventory Locations</NavLink>
-                    <NavLink href="admin/isbt-product-codes" ActiveClass="active">ISBT Product Codes</NavLink>
+                    <NavLink href="admin/storage-devices" ActiveClass="active">Refrigerators &amp; Freezers</NavLink>
+                    <NavLink href="admin/transport-containers" ActiveClass="active">Transport Containers</NavLink>
+                    <NavLink href="admin/discard-reasons" ActiveClass="active">Discard Reasons</NavLink>
+                </details>
+                <details class="nav-group" open="@SectionOpen(SafetyPaths)">
+                    <summary>Transfusion &amp; safety</summary>
+                    <NavLink href="admin/facility-policies" ActiveClass="active">Facility Policy</NavLink>
+                    <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
+                    <NavLink href="admin/compatibility-rules" ActiveClass="active">Compatibility Tables</NavLink>
+                    <NavLink href="admin/crossmatch-settings" ActiveClass="active">Crossmatch Settings</NavLink>
+                    <NavLink href="admin/special-requirements" ActiveClass="active">Special Requirements</NavLink>
+                    <NavLink href="admin/transfusion-criteria" ActiveClass="active">Transfusion Criteria</NavLink>
+                    <NavLink href="admin/mtp-packs" ActiveClass="active">MTP Packs</NavLink>
+                    <NavLink href="admin/reaction-workup" ActiveClass="active">Reaction Workup</NavLink>
+                    <NavLink href="admin/reaction-lists" ActiveClass="active">Reactions and Treatments</NavLink>
+                </details>
+                <details class="nav-group" open="@SectionOpen(OrderingPaths)">
+                    <summary>Ordering</summary>
+                    <NavLink href="admin/locations" ActiveClass="active">Ordering Locations</NavLink>
+                    <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>
+                    <NavLink href="admin/order-cancellation-reasons" ActiveClass="active">Order Cancellation Reasons</NavLink>
+                </details>
+                <details class="nav-group" open="@SectionOpen(BillingPaths)">
+                    <summary>Billing</summary>
+                    <NavLink href="admin/charge-codes" ActiveClass="active">Charge Codes</NavLink>
+                    <NavLink href="admin/charge-rules" ActiveClass="active">Charge Rules</NavLink>
+                    <NavLink href="admin/product-billing" ActiveClass="active">Product Billing</NavLink>
+                    <NavLink href="admin/test-service-billing" ActiveClass="active">Test/Service Billing</NavLink>
+                    <NavLink href="admin/action-billing" ActiveClass="active">Action Billing</NavLink>
                 </details>
                 <details class="nav-group" open="@SectionOpen(InterfaceAdminPaths)">
-                    <summary>Interfaces</summary>
+                    <summary>Interfaces &amp; printing</summary>
                     <NavLink href="admin/hl7" ActiveClass="active">HL7 Interface Setup</NavLink>
                     <NavLink href="admin/instruments" ActiveClass="active">Instrument Interfaces</NavLink>
                     <NavLink href="admin/printers" ActiveClass="active">Printers</NavLink>
+                    <NavLink href="admin/ptag" ActiveClass="active">P-tag Layout</NavLink>
                 </details>
             }
             @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage, PermissionCodes.AdminUsersManage, PermissionCodes.AdminAuditReview))
@@ -254,26 +262,35 @@
 
     private static readonly string[] AdminPaths = ["admin"];
 
-    private static readonly string[] CatalogPaths =
+    private static readonly string[] TestSetupPaths =
     [
-        "admin/action-billing", "admin/actions", "admin/antibody-panel-lots", "admin/blood-attributes", "admin/charge-codes", "admin/coded-comments", "admin/order-cancellation-reasons", "admin/discard-reasons", "admin/specimen-rejection-reasons", "admin/reaction-lists", "admin/transfusion-criteria", "admin/mtp-packs", "admin/transport-containers", "admin/locations",
-        "admin/phases", "admin/product-billing", "admin/products", "admin/providers",
-        "admin/special-requirements", "admin/specimen-labels", "admin/specimen-types", "admin/ptag", "admin/subtests", "admin/test-groupers",
-        "admin/test-service-billing", "admin/tests"
+        "admin/tests", "admin/subtests", "admin/phases", "admin/test-groupers", "admin/reflex-rules", "admin/rules", "admin/specimen-types", "admin/specimen-labels", "admin/specimen-rejection-reasons", "admin/antibody-panel-lots", "admin/blood-attributes", "admin/coded-comments"
     ];
 
-    private static readonly string[] RulesPaths =
+    private static readonly string[] ProductSetupPaths =
     [
-        "admin/charge-rules", "admin/compatibility-rules", "admin/crossmatch-settings", "admin/reaction-workup", "admin/exceptions",
-        "admin/facility-policies", "admin/modification-rules", "admin/rules", "admin/reflex-rules"
+        "admin/products", "admin/isbt-product-codes", "admin/modification-rules", "admin/expiration-codes", "admin/actions", "admin/auto-thaw-products", "admin/blood-suppliers", "admin/inventory-locations", "admin/storage-devices", "admin/transport-containers", "admin/discard-reasons"
     ];
 
-    private static readonly string[] InventoryAdminPaths =
+    private static readonly string[] SafetyPaths =
     [
-        "admin/blood-suppliers", "admin/expiration-codes", "admin/auto-thaw-products", "admin/inventory-locations", "admin/isbt-product-codes"
+        "admin/facility-policies", "admin/exceptions", "admin/compatibility-rules", "admin/crossmatch-settings", "admin/special-requirements", "admin/transfusion-criteria", "admin/mtp-packs", "admin/reaction-workup", "admin/reaction-lists"
     ];
 
-    private static readonly string[] InterfaceAdminPaths = ["admin/hl7", "admin/instruments", "admin/printers"];
+    private static readonly string[] OrderingPaths =
+    [
+        "admin/locations", "admin/providers", "admin/order-cancellation-reasons"
+    ];
+
+    private static readonly string[] BillingPaths =
+    [
+        "admin/charge-codes", "admin/charge-rules", "admin/product-billing", "admin/test-service-billing", "admin/action-billing"
+    ];
+
+    private static readonly string[] InterfaceAdminPaths =
+    [
+        "admin/hl7", "admin/instruments", "admin/printers", "admin/ptag"
+    ];
 
     private static readonly string[] DirectoryPaths = ["admin/history", "admin/backups", "admin/roles", "admin/users"];
 

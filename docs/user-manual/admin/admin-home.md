@@ -20,6 +20,16 @@ Edits do not overwrite history. Saving records who changed the row, when, at whi
 
 ## Where to go next
 
-User accounts and roles are under Directory and audit. Test, product, and location catalogs are under Catalog. Safety behavior is under Rules and safety. Suppliers, locations, and ISBT codes are under Inventory and ISBT. HL7, instruments, and printers are under Interfaces. Report definitions are the report designer.
+The Administration menu groups pages by task:
+
+- **Tests & specimens**: tests, subtests, phases, test groupers, reflex and order rules, specimen types, labels and rejection reasons, antibody panel lots, blood attributes, coded comments.
+- **Products & inventory**: products, ISBT product codes, modification rules, expiration codes, actions, auto thaw, suppliers, inventory locations, refrigerators and freezers, transport containers, discard reasons.
+- **Transfusion & safety**: facility policy, exceptions, compatibility tables, crossmatch settings, special requirements, transfusion criteria, MTP packs, reaction workup, reactions and treatments.
+- **Ordering**: ordering locations, providers, order cancellation reasons.
+- **Billing**: charge codes and rules, product, test/service and action billing.
+- **Interfaces & printing**: HL7, instruments, printers, P-tag layout.
+- **Directory & audit**: configuration history, backups, roles, users.
+
+Report definitions are the report designer.
 
 The Clinical User Guide describes what technologists see after you save. Read that topic before you change a rule that issues blood, verifies a result, or captures a charge.

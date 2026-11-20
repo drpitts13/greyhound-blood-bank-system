@@ -1394,5 +1394,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1383 | I, U | `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent`, `IsbtReceiveDefaultsTests.ManualEntry_PrefillsNoCodes` | URS-BB-1123 / FRS-BB-1241 |
 | TEST-BB-1384 | U | `EnumTextTests.EnumText_KeepsAcronyms` | URS-BB-1124 / FRS-BB-1242 |
 | TEST-BB-1385 | U, I | `OrderActionAttachableTests.IsOrderAttachable_CoversPatientOrderedModifications`, `BloodProductModificationServiceTests.ApplySingle_HappyPath_RetiresSourceAndCreatesResult` | URS-BB-1125 / FRS-BB-1243 |
+| TEST-BB-1386 | U | `AdminNavMenuTests.AdminMenu_IsGroupedByTask_AndLinksEveryAdminPage` | URS-BB-1126 / FRS-BB-1244 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
