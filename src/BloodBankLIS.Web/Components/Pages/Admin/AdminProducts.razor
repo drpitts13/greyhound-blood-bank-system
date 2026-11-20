@@ -47,26 +47,28 @@
     {
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Code</th><th>Name</th><th>Class</th><th>XM</th><th>Retype</th><th>Attributes</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>ISBT code</th><th>Class</th><th>Crossmatch</th><th>Retype</th><th>Attributes</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var p in Filtered)
                 {
                     <tr>
                         <td class="mono">@p.ProductCode</td>
                         <td>@p.NameLabel</td>
-                        <td>@p.ComponentClass</td>
+                        @* Loop 2 tick 5: the ISBT code each product is received and modified under; class and retype in words. *@
+                        <td class="mono" data-product-isbt="@p.ProductCode">@(string.IsNullOrWhiteSpace(p.Isbt128ProductCode) ? "—" : p.Isbt128ProductCode)</td>
+                        <td data-product-class="@p.ProductCode">@Ui.EnumText(p.ComponentClass)</td>
                         <td>@(p.RequiresCrossmatch ? "Yes" : "No")</td>
-                        <td>
+                        <td data-product-retype="@p.ProductCode">
                             @if (p.RequiresRetype)
                             {
-                                <span>Y</span>
-                                <span class="muted mono">
-                                    @(p.RhPositiveRetypeTestCode ?? "?")/@(p.RhNegativeRetypeTestCode ?? "?")
-                                </span>
+                                <span>Yes</span>
+                                <div class="sub muted mono" title="Retype tests for Rh-positive and Rh-negative units">
+                                    @(p.RhPositiveRetypeTestCode ?? "not set") · @(p.RhNegativeRetypeTestCode ?? "not set")
+                                </div>
                             }
                             else
                             {
-                                <span>N</span>
+                                <span>No</span>
                             }
                         </td>
                         <td>@string.Join(", ", p.Attributes.Select(a => a.Code + (a.IsRequired ? "*" : "")))</td>

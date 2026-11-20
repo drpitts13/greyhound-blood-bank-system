@@ -28869,3 +28869,21 @@ Reviewed blocking (item 5) on Admin › Exceptions, then navigation (item 1) thr
 ### Tests
 
 - TEST-BB-1386. Full suite passed.
+
+## Iteration 1070 — End-user testing loop 2, tick 5: product list in words with ISBT code (2026-11-20)
+
+### How it was tested
+
+Reviewed screen clutter (item 2) on Admin › Products.
+
+### Found and fixed
+
+1. **The product list mixed code names and shorthand.** Class read *RedBloodCells* and *WholeBlood*; crossmatch read Yes/No but retype read *N* or *Y ABORH-RETYPE-POS/ABORH-RETYPE-NEG*; and the ISBT code each product is received and modified under was not shown. The class now reads as its label, retype reads Yes/No with the two retype tests beneath (*not set* when missing), and an ISBT code column shows the code or a dash.
+
+### Retested live
+
+- Products reads *E2553 · FFP · No · No* for CRP and *E0685 · RBC · Yes · Yes, ABORH-RETYPE-POS · ABORH-RETYPE-NEG* for RBC-APH.
+
+### Tests
+
+- TEST-BB-1387. Full suite passed.
