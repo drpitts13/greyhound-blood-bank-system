@@ -1098,3 +1098,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1090 | A unit a cooler check found missing says so on its own row on In transit and Final disposition. | P2 | FRS-BB-1208 |
 | URS-BB-1091 | Issued units shows a unit's cooler check, and the missing unit, while the unit is still in its cooler. | P3 | FRS-BB-1209 |
 | URS-BB-1092 | Labels and tags print times in the facility's local time, with the offset stated. | P2 | FRS-BB-1210 |
+| URS-BB-1093 | The physician statements list names who authorized each issue, including the physician who called an MTP. | P3 | FRS-BB-1211 |

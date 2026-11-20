@@ -766,10 +766,8 @@ public sealed class IssuingService
 
         var patientIds = issues.Select(i => i.PatientId).Distinct().ToList();
         var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
-        var overrideIds = issues.Where(i => i.OverrideId != null).Select(i => i.OverrideId!.Value).ToList();
-        var overrides = overrideIds.Count == 0
-            ? new Dictionary<long, Override>()
-            : (await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct)).ToDictionary(o => o.Id);
+        // Pass 315: the same authorizer the issue details show, including the physician who called the MTP (pass 250).
+        var authorizers = await LoadEmergencyReleaseAuthorizersAsync(issues, ct);
         var rows = new List<UrgencyStatementWorkItemDto>();
         foreach (var issue in issues)
         {
@@ -783,7 +781,7 @@ public sealed class IssuingService
                 unit?.UnitNumber,
                 issue.IssueType,
                 issue.IssuedUtc,
-                issue.OverrideId is long oid && overrides.TryGetValue(oid, out var ov) ? ov.AuthorizedBy : null));
+                authorizers.GetValueOrDefault(issue.Id)));
         }
 
         return rows;

@@ -28211,3 +28211,21 @@ Checked the Second ABO/Rh board (Kline, Nora: two reserved, Order ABO/Rh offered
 ### Tests
 
 - TEST-BB-1341. Full suite passed.
+
+## Iteration 1035 — End-user testing pass 315: MTP caller on physician statements (2026-11-20)
+
+### How it was tested
+
+Checked the printed-time wording elsewhere (the only other UTC wording is a fallback the pages replace with local time), recipient traceback for Demo-Multi, Riley, and the Retrospective board.
+
+### Found and fixed
+
+1. **Physician statements said nobody authorized the MTP units.** Under *Physician statements to collect*, Demo-Massive, Morgan's two MTP units read *Authorized at issue —*, while the same issues' details just above said *Authorized by: Dr. Demo Trauma (demo) (called MTP #1)*: the list took only an override's authorizer, not the physician who called the protocol (pass 250). It now uses the same authorizer as the board, so it names the physician whose statement is to be collected.
+
+### Retested live
+
+- The statements list returns *Dr. Demo Trauma (demo) (called MTP #1)* for both MTP units and *Dr. Amy Lee* for the emergency release.
+
+### Tests
+
+- TEST-BB-1342. Full suite passed.

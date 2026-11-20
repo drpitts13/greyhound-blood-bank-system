@@ -1452,6 +1452,17 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         issue.TestsIncompleteAtIssue = true;
         await c.SaveChangesAsync();
         Assert.Contains(await Issuing(c).ListUrgencyStatementsOutstandingAsync(), r => r.IssueId == issueId);
+
+        // TEST-BB-1342 (end-user testing pass 315): an MTP issue with no override names the physician who called the
+        // protocol as authorized at issue, as its issue details do.
+        var activation = new MtpActivation { PatientId = issue.PatientId, RequestedBy = "Dr. Trauma", Reason = "Haemorrhage", ActivatedUtc = issue.IssuedUtc, ActivatedBy = "tech" };
+        c.MtpActivations.Add(activation);
+        await c.SaveChangesAsync();
+        issue.MtpActivationId = activation.Id;
+        issue.OverrideId = null;
+        await c.SaveChangesAsync();
+        Assert.Equal($"Dr. Trauma (called MTP #{activation.Id})",
+            Assert.Single(await Issuing(c).ListUrgencyStatementsOutstandingAsync(), r => r.IssueId == issueId).AuthorizedBy);
         Assert.Contains("Enter the physician", (await Issuing(c).RecordUrgencyStatementAsync(issueId, new RecordUrgencyStatementRequest(" "))).Error);
 
         var recorded = await Issuing(c).RecordUrgencyStatementAsync(issueId, new RecordUrgencyStatementRequest(" Dr. Amy Lee "));
