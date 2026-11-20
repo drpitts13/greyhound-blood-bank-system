@@ -28121,3 +28121,21 @@ Checked Interface setup (no interfaces configured) and opened Gravid, Elena (MRN
 ### Tests
 
 - TEST-BB-1336. Full suite passed.
+
+## Iteration 1030 — End-user testing pass 310: recent transfusion and the facility window in the chart header (2026-11-19)
+
+### How it was tested
+
+Followed up pass 309 against how specimen expiry is actually computed (`SpecimenService`): the shorter window applies after a pregnancy or a transfusion within the facility's look-back, for the facility's number of hours.
+
+### Found and fixed
+
+1. **The header named only a pregnancy, from a fixed look-back.** Demo, Patricia (MRN0001), transfused 2026-11-06, showed nothing, though her new specimens take the 72-hour window; and pass 309's note assumed the default 90-day look-back rather than the facility's. The server now reports the patient's specimen window (risk, hours, look-back, recent pregnancy, last transfusion), and the header says *Transfused 2026-11-06 (within 90 days): new specimens expire 72 h after collection.*, or names the pregnancy, or both.
+
+### Retested live
+
+- Patricia: the transfusion line. Elena (MRN0007): the pregnancy line. Avery (MRN0023): none.
+
+### Tests
+
+- TEST-BB-1336 (rewritten for the new form), TEST-BB-1337. Full suite passed.

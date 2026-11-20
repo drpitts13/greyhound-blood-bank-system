@@ -1344,6 +1344,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1333 | I | `AntibodyIdentificationWorkupTests.OpeningWorkup_AfterPatientTyped_RefreshesAssistance` | URS-BB-1084 / FRS-BB-1202 |
 | TEST-BB-1334 | U | `UnitProductTextTests.For_NamesTheProduct` | URS-BB-1085 / FRS-BB-1203 |
 | TEST-BB-1335 | U | `InstrumentLastMessageTextTests.For_SaysWhenTheLastMessageArrived` | URS-BB-1086 / FRS-BB-1204 |
-| TEST-BB-1336 | U | `RecentPregnancyBannerTests.For_NotesARecentPregnancy` | URS-BB-1087 / FRS-BB-1205 |
+| TEST-BB-1336 | U | `SpecimenWindowBannerTests.For_SaysWhyAndForHowLong` | URS-BB-1087 / FRS-BB-1205, URS-BB-1088 / FRS-BB-1206 |
+| TEST-BB-1337 | I | `SpecimenWindowTests.Window_NamesARecentTransfusion` | URS-BB-1088 / FRS-BB-1206 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

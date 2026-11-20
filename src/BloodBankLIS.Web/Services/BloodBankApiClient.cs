@@ -480,6 +480,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<AntigenProfileDto>>> GetAntigenProfilesAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<AntigenProfileDto>>(HttpMethod.Get, $"api/patients/{patientId}/antigen-profiles", ct: ct);
 
+    public Task<ApiResult<SpecimenWindowDto>> GetSpecimenWindowAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<SpecimenWindowDto>(HttpMethod.Get, $"api/patients/{patientId}/specimen-window", ct: ct);
+
     public Task<ApiResult<AntigenProfileDto>> SaveAntigenProfileAsync(long patientId, SaveAntigenProfileRequest req, CancellationToken ct = default) =>
         SendAsync<AntigenProfileDto>(HttpMethod.Post, $"api/patients/{patientId}/antigen-profiles", req, ct);
 

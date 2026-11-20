@@ -109,3 +109,14 @@ public sealed record PendingSpecimenWorkItemDto(
 
 /// <summary>Who collected the tube, recorded before acceptance (OCD-064).</summary>
 public sealed record RecordSpecimenCollectorRequest(string? Collector);
+
+/// <summary>
+/// Whether the patient's new specimens take the alloimmunization-risk window, and why: a pregnancy or a transfusion within
+/// the look-back (end-user testing pass 310).
+/// </summary>
+public sealed record SpecimenWindowDto(
+    bool AlloimmunizationRisk,
+    int AlloimmunizationRiskHours,
+    int LookbackDays,
+    DateTime? RecentPregnancyUtc,
+    DateTime? LastTransfusionUtc);

@@ -1093,3 +1093,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1085 | The Modify page names the selected unit's product. | P3 | FRS-BB-1203 |
 | URS-BB-1086 | The instrument status says when each instrument last sent a message. | P3 | FRS-BB-1204 |
 | URS-BB-1087 | The chart header shows a recent pregnancy that shortens the patient's specimen window, to everyone who reads the chart. | P3 | FRS-BB-1205 |
+| URS-BB-1088 | The chart header also names a recent transfusion that shortens the specimen window, and states the facility's window and look-back. | P3 | FRS-BB-1206 |

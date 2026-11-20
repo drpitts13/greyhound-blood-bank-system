@@ -1070,6 +1070,37 @@ public sealed class SpecimenService
         return catalogExpires <= alloExpires ? catalogExpires : alloExpires;
     }
 
+    /// <summary>
+    /// Why the patient's new specimens take the shorter alloimmunization-risk window, if they do: the recent pregnancy and
+    /// the last transfusion within the facility's look-back, with the window in hours (end-user testing pass 310: the
+    /// chart header named only a pregnancy, from the default look-back, and never a recent transfusion).
+    /// </summary>
+    public async Task<SpecimenWindowDto?> GetSpecimenWindowAsync(long patientId, CancellationToken ct = default)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return null;
+        }
+
+        var alloHours = _policy is null ? SpecimenValidityPolicy.DefaultAlloimmunizationRiskHours : await _policy.GetSpecimenAlloHoursAsync(ct);
+        var lookbackDays = _policy is null ? SpecimenValidityPolicy.DefaultLookbackDays : await _policy.GetSpecimenLookbackDaysAsync(ct);
+        DateTime? lastTransfusion = null;
+        if (_transfusions is not null)
+        {
+            var events = await _transfusions.ListAsync(t => t.PatientId == patient.Id, ct);
+            if (events.Count > 0)
+            {
+                lastTransfusion = events.Max(t => t.StartUtc ?? t.CreatedUtc);
+            }
+        }
+
+        var now = _clock.UtcNow;
+        var pregnancy = SpecimenValidityPolicy.HasAlloimmunizationRisk(now, null, patient.RecentPregnancyUtc, lookbackDays) ? patient.RecentPregnancyUtc : null;
+        var transfused = SpecimenValidityPolicy.HasAlloimmunizationRisk(now, lastTransfusion, null, lookbackDays) ? lastTransfusion : null;
+        return new SpecimenWindowDto(pregnancy is not null || transfused is not null, alloHours, lookbackDays, pregnancy, transfused);
+    }
+
     private async Task<(bool HasRisk, int AlloHours)> ResolveAlloRiskAsync(Patient patient, CancellationToken ct)
     {
         var alloHours = _policy is null

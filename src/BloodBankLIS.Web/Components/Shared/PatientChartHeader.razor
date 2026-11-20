@@ -180,10 +180,10 @@
             }
             <Outcome Value="_familyFb" />
         }
-        @if (RecentPregnancyBanner.For(Patient.RecentPregnancyUtc, DateTime.UtcNow) is { } pregnancyNote)
+        @if (SpecimenWindowBanner.For(_specimenWindow) is { } windowNote)
         {
-            @* Pass 309: for everyone reading the chart, not only those who may edit the date on the Overview tab. *@
-            <div class="muted" style="margin-top:.25rem;" data-recent-pregnancy>@pregnancyNote</div>
+            @* Passes 309-310: a recent pregnancy or transfusion shortens the specimen window; said for everyone reading the chart. *@
+            <div class="muted" style="margin-top:.25rem;" data-specimen-window>@windowNote</div>
         }
         @if (VisitsLoaded)
         {
@@ -511,8 +511,18 @@ else if (ReactionNotice is not null)
     private string _unlinkReason = string.Empty;
     private Feedback? _familyFb;
 
+    private SpecimenWindowDto? _specimenWindow;
+    private (long Id, DateTime? Pregnancy)? _specimenWindowFor;
+
     protected override async Task OnParametersSetAsync()
     {
+        if (_specimenWindowFor != (Patient.Id, Patient.RecentPregnancyUtc))
+        {
+            _specimenWindowFor = (Patient.Id, Patient.RecentPregnancyUtc);
+            var window = await Api.GetSpecimenWindowAsync(Patient.Id);
+            _specimenWindow = window.Succeeded ? window.Value : null;
+        }
+
         if (Patient.Id != _familyFor)
         {
             _familyFor = Patient.Id;

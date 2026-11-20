@@ -187,6 +187,11 @@ public static class SpecimenEndpoints
             return Results.Ok(specimens);
         }).WithTags("Specimens");
 
+        // Pass 310: why the patient's specimens take the shorter window, for the chart header.
+        app.MapGet("/api/patients/{patientId:long}/specimen-window", async (long patientId, SpecimenService service, CancellationToken ct) =>
+            await service.GetSpecimenWindowAsync(patientId, ct) is { } window ? Results.Ok(window) : Results.NotFound())
+            .WithTags("Specimens").RequireAuthenticatedUser();
+
         app.MapGet("/api/patients/{patientId:long}/specimen-expiration", async (
             long patientId, string? specimenType, DateTime collectedUtc, int? validityHours, SpecimenService service, CancellationToken ct) =>
         {
