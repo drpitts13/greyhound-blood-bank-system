@@ -28433,3 +28433,21 @@ With these, every medical director decision that was built in is a facility sett
 ### Tests
 
 - TEST-BB-1362, TEST-BB-1363. Full suite passed.
+
+## Iteration 1047 — End-user testing pass 325: second ABO/Rh due on Ready to issue (2026-11-20)
+
+### How it was tested
+
+Reviewed the HL7 page (message times local; error queue and outbound reasons clear), then Issue & Transfuse: Second ABO/Rh due and Ready to issue.
+
+### Found and fixed
+
+1. **A second ABO/Rh still due was not said on Ready to issue.** Kline, Nora is on Second ABO/Rh due, but her two reserved units listed only the crossmatch and specimen reasons: the *Second ABO* badge sits behind the *Specimen* badge, and the written reasons (pass 281) left it out. Each row now also says *Routine red-cell issue stays blocked until a second concordant ABO/Rh is on file.*
+
+### Retested live
+
+- Both of Kline's rows carry the sentence between the crossmatch and specimen reasons.
+
+### Tests
+
+- TEST-BB-1364. Full suite passed.

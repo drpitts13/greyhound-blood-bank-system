@@ -80,6 +80,15 @@ public class ReadyToIssueFormCueTests
         Assert.Empty(ReadyToIssueFormCue.Reasons(Row()));
     }
 
+    // TEST-BB-1364 (end-user testing pass 325): a second ABO/Rh still due is among the row's reasons, also when the
+    // specimen badge is the one shown.
+    [Fact]
+    public void Reasons_IncludeASecondAboStillDue()
+    {
+        var row = Row(specimenBlockReason: "No current specimen exists for this patient.", needsSecondAbo: true) with { SpecimenBlocksIssue = true };
+        Assert.Equal([ReadyToIssueFormCue.SecondAbo, "No current specimen exists for this patient."], ReadyToIssueFormCue.Reasons(row));
+    }
+
     private static ReadyToIssueWorkItemDto Row(
         string? specimenBlockReason = null,
         string? crossmatchNotice = null,

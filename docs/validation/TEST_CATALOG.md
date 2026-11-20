@@ -1372,5 +1372,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1361 | U | `MedicalDirectorSettingsTests.InactivePatient_FollowsTheSetting` | URS-BB-1103 / FRS-BB-1221 |
 | TEST-BB-1362 | U | `MedicalDirectorSettingsTests.PaperResultsAndReceivedSpecimens_FollowTheSettings` | URS-BB-1103 / FRS-BB-1221 |
 | TEST-BB-1363 | I | `InterfaceTransfusionAuthorizationTests.Document_UnitNoLongerIssued_IsHeldWhenTheFacilityChooses` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1364 | U | `ReadyToIssueFormCueTests.Reasons_IncludeASecondAboStillDue` | URS-BB-1104 / FRS-BB-1222 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

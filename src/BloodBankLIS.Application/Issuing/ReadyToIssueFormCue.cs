@@ -189,6 +189,9 @@ public static class ReadyToIssueFormCue
             row.SpecialRequirementNotice,
             row.AntigenNotice,
             row.AboRhDiscrepancyNotice,
+            // Pass 325: a second ABO/Rh still due was said only by a badge, and not at all when the specimen badge took
+            // its place (Kline, Nora's units read "crossmatch" and "specimen" and nothing of the second type).
+            row.NeedsSecondAbo ? SecondAbo : null,
             row.RetypeNotice,
             row.SpecimenBlocksIssue ? row.SpecimenBlockReason : null,
             row.UnitOutdated ? row.UnitBlockReason : null
