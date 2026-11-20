@@ -122,6 +122,15 @@
             <div class="field"><label>Used for tests</label><input @bind="_testCodes" @bind:event="oninput" placeholder="ABORH, ABSC" /></div>
         </div>
         <button class="btn btn-primary btn-sm" disabled="@(string.IsNullOrWhiteSpace(_code) || string.IsNullOrWhiteSpace(_name))" @onclick="SaveReagentAsync">Save reagent</button>
+        @if (UnlinkedReagents is { Count: > 0 } unlinked)
+        {
+            @* Pass 343: a reagent with no tests is never recorded with a result, so a QC failure cannot be traced. *@
+            <div class="alert alert-warning" style="margin-top:1rem;" data-reagents-unlinked>
+                <strong>@unlinked.Count active reagent@(unlinked.Count == 1 ? " is" : "s are") not linked to any test:</strong>
+                <span class="mono">@string.Join(", ", unlinked.Select(r => r.Code))</span>. Results do not record @(unlinked.Count == 1 ? "its" : "their") lots,
+                so if a lot fails QC its results cannot be found for review. Enter the tests each is used for below.
+            </div>
+        }
         @if (_reagents.Count > 0)
         {
             <div class="table-scroll">
@@ -536,6 +545,10 @@
 }
 
 @code {
+    /// <summary>Active reagents with no tests listed (end-user testing pass 343).</summary>
+    private List<ReagentDto> UnlinkedReagents =>
+        _reagents.Where(r => r.IsActive && string.IsNullOrWhiteSpace(r.TestCodes)).OrderBy(r => r.Code).ToList();
+
     private List<ReagentDto> _reagents = new();
 
     // Correcting a lot received in error (Cycle 714).

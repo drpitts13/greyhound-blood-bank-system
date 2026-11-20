@@ -35,6 +35,28 @@ public class ReagentRegisterPageTests : BunitContext
         Assert.NotNull(page.Find("[data-reagent-row='ANTI-A'] [data-reagent-restore]"));
     }
 
+    // TEST-BB-1382 (end-user testing pass 343): the page names the active reagents not linked to any test, whose lots
+    // results do not record; a linked or retired reagent is not named.
+    [Fact]
+    public void UnlinkedReagents_AreNamed()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/reagents"] = new List<ReagentDto>
+            {
+                new(1, "ANTI-A", "Anti-A", true, "ABORH"), new(2, "AHG", "AHG", true), new(3, "SCREEN-CELLS", "Screen cells", true, " "),
+                new(4, "OLD-D", "Old anti-D", false)
+            }
+        });
+        var page = Render<Reagents>();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-reagents-unlinked]")));
+        var notice = page.Find("[data-reagents-unlinked]").TextContent;
+        Assert.Contains("2 active reagents are not linked to any test", notice);
+        Assert.Contains("AHG, SCREEN-CELLS", notice);
+        Assert.DoesNotContain("ANTI-A", notice);
+        Assert.DoesNotContain("OLD-D", notice);
+    }
+
     // TEST-BB-988: Correct on a lot opens a form filled with its number, which needs a reason and says results keep the
     // number they were recorded with; saving shows the corrected number.
     [Fact]

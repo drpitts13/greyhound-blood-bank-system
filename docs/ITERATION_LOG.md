@@ -28773,3 +28773,21 @@ Checked equipment on the worklist, instrument failures, minimum stock, then ran 
 ### Tests
 
 - TEST-BB-1381. Full suite passed.
+
+## Iteration 1065 — End-user testing pass 343: reagents not linked to any test (2026-11-20)
+
+### How it was tested
+
+Walked the cooler check, a newborn chart with maternal anti-K (DEMO-MATAB, Baby Boy Lena), the test worklist, the HL7 log (messages 33 to 42 have no Open chart because their test patients were removed from the dev data earlier; not a software issue), then Reagent QC.
+
+### Found and fixed
+
+1. **A reagent with no tests was flagged only by a placeholder.** A reagent's lots are recorded with a hand-entered result only for the tests listed under *Used for tests*; a reagent with none is never recorded, so a QC failure on its lot cannot be traced to results. The only sign was the faint placeholder in the empty field. The page now names every active reagent with no tests above the register and says what that costs. The dev reagents are all linked, so it does not show there.
+
+### Retested live
+
+- Reagent QC shows no notice (all seven dev reagents list their tests).
+
+### Tests
+
+- TEST-BB-1382. Full suite passed.
