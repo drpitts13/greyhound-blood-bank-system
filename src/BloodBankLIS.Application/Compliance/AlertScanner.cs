@@ -104,7 +104,11 @@ public sealed class AlertScanner
                 item.Kind == ReagentQcWorklistRule.Failed ? AlertSeverity.Critical : AlertSeverity.Warning,
                 item.Kind == ReagentQcWorklistRule.Replace
                     ? $"Reagent lot to replace: lot {item.LotNumber}"
-                    : $"Reagent QC {ReagentQcWorklistRule.KindText(item.Kind)}: lot {item.LotNumber}",
+                    // Pass 322: an unreviewed failed reading is titled apart, so it is not folded into a group of
+                    // passing QC to review (the supervisor queue's wording, pass 288).
+                    : item.QcFailed
+                        ? $"Reagent QC {ReagentQcWorklistRule.KindText(item.Kind)} (failed): lot {item.LotNumber}"
+                        : $"Reagent QC {ReagentQcWorklistRule.KindText(item.Kind)}: lot {item.LotNumber}",
                 item.ResultsToReview > 0
                     ? $"{item.Message} {item.ResultsToReview} result{(item.ResultsToReview == 1 ? " was" : "s were")} tested with this lot since it last passed QC: review {(item.ResultsToReview == 1 ? "it" : "them")}."
                     : item.Message,

@@ -28339,3 +28339,21 @@ Opened Supplier orders and SO-DEMO-001 (five group O red cells ordered, three de
 ### Tests
 
 - TEST-BB-1348. Full suite passed.
+
+## Iteration 1042 — End-user testing pass 322: unreviewed failed QC alert stands apart (2026-11-20)
+
+### How it was tested
+
+Reviewed Equipment, Utilization and Billing (issue charges for the seeded issues were seeded only for two patients; every live issue goes through the one issue path, which captures the charge), then Alerts as the supervisor.
+
+### Found and fixed
+
+1. **The failed QC alert was hidden in a group.** AD-24092's unreviewed failed reading (expected 3+, read 0) was one of *Reagent QC unreviewed (6)*, under Warning, with nothing in the row to say a reading had failed; only *Show each* revealed it. Its alert is now titled *Reagent QC unreviewed (failed): lot AD-24092*, so it stands on its own row, as on the supervisor queue (pass 288).
+
+### Retested live
+
+- Alerts show *Reagent QC unreviewed (failed): lot AD-24092 … read 0 (failed)* on its own row; the other five stay grouped.
+
+### Tests
+
+- TEST-BB-1349. Full suite passed.
