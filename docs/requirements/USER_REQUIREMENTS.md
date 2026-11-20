@@ -1125,3 +1125,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1117 | Tubes due for discard leave out tubes that are still kept. | P2 | FRS-BB-1235 |
 | URS-BB-1118 | A reaction investigation asks for the post-transfusion specimen early, right after the clerical check. | P2 | FRS-BB-1236 |
 | URS-BB-1119 | The patient list shows when a massive transfusion protocol is open for the patient. | P2 | FRS-BB-1237 |
+| URS-BB-1120 | The RhIG queue says why no dose was calculated for a suggested candidate. | P2 | FRS-BB-1238 |

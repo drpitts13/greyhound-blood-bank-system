@@ -10,10 +10,11 @@ public class RhigQueueSuggestionTests : BunitContext
 {
     private static readonly DateTime Now = DateTime.UtcNow;
 
-    private static RhigQueueItemDto Item(long id, RhigDecision decision, int? vials, RhigDecision? suggested, int? calculated) => new(
+    private static RhigQueueItemDto Item(long id, RhigDecision decision, int? vials, RhigDecision? suggested, int? calculated,
+        string? doseExplanation = null) => new(
         new RhigEvaluationDto(id, id, RhigContext.Postpartum, Now.AddHours(-id), RhType.Positive, FetalBleedScreen.Positive, 0.9m,
             decision, vials, null, "tech1", Now.AddHours(-id), null, null, [],
-            SuggestedDecision: suggested, VialsCalculated: calculated),
+            SuggestedDecision: suggested, VialsCalculated: calculated, DoseExplanation: doseExplanation),
         $"Mother {id}", $"MRN{id}", false);
 
     // TEST-BB-892: each row says the suggested decision and calculated vials; a recorded dose that differs is marked; a
@@ -27,7 +28,8 @@ public class RhigQueueSuggestionTests : BunitContext
             {
                 Item(1, RhigDecision.Candidate, 2, RhigDecision.Candidate, 3),
                 Item(2, RhigDecision.Undetermined, null, null, null),
-                Item(3, RhigDecision.Undetermined, null, RhigDecision.Candidate, null)
+                Item(3, RhigDecision.Undetermined, null, RhigDecision.Candidate, null,
+                    "No dose calculated: it is calculated from a positive fetal bleed screen's quantitation.")
             }
         });
         var page = Render<RhigQueue>();
@@ -39,5 +41,8 @@ public class RhigQueueSuggestionTests : BunitContext
         Assert.Equal("—", page.Find("[data-rhig-queue-suggested='2']").TextContent.Trim());
         Assert.Contains("Candidate (no dose calculated)", page.Find("[data-rhig-queue-suggested='3']").TextContent);
         Assert.Null(page.Find("[data-rhig-queue-suggested='3']").QuerySelector("[data-rhig-queue-differs]"));
+        // TEST-BB-1380 (end-user testing pass 341): and says why no dose was calculated; a calculated dose shows no reason.
+        Assert.Equal("It is calculated from a positive fetal bleed screen's quantitation.", page.Find("[data-rhig-queue-no-dose='3']").TextContent.Trim());
+        Assert.Empty(page.FindAll("[data-rhig-queue-no-dose='1']"));
     }
 }

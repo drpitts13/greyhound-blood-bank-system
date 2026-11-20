@@ -167,6 +167,11 @@ else
                         @* Cycle 681: what the facts suggest and the dose calculated, beside what was recorded. *@
                         <td data-rhig-queue-suggested="@e.Id">
                             @SuggestedText(e)
+                            @if (NoDoseReason(e) is { } why)
+                            {
+                                @* Pass 341: say why no dose was calculated (no quantitation yet, or the dose settings are not set). *@
+                                <div class="sub muted" data-rhig-queue-no-dose="@e.Id">@why</div>
+                            }
                             @if (e.DecisionDiffersFromSuggestion || e.VialsDifferFromCalculated)
                             {
                                 <span class="badge badge-amber" data-rhig-queue-differs>Differs</span>
@@ -209,6 +214,14 @@ else
         RhigDecision.NotCandidate => "Not a candidate",
         _ => "—"
     };
+
+    /// <summary>Why a suggested candidate has no dose calculated (end-user testing pass 341); null otherwise.</summary>
+    internal static string? NoDoseReason(RhigEvaluationDto e) =>
+        e.SuggestedDecision == RhigDecision.Candidate && e.VialsCalculated is null && !string.IsNullOrWhiteSpace(e.DoseExplanation)
+            ? Capitalize(e.DoseExplanation!.Replace("No dose calculated: ", string.Empty))
+            : null;
+
+    private static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
     // A link (the top-bar lookup) may open the page on a lot's trace.
     [SupplyParameterFromQuery(Name = "lot")] public string? LotQuery { get; set; }

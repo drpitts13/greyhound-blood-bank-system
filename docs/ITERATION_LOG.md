@@ -28737,3 +28737,21 @@ Looked up Demo-Massive, Morgan (MRN0021, MTP #1 open) on the Patients list, as a
 ### Tests
 
 - TEST-BB-1379. Full suite passed.
+
+## Iteration 1063 — End-user testing pass 341: why no RhIG dose was calculated (2026-11-20)
+
+### How it was tested
+
+Worked the RhIG queue as the technologist following up DEMO-RHIG, Noor (delivery 2026-11-07, candidate).
+
+### Found and fixed
+
+1. **"Candidate (no dose calculated)" with no reason.** The dose is calculated only from a positive fetal bleed screen's quantitation and only once the medical director has entered the dose settings, but the queue did not say which was missing, so the technologist could not tell whether to order a quantitation or ask for the settings. The reason, already worked out by the dose calculation, now shows under the suggestion; for Noor: *It is calculated from a positive fetal bleed screen's quantitation.*
+
+### Retested live
+
+- Noor's row shows the reason.
+
+### Tests
+
+- TEST-BB-1380. Full suite passed.
