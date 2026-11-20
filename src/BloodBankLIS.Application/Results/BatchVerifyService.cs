@@ -89,8 +89,11 @@ public sealed class BatchVerifyService
             return new BatchVerifyCandidatesDto(false, []);
         }
 
+        // OCD-061, a facility setting: which of ABORH, ABSC and DAT are verified in batches.
+        var batchTests = await _policy.GetBatchVerifyTestsAsync(ct);
+
         var rows = (await _worklist.ListPendingGlobalAsync(ct))
-            .Where(r => r.CurrentResultId is > 0 && r.CanEnterResults && BatchVerifyRule.Tests.Contains(r.TestCode))
+            .Where(r => r.CurrentResultId is > 0 && r.CanEnterResults && batchTests.Contains(r.TestCode))
             .ToList();
         if (rows.Count == 0)
         {
@@ -104,7 +107,7 @@ public sealed class BatchVerifyService
         foreach (var row in rows)
         {
             if (!results.TryGetValue(row.CurrentResultId!.Value, out var result)
-                || BatchVerifyRule.Evaluate(FactsFor(result, facts)).Severity != RuleSeverity.Pass)
+                || BatchVerifyRule.Evaluate(FactsFor(result, facts), batchTests).Severity != RuleSeverity.Pass)
             {
                 continue;
             }
@@ -146,7 +149,7 @@ public sealed class BatchVerifyService
             }
 
             // Decided again here: the list may be stale, and a caller may send any id.
-            var eligibility = BatchVerifyRule.Evaluate(FactsFor(result, facts));
+            var eligibility = BatchVerifyRule.Evaluate(FactsFor(result, facts), await _policy.GetBatchVerifyTestsAsync(ct));
             if (eligibility.Severity != RuleSeverity.Pass)
             {
                 skipped.Add(new BatchVerifySkippedDto(id, eligibility.Message));

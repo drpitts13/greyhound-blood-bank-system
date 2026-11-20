@@ -137,4 +137,72 @@ public static class FacilityPolicyKeys
 
     /// <summary>OCD-074: the age (days) under which the neonatal rules apply.</summary>
     public const string NeonatalAgeLimitDays = "Neonatal.AgeLimitDays";
+
+    // Medical director decisions recorded as facility settings (2026-11-20: different medical directors use this
+    // application). Each default is the decision previously built in, so nothing changes until the facility changes it.
+
+    /// <summary>OCD-090: which deviations need their FDA reportability determined before they close (0 none, 1 all, 2 major and critical, 3 critical).</summary>
+    public const string DeviationFdaReportabilityToClose = "Deviation.FdaReportabilityToClose";
+
+    /// <summary>OCD-046: an incompatible retrospective crossmatch after emergency release opens a critical deviation.</summary>
+    public const string RetrospectiveIncompatibleOpensDeviation = "Issue.RetrospectiveIncompatibleOpensDeviation";
+
+    /// <summary>OCD-050: the retrospective crossmatch may be recorded on the expired pre-transfusion specimen as an exception.</summary>
+    public const string RetrospectiveCrossmatchOnExpiredSpecimen = "Compatibility.RetrospectiveOnExpiredSpecimen";
+
+    /// <summary>OCD-053: emergency or massive-transfusion release before a specimen is drawn, with an override.</summary>
+    public const string EmergencyReleaseBeforeSpecimen = "Issue.EmergencyReleaseBeforeSpecimen";
+
+    /// <summary>OCD-058: a reaction workup may use an expired pre-transfusion specimen.</summary>
+    public const string ReactionWorkupOnExpiredSpecimen = "Reaction.WorkupOnExpiredSpecimen";
+
+    /// <summary>OCD-057: closing a reaction investigation needs the concluded reaction and the treatment for future transfusions.</summary>
+    public const string ReactionCloseRequiresConclusion = "Reaction.CloseRequiresConclusion";
+
+    /// <summary>OCD-069 (D variants): 1 weak D and partial D treated as Rh negative for RhIG; 2 partial D only.</summary>
+    public const string RhigDVariantHandling = "Rhig.DVariantHandling";
+
+    /// <summary>OCD-078: another unit while a reaction is under investigation (0 no check, 1 warning with override, 2 refused).</summary>
+    public const string ReactionUnderInvestigationIssue = "Issue.ReactionUnderInvestigation";
+
+    /// <summary>OCD-081: a back-entry paper time outside every recorded outage (0 allowed, 1 reason required, 2 refused).</summary>
+    public const string BackEntryOutsideOutage = "Downtime.BackEntryOutsideOutage";
+
+    /// <summary>OCD-093: a result entered while its specimen was in date may be verified after the specimen expires.</summary>
+    public const string VerifyAfterSpecimenExpiry = "Result.VerifyAfterSpecimenExpiry";
+
+    /// <summary>OCD-051: a correction of a verified result may be verified after the specimen expires.</summary>
+    public const string CorrectAfterSpecimenExpiry = "Result.CorrectAfterSpecimenExpiry";
+
+    /// <summary>OCD-028: identifying a specificity assistance would exclude needs a written rationale.</summary>
+    public const string AntibodyIdRequireExclusionRationale = "AntibodyId.RequireExclusionRationale";
+
+    /// <summary>OCD-019: inbound OBX-11 statuses that may post a pending result (comma-separated letters).</summary>
+    public const string InboundResultStatuses = "Interface.InboundResultStatuses";
+
+    /// <summary>OCD-020: antigen codes that show dosage for antibody identification assistance.</summary>
+    public const string AntibodyIdDosageSensitiveAntigens = "AntibodyId.DosageSensitiveAntigens";
+
+    /// <summary>OCD-024: words that mark an antigen typing method as a predicted genotype.</summary>
+    public const string AntibodyIdGenotypeMethodWords = "AntibodyId.GenotypeMethodWords";
+
+    /// <summary>OCD-061: which of ABORH, ABSC and DAT may be verified in a batch.</summary>
+    public const string BatchVerifyTests = "Result.BatchVerifyTests";
+
+    /// <summary>OCD-065: the score each reaction grade adds to a scored titer (grade=score pairs).</summary>
+    public const string TiterGradeScores = "Titer.GradeScores";
+
+    /// <summary>OCD-005: the receipt temperature range for shipped units, whole degrees Celsius.</summary>
+    public const string ReceiveTemperatureMinC = "Inventory.ReceiveTemperatureMinC";
+
+    public const string ReceiveTemperatureMaxC = "Inventory.ReceiveTemperatureMaxC";
+
+    /// <summary>OCD-025: completing or accepting antibody identification on an expired specimen, with an acknowledgment.</summary>
+    public const string AntibodyIdCompleteOnExpiredSpecimen = "AntibodyId.CompleteOnExpiredSpecimen";
+
+    /// <summary>OCD-027: completing or accepting antibody identification after an attached panel lot expired, with an acknowledgment.</summary>
+    public const string AntibodyIdCompleteWithExpiredPanelLot = "AntibodyId.CompleteWithExpiredPanelLot";
+
+    /// <summary>OCD-009: an Inactive (not merged) patient record is refused for ordering, specimens, results, crossmatch and issue.</summary>
+    public const string BlockInactivePatientClinicalUse = "Patient.BlockInactiveClinicalUse";
 }

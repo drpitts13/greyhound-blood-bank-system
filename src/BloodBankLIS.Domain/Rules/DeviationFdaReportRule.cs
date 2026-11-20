@@ -12,9 +12,25 @@ public static class DeviationFdaReportRule
     public const string Code = "DEV-FDA-REPORT";
     public const string CloseCode = "DEV-FDA-CLOSE";
 
-    public static RuleResult EvaluateClose(DeviationStatus status, DeviationSeverity severity, DeviationFdaReportability reportability) =>
+    /// <summary>The facility setting's default (OCD-090 as decided): major and critical deviations.</summary>
+    public const int DefaultRequiredFrom = 2;
+
+    /// <summary>
+    /// Whether a deviation of this severity needs its reportability determined to close, under the facility setting
+    /// <c>Deviation.FdaReportabilityToClose</c>: 0 none, 1 every deviation, 2 major and critical, 3 critical only.
+    /// </summary>
+    public static bool RequiredToClose(DeviationSeverity severity, int requiredFrom) => requiredFrom switch
+    {
+        1 => true,
+        2 => severity is DeviationSeverity.Major or DeviationSeverity.Critical,
+        3 => severity == DeviationSeverity.Critical,
+        _ => false
+    };
+
+    public static RuleResult EvaluateClose(DeviationStatus status, DeviationSeverity severity, DeviationFdaReportability reportability,
+        int requiredFrom = DefaultRequiredFrom) =>
         status == DeviationStatus.Closed
-        && severity is DeviationSeverity.Major or DeviationSeverity.Critical
+        && RequiredToClose(severity, requiredFrom)
         && reportability == DeviationFdaReportability.NotDetermined
             ? RuleResult.HardStop(CloseCode, $"A {severity.ToString().ToLowerInvariant()} deviation cannot be closed until its FDA reportability is determined (reportable or not reportable).")
             : RuleResult.Pass(CloseCode);

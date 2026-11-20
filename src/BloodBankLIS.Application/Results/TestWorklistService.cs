@@ -211,6 +211,12 @@ public sealed class TestWorklistService
         var deadlineWindow = TimeSpan.FromHours(_policy is null ? 12 : await _policy.GetNearExpiryWarningHoursAsync(ct));
 
         var items = new List<TestWorkItemDto>();
+        // Facility settings for results on expired specimens (OCD-051, OCD-093, OCD-058; each default on).
+        var expirySettings = _policy is null
+            ? (Corrections: true, Entered: true, ReactionWorkup: true)
+            : (Corrections: await _policy.GetCorrectAfterSpecimenExpiryAsync(ct),
+                Entered: await _policy.GetVerifyAfterSpecimenExpiryAsync(ct),
+                ReactionWorkup: await _policy.GetReactionWorkupOnExpiredSpecimenAsync(ct));
         foreach (var line in lines.OrderByDescending(l => orderById[l.OrderId].OrderedUtc).ThenBy(l => l.LineNumber))
         {
             if (string.IsNullOrWhiteSpace(line.TestCode))
@@ -278,8 +284,9 @@ public sealed class TestWorklistService
                 line.TestCode!,
                 testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType,
                 specimenTypeDefs,
-                VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status, current?.EnteredUtc, current?.TestedUtc, specimen?.ExpiresUtc)
-                    || ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType));
+                VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status, current?.EnteredUtc, current?.TestedUtc, specimen?.ExpiresUtc,
+                        expirySettings.Corrections, expirySettings.Entered)
+                    || ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType, expirySettings.ReactionWorkup));
             var expiredOnly = !canEnter && specimen is not null && EvaluateEntryGate(
                 specimen, line.TestCode!, testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType, specimenTypeDefs, allowExpired: true).CanEnter;
             if (OrderControlRule.BlocksResultEntry(order.Status))

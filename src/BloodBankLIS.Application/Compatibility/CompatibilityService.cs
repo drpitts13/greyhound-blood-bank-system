@@ -189,7 +189,9 @@ public sealed class CompatibilityService
             specimen.AccessionNumber,
             specimen.ExpiresUtc,
             performedUtc,
-            retroIssue is not null && CrossmatchSpecimenRule.IsPreTransfusionSpecimen(specimen.CollectedUtc, retroIssue.IssuedUtc));
+            retroIssue is not null && CrossmatchSpecimenRule.IsPreTransfusionSpecimen(specimen.CollectedUtc, retroIssue.IssuedUtc)
+                // OCD-050 is a facility setting (default on): off, the retrospective crossmatch needs a specimen in date.
+                && (_policy is null || await _policy.GetRetrospectiveCrossmatchOnExpiredSpecimenAsync(ct)));
         if (specimenCheck.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([specimenCheck]));
@@ -424,7 +426,8 @@ public sealed class CompatibilityService
     private async Task<long?> OpenRetrospectiveIncompatibleDeviationAsync(
         Issue issue, Crossmatch xm, BloodUnit unit, string? mrn, string? patientName, CancellationToken ct)
     {
-        if (_deviations is null)
+        // OCD-046 is a facility setting (default on): off, the alert and warning are raised without a deviation.
+        if (_deviations is null || (_policy is not null && !await _policy.GetRetrospectiveIncompatibleOpensDeviationAsync(ct)))
         {
             return null;
         }
@@ -958,7 +961,7 @@ public sealed class CompatibilityService
             return EvaluationResult<T>.Fail("Patient not found.");
         }
 
-        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status, _policy is not null && await _policy.GetBlockInactivePatientClinicalUseAsync(ct));
         return clinical.Severity == RuleSeverity.HardStop
             ? EvaluationResult<T>.Blocked(new RuleEvaluation([clinical]))
             : null;

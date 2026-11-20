@@ -16,7 +16,8 @@ public static class AntigenTypingMethodInfo
         "pcr"
     ];
 
-    public static bool IndicatesPredictedGenotype(string? method)
+    /// <param name="words">Facility setting <c>AntibodyId.GenotypeMethodWords</c>; the default list when null.</param>
+    public static bool IndicatesPredictedGenotype(string? method, IReadOnlyList<string>? words = null)
     {
         if (string.IsNullOrWhiteSpace(method))
         {
@@ -24,7 +25,7 @@ public static class AntigenTypingMethodInfo
         }
 
         var value = method.Trim();
-        return PredictedGenotypeTokens.Any(token =>
+        return (words ?? PredictedGenotypeTokens).Any(token =>
             value.Contains(token, StringComparison.OrdinalIgnoreCase));
     }
 }

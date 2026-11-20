@@ -208,8 +208,76 @@ public sealed class FacilityPolicyService
             Math.Clamp(minHet, 1, 5),
             requireReview,
             blockSelf,
-            AntibodyIdentificationPolicy.DefaultDosageSensitiveCodes);
+            FacilityPolicyLists.Set(await GetTextAsync(FacilityPolicyKeys.AntibodyIdDosageSensitiveAntigens, ct), StringComparer.Ordinal))
+        {
+            RequireExclusionRationale = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdRequireExclusionRationale, true, ct),
+            CompleteOnExpiredSpecimen = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdCompleteOnExpiredSpecimen, true, ct),
+            CompleteWithExpiredPanelLot = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdCompleteWithExpiredPanelLot, true, ct)
+        };
     }
+
+    // Medical director decisions recorded as settings (2026-11-20); each default is the decision previously built in.
+    public Task<int> GetDeviationFdaReportabilityToCloseAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.DeviationFdaReportabilityToClose, 2, ct);
+
+    public Task<bool> GetRetrospectiveIncompatibleOpensDeviationAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RetrospectiveIncompatibleOpensDeviation, true, ct);
+
+    public Task<bool> GetRetrospectiveCrossmatchOnExpiredSpecimenAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RetrospectiveCrossmatchOnExpiredSpecimen, true, ct);
+
+    public Task<bool> GetEmergencyReleaseBeforeSpecimenAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.EmergencyReleaseBeforeSpecimen, true, ct);
+
+    public Task<bool> GetReactionWorkupOnExpiredSpecimenAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.ReactionWorkupOnExpiredSpecimen, true, ct);
+
+    public Task<bool> GetReactionCloseRequiresConclusionAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.ReactionCloseRequiresConclusion, true, ct);
+
+    public Task<int> GetRhigDVariantHandlingAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.RhigDVariantHandling, 1, ct);
+
+    public Task<int> GetReactionUnderInvestigationIssueAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.ReactionUnderInvestigationIssue, 1, ct);
+
+    public Task<int> GetBackEntryOutsideOutageAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.BackEntryOutsideOutage, 1, ct);
+
+    public Task<bool> GetVerifyAfterSpecimenExpiryAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.VerifyAfterSpecimenExpiry, true, ct);
+
+    /// <summary>A list policy's value; the catalog default when unset or no longer valid.</summary>
+    public async Task<string> GetTextAsync(string key, CancellationToken ct = default)
+    {
+        var row = await _settings.FirstOrDefaultAsync(s => s.Key == key, ct);
+        var value = row?.Value?.Trim();
+        return string.IsNullOrEmpty(value) || FacilityPolicyLists.Problem(key, value) is not null
+            ? FacilityPolicyCatalog.TextDefault(key)
+            : value;
+    }
+
+    public async Task<IReadOnlySet<string>> GetInboundResultStatusesAsync(CancellationToken ct = default) =>
+        FacilityPolicyLists.Set(await GetTextAsync(FacilityPolicyKeys.InboundResultStatuses, ct), StringComparer.OrdinalIgnoreCase);
+
+    public async Task<IReadOnlySet<string>> GetBatchVerifyTestsAsync(CancellationToken ct = default) =>
+        FacilityPolicyLists.Set(await GetTextAsync(FacilityPolicyKeys.BatchVerifyTests, ct), StringComparer.OrdinalIgnoreCase);
+
+    public async Task<IReadOnlyList<string>> GetGenotypeMethodWordsAsync(CancellationToken ct = default) =>
+        FacilityPolicyLists.Items(await GetTextAsync(FacilityPolicyKeys.AntibodyIdGenotypeMethodWords, ct));
+
+    public async Task<IReadOnlyDictionary<string, int>> GetTiterGradeScoresAsync(CancellationToken ct = default) =>
+        FacilityPolicyLists.Scores(await GetTextAsync(FacilityPolicyKeys.TiterGradeScores, ct));
+
+    /// <summary>OCD-005: the receipt temperature range (whole °C), defaulting to 1 to 10.</summary>
+    public async Task<(int Min, int Max)> GetReceiveTemperatureRangeAsync(CancellationToken ct = default) =>
+        (await GetIntAsync(FacilityPolicyKeys.ReceiveTemperatureMinC, 1, ct), await GetIntAsync(FacilityPolicyKeys.ReceiveTemperatureMaxC, 10, ct));
+
+    public Task<bool> GetBlockInactivePatientClinicalUseAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.BlockInactivePatientClinicalUse, false, ct);
+
+    public Task<bool> GetCorrectAfterSpecimenExpiryAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.CorrectAfterSpecimenExpiry, true, ct);
 
     public Task<bool> GetProductChargeOnTransfuseAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.ProductChargeOnTransfuse, false, ct);

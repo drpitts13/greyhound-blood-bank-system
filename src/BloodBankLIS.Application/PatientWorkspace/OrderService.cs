@@ -315,7 +315,7 @@ public sealed class OrderService
         var patientExists = patient is not null;
         if (patient is not null)
         {
-            var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+            var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status, _policy is not null && await _policy.GetBlockInactivePatientClinicalUseAsync(ct));
             if (clinical.Severity == RuleSeverity.HardStop)
             {
                 return OperationResult<Order>.Fail(clinical.Message);
@@ -900,7 +900,8 @@ public sealed class OrderService
         }
 
         // OCD-058: a reaction workup order may use an expired (pre-transfusion) specimen.
-        var expiredAllowed = ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType);
+        var expiredAllowed = ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType,
+            _policy is null || await _policy.GetReactionWorkupOnExpiredSpecimenAsync(ct));
         if (specimen.Status != SpecimenStatus.Accepted
             && !(expiredAllowed && specimen.Status == SpecimenStatus.Expired))
         {
@@ -1189,7 +1190,7 @@ public sealed class OrderService
             return null;
         }
 
-        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status, _policy is not null && await _policy.GetBlockInactivePatientClinicalUseAsync(ct));
         return clinical.Severity == RuleSeverity.HardStop ? clinical.Message : null;
     }
 

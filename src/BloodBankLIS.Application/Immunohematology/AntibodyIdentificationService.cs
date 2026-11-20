@@ -819,7 +819,9 @@ public sealed class AntibodyIdentificationService
 
         var exclusionRationale = AntibodyIdentificationInterpretationRule.EvaluateIdentifiedExclusionRationale(
             recordedForAssist, assist.Findings);
-        if (exclusionRationale.Severity == RuleSeverity.HardStop)
+        // OCD-028, a facility setting (AntibodyId.RequireExclusionRationale, default on): off, the warning above stands alone.
+        if (exclusionRationale.Severity == RuleSeverity.HardStop
+            && (await _policies.GetAntibodyIdentificationPolicyAsync(ct)).RequireExclusionRationale)
         {
             return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation([exclusionRationale]));
         }
@@ -970,6 +972,12 @@ public sealed class AntibodyIdentificationService
             if (reviewClinical.Any(r => r.Severity == RuleSeverity.HardStop))
             {
                 return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation(reviewClinical));
+            }
+
+            var refusedAtReview = (await _policies.GetAntibodyIdentificationPolicyAsync(ct)).RefusedWarnings(reviewClinical);
+            if (refusedAtReview.Count > 0)
+            {
+                return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation(refusedAtReview));
             }
 
             var reviewAck = AntibodyIdentificationInterpretationRule.EvaluateReviewAcknowledgment(
@@ -1193,6 +1201,13 @@ public sealed class AntibodyIdentificationService
             completionResults.Add(datAtComplete);
         }
 
+        // OCD-025 / OCD-027, facility settings: an expired specimen or panel lot may be refused instead of acknowledged.
+        var refusedAtComplete = (await _policies.GetAntibodyIdentificationPolicyAsync(ct)).RefusedWarnings(completionResults);
+        if (refusedAtComplete.Count > 0)
+        {
+            return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation(refusedAtComplete));
+        }
+
         evaluation = new RuleEvaluation(completionResults);
         var acknowledgment = AntibodyIdentificationInterpretationRule.EvaluateCompleteAcknowledgment(
             completionResults, request?.WarningAcknowledgment);
@@ -1404,12 +1419,14 @@ public sealed class AntibodyIdentificationService
         var catalog = attributes.Values
             .Select(a => new AntibodyIdAntigenInfo(a.Code, a.AntibodyName))
             .ToList();
+        // OCD-024, a facility setting: which method words mean a predicted genotype.
+        var genotypeWords = await _policies.GetGenotypeMethodWordsAsync(ct);
         var patientAntigens = phenotype
             .Where(p => attributes.ContainsKey(p.BloodAttributeDefinitionId))
             .Select(p => new PatientAntigenSnapshot(
                 attributes[p.BloodAttributeDefinitionId].Code,
                 p.Result,
-                AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method)))
+                AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method, genotypeWords)))
             .ToList();
         var historical = history
             .Select(a => new HistoricalAntibodySnapshot(
@@ -1606,12 +1623,13 @@ public sealed class AntibodyIdentificationService
     {
         var attributes = (await _attributes.ListAsync(a => a.IsActive, ct)).ToDictionary(a => a.Id);
         var phenotype = await _antigenProfiles.ListAsync(p => p.PatientId == patientId, ct);
+        var genotypeWords = await _policies.GetGenotypeMethodWordsAsync(ct);
         return phenotype
             .Where(p => attributes.ContainsKey(p.BloodAttributeDefinitionId))
             .Select(p => new PatientAntigenSnapshot(
                 attributes[p.BloodAttributeDefinitionId].Code,
                 p.Result,
-                AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method)))
+                AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method, genotypeWords)))
             .ToList();
     }
 

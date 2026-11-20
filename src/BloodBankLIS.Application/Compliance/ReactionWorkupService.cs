@@ -33,6 +33,8 @@ public sealed class ReactionWorkupService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
 
+    private readonly FacilityPolicyService? _policy;
+
     public ReactionWorkupService(
         IRepository<ReactionInvestigation> investigations,
         IRepository<TransfusionEvent> transfusions,
@@ -49,8 +51,10 @@ public sealed class ReactionWorkupService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _investigations = investigations;
         _transfusions = transfusions;
         _issues = issues;
@@ -207,7 +211,8 @@ public sealed class ReactionWorkupService
 
         var rule = preTransfusion
             ? ReactionWorkupSpecimenRule.EvaluatePre(
-                row.PatientId, specimen.PatientId, specimen.Status, specimen.CollectedUtc, context.IssuedUtc, specimen.AccessionNumber)
+                row.PatientId, specimen.PatientId, specimen.Status, specimen.CollectedUtc, context.IssuedUtc, specimen.AccessionNumber,
+                _policy is null || await _policy.GetReactionWorkupOnExpiredSpecimenAsync(ct))
             : ReactionWorkupSpecimenRule.EvaluatePost(
                 row.PatientId, specimen.PatientId, specimen.Status, specimen.CollectedUtc, context.StartUtc,
                 specimen.Id, row.PreTransfusionSpecimenId, specimen.AccessionNumber);

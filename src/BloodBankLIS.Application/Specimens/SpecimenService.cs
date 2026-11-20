@@ -174,7 +174,7 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Patient not found.");
         }
 
-        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status, _policy is not null && await _policy.GetBlockInactivePatientClinicalUseAsync(ct));
         if (clinical.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<Specimen>.Fail(clinical.Message);

@@ -16,7 +16,9 @@ public static class ReactionWorkupSpecimenRule
     /// OCD-058: the pre-transfusion tube is usually past its routine expiry when a reaction is reported. Reaction workup
     /// orders may be linked to, and resulted on, an expired specimen; every other order keeps the expiry block.
     /// </summary>
-    public static bool AllowsExpiredSpecimen(OrderType orderType) => orderType == OrderType.TransfusionReactionWorkup;
+    /// <param name="facilityAllows">The facility setting <c>Reaction.WorkupOnExpiredSpecimen</c> (default on).</param>
+    public static bool AllowsExpiredSpecimen(OrderType orderType, bool facilityAllows = true) =>
+        facilityAllows && orderType == OrderType.TransfusionReactionWorkup;
 
     public static RuleResult EvaluatePre(
         long investigationPatientId,
@@ -24,9 +26,10 @@ public static class ReactionWorkupSpecimenRule
         SpecimenStatus status,
         DateTime collectedUtc,
         DateTime issuedUtc,
-        string accessionNumber)
+        string accessionNumber,
+        bool expiredAllowed = true)
     {
-        var common = Common(PreCode, investigationPatientId, specimenPatientId, status, accessionNumber, allowExpired: true);
+        var common = Common(PreCode, investigationPatientId, specimenPatientId, status, accessionNumber, allowExpired: expiredAllowed);
         if (common is not null)
         {
             return common;

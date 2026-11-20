@@ -14,10 +14,12 @@ public static class InterfaceResultAcceptanceRule
     public const string Code = "RES-IFACE-OBX-STATUS";
     public const string ClosedOrderCode = "RES-IFACE-ORDER-CLOSED";
 
-    public static RuleResult Evaluate(string? obxStatus)
+    /// <param name="accepted">Facility setting <c>Interface.InboundResultStatuses</c> (default F, C, P, R).</param>
+    public static RuleResult Evaluate(string? obxStatus, IReadOnlySet<string>? accepted = null)
     {
         var code = (obxStatus ?? string.Empty).Trim().ToUpperInvariant();
-        if (code.Length == 0 || code is "F" or "C" or "P" or "R")
+        accepted ??= FacilityPolicyLists.Set(FacilityPolicyLists.DefaultInboundResultStatuses, StringComparer.OrdinalIgnoreCase);
+        if (code.Length == 0 || accepted.Contains(code))
         {
             return RuleResult.Pass(Code);
         }

@@ -90,7 +90,9 @@ public static class TiterRule
         return -1;
     }
 
-    public static TiterEvaluation Evaluate(TiterSettings settings, IEnumerable<TiterReading>? readings)
+    /// <param name="scores">Facility setting <c>Titer.GradeScores</c>; <see cref="ExampleScores"/> when null.</param>
+    public static TiterEvaluation Evaluate(TiterSettings settings, IEnumerable<TiterReading>? readings,
+        IReadOnlyDictionary<string, int>? scores = null)
     {
         var dilutions = Dilutions(settings.StartDilution, settings.EndDilution);
         var minStrength = Strength(settings.EndpointMinGrade);
@@ -152,7 +154,7 @@ public static class TiterRule
         }
 
         var endpoint = stored.Where(r => Strength(r.Grade) >= minStrength).Select(r => (int?)r.Dilution).DefaultIfEmpty(null).Max();
-        int? score = settings.Scored ? stored.Sum(r => ExampleScores.GetValueOrDefault(r.Grade, 0)) : null;
+        int? score = settings.Scored ? stored.Sum(r => (scores ?? ExampleScores).GetValueOrDefault(r.Grade, 0)) : null;
         var value = new TiterResultValue(settings.PhaseCode, settings.StartDilution, stored, endpoint, score);
         return new(value, RuleResult.Pass(GradeCode), pattern);
     }

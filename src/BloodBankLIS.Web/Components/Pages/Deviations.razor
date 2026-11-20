@@ -254,7 +254,7 @@ else
             }
 
             // OCD-090 (decided, option B): Major and Critical need the FDA reportability decision to close.
-            return DeviationFdaReportRule.EvaluateClose(_newStatus, row.Severity, _fdaReportability);
+            return DeviationFdaReportRule.EvaluateClose(_newStatus, row.Severity, _fdaReportability, _fdaRequiredFrom);
         }
     }
 
@@ -274,6 +274,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        var fdaSetting = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.DeviationFdaReportabilityToClose);
+        if (fdaSetting.Succeeded && fdaSetting.Value is { } fda)
+        {
+            _fdaRequiredFrom = fda.Value;
+        }
+
         if (ContextTypes.Any(t => t.Value == ContextTypeQuery) && ContextIdQuery is > 0)
         {
             _contextType = ContextTypeQuery;
@@ -409,6 +415,8 @@ else
     private string? _assignedTo;
     private DateTime? _dueOn;
     private DeviationFdaReportability _fdaReportability;
+    // Facility setting Deviation.FdaReportabilityToClose (OCD-090); the decided default until it is read.
+    private int _fdaRequiredFrom = DeviationFdaReportRule.DefaultRequiredFrom;
     private DateTime? _fdaReportedOn;
     private string? _fdaReportNumber;
 

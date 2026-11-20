@@ -451,6 +451,13 @@ public sealed class RhigEvaluationService
         var antibodies = await _antibodies.ListAsync(a => a.PatientId == patientId, ct);
         var antiD = antibodies.Any(a => string.Equals(a.AntibodySpecificity?.Trim(), "anti-D", StringComparison.OrdinalIgnoreCase));
         var variant = (await _patients.GetByIdAsync(patientId, ct))?.RhDVariant ?? RhDVariant.None;
+        // OCD-069, a facility setting (Rhig.DVariantHandling, default 1): with 2, a weak D follows the Rh type on file
+        // and only a partial D is treated as Rh negative.
+        if (variant == RhDVariant.WeakD && _policy is not null && await _policy.GetRhigDVariantHandlingAsync(ct) == 2)
+        {
+            variant = RhDVariant.None;
+        }
+
         return (current?.RhD, antiD, variant);
     }
 

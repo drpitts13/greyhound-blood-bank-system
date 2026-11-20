@@ -34,6 +34,8 @@ public sealed class ExpiredSpecimenOrderService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditWriter? _audit;
 
+    private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
+
     public ExpiredSpecimenOrderService(
         IRepository<Specimen> specimens,
         IRepository<Order> orders,
@@ -47,8 +49,10 @@ public sealed class ExpiredSpecimenOrderService
         IRepository<OrderCancellationReason> cancellationReasons,
         IClock clock,
         IUnitOfWork unitOfWork,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _specimens = specimens;
         _orders = orders;
         _orderLines = orderLines;
@@ -67,6 +71,8 @@ public sealed class ExpiredSpecimenOrderService
     public async Task<ExpiredSpecimenOrderSweepResult> ProcessAsync(CancellationToken ct = default)
     {
         var now = _clock.UtcNow;
+        // OCD-093, a facility setting (default on): off, an unverified result no longer keeps its order open.
+        var verifyAfterExpiry = _policy is null || await _policy.GetVerifyAfterSpecimenExpiryAsync(ct);
         var expired = await _specimens.ListAsync(
             s => s.ExpiresUtc != null && s.ExpiresUtc <= now, ct);
         if (expired.Count == 0)
@@ -157,7 +163,8 @@ public sealed class ExpiredSpecimenOrderService
             // OCD-093 (decided 2026-11-17, end-user testing pass 226): a result entered on the order while the specimen was
             // in date and not yet verified keeps the order open, so it stays on the worklist and can still be verified.
             // MRN0022's Stat antibody screen, resulted Positive, was cancelled at expiry and appeared nowhere to verify.
-            if (await _results.AnyAsync(
+            if (verifyAfterExpiry
+                && await _results.AnyAsync(
                     r => r.OrderId == order.Id
                          && r.SupersededByResultId == null
                          && (r.Status == ResultStatus.Entered || r.Status == ResultStatus.PendingVerification),

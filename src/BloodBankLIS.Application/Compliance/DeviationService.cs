@@ -81,6 +81,7 @@ public sealed class DeviationService
     private readonly IRepository<Specimen>? _specimens;
     private readonly IRepository<StorageTemperatureReading>? _readings;
     private readonly IRepository<InventoryLocation>? _locations;
+    private readonly FacilityPolicyService? _policy;
 
     public DeviationService(
         IRepository<Deviation> deviations,
@@ -93,8 +94,10 @@ public sealed class DeviationService
         IRepository<Patient>? patients = null,
         IRepository<Specimen>? specimens = null,
         IRepository<StorageTemperatureReading>? readings = null,
-        IRepository<InventoryLocation>? locations = null)
+        IRepository<InventoryLocation>? locations = null,
+        FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _units = units;
         _patients = patients;
         _specimens = specimens;
@@ -236,7 +239,8 @@ public sealed class DeviationService
             }
         }
 
-        var closeCheck = DeviationFdaReportRule.EvaluateClose(status, row.Severity, investigation?.FdaReportability ?? row.FdaReportability);
+        var closeCheck = DeviationFdaReportRule.EvaluateClose(status, row.Severity, investigation?.FdaReportability ?? row.FdaReportability,
+            _policy is null ? DeviationFdaReportRule.DefaultRequiredFrom : await _policy.GetDeviationFdaReportabilityToCloseAsync(ct));
         if (closeCheck.Severity == RuleSeverity.HardStop && row.Status != DeviationStatus.Closed)
         {
             return OperationResult<Deviation>.Fail(closeCheck.Message);

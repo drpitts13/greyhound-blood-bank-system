@@ -198,7 +198,7 @@ public sealed class ResultService
         var gate = await ValidateSpecimenForEntryAsync(
             request.SpecimenId, request.TestCode, ct, allowExpired: await IsReactionWorkupOrderAsync(request.OrderId, ct));
         string? expiredError = null;
-        if (!gate.Succeeded && !string.IsNullOrWhiteSpace(request.CorrectionReason))
+        if (!gate.Succeeded && !string.IsNullOrWhiteSpace(request.CorrectionReason) && await CorrectAfterExpiryAllowedAsync(ct))
         {
             // Only a correction may go ahead on an expired specimen; decided below once the current result is known.
             var correctionGate = await ValidateSpecimenForEntryAsync(request.SpecimenId, request.TestCode, ct, allowExpired: true);
@@ -832,7 +832,8 @@ public sealed class ResultService
             result.SpecimenId,
             result.TestCode,
             ct,
-            allowExpired: result.Status == ResultStatus.Corrected || await IsReactionWorkupOrderAsync(result.OrderId, ct));
+            allowExpired: (result.Status == ResultStatus.Corrected && await CorrectAfterExpiryAllowedAsync(ct))
+                || await IsReactionWorkupOrderAsync(result.OrderId, ct));
         if (!specimenGate.Succeeded && result.TestedUtc is DateTime verifyTested)
         {
             // OCD-091: a result entered on paper's word on a since-expired specimen is verified on the same terms.
@@ -845,9 +846,9 @@ public sealed class ResultService
             }
         }
 
-        if (!specimenGate.Succeeded)
+        if (!specimenGate.Succeeded && (_policy is null || await _policy.GetVerifyAfterSpecimenExpiryAsync(ct)))
         {
-            // OCD-093: a result entered while the specimen was in date is verified after it expires.
+            // OCD-093 (a facility setting, default on): a result entered while the specimen was in date is verified after it expires.
             var expiredGate = await ValidateSpecimenForEntryAsync(result.SpecimenId, result.TestCode, ct, allowExpired: true);
             if (expiredGate.Succeeded
                 && ExpiredSpecimenVerificationRule.EnteredWhileInDate(
@@ -1870,6 +1871,10 @@ public sealed class ResultService
     /// by the sweep) does not stop it. Rejected or cancelled specimens and merged-away
     /// patients are still refused.
     /// </param>
+    /// <summary>OCD-051, a facility setting (default on): a correction may be entered and verified after the specimen expires.</summary>
+    private async Task<bool> CorrectAfterExpiryAllowedAsync(CancellationToken ct) =>
+        _policy is null || await _policy.GetCorrectAfterSpecimenExpiryAsync(ct);
+
     private async Task<bool> IsReactionWorkupOrderAsync(long? orderId, CancellationToken ct)
     {
         if (_orders is null || orderId is not > 0)
@@ -1878,7 +1883,8 @@ public sealed class ResultService
         }
 
         var order = await _orders.GetByIdAsync(orderId.Value, ct);
-        return order is not null && ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType);
+        return order is not null && ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType,
+            _policy is null || await _policy.GetReactionWorkupOnExpiredSpecimenAsync(ct));
     }
 
     private async Task<OperationResult<Specimen>> ValidateSpecimenForEntryAsync(
@@ -1901,7 +1907,7 @@ public sealed class ResultService
             var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
             if (patient is not null)
             {
-                var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+                var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status, _policy is not null && await _policy.GetBlockInactivePatientClinicalUseAsync(ct));
                 if (clinical.Severity == RuleSeverity.HardStop)
                 {
                     return OperationResult<Specimen>.Fail(clinical.Message);
@@ -2152,7 +2158,8 @@ public sealed class ResultService
                     $"{TiterRule.ConfigCode}: This titer test is not set up (dilutions and endpoint grade). Ask an administrator.");
             }
 
-            var titer = TiterRule.Evaluate(settings, request.TiterReadings);
+            var titer = TiterRule.Evaluate(settings, request.TiterReadings,
+                _policy is null ? null : await _policy.GetTiterGradeScoresAsync(ct));
             return titer.Value is null
                 ? OperationResult<(string, string?, string?)>.Fail($"{titer.Result.Code}: {titer.Result.Message}")
                 : OperationResult<(string, string?, string?)>.Ok((titer.Value.Serialize(), null, titer.Value.Interpretation));
@@ -2196,7 +2203,7 @@ public sealed class ResultService
         {
             return TiterResultValue.TryParse(saved.Value, out var titer)
                 && TiterSettings.From(definition) is { } settings
-                && TiterRule.Evaluate(settings, titer!.Readings).Pattern is { } pattern
+                && TiterRule.Evaluate(settings, titer!.Readings, _policy is null ? null : await _policy.GetTiterGradeScoresAsync(ct)).Pattern is { } pattern
                 ? [pattern]
                 : [];
         }
@@ -3006,7 +3013,7 @@ public sealed class ResultService
             return null;
         }
 
-        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status, _policy is not null && await _policy.GetBlockInactivePatientClinicalUseAsync(ct));
         return clinical.Severity == RuleSeverity.HardStop ? clinical.Message : null;
     }
 

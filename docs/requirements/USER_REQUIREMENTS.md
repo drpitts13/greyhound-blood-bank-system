@@ -1108,3 +1108,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1100 | An alert for a failed QC reading still to review stands apart from passing QC to review. | P2 | FRS-BB-1218 |
 | URS-BB-1101 | Storage temperatures says when readings are not being marked due because the reading interval is not set. | P2 | FRS-BB-1219 |
 | URS-BB-1102 | The test worklist says when rush tests are not timed because the STAT turnaround target is not set. | P2 | FRS-BB-1220 |
+| URS-BB-1103 | Decisions that belong to the medical director are facility settings, shipped at the decision already made, so each facility's medical director can set them. | P1 | FRS-BB-1221 |

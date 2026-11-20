@@ -165,3 +165,37 @@ the history.
 | OCD-091 | Back-entering a result on a specimen that has expired since it was tested. End-user testing pass 85 added the time tested to hand-entered results (paper results after an outage), but a specimen that was valid when tested on paper and has expired by the time the system is back still cannot take the result. Should the time tested decide whether the specimen was acceptable (allowing entry of a result tested within the specimen's validity), and with what safeguards (a reason, a supervisor, a recorded outage covering the time tested)? | **Decided 2026-11-14 (product owner): option C for patient testing, option B for entering crossmatches and issuing units.** A patient test result read on paper can be entered on a specimen that has expired since only when the time tested is before the specimen expired, falls in a recorded outage, and a reason is given. A crossmatch needs the time before expiry and a reason, outage or not, and is recorded as performed at that time. A downtime back-entry issue counts a specimen that has expired since when it was acceptable at the paper issue time. Verification follows the same terms. The specimen stays expired for anything new. Hard stop `SPEC-EXPIRED-BACKENTRY`. | Transfusion service medical director + quality |
 | OCD-092 | The century digit in ISBT 128 expiration codes (`=>cyyjjj`, `&>cyyjjjhhmm`). The parser maps c = 0 or 1 to the 1900s and c = 2 to the 2000s, pending ICCBBA confirmation (isbt128-module.md open item). End-user testing pass 161 found a label code `&>0263312359` resolving to 1926-11-27; ISBT 128 labels in circulation are commonly read with c = 0 for the 2000s (2026 day 331). Which mapping does the current ICCBBA standard specify, and should the outbound encoder (`FromLocalDateTime`, which writes 2 for the 2000s) change with it? | Built as a guard only: a scanned expiration whose year is more than 2 before or 11 after today is refused (`ISBT_IMPLAUSIBLE_EXPIRATION`) with instructions to check the eye-readable date and enter it by hand. **Decided 2026-11-16 (product owner, from the ICCBBA standard): century digit 0 is the 2000s and 9 the 1900s.** The parser reads labels so and refuses any other digit; the encoder writes 0 for the 2000s; stored codes written with 2 (and the demo's prefixed form) are rewritten once at startup so label scans match. The year plausibility check stays as a safety net. | Blood bank supervisor + ISBT 128 / labelling owner |
 | OCD-093 | A result entered on an order while its specimen was in date, not yet verified when the specimen expires. End-user testing pass 226 found MRN0022's Stat antibody screen, entered *Positive* (cell 3 AHG 1+) on ACC-DEMO-RCV1, cancelled by the expiry sweep at 23:52 with its line deactivated, so the result was on no worklist, alert or queue. Verification after expiry was blocked (only corrections were allowed, OCD-051). Should the order be cancelled and the result alerted, or kept so the result can be verified? | **Decided 2026-11-17 (product owner): keep it to verify.** The expiry sweep leaves an order open while a result on it is Entered or Pending verification; such a result, entered (and, when recorded, tested) before the specimen expired, may be verified after expiry (`ExpiredSpecimenVerificationRule`, `VerificationDeadlineRule.AllowsExpiredSpecimen`). The specimen stays expired for anything new; entering a result after expiry still follows OCD-091. The *Verify before* notice now says the result can be verified afterwards but no repeat can be run on the tube. Orders already cancelled before this decision are not reopened. | Medical director + blood bank supervisor |
+
+## Medical director decisions as facility settings (2026-11-20, product owner)
+
+Decided 2026-11-20 (product owner, in conversation): anything that needs a medical director decision is a facility setting, because different medical directors use this application; this applies to decisions already made. Each setting ships at the decision recorded above, so nothing changes until a facility edits it (Administration › Facility policies, reason required, Configuration History). Converted in this change:
+
+| OCD | Setting (key) | Ships at |
+| --- | --- | --- |
+| OCD-028 | `AntibodyId.RequireExclusionRationale` | true |
+| OCD-046 | `Issue.RetrospectiveIncompatibleOpensDeviation` | true |
+| OCD-050 | `Compatibility.RetrospectiveOnExpiredSpecimen` | true |
+| OCD-051 | `Result.CorrectAfterSpecimenExpiry` | true |
+| OCD-053 | `Issue.EmergencyReleaseBeforeSpecimen` | true |
+| OCD-057 | `Reaction.CloseRequiresConclusion` | true |
+| OCD-058 | `Reaction.WorkupOnExpiredSpecimen` | true |
+| OCD-069 (D variants) | `Rhig.DVariantHandling` | 1 (both treated as Rh negative) |
+| OCD-078 | `Issue.ReactionUnderInvestigation` | 1 (warning with override) |
+| OCD-081 | `Downtime.BackEntryOutsideOutage` | 1 (reason required) |
+| OCD-090 | `Deviation.FdaReportabilityToClose` | 2 (major and critical) |
+| OCD-093 | `Result.VerifyAfterSpecimenExpiry` | true |
+| OCD-005 | `Inventory.ReceiveTemperatureMinC`, `Inventory.ReceiveTemperatureMaxC` | 1, 10 |
+| OCD-019 | `Interface.InboundResultStatuses` | F,C,P,R |
+| OCD-020 (antigens) | `AntibodyId.DosageSensitiveAntigens` | C,c,E,e,FYA,FYB,JKA,JKB,M,N,S,s |
+| OCD-024 | `AntibodyId.GenotypeMethodWords` | genotype,molecular,predicted,dna,pcr |
+| OCD-025 | `AntibodyId.CompleteOnExpiredSpecimen` | true |
+| OCD-027 | `AntibodyId.CompleteWithExpiredPanelLot` | true |
+| OCD-061 (tests) | `Result.BatchVerifyTests` | ABORH,ABSC,DAT |
+| OCD-065 (scores) | `Titer.GradeScores` | 0=0,w+=2,1+=5,2+=8,3+=10,4+=12 |
+| OCD-009 | `Patient.BlockInactiveClinicalUse` | false (inactive records stay usable) |
+
+Already settings before this change: OCD-002, OCD-003, OCD-006, OCD-008, OCD-013, OCD-020 (counts), OCD-021, OCD-036, OCD-037, OCD-038, OCD-039, OCD-040, OCD-056, OCD-061 (on/off), OCD-064, OCD-067, OCD-068 (per product), OCD-069 (dose), OCD-070, OCD-074, OCD-075, OCD-076, OCD-077, OCD-086, OCD-087, OCD-088 (per interface), OCD-089.
+
+Still built in, to convert next: OCD-026 (identification on a specimen not yet accepted), OCD-083 (transfusion reported for a unit no longer issued: options A, C and D need new behavior) and OCD-091 (results on a since-expired specimen: several combined rules).
+
+Not made settings: rules that keep an ABO-incompatible or wrong-patient unit from being given (OCD-001, OCD-044, OCD-082), label identifier requirements (OCD-080), record retention and audit (OCD-007), and decisions that are permissions (already set per role), interface transport, or software design (OCD-004, OCD-010, OCD-012, OCD-014, OCD-015, OCD-022, OCD-023, OCD-033, OCD-034, OCD-043, OCD-047, OCD-048, OCD-054, OCD-055, OCD-062, OCD-063, OCD-066, OCD-092).

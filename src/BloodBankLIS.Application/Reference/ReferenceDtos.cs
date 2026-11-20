@@ -8,9 +8,19 @@ namespace BloodBankLIS.Application.Reference;
 public sealed record ReceivePolicyDto(
     bool RequireSecondVerifier,
     bool RequireTemperature = true,
-    bool RequireVisualInspection = true);
+    bool RequireVisualInspection = true)
+{
+    /// <summary>The receipt temperature range (OCD-005, a facility setting).</summary>
+    public int TemperatureMinC { get; init; } = 1;
 
-public sealed record FacilityPolicyValueDto(string Key, bool Enabled);
+    public int TemperatureMaxC { get; init; } = 10;
+}
+
+public sealed record FacilityPolicyValueDto(string Key, bool Enabled)
+{
+    /// <summary>The value of a whole-number policy (for example a choice 0 to 3); 0 for a yes/no policy.</summary>
+    public int Value { get; init; }
+}
 
 /// <summary>
 /// The blood bank's name and telephone, from configuration (Facility:Name, Facility:Phone), for documents read outside

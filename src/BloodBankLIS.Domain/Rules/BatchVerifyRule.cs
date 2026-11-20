@@ -26,9 +26,10 @@ public static class BatchVerifyRule
         bool HasAntibodyHistory,
         bool HasSpecialRequirementInEffect);
 
-    public static RuleResult Evaluate(Facts f)
+    /// <param name="tests">Facility setting <c>Result.BatchVerifyTests</c>, a subset of <see cref="Tests"/>; all three when null.</param>
+    public static RuleResult Evaluate(Facts f, IReadOnlySet<string>? tests = null)
     {
-        if (!Tests.Contains(f.TestCode))
+        if (!(tests ?? Tests).Contains(f.TestCode) || !Tests.Contains(f.TestCode))
         {
             return Stop($"{f.TestCode} is not verified in batches.");
         }

@@ -28393,3 +28393,25 @@ Opened the Test Worklist as the bench technologist.
 ### Tests
 
 - TEST-BB-1351. Full suite passed except `Phase5Hl7Tests.OutboundSender_TransmitsQueuedMessage_AndRecordsAa`, which failed once while the API was starting alongside the run and passed in three reruns of its class.
+
+## Iteration 1045 — Medical director decisions as facility settings, part 1 (2026-11-20)
+
+### Request
+
+Product owner, 2026-11-20: anything that requires a medical director decision becomes a facility setting, since different medical directors will use the application, retroactively for decisions already made.
+
+### Audit
+
+Every OCD in `OPEN_CLINICAL_DECISIONS.md` was classified: already a setting; built into the code (to convert); or not a setting (ABO-incompatible and wrong-patient protections, label identifiers, retention, permissions, interface transport, software design). The table is in that file under *Medical director decisions as facility settings*.
+
+### Changed
+
+Twenty-two built-in decisions are now Facility Policies settings, each shipping at the decision as made: OCD-005 (receipt range), 009 (inactive patients), 019 (inbound statuses), 020 (dosage antigens), 024 (genotype words), 025, 027, 028, 046, 050, 051, 053, 057, 058, 061 (batch tests), 065 (titer scores), 069 (weak and partial D), 078, 081, 090, 093. Each rule reads its setting (FRS-BB-1221); a list kind of setting was added for the lists, checked when saved. The Deviations form and receipt read their settings through the reference API. The admin page lists them with the other settings and the user manual describes the choices.
+
+### Still to convert
+
+OCD-026, OCD-083 and OCD-091, which need new alternative behavior or several combined rules.
+
+### Tests
+
+- TEST-BB-1352 to TEST-BB-1361. Full suite passed.

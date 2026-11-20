@@ -62,6 +62,7 @@ public sealed class Hl7InboundProcessor
     private readonly IRepository<Allocation>? _allocations;
     private readonly IRepository<BloodUnit>? _units;
     private readonly IRepository<ProductType>? _products;
+    private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -93,9 +94,11 @@ public sealed class Hl7InboundProcessor
         BloodBankLIS.Application.Abstractions.IFacilityTimeZone? facilityZone = null,
         IRepository<Allocation>? allocations = null,
         IRepository<BloodUnit>? units = null,
-        IRepository<ProductType>? products = null)
+        IRepository<ProductType>? products = null,
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
     {
         _products = products;
+        _policy = policy;
         _allocations = allocations;
         _units = units;
         _facilityZone = facilityZone;
@@ -931,7 +934,9 @@ public sealed class Hl7InboundProcessor
             throw new Hl7MappingException("ORU message has no result value (OBX-5).");
         }
 
-        var statusGate = InterfaceResultAcceptanceRule.Evaluate(data.ObxStatus);
+        // OCD-019, a facility setting: which OBX-11 statuses post.
+        var statusGate = InterfaceResultAcceptanceRule.Evaluate(data.ObxStatus,
+            _policy is null ? null : await _policy.GetInboundResultStatusesAsync(ct));
         if (statusGate.Severity == RuleSeverity.HardStop)
         {
             throw new Hl7MappingException(statusGate.Message);

@@ -222,13 +222,16 @@ public sealed class IssuingService
         if (backEntry && _outages is not null)
         {
             var outages = await _outages.ListAsync(ct);
-            var paperTime = DowntimeEpisodeRule.CheckPaperTime(outages, requestedIssuedUtc, request.OutsideOutageReason);
+            var paperTime = DowntimeEpisodeRule.CheckPaperTime(outages, requestedIssuedUtc, request.OutsideOutageReason,
+                await _policy.GetBackEntryOutsideOutageAsync(ct));
             if (paperTime.Severity == RuleSeverity.HardStop)
             {
                 return EvaluationResult<Issue>.Blocked(new RuleEvaluation([paperTime]));
             }
 
-            outsideOutageReason = DowntimeEpisodeRule.IsOutside(outages, requestedIssuedUtc) ? request.OutsideOutageReason!.Trim() : null;
+            outsideOutageReason = DowntimeEpisodeRule.IsOutside(outages, requestedIssuedUtc) && !string.IsNullOrWhiteSpace(request.OutsideOutageReason)
+                ? request.OutsideOutageReason.Trim()
+                : null;
         }
 
         var emergencyAuth = IssueAuthorizationRule.EvaluateEmergency(
@@ -444,10 +447,12 @@ public sealed class IssuingService
             UncrossmatchedMustBeGroupO = uncrossmatchedGroupO,
             UncrossmatchedONegForChildbearing = uncrossmatchedONeg,
             ChildbearingAgeYears = childbearingAge,
+            EmergencyBeforeSpecimenAllowed = await _policy.GetEmergencyReleaseBeforeSpecimenAsync(ct),
             DonationRestriction = unit.DonationRestriction,
             ReservedPatientId = unit.ReservedPatientId,
             IssuePatientId = request.PatientId,
             PatientStatus = patient.Status,
+            BlockInactivePatient = await _policy.GetBlockInactivePatientClinicalUseAsync(ct),
             OrderLinked = linkedOrder is not null,
             OrderIsFulfillable = linkedOrder is null || OrderControlRule.IsFulfillable(linkedOrder.Status),
             NowUtc = gateTime
@@ -475,7 +480,8 @@ public sealed class IssuingService
         // OCD-078: another unit while a reaction is under investigation is the physician's decision, overridden and reviewed.
         var openReactionAtGate = (await _reactions.OpenByPatientAsync([request.PatientId], ct))
             .TryGetValue(request.PatientId, out var reactionAtGate) ? reactionAtGate : ((long Id, DateTime ReportedUtc)?)null;
-        var reactionOpen = ReactionUnderInvestigationRule.Evaluate(openReactionAtGate?.Id, openReactionAtGate?.ReportedUtc, requestedIssuedUtc);
+        var reactionOpen = ReactionUnderInvestigationRule.Evaluate(openReactionAtGate?.Id, openReactionAtGate?.ReportedUtc, requestedIssuedUtc,
+            await _policy.GetReactionUnderInvestigationIssueAsync(ct));
         if (reactionOpen.Severity != RuleSeverity.Pass)
         {
             evaluation = new RuleEvaluation(evaluation.Results.Append(reactionOpen).ToList());
@@ -1081,6 +1087,7 @@ public sealed class IssuingService
             .ToDictionary(g => g.Key, g => g.ToList());
         var requireSecondAbo = await _policy.GetRequireSecondAboForCellularIssueAsync(ct);
         var nearExpiryWindow = TimeSpan.FromHours(await _policy.GetNearExpiryWarningHoursAsync(ct));
+        var emergencyBeforeSpecimen = await _policy.GetEmergencyReleaseBeforeSpecimenAsync(ct);
         // The open orders the units are reserved for: when each is needed, so the desk issues the most pressing first.
         var reservedOrderIds = reserved.Select(a => a.OrderId).OfType<long>().Distinct().ToList();
         var reservedOrders = reservedOrderIds.Count == 0
@@ -1177,6 +1184,7 @@ public sealed class IssuingService
             var (specimenBlocksIssue, specimenBlockReason) = DescribeSpecimenBlock(specimen, specimenExpired);
             var preSpecimenEmergency = false;
             if (specimenBlocksIssue
+                && emergencyBeforeSpecimen
                 && unit?.ProductType is { } preSpecimenProduct
                 && EmergencyPreSpecimenRule.Applies(true, specimen is not null, specimen?.ExpiresUtc, now))
             {
@@ -1913,10 +1921,16 @@ public sealed class IssuingService
     {
         var open = (await _reactions.OpenByPatientAsync([issue.PatientId], ct))
             .TryGetValue(issue.PatientId, out var found) ? found : ((long Id, DateTime ReportedUtc)?)null;
-        var warning = ReactionUnderInvestigationRule.Evaluate(open?.Id, open?.ReportedUtc, startUtc);
+        var warning = ReactionUnderInvestigationRule.Evaluate(open?.Id, open?.ReportedUtc, startUtc,
+            await _policy.GetReactionUnderInvestigationIssueAsync(ct));
         if (warning.Severity == RuleSeverity.Pass)
         {
             return null;
+        }
+
+        if (warning.Severity == RuleSeverity.HardStop)
+        {
+            return new RuleEvaluation([warning]);
         }
 
         if (string.IsNullOrWhiteSpace(reason) || string.IsNullOrWhiteSpace(authorizedBy))

@@ -119,6 +119,15 @@ public sealed record IssueGateContext
 
     public int ChildbearingAgeYears { get; init; } = 50;
 
+    /// <summary>
+    /// OCD-053, a facility setting (default on): emergency or MTP release with no usable specimen is the overridable
+    /// pre-specimen rule. Off, the specimen checks stay hard stops until a specimen is received.
+    /// </summary>
+    public bool EmergencyBeforeSpecimenAllowed { get; init; } = true;
+
+    /// <summary>OCD-009, a facility setting (default off): an inactive patient record is refused like a merged one.</summary>
+    public bool BlockInactivePatient { get; init; }
+
     /// <summary>Allogeneic, autologous, or directed. Autologous/directed must match <see cref="ReservedPatientId"/>.</summary>
     public DonationRestriction DonationRestriction { get; init; } = DonationRestriction.Allogeneic;
 
@@ -261,7 +270,7 @@ public static class IssueGate
 
             AutologousDirectedRule.EvaluateIssue(c.DonationRestriction, c.ReservedPatientId, c.IssuePatientId),
 
-            PatientMergeRule.EvaluateClinicalUse(c.PatientStatus),
+            PatientMergeRule.EvaluateClinicalUse(c.PatientStatus, c.BlockInactivePatient),
 
             SecondAboDeterminationRule.EvaluateForCellularIssue(
                 c.RequireSecondAboForCellularIssue,
@@ -276,7 +285,8 @@ public static class IssueGate
 
         // OCD-053: an emergency with no usable specimen replaces the specimen checks with the pre-specimen rule.
         // A specimen that belongs to another patient is a wrong-patient signal and stays a hard stop.
-        if (c.SpecimenExists == c.SpecimenBelongsToPatient
+        if (c.EmergencyBeforeSpecimenAllowed
+            && c.SpecimenExists == c.SpecimenBelongsToPatient
             && EmergencyPreSpecimenRule.Applies(c.IsEmergencyRelease, c.SpecimenExists, c.SpecimenExpiresUtc, c.NowUtc))
         {
             results.RemoveAll(r => r.Code is SpecExistsCode or SpecPatientCode or SpecimenExpirationRule.ExpiredCode or SpecimenExpirationRule.NearExpiryCode);

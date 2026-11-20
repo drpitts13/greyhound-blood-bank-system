@@ -271,6 +271,8 @@ public sealed class ReactionInvestigationService
     private readonly IRepository<TestResult>? _testResults;
     private readonly IRepository<Allocation>? _allocations;
 
+    private readonly FacilityPolicyService? _policy;
+
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
         IRepository<TransfusionEvent> transfusions,
@@ -292,8 +294,10 @@ public sealed class ReactionInvestigationService
         IRepository<Order>? orders = null,
         IRepository<OrderLine>? orderLines = null,
         IRepository<TestResult>? testResults = null,
-        IRepository<Allocation>? allocations = null)
+        IRepository<Allocation>? allocations = null,
+        FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _allocations = allocations;
         _catalog = catalog;
         _specimens = specimens;
@@ -650,7 +654,9 @@ public sealed class ReactionInvestigationService
             var entries = _catalog is null ? [] : await _catalog.ListAsync(e => e.IsActive, ct);
             var reaction = request.ConcludedReactionCode ?? row.ConcludedReactionCode;
             var treatments = request.TreatmentCodes ?? SplitCodes(row.TreatmentCodes);
-            var conclusion = ReactionConclusionRule.Evaluate(reaction, treatments, entries, requireComplete: closing);
+            // A facility setting (Reaction.CloseRequiresConclusion, default on).
+            var conclusion = ReactionConclusionRule.Evaluate(reaction, treatments, entries,
+                requireComplete: closing && (_policy is null || await _policy.GetReactionCloseRequiresConclusionAsync(ct)));
             if (conclusion.Severity == RuleSeverity.HardStop)
             {
                 return OperationResult<ReactionInvestigation>.Fail($"{conclusion.Code}: {conclusion.Message}");

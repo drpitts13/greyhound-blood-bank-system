@@ -93,6 +93,31 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True((await CreateService(context).UpdateStatusAsync(minor.Id, DeviationStatus.Closed, "Relabelled")).Succeeded);
     }
 
+    // TEST-BB-1358 (OCD-090 as a facility setting): with Deviation.FdaReportabilityToClose set to critical only, a major
+    // deviation closes without the determination and a critical one still needs it.
+    [Fact]
+    public async Task Close_FollowsTheFacilityReportabilitySetting()
+    {
+        await using var context = _factory.Create();
+        var setting = new SystemSetting { Key = FacilityPolicyKeys.DeviationFdaReportabilityToClose, Value = "3" };
+        context.SystemSettings.Add(setting);
+        await context.SaveChangesAsync();
+        try
+        {
+            DeviationService Service() => new(new EfRepository<Deviation>(context), context, _factory.Clock, _factory.CurrentUser,
+                new AuditWriter(context, _factory.Clock, _factory.CurrentUser), policy: new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+            var major = (await Service().CreateAsync(new CreateDeviationRequest($"Major {Guid.NewGuid():N}", "Wrong shelf", DeviationSeverity.Major))).Value!;
+            Assert.True((await Service().UpdateStatusAsync(major.Id, DeviationStatus.Closed, "Moved and checked")).Succeeded);
+            var critical = (await Service().CreateAsync(new CreateDeviationRequest($"Critical {Guid.NewGuid():N}", "Wrong unit", DeviationSeverity.Critical))).Value!;
+            Assert.False((await Service().UpdateStatusAsync(critical.Id, DeviationStatus.Closed, "Retrained")).Succeeded);
+        }
+        finally
+        {
+            context.SystemSettings.Remove(setting);
+            await context.SaveChangesAsync();
+        }
+    }
+
     // TEST-BB-1112 (end-user testing pass 98): the owner and due date are kept and audited; blank clears the owner.
     [Fact]
     public async Task OwnerAndDueDate_AreKept()

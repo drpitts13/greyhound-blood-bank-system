@@ -1360,5 +1360,15 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1349 | I | `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-1100 / FRS-BB-1218 |
 | TEST-BB-1350 | U, I | `StorageReadingTextTests.IntervalNotSet_IsSaid`, `StorageTemperatureServiceTests.Locations_MarkAReadingDue_UnderTheFacilityInterval` | URS-BB-1101 / FRS-BB-1219 |
 | TEST-BB-1351 | I | `TestWorklistTests.PendingWorklist_MarksRushTestsPastTheTurnaroundTarget` | URS-BB-1102 / FRS-BB-1220 |
+| TEST-BB-1352 | U | `MedicalDirectorSettingsTests.Decision_IsAFacilitySetting_DefaultingToTheDecisionMade` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1353 | U | `MedicalDirectorSettingsTests.FdaReportability_FollowsTheSetting` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1354 | U | `MedicalDirectorSettingsTests.ReactionUnderInvestigation_FollowsTheSetting` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1355 | U | `MedicalDirectorSettingsTests.BackEntryOutsideOutage_FollowsTheSetting` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1356 | U | `MedicalDirectorSettingsTests.ExpiredSpecimenAllowances_FollowTheSettings` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1357 | U | `EmergencyPreSpecimenRuleTests.Gate_EmergencyBeforeSpecimen_Off_KeepsTheSpecimenHardStop` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1358 | I | `DeviationServiceTests.Close_FollowsTheFacilityReportabilitySetting` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1359 | U | `MedicalDirectorSettingsTests.ListSettings_AreCheckedAndUsed` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1360 | U | `MedicalDirectorSettingsTests.ReceiptRangeAndExpiredIdentification_FollowTheSettings` | URS-BB-1103 / FRS-BB-1221 |
+| TEST-BB-1361 | U | `MedicalDirectorSettingsTests.InactivePatient_FollowsTheSetting` | URS-BB-1103 / FRS-BB-1221 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

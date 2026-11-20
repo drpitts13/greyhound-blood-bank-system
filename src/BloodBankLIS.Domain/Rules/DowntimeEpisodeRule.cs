@@ -76,11 +76,18 @@ public static class DowntimeEpisodeRule
     /// A paper record's time outside every recorded outage stops the back-entry until a reason is given (OCD-081); with
     /// no outage recorded, or a time inside one, there is nothing to explain.
     /// </summary>
-    public static RuleResult CheckPaperTime(IReadOnlyCollection<DowntimeEpisode> episodes, DateTime paperUtc, string? outsideReason)
+    /// <param name="handling">Facility setting <c>Downtime.BackEntryOutsideOutage</c>: 0 allowed, 1 reason required (default), 2 refused.</param>
+    public static RuleResult CheckPaperTime(IReadOnlyCollection<DowntimeEpisode> episodes, DateTime paperUtc, string? outsideReason, int handling = 1)
     {
-        if (!IsOutside(episodes, paperUtc))
+        if (handling <= 0 || !IsOutside(episodes, paperUtc))
         {
             return RuleResult.Pass(OutsideCode);
+        }
+
+        if (handling >= 2)
+        {
+            return RuleResult.HardStop(OutsideCode,
+                "The time on the paper record is outside every recorded outage, and this facility does not accept back-entry outside an outage. Check the record's date and time, or record the outage first (OCD-081).");
         }
 
         var reason = outsideReason?.Trim() ?? string.Empty;

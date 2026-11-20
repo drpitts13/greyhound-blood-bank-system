@@ -137,7 +137,7 @@
                                             </div>
                                             <div class="field"><label>Receipt temperature (°C)</label>
                                                 <input type="number" step="0.1" @bind="_arrivalTemperatureCelsius" placeholder="e.g. 4.0" />
-                                                <span class="muted">Shipping range @ReceiveTemperatureRule.MinCelsius.ToString("0")–@ReceiveTemperatureRule.MaxCelsius.ToString("0") °C.</span>
+                                                <span class="muted">Shipping range @_receiveTempMin–@_receiveTempMax °C.</span>
                                             </div>
                                             @if (_requireReceiveVerifier)
                                             {
@@ -1003,6 +1003,9 @@
     private string? _supplierReturnReason;
     private string? _arrivalSecondVerifier;
     private bool _requireReceiveVerifier;
+    // OCD-005, a facility setting: the receipt temperature range shown with the field.
+    private int _receiveTempMin = 1;
+    private int _receiveTempMax = 10;
     private decimal? _arrivalTemperatureCelsius;
     private long? _confirmingExpectedId;
     private long? _releasingQuarantineId;
@@ -1046,6 +1049,10 @@
 
         var policy = await Api.GetReceivePolicyAsync();
         _requireReceiveVerifier = policy.Succeeded && policy.Value?.RequireSecondVerifier == true;
+        if (policy.Succeeded && policy.Value is { } receivePolicy)
+        {
+            (_receiveTempMin, _receiveTempMax) = (receivePolicy.TemperatureMinC, receivePolicy.TemperatureMaxC);
+        }
         _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
         _locations = (await Api.GetLocationsAsync()).Value ?? new();
         _antigens = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();

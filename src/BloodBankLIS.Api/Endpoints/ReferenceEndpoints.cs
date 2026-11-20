@@ -21,6 +21,8 @@ public static class ReferenceEndpoints
     private static readonly HashSet<string> ReadablePolicyKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         FacilityPolicyKeys.RequireSecondAboForCellularIssue,
+        // The deviation form checks closing against the facility's FDA reportability setting (OCD-090).
+        FacilityPolicyKeys.DeviationFdaReportabilityToClose,
         // Record crossmatch does not offer Electronic while the facility has it off (end-user testing pass 174).
         FacilityPolicyKeys.AllowElectronicCrossmatch,
         FacilityPolicyKeys.PrefillPatientIdentifiers,
@@ -51,7 +53,11 @@ public static class ReferenceEndpoints
             Results.Ok(new ReceivePolicyDto(
                 await policy.GetRequireReceiveVerifierAsync(ct),
                 await policy.GetRequireReceiveTemperatureAsync(ct),
-                await policy.GetRequireReceiveVisualInspectionAsync(ct))));
+                await policy.GetRequireReceiveVisualInspectionAsync(ct))
+            {
+                TemperatureMinC = (await policy.GetReceiveTemperatureRangeAsync(ct)).Min,
+                TemperatureMaxC = (await policy.GetReceiveTemperatureRangeAsync(ct)).Max
+            }));
 
         // The blood bank's name and phone for documents a patient carries elsewhere (pass 80).
         group.MapGet("/facility", (IConfiguration configuration) =>
@@ -76,6 +82,12 @@ public static class ReferenceEndpoints
             }
 
             // An unset policy reads as its catalog default, so a default-off policy is never reported on.
+            if (FacilityPolicyCatalog.Find(key) is { Kind: FacilityPolicyValueKind.Integer })
+            {
+                var value = await policy.GetIntAsync(key, FacilityPolicyCatalog.IntDefault(key), ct);
+                return Results.Ok(new FacilityPolicyValueDto(key, value != 0) { Value = value });
+            }
+
             return Results.Ok(new FacilityPolicyValueDto(key, await policy.GetBoolAsync(key, FacilityPolicyCatalog.BoolDefault(key), ct)));
         });
 

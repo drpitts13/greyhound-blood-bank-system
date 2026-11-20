@@ -14,10 +14,14 @@ public static class VerificationDeadlineRule
     /// A pending correction (OCD-051), or an entered result waiting for verification that was entered while the specimen
     /// was in date (OCD-093), may be verified after the specimen expires.
     /// </summary>
+    /// <param name="correctionsAllowed">Facility setting <c>Result.CorrectAfterSpecimenExpiry</c> (OCD-051, default on).</param>
+    /// <param name="enteredAllowed">Facility setting <c>Result.VerifyAfterSpecimenExpiry</c> (OCD-093, default on).</param>
     public static bool AllowsExpiredSpecimen(
-        ResultStatus? status, DateTime? enteredUtc = null, DateTime? testedUtc = null, DateTime? specimenExpiresUtc = null) =>
-        status == ResultStatus.Corrected
-        || (status is ResultStatus.Entered or ResultStatus.PendingVerification
+        ResultStatus? status, DateTime? enteredUtc = null, DateTime? testedUtc = null, DateTime? specimenExpiresUtc = null,
+        bool correctionsAllowed = true, bool enteredAllowed = true) =>
+        (correctionsAllowed && status == ResultStatus.Corrected)
+        || (enteredAllowed
+            && status is ResultStatus.Entered or ResultStatus.PendingVerification
             && ExpiredSpecimenVerificationRule.EnteredWhileInDate(enteredUtc, testedUtc, specimenExpiresUtc));
 
     /// <summary>

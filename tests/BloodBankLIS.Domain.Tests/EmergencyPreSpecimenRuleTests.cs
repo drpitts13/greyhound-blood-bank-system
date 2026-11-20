@@ -70,6 +70,16 @@ public class EmergencyPreSpecimenRuleTests
         Assert.DoesNotContain(evaluation.Results, r => r.Code == IssueGate.SpecExistsCode);
     }
 
+    // TEST-BB-1357 (OCD-053 as a facility setting): with emergency release before a specimen turned off, the specimen
+    // check stays a hard stop even for group O red cells.
+    [Fact]
+    public void Gate_EmergencyBeforeSpecimen_Off_KeepsTheSpecimenHardStop()
+    {
+        var evaluation = IssueGate.Evaluate(Emergency(ComponentClass.RedBloodCells, AboGroup.O) with { EmergencyBeforeSpecimenAllowed = false });
+        Assert.Contains(evaluation.HardStops, h => h.Code == IssueGate.SpecExistsCode);
+        Assert.DoesNotContain(evaluation.Results, r => r.Code == EmergencyPreSpecimenRule.Code);
+    }
+
     [Fact]
     public void Gate_EmergencyGroupARedCells_WithoutSpecimen_IsAHardStop()
     {

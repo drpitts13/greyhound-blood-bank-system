@@ -3,7 +3,9 @@
 public enum FacilityPolicyValueKind
 {
     Integer = 0,
-    Boolean = 1
+    Boolean = 1,
+    // A list, comma-separated (2026-11-20, medical director settings); each list key is checked by FacilityPolicyLists.
+    Text = 2
 }
 
 public sealed record FacilityPolicyDefinition(
@@ -220,8 +222,84 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "false", "OCD-056"),
         new(FacilityPolicyKeys.InspectionDefaultAcceptable, "Inventory", "Start unit inspections as acceptable",
             "When true, return inspections (temperature, seal, visual) and unit appearance at issue, ward receipt, and delivery receipt start as acceptable, and a return that leaves an inspection unanswered counts it as acceptable. When false, staff must answer each inspection and the server refuses a return with an unanswered inspection. Time out of storage is always computed. Default off.",
-            FacilityPolicyValueKind.Boolean, "false", "OCD-040")
+            FacilityPolicyValueKind.Boolean, "false", "OCD-040"),
+
+        // Medical director decisions recorded as facility settings (2026-11-20). Each default is the decision previously
+        // built in; a facility whose medical director decides otherwise changes it here.
+        new(FacilityPolicyKeys.DeviationFdaReportabilityToClose, "Quality", "FDA reportability needed to close a deviation",
+            "Which deviations cannot be closed until their FDA reportability (21 CFR 606.171) is determined as reportable or not reportable: 0 = none; 1 = every deviation; 2 = major and critical (default); 3 = critical only. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "2", "Medical director / OCD-090", 0, 3),
+        new(FacilityPolicyKeys.RetrospectiveIncompatibleOpensDeviation, "Issue", "Open a deviation for an incompatible retrospective crossmatch",
+            "When true, an incompatible crossmatch recorded after a unit was released uncrossmatched (emergency or massive transfusion) opens a critical deviation linked to the issue. The critical alert and warning are raised either way. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-046"),
+        new(FacilityPolicyKeys.RetrospectiveCrossmatchOnExpiredSpecimen, "Compatibility", "Retrospective crossmatch on the expired pre-transfusion specimen",
+            "When true, the crossmatch owed for a unit released before crossmatching may be recorded on its pre-transfusion specimen after that specimen expired, as an exception with a reason and an authorizer. When false, it needs a specimen in date. Every other crossmatch on an expired specimen is refused either way. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-050"),
+        new(FacilityPolicyKeys.EmergencyReleaseBeforeSpecimen, "Issue", "Emergency release before a specimen is drawn",
+            "When true, emergency or massive-transfusion release of group O red cells or whole blood, or group AB or A plasma, with no specimen in date is a warning the emergency override accepts. When false, it is refused until a specimen is received. Other components and groups are refused either way. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-053"),
+        new(FacilityPolicyKeys.ReactionWorkupOnExpiredSpecimen, "Reaction", "Reaction workup on an expired pre-transfusion specimen",
+            "When true, a transfusion reaction workup may use, and be resulted on, a pre-transfusion specimen that has expired. When false, an expired specimen is refused for the workup as for any other order. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-058"),
+        new(FacilityPolicyKeys.ReactionCloseRequiresConclusion, "Reaction", "Closing a reaction needs the conclusion and treatment",
+            "When true, a reaction investigation cannot close until the provider's concluded reaction and the treatment for future transfusions (or No reaction / No treatment) are chosen. When false, they are recorded when given but not required. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-057"),
+        new(FacilityPolicyKeys.RhigDVariantHandling, "RhIG", "RhIG: weak D and partial D",
+            "How a recorded D variant is read for the RhIG suggestion: 1 = weak D and partial D are both treated as Rh negative (default); 2 = partial D is treated as Rh negative and weak D follows the patient's Rh type on file. Product selection is not changed. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "1", "Medical director / OCD-069", 1, 2),
+        new(FacilityPolicyKeys.ReactionUnderInvestigationIssue, "Issue", "Another unit while a reaction is under investigation",
+            "Issuing another unit, or starting one at the bedside, after a transfusion reaction was reported and while it is under investigation: 0 = no check; 1 = a warning that needs an override with a reason and who authorized it (default); 2 = refused until the investigation is closed. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "1", "Medical director / OCD-078", 0, 2),
+        new(FacilityPolicyKeys.BackEntryOutsideOutage, "Downtime", "Back-entry outside a recorded outage",
+            "A downtime back-entry whose paper time is outside every recorded outage: 0 = allowed; 1 = needs a reason, kept on the issue (default); 2 = refused. With no outage recorded, back-entry is allowed. Set by the medical director.",
+            FacilityPolicyValueKind.Integer, "1", "Medical director / OCD-081", 0, 2),
+        new(FacilityPolicyKeys.VerifyAfterSpecimenExpiry, "Result", "Verify a result after its specimen expires",
+            "When true, a result entered (and tested) while its specimen was in date may be verified after the specimen expires. When false, it must be verified before the specimen expires. Nothing new is tested on an expired specimen either way. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-093"),
+        new(FacilityPolicyKeys.CorrectAfterSpecimenExpiry, "Result", "Verify a correction after its specimen expires",
+            "When true, a correction of a verified result may be verified after the specimen expires (it corrects the record of a test already performed). When false, the correction must be verified while the specimen is in date. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-051"),
+        new(FacilityPolicyKeys.AntibodyIdRequireExclusionRationale, "Antibody ID", "Rationale to identify an excluded specificity",
+            "When true, identifying a specificity that assistance would exclude needs a written rationale before the interpretation is saved. When false, it is a warning only. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-028"),
+        new(FacilityPolicyKeys.InboundResultStatuses, "Interface", "Inbound result statuses that post",
+            "The HL7 observation result statuses (OBX-11), comma-separated single letters, with which an inbound result may post to the bench as pending verification; a blank status is always accepted. Any other status is refused with an error. Default F, C, P, R (final, correction of an unreleased result, preliminary, results entered not verified). Set by the medical director with the interface team.",
+            FacilityPolicyValueKind.Text, FacilityPolicyLists.DefaultInboundResultStatuses, "Medical director / OCD-019"),
+        new(FacilityPolicyKeys.AntibodyIdDosageSensitiveAntigens, "Antibody ID", "Antigens that show dosage",
+            "The antigen codes, comma-separated and case-sensitive (c and C differ), for which antibody identification assistance counts only homozygous cells toward an exclusion when dosage-aware assistance is on. Default C, c, E, e, FYA, FYB, JKA, JKB, M, N, S, s. Set by the medical director.",
+            FacilityPolicyValueKind.Text, FacilityPolicyLists.DefaultDosageSensitiveAntigens, "Medical director / OCD-020"),
+        new(FacilityPolicyKeys.AntibodyIdGenotypeMethodWords, "Antibody ID", "Antigen typing methods read as predicted genotype",
+            "Words, comma-separated, that mark an antigen typing method as a predicted genotype rather than a serologic phenotype when they appear in the method (any case). Assistance compares the two and warns; it does not stop identification. Default genotype, molecular, predicted, dna, pcr. Set by the medical director.",
+            FacilityPolicyValueKind.Text, FacilityPolicyLists.DefaultGenotypeMethodWords, "Medical director / OCD-024"),
+        new(FacilityPolicyKeys.BatchVerifyTests, "Result", "Tests verified in a batch",
+            "Which of ABORH, ABSC and DAT a second person may verify in a batch when batch verification is allowed: comma-separated. A screen or DAT qualifies only when plainly Negative, and an ABO/Rh only when it matches the patient's history; everything else is verified one at a time. Default ABORH, ABSC, DAT. Set by the medical director.",
+            FacilityPolicyValueKind.Text, FacilityPolicyLists.DefaultBatchVerifyTests, "Medical director / OCD-061"),
+        new(FacilityPolicyKeys.TiterGradeScores, "Result", "Titer score per grade",
+            "The score each reaction grade adds to a scored titer, as grade=score pairs separated by commas (grades 0, w+, 1+, 2+, 3+, 4+; scores 0 to 20). Default 0=0, w+=2, 1+=5, 2+=8, 3+=10, 4+=12. Applies to titer tests set to report a score. Set by the medical director.",
+            FacilityPolicyValueKind.Text, FacilityPolicyLists.DefaultTiterGradeScores, "Medical director / OCD-065"),
+        new(FacilityPolicyKeys.ReceiveTemperatureMinC, "Inventory", "Receipt temperature: lowest (°C)",
+            "The lowest shipping temperature (whole °C) at which a received unit is accepted when the receipt temperature is required. Default 1. Set by the medical director from the product circulars and your procedure.",
+            FacilityPolicyValueKind.Integer, "1", "Medical director / OCD-005", -40, 30),
+        new(FacilityPolicyKeys.ReceiveTemperatureMaxC, "Inventory", "Receipt temperature: highest (°C)",
+            "The highest shipping temperature (whole °C) at which a received unit is accepted when the receipt temperature is required. Default 10. Set by the medical director from the product circulars and your procedure.",
+            FacilityPolicyValueKind.Integer, "10", "Medical director / OCD-005", -40, 40),
+        new(FacilityPolicyKeys.AntibodyIdCompleteOnExpiredSpecimen, "Antibody ID", "Complete identification on an expired specimen",
+            "When true, an antibody identification whose specimen has expired may still be completed and accepted, with an acknowledgment. When false, it is refused; test a new specimen. A rejected or cancelled specimen is refused either way. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-025"),
+        new(FacilityPolicyKeys.AntibodyIdCompleteWithExpiredPanelLot, "Antibody ID", "Complete identification after the panel lot expired",
+            "When true, an antibody identification whose attached panel lot has since expired may still be completed and accepted, with an acknowledgment. When false, it is refused. Attaching an expired or inactive lot is refused either way. Default on. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "true", "Medical director / OCD-027"),
+        new(FacilityPolicyKeys.BlockInactivePatientClinicalUse, "Patient", "Refuse clinical use of an inactive patient",
+            "When true, a patient record marked Inactive (not merged) is refused for new orders, specimens, results, crossmatch and allocation, and issue, as a merged record is; reactivate the record first. When false, an inactive record stays usable. Default off. Set by the medical director.",
+            FacilityPolicyValueKind.Boolean, "false", "Medical director / OCD-009")
     ];
+
+    /// <summary>The catalog default of a list policy; empty for a key the catalog does not define.</summary>
+    public static string TextDefault(string key) => Find(key)?.DefaultValue ?? string.Empty;
+
+    /// <summary>The catalog default of a whole-number policy; 0 for a key the catalog does not define.</summary>
+    public static int IntDefault(string key) =>
+        int.TryParse(Find(key)?.DefaultValue, out var value) ? value : 0;
 
     /// <summary>The catalog default of a yes/no policy; true for a key the catalog does not define.</summary>
     public static bool BoolDefault(string key) =>

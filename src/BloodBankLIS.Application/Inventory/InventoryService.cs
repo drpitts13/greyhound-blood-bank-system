@@ -1540,7 +1540,10 @@ public sealed class InventoryService
     private async Task<InventoryActionResult?> EvaluateReceiveTemperatureAsync(decimal? celsius, CancellationToken ct)
     {
         var required = _policy is null || await _policy.GetRequireReceiveTemperatureAsync(ct);
-        var result = ReceiveTemperatureRule.Evaluate(required, celsius);
+        // OCD-005, a facility setting: the accepted range.
+        var range = _policy is null ? (Min: (int)ReceiveTemperatureRule.MinCelsius, Max: (int)ReceiveTemperatureRule.MaxCelsius)
+            : await _policy.GetReceiveTemperatureRangeAsync(ct);
+        var result = ReceiveTemperatureRule.Evaluate(required, celsius, range.Min, range.Max);
         return result.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([result]))
             : null;
