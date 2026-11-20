@@ -1195,6 +1195,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1079 / FRS-BB-1197 | End-user testing pass 301: choose the mother rather than type her MRN | `MotherCandidates.cs`, `PatientChartHeader.razor` | TEST-BB-1328 | U | |
 | URS-BB-1080 / FRS-BB-1198 | End-user testing pass 302: saved UTC times shown in local time | `SavedTimeText.cs`, `Deviations.razor`, `Alerts.razor` | TEST-BB-1329 | U | |
 | URS-BB-1081 / FRS-BB-1199 | End-user testing pass 303: count buttons agree with one item | `CountVerb.cs`, `AntibodyIdWorklist.razor` | TEST-BB-1330 | U | |
+| URS-BB-1082 / FRS-BB-1200 | End-user testing pass 304: patient antigen type on a possible specificity | `AntibodyIdentificationAssistEvaluator.cs` | TEST-BB-1331 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

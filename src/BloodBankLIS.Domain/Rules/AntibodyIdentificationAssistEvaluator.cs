@@ -176,8 +176,21 @@ public static class AntibodyIdentificationAssistEvaluator
         var match = patientAntigens.FirstOrDefault(p =>
             string.Equals(p.AttributeCode, antigen.Code, StringComparison.Ordinal)
             && p.Result == AntigenResult.Positive);
-        if (match is null || classification is not AntibodyIdClassification.Possible)
+        if (classification is not AntibodyIdClassification.Possible)
         {
+            return classification;
+        }
+
+        if (match is null)
+        {
+            // End-user testing pass 304: a possible specificity said nothing of the patient's own type for the antigen,
+            // though confirming the patient lacks it is part of confirming the antibody.
+            var negative = patientAntigens.FirstOrDefault(p =>
+                string.Equals(p.AttributeCode, antigen.Code, StringComparison.Ordinal)
+                && p.Result == AntigenResult.Negative);
+            rationale += negative is not null
+                ? $" Patient {(negative.FromGenotype ? "predicted genotype" : "phenotype")} is {antigen.Code}-negative, as expected for {antigen.AntibodyName}."
+                : $" The patient is not typed for {antigen.Code}: a {antigen.Code}-negative patient type would support {antigen.AntibodyName}.";
             return classification;
         }
 

@@ -207,6 +207,23 @@ public class AntibodyIdentificationAssistEvaluatorTests
         Assert.Contains(result.Evaluation.Warnings, w => w.Code == AntibodyIdentificationAssistEvaluator.PhenotypeConflictCode);
     }
 
+    // TEST-BB-1331 (end-user testing pass 304): a possible specificity says what the patient's own type for the antigen
+    // shows: not typed (a negative type would support it), or negative (as expected); it stays Possible either way.
+    [Fact]
+    public void Possible_SaysWhetherThePatientIsTypedForTheAntigen()
+    {
+        var untyped = Assert.Single(AntibodyIdentificationAssistEvaluator.Evaluate(PerfectKellPanel()).Findings, f => f.AttributeCode == "K");
+        Assert.Equal(AntibodyIdClassification.Possible, untyped.Classification);
+        Assert.EndsWith("The patient is not typed for K: a K-negative patient type would support anti-K.", untyped.Rationale);
+
+        var negative = Assert.Single(AntibodyIdentificationAssistEvaluator.Evaluate(PerfectKellPanel() with
+        {
+            PatientAntigens = [new PatientAntigenSnapshot("K", AntigenResult.Negative, FromGenotype: false)]
+        }).Findings, f => f.AttributeCode == "K");
+        Assert.Equal(AntibodyIdClassification.Possible, negative.Classification);
+        Assert.EndsWith("Patient phenotype is K-negative, as expected for anti-K.", negative.Rationale);
+    }
+
     [Fact]
     public void PredictedGenotypePositive_DowngradesPossible()
     {

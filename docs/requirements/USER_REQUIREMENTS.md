@@ -1087,3 +1087,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1079 | Linking an infant's mother is done by choosing her chart by name or MRN, not by typing an MRN from memory. | P3 | FRS-BB-1197 |
 | URS-BB-1080 | Deviations and alerts show the times in their saved text in local time, the same clock as the rest of the page. | P3 | FRS-BB-1198 |
 | URS-BB-1081 | Worklist count buttons read correctly for one item. | P4 | FRS-BB-1199 |
+| URS-BB-1082 | A possible antibody specificity says whether the patient has been typed for the antigen. | P3 | FRS-BB-1200 |

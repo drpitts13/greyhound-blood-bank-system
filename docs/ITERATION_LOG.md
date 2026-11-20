@@ -28013,3 +28013,21 @@ Checked why deviation DEV-3 lists two automatic quarantines of nearly the same u
 ### Tests
 
 - TEST-BB-1330. Full suite passed.
+
+## Iteration 1024 — End-user testing pass 304: patient antigen type on a possible specificity (2026-11-19)
+
+### How it was tested
+
+Opened Kellerman, Diane's antibody identification workup (#1, pending interpretation): panel reactions, assistance findings, safety context and the patient antigen types on file (K negative only).
+
+### Found and fixed
+
+1. **A possible specificity said nothing of the patient's own type.** Assistance found anti-E pattern-consistent (3 positive cells reactive, 5 negative non-reactive, p = 0.018), but the patient has no E typing on file, and confirming the patient lacks the antigen is part of confirming the antibody. Only a positive patient type was mentioned (as a warning). A possible finding now ends with *The patient is not typed for E: an E-negative patient type would support anti-E.*, or, when typed negative, *Patient phenotype is E-negative, as expected for anti-E.*
+
+### Retested live
+
+- Not shown live: the workup's findings are stored and refresh when assistance is run again, which would rewrite Kellerman's saved findings; the dev data was left unchanged. Covered by the unit test.
+
+### Tests
+
+- TEST-BB-1331. Full suite passed.

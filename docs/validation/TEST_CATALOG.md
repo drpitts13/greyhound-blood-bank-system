@@ -1339,5 +1339,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1328 | U | `MotherCandidatesTests.From_OffersPossibleMothersByName` | URS-BB-1079 / FRS-BB-1197 |
 | TEST-BB-1329 | U | `SavedTimeTextTests.Local_ShowsSavedUtcTimesInLocalTime` | URS-BB-1080 / FRS-BB-1198 |
 | TEST-BB-1330 | U | `CountVerbTests.For_AgreesWithTheCount` | URS-BB-1081 / FRS-BB-1199 |
+| TEST-BB-1331 | U | `AntibodyIdentificationAssistEvaluatorTests.Possible_SaysWhetherThePatientIsTypedForTheAntigen` | URS-BB-1082 / FRS-BB-1200 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
