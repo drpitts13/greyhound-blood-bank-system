@@ -41,6 +41,8 @@ On a newborn's chart (under one year old) with no mother linked, the header says
 
 When a pregnancy or a transfusion within your facility's look-back period puts the patient's new specimens on the shorter alloimmunization-risk window, the header says so for everyone who reads the chart, with the facility's look-back and hours: *Transfused 2026-11-06 (within 90 days): new specimens expire 72 h after collection.*, or *Recent pregnancy 2026-10-07 …*, or both. The pregnancy date itself is recorded on the Overview tab.
 
+While the patient has a massive transfusion protocol open, the header says so in red, for everyone: *Massive transfusion protocol #1 active: called 2026-11-06 09:05 by Dr. Demo Trauma, open 13 d.*, with **Open Issue & Transfuse**, where units are issued under it and it is closed.
+
 When the mother has a clinically significant antibody (one the antigen catalog marks clinically significant) and the infant has no antigen-negative requirement for it yet, and no such antibody of their own, the note offers **Add K-negative requirement** (one button per antigen; you need permission to record immunohematology). It adds an antigen-negative special requirement to the infant, with the reason *Maternal anti-K (mother MRN …)*, enforced at unit selection and issue like any other; end it under Special requirements when it no longer applies. The note confirms it was added; if units are already reserved for the infant that do not meet it, Special requirements names them, as when a requirement is added there. Nothing is added unless you choose it. Demo: DEMO-MATAB, Baby Boy Lena (MRN0029), whose mother MRN0028 has anti-K.
 
 > Demo data. In a development database, MRN0027 (newborn) is linked to the RhIG demo mother MRN0025.

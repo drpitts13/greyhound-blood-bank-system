@@ -180,6 +180,14 @@
             }
             <Outcome Value="_familyFb" />
         }
+        @foreach (var mtp in _activeMtp)
+        {
+            @* Pass 317: an open massive transfusion protocol, said on the chart and not only on the issue desk. *@
+            <div class="alert alert-danger" style="margin-top:.4rem;" data-chart-mtp="@mtp.Id">
+                @MtpChartBanner.For(mtp, DateTime.UtcNow)
+                <a class="btn btn-ghost btn-sm" href="/issuing">Open Issue &amp; Transfuse</a>
+            </div>
+        }
         @if (SpecimenWindowBanner.For(_specimenWindow) is { } windowNote)
         {
             @* Passes 309-310: a recent pregnancy or transfusion shortens the specimen window; said for everyone reading the chart. *@
@@ -512,6 +520,7 @@ else if (ReactionNotice is not null)
     private Feedback? _familyFb;
 
     private SpecimenWindowDto? _specimenWindow;
+    private List<MtpActivationDto> _activeMtp = new();
     private (long Id, DateTime? Pregnancy)? _specimenWindowFor;
 
     protected override async Task OnParametersSetAsync()
@@ -521,6 +530,8 @@ else if (ReactionNotice is not null)
             _specimenWindowFor = (Patient.Id, Patient.RecentPregnancyUtc);
             var window = await Api.GetSpecimenWindowAsync(Patient.Id);
             _specimenWindow = window.Succeeded ? window.Value : null;
+            var mtp = await Api.GetActiveMtpAsync();
+            _activeMtp = mtp.Succeeded && mtp.Value is { } active ? active.Where(m => m.PatientId == Patient.Id).ToList() : new();
         }
 
         if (Patient.Id != _familyFor)

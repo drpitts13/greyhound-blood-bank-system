@@ -28247,3 +28247,21 @@ Checked the remaining places that name an authorizer (override-only uses are cor
 ### Tests
 
 - TEST-BB-1343. Full suite passed.
+
+## Iteration 1037 — End-user testing pass 317: open MTP on the chart (2026-11-20)
+
+### How it was tested
+
+Opened Demo-Massive, Morgan's chart after pass 316.
+
+### Found and fixed
+
+1. **The chart did not say an MTP was open.** Morgan's header gave no type, no current specimen, and nothing of MTP #1, open 13 days, which only the issue desk showed; a clinician or technologist opening her chart would not know the protocol was still running. The header now says, in red, *Massive transfusion protocol #1 active: called 2026-11-06 09:05 by Dr. Demo Trauma (demo), open 13 d.* with **Open Issue & Transfuse**.
+
+### Retested live
+
+- Morgan's chart shows the banner; Demo, Patricia's does not.
+
+### Tests
+
+- TEST-BB-1344. Full suite passed.
