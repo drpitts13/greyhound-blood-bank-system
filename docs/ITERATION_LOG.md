@@ -28175,3 +28175,21 @@ Resumed the loop (the API had failed its first start because both servers built 
 ### Tests
 
 - TEST-BB-1339. Full suite passed.
+
+## Iteration 1033 — End-user testing pass 313: cooler check on Issued units (2026-11-20)
+
+### How it was tested
+
+Opened the issue desk's Issued units board after pass 312.
+
+### Found and fixed
+
+1. **Issued units showed no cooler check, though the help said it did.** The help (pass 72, 290) said the **Cooler differences** badge shows on In transit and Issued units, but Issued units never rendered it, and after pass 312 it was the one board where W0001230009101's absence from Cooler 1 was not said. A unit not yet received on the ward now shows its cooler's badge there and, for the missing unit, *Missing from Cooler 1 when it was checked …*.
+
+### Retested live
+
+- Morgan's four units show *Cooler differences*, Riley's W0001230009204 *Cooler checked*, and only W0001230009101 the missing note; Riley's unit received on the ward shows neither.
+
+### Tests
+
+- TEST-BB-1340. Full suite passed.

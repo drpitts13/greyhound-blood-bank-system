@@ -806,7 +806,17 @@
                                 }
                                 <span class="sub">@CrossmatchStatusLine(row.CrossmatchStatus)</span>
                             </td>
-                            <td>@IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)</td>
+                            <td>@IssueDetailsCell(Ui.EnumText(row.IssueType), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, Ui.EnumText(row.IssueAppearance), row.PtagCode)
+                                @if (row.WardReceivedUtc is null)
+                                {
+                                    @* Pass 313: the cooler's check here too, as the help said, while the unit is still in its cooler. *@
+                                    @CoolerCheckBadge(row.CoolerId)
+                                    @if (CoolerMissingText.For(CoolerCheckFor(row.CoolerId), row.UnitNumber) is { } issuedMissing)
+                                    {
+                                        <div class="sub text-danger" data-cooler-missing="@row.UnitNumber">@issuedMissing</div>
+                                    }
+                                }
+                            </td>
                             <td>
                                 @if (row.WardReceivedUtc is DateTime received)
                                 {

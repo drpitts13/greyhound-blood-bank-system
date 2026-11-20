@@ -53,4 +53,34 @@ public class IssuedRecalledBadgeTests : BunitContext
         Assert.Contains("Recalled: do not accept, return it", badge.TextContent);
         Assert.Equal("Donor subsequently reactive", badge.GetAttribute("title"));
     }
+
+    // TEST-BB-1340 (end-user testing pass 313): Issued units shows a unit's cooler check while it is still in its cooler,
+    // and says which unit the check found missing; a unit received on the ward shows neither.
+    [Fact]
+    public void IssuedUnits_ShowTheCoolerCheck_AndTheMissingUnit()
+    {
+        var issued = DateTime.UtcNow.AddHours(-3);
+        OutstandingIssueWorkItemDto Unit(long issueId, string unit, DateTime? received) => new(
+            issueId, 5, "MRN5", "Demo, Pat", "1980-01-01", issueId + 100, unit, "O+", false, null,
+            null, false, issued, received, received is null ? null : "nurse1", "Cooler 1", "Trauma Bay 1", IssueStatus.Issued, ProductName: "Red Blood Cells");
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/issues/outstanding"] = new List<OutstandingIssueWorkItemDto>
+            {
+                Unit(41, "W0001230009101", null), Unit(42, "W0001230009102", null), Unit(43, "W0001230009103", issued.AddMinutes(10))
+            },
+            ["/api/issues/coolers"] = new List<OpenCoolerDto>
+            {
+                new("Cooler 1", 3, ["Demo, Pat"], ["Trauma Bay 1"], issued, issued.AddMinutes(5), false, LastCheckSummary: "3 of 4 packed, 1 missing")
+                    { MissingUnits = ["W0001230009101"] }
+            }
+        });
+
+        var page = Render<Issuing>();
+        page.FindAll("button").First(b => b.TextContent.StartsWith("Issued units")).Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("[data-cooler-missing]")));
+
+        Assert.Equal(["W0001230009101"], page.FindAll("[data-cooler-missing]").Select(n => n.GetAttribute("data-cooler-missing")));
+        Assert.Equal(2, page.FindAll("[data-cooler-check-badge]").Count);
+    }
 }

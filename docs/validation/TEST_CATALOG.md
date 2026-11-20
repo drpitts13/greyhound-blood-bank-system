@@ -1348,5 +1348,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1337 | I | `SpecimenWindowTests.Window_NamesARecentTransfusion` | URS-BB-1088 / FRS-BB-1206 |
 | TEST-BB-1338 | U | `ProductHistoryReactionTests.DocumentTransfusion_OnlyWhileTheIssueIsOut` | URS-BB-1089 / FRS-BB-1207 |
 | TEST-BB-1339 | U | `CoolerMissingTextTests.For_NamesTheMissingUnitOnItsRow` | URS-BB-1090 / FRS-BB-1208 |
+| TEST-BB-1340 | U | `IssuedRecalledBadgeTests.IssuedUnits_ShowTheCoolerCheck_AndTheMissingUnit` | URS-BB-1091 / FRS-BB-1209 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

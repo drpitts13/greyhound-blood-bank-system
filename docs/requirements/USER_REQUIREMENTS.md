@@ -1096,3 +1096,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1088 | The chart header also names a recent transfusion that shortens the specimen window, and states the facility's window and look-back. | P3 | FRS-BB-1206 |
 | URS-BB-1089 | Product History offers Document transfusion only for an issue still out. | P3 | FRS-BB-1207 |
 | URS-BB-1090 | A unit a cooler check found missing says so on its own row on In transit and Final disposition. | P2 | FRS-BB-1208 |
+| URS-BB-1091 | Issued units shows a unit's cooler check, and the missing unit, while the unit is still in its cooler. | P3 | FRS-BB-1209 |
