@@ -125,7 +125,7 @@ else
                 <p class="muted">
                     @if (_unit.ExpectedArrivalDueUtc is DateTime due)
                     {
-                        <span>Expected by: @due.ToString("yyyy-MM-dd HH:mm") UTC@(due < DateTime.UtcNow && _unit.Status == UnitStatus.Expected ? " (overdue)" : "")</span>
+                        <span>Expected by: @due.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@(due < DateTime.UtcNow && _unit.Status == UnitStatus.Expected ? " (overdue)" : "")</span>
                     }
                     @if (!string.IsNullOrWhiteSpace(_unit.HoldReason))
                     {

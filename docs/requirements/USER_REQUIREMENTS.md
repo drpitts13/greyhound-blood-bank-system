@@ -1104,3 +1104,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1096 | Each chart of a possible duplicate pair says what history it holds, so the reviewer keeps the right chart. | P2 | FRS-BB-1214 |
 | URS-BB-1097 | The shift handoff says when reagent QC to review includes a failed reading. | P2 | FRS-BB-1215 |
 | URS-BB-1098 | Lookback notifications say why the lookback was opened, so the physician can be told. | P2 | FRS-BB-1216 |
+| URS-BB-1099 | Screens show saved times in local time, not UTC. | P2 | FRS-BB-1217 |

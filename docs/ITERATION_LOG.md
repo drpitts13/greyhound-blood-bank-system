@@ -28320,3 +28320,22 @@ Reviewed Minimum stock, the reaction board (Febrile, Marcus), the newborn of a m
 ### Tests
 
 - TEST-BB-1347. Full suite passed.
+
+## Iteration 1041 — End-user testing pass 321: screen times in local time (2026-11-20)
+
+### How it was tested
+
+Opened Supplier orders and SO-DEMO-001 (five group O red cells ordered, three delivered) as the person receiving stock.
+
+### Found and fixed
+
+1. **A received time read five hours off.** The order said *Submitted by supervisor1 2026-11-05 09:50* in local time and *Received against delivery 1 at 2026-11-06 12:50 UTC*, so the two could not be compared with the ward clock or each other. A sweep found the same on a unit's *Expected by* (UTC), and the authenticator page labelled a local time *UTC*. All three now show local time with no label, and a source check (TEST-BB-1348) fails any page that formats a time and labels it UTC.
+
+### Retested live
+
+- SO-DEMO-001 reads *Received against delivery 1 at 2026-11-06 07:50.*
+- The guard test failed on the three lines before the fix and passes after.
+
+### Tests
+
+- TEST-BB-1348. Full suite passed.

@@ -192,7 +192,7 @@
         }
         @if (current.ReceivedUtc is DateTime received)
         {
-            <p class="muted">Received against <a href="@($"/inventory/deliveries/{current.DeliveryId}")">delivery @current.DeliveryId</a> at @received.ToString("yyyy-MM-dd HH:mm") UTC.</p>
+            <p class="muted">Received against <a href="@($"/inventory/deliveries/{current.DeliveryId}")">delivery @current.DeliveryId</a> at @received.ToLocalTime().ToString("yyyy-MM-dd HH:mm").</p>
         }
         @if (current.CancelReason is not null)
         {

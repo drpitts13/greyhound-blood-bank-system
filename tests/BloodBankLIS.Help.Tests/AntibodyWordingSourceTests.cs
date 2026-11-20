@@ -50,6 +50,25 @@ public class AntibodyWordingSourceTests
             + string.Join(Environment.NewLine, uses));
     }
 
+    // TEST-BB-1348 (end-user testing pass 321): a screen shows saved times in local time like the rest of the app; a
+    // time formatted and then labelled "UTC" had read five hours off (supplier order received, unit expected by) or,
+    // after ToLocalTime, was labelled wrongly (authenticator set up).
+    [Fact]
+    public void ScreenTimes_AreNotLabelledUtc()
+    {
+        var root = RepoRoot();
+        var uses = Directory.EnumerateFiles(Path.Combine(root, "src", "BloodBankLIS.Web"), "*.razor", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .SelectMany(f => File.ReadAllLines(f).Select((line, i) => (File: f, Line: i + 1, Text: line)))
+            .Where(l => System.Text.RegularExpressions.Regex.IsMatch(l.Text, @"HH:mm""\)\s*UTC"))
+            .Select(l => $"{Path.GetRelativePath(root, l.File)}:{l.Line}")
+            .ToList();
+
+        Assert.True(uses.Count == 0,
+            "A screen labels a time UTC; show it with ToLocalTime() and no label:" + Environment.NewLine + string.Join(Environment.NewLine, uses));
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

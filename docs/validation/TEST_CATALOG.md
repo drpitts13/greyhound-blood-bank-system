@@ -1356,5 +1356,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1345 | I | `PatientServiceTests.PossibleDuplicatePairs_SayWhatEachChartHolds` | URS-BB-1096 / FRS-BB-1214 |
 | TEST-BB-1346 | U | `ShiftHandoffItemsTests.UnreviewedFailedQc_IsNamedAndUrgent` | URS-BB-1097 / FRS-BB-1215 |
 | TEST-BB-1347 | I | `ComplianceWorkflowTests.ListOpenNotifications_IncludesPending_AndOmitsCompleted` | URS-BB-1098 / FRS-BB-1216 |
+| TEST-BB-1348 | U | `AntibodyWordingSourceTests.ScreenTimes_AreNotLabelledUtc` | URS-BB-1099 / FRS-BB-1217 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
