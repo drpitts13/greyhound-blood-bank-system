@@ -162,7 +162,9 @@ public sealed class SpecimenStorageService
             .Where(s => SpecimenDiscardRule.Due(SpecimenDiscardRule.KeepUntil(s.CollectedUtc, s.ExpiresUtc, days), now))
             .ToList();
         var rows = await ToRowsAsync(tubes, days, ct);
+        // Pass 338: a tube kept for an unfinished order or an open investigation or workup is not due: discard would refuse it.
         return rows
+            .Where(t => t.KeptBecause is null)
             .OrderBy(t => t.KeepUntilUtc)
             .ThenBy(t => t.Location, StringComparer.OrdinalIgnoreCase)
             .ToList();

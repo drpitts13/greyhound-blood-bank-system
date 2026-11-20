@@ -1122,3 +1122,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1114 | The home page does not list tubes due for discard as clear while retention is not set. | P2 | FRS-BB-1232 |
 | URS-BB-1115 | The tube of an antibody identification still open cannot be discarded. | P1 | FRS-BB-1233 |
 | URS-BB-1116 | The tube of a DAT/elution workup still open cannot be discarded. | P2 | FRS-BB-1234 |
+| URS-BB-1117 | Tubes due for discard leave out tubes that are still kept. | P2 | FRS-BB-1235 |

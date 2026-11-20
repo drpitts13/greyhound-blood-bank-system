@@ -22,6 +22,44 @@ public class SpecimenDiscardTests
             new EfRepository<OrderSpecimen>(c), new EfRepository<Order>(c), new EfRepository<ReactionInvestigation>(c),
             new FacilityPolicyService(new EfRepository<SystemSetting>(c)));
 
+    // TEST-BB-1377 (end-user testing pass 338): a stored tube past its retention date that is still kept (here, on an
+    // unfinished order) is not listed as due for discard, since a discard would refuse it.
+    [Fact]
+    public async Task KeptTube_IsNotDueForDiscard()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var c = factory.Create();
+        var now = factory.Clock.UtcNow;
+        var patient = new Patient { MedicalRecordNumber = "MRN-DSC-K", LastName = "Kept", FirstName = "Tube", DateOfBirth = new DateOnly(1970, 1, 1) };
+        var location = new OrderingLocation { Code = "LOC-DSC-K", Name = "BB", IsActive = true };
+        c.AddRange(patient, location);
+        await c.SaveChangesAsync();
+        var encounter = new Encounter { PatientId = patient.Id, VisitNumber = "VIS-DSC-K", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddDays(-20) };
+        var kept = new Specimen { PatientId = patient.Id, AccessionNumber = "ACC-DSC-KEPT", SpecimenType = "EDTA", Status = SpecimenStatus.Expired, CollectedUtc = now.AddDays(-13), ExpiresUtc = now.AddDays(-10) };
+        var free = new Specimen { PatientId = patient.Id, AccessionNumber = "ACC-DSC-FREE", SpecimenType = "EDTA", Status = SpecimenStatus.Expired, CollectedUtc = now.AddDays(-13), ExpiresUtc = now.AddDays(-10) };
+        c.AddRange(encounter, kept, free);
+        await c.SaveChangesAsync();
+        var order = new Order { PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderNumber = "ORD-DSC-K", OrderCategory = OrderCategory.Test, OrderName = "ABSC", Status = OrderStatus.New, OrderedUtc = now.AddDays(-13) };
+        c.Orders.Add(order);
+        await c.SaveChangesAsync();
+        c.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = kept.Id, IsPrimary = true });
+        (await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.SpecimenRetentionDays)).Value = "7";
+        await c.SaveChangesAsync();
+
+        var service = Service(factory, c, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession));
+        Assert.True((await service.StoreAsync(new StoreSpecimenRequest(kept.AccessionNumber, "Rack K"))).Succeeded);
+        Assert.True((await service.StoreAsync(new StoreSpecimenRequest(free.AccessionNumber, "Rack K"))).Succeeded);
+
+        var due = (await service.ListDueForDiscardAsync()).Where(t => t.PatientId == patient.Id).ToList();
+        Assert.Equal([free.Id], due.Select(t => t.SpecimenId));
+        Assert.Equal("Kept: order ORD-DSC-K not finished", (await service.ListInPlaceAsync("Rack K")).Single(t => t.SpecimenId == kept.Id).KeptBecause);
+    }
+
     [Fact]
     public async Task Tube_IsDiscardedWhenDue_OrEarlyWithAReason_AndKeptWhileStillNeeded()
     {

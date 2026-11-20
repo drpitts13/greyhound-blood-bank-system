@@ -28683,3 +28683,21 @@ Followed pass 336 to the other workups that name a specimen.
 ### Tests
 
 - TEST-BB-1376. Full suite passed.
+
+## Iteration 1060 — End-user testing pass 338: kept tubes not due for discard (2026-11-20)
+
+### How it was tested
+
+Followed passes 336 and 337 to the due-for-discard list behind the home card and handoff.
+
+### Found and fixed
+
+1. **Tubes still kept were listed as due for discard.** The list took every stored tube past its keep-until date, including tubes on an unfinished order, an open reaction investigation, or an open workup, which Discard then refuses; the home card and handoff counted them as work to do. Such tubes are no longer listed or counted; they become due once what keeps them is finished. The rack listing shows why each is kept.
+
+### Retested
+
+- The dev data has no retention period set, so nothing is due either way; covered by TEST-BB-1377.
+
+### Tests
+
+- TEST-BB-1377. Full suite passed.
