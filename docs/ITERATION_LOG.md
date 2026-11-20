@@ -27995,3 +27995,21 @@ Read the open deviations and the alerts as a quality reviewer. Nothing was chang
 ### Tests
 
 - TEST-BB-1329. Full suite passed.
+
+## Iteration 1023 — End-user testing pass 303: count buttons agree with one item (2026-11-19)
+
+### How it was tested
+
+Checked why deviation DEV-3 lists two automatic quarantines of nearly the same units (the second follows releases in between: only units not already in quarantine are taken), then opened the antibody identification worklist (Kellerman, Diane's workup on expired ACC-DEMO-ABID1).
+
+### Found and fixed
+
+1. **"1 need interpretation", "1 have an expired specimen".** The worklist's eleven count buttons used the plural verb whatever the count. They now agree with it (*1 needs interpretation.*, *1 has an expired specimen.*).
+
+### Retested live
+
+- The two buttons read *1 needs interpretation.* and *1 has an expired specimen.*
+
+### Tests
+
+- TEST-BB-1330. Full suite passed.

@@ -84,67 +84,67 @@ else
                 @if (RecordReactionsCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?action=reactions">
-                        @RecordReactionsCount need reactions.
+                        @RecordReactionsCount @CountVerb.For(RecordReactionsCount, "needs", "need") reactions.
                     </a>
                 }
                 @if (InterpretCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?action=interpret">
-                        @InterpretCount need interpretation.
+                        @InterpretCount @CountVerb.For(InterpretCount, "needs", "need") interpretation.
                     </a>
                 }
                 @if (WithdrawnJudgmentCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?withdrawn=1">
-                        @WithdrawnJudgmentCount have withdrawn judgment.
+                        @WithdrawnJudgmentCount @CountVerb.For(WithdrawnJudgmentCount, "has", "have") withdrawn judgment.
                     </a>
                 }
                 @if (PendingTypeCorrectionCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?typePending=1">
-                        @PendingTypeCorrectionCount have a pending type correction.
+                        @PendingTypeCorrectionCount @CountVerb.For(PendingTypeCorrectionCount, "has", "have") a pending type correction.
                     </a>
                 }
                 @if (ReservedOrIssuedUnitCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?products=1">
-                        @ReservedOrIssuedUnitCount have reserved or issued units.
+                        @ReservedOrIssuedUnitCount @CountVerb.For(ReservedOrIssuedUnitCount, "has", "have") reserved or issued units.
                     </a>
                 }
                 @if (ReviewCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?action=review">
-                        @ReviewCount need supervisor review.
+                        @ReviewCount @CountVerb.For(ReviewCount, "needs", "need") supervisor review.
                     </a>
                 }
                 @if (UnusableSpecimenCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?unusable=1">
-                        @UnusableSpecimenCount have a rejected or cancelled specimen.
+                        @UnusableSpecimenCount @CountVerb.For(UnusableSpecimenCount, "has", "have") a rejected or cancelled specimen.
                     </a>
                 }
                 @if (NotReadySpecimenCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?notready=1">
-                        @NotReadySpecimenCount have a not-yet-received specimen.
+                        @NotReadySpecimenCount @CountVerb.For(NotReadySpecimenCount, "has", "have") a not-yet-received specimen.
                     </a>
                 }
                 @if (ExpiredSpecimenCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?expired=1">
-                        @ExpiredSpecimenCount have an expired specimen.
+                        @ExpiredSpecimenCount @CountVerb.For(ExpiredSpecimenCount, "has", "have") an expired specimen.
                     </a>
                 }
                 @if (UnacceptedSpecimenCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?unaccepted=1">
-                        @UnacceptedSpecimenCount have a not-yet-accepted specimen.
+                        @UnacceptedSpecimenCount @CountVerb.For(UnacceptedSpecimenCount, "has", "have") a not-yet-accepted specimen.
                     </a>
                 }
                 @if (LotAttentionCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?lotAttention=1">
-                        @LotAttentionCount have a withdrawn or expired lot.
+                        @LotAttentionCount @CountVerb.For(LotAttentionCount, "has", "have") a withdrawn or expired lot.
                     </a>
                 }
             </p>

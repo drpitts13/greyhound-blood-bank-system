@@ -1338,5 +1338,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1327 | I | `Phase4IssuingTests.ListReadyToIssue_MarksUnmetSpecialRequirementWithoutOfferingIssue` | URS-BB-1078 / FRS-BB-1196 |
 | TEST-BB-1328 | U | `MotherCandidatesTests.From_OffersPossibleMothersByName` | URS-BB-1079 / FRS-BB-1197 |
 | TEST-BB-1329 | U | `SavedTimeTextTests.Local_ShowsSavedUtcTimesInLocalTime` | URS-BB-1080 / FRS-BB-1198 |
+| TEST-BB-1330 | U | `CountVerbTests.For_AgreesWithTheCount` | URS-BB-1081 / FRS-BB-1199 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
