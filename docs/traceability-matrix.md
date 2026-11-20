@@ -1229,6 +1229,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1113 / FRS-BB-1231 | End-user testing pass 334: temperature readings not tracked, not clear | `DashboardQueueCatalog.cs`, `Home.razor` | TEST-BB-1373 | U | |
 | URS-BB-1114 / FRS-BB-1232 | End-user testing pass 335: tubes due for discard not tracked, not clear | `DashboardQueueCatalog.cs`, `Home.razor`, `ReferenceEndpoints.cs` | TEST-BB-1374 | U | |
 | URS-BB-1115 / FRS-BB-1233 | End-user testing pass 336: keep the tube of an open antibody identification | `SpecimenDiscardRule.cs`, `SpecimenStorageService.cs` | TEST-BB-1375 | U, I | |
+| URS-BB-1116 / FRS-BB-1234 | End-user testing pass 337: keep the tube of an open DAT/elution workup | `SpecimenDiscardRule.cs`, `SpecimenStorageService.cs` | TEST-BB-1376 | U, I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -41,6 +41,8 @@ public class SpecimenDiscardRuleTests
         Assert.Contains("already discarded", SpecimenDiscardRule.Evaluate(Now, [], false, Now.AddDays(-1), Now, null).Message);
         // TEST-BB-1375 (end-user testing pass 336): the tube of an antibody identification still open is kept.
         Assert.Contains("antibody identification that is still open", SpecimenDiscardRule.Evaluate(null, [], false, Now.AddDays(-1), Now, "x", onOpenAntibodyWorkup: true).Message);
+        // TEST-BB-1376 (end-user testing pass 337): and the tube of a DAT/elution workup still open.
+        Assert.Contains("DAT/elution workup that is still open", SpecimenDiscardRule.Evaluate(null, [], false, Now.AddDays(-1), Now, "x", onOpenDatWorkup: true).Message);
         Assert.Contains("at most 500", SpecimenDiscardRule.Evaluate(null, [], false, Now.AddDays(1), Now, new string('x', 501)).Message);
     }
 }

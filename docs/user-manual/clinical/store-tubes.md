@@ -28,4 +28,4 @@ How many days tubes are kept is set by your medical director (OCD-070). Until it
 
 While *Specimen retention days* is not set, no tube is ever due for discard; the home card **Tubes due for discard** then says *not tracked: specimen retention days are not set* rather than reading clear.
 
-A tube that is the specimen of an antibody identification still open (not completed or voided) is kept too: its row says *Kept: an antibody identification on it is still open*, Discard is not offered, and a discard by scan is refused until the workup is completed or voided.
+A tube that is the specimen of an antibody identification still open (not completed or voided) is kept too: its row says *Kept: an antibody identification on it is still open*, Discard is not offered, and a discard by scan is refused until the workup is completed or voided. The same holds for the tube of a DAT/elution workup still open (*Kept: a DAT/elution workup on it is still open*).

@@ -85,6 +85,7 @@ public sealed class SpecimenStorageService
     private readonly FacilityPolicyService? _policy;
 
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
+    private readonly IRepository<DatElutionWorkup>? _datWorkups;
 
     public SpecimenStorageService(
         IRepository<Specimen> specimens,
@@ -99,9 +100,11 @@ public sealed class SpecimenStorageService
         IRepository<Order>? orders = null,
         IRepository<ReactionInvestigation>? investigations = null,
         FacilityPolicyService? policy = null,
-        IRepository<AntibodyIdentificationWorkup>? workups = null)
+        IRepository<AntibodyIdentificationWorkup>? workups = null,
+        IRepository<DatElutionWorkup>? datWorkups = null)
     {
         _workups = workups;
+        _datWorkups = datWorkups;
         _orderSpecimens = orderSpecimens;
         _orders = orders;
         _investigations = investigations;
@@ -240,6 +243,16 @@ public sealed class SpecimenStorageService
             foreach (var w in workups)
             {
                 result.TryAdd(w.SpecimenId!.Value, "Kept: an antibody identification on it is still open");
+            }
+        }
+
+        if (_datWorkups is not null)
+        {
+            var datWorkups = await _datWorkups.ListAsync(w => w.SpecimenId != null && specimenIds.Contains(w.SpecimenId.Value)
+                && w.Status == DatElutionWorkupStatus.Open, ct);
+            foreach (var w in datWorkups)
+            {
+                result.TryAdd(w.SpecimenId!.Value, "Kept: a DAT/elution workup on it is still open");
             }
         }
 
@@ -385,7 +398,9 @@ public sealed class SpecimenStorageService
         var keepUntil = SpecimenDiscardRule.KeepUntil(specimen.CollectedUtc, specimen.ExpiresUtc, await RetentionDaysAsync(ct));
         var onWorkup = _workups is not null && await _workups.AnyAsync(
             w => w.SpecimenId == specimen.Id && w.Status != AntibodyWorkupStatus.Completed && w.Status != AntibodyWorkupStatus.Voided, ct);
-        var check = SpecimenDiscardRule.Evaluate(specimen.DiscardedUtc, openOrders, onInvestigation, keepUntil, now, request.Reason, onWorkup);
+        var onDatWorkup = _datWorkups is not null && await _datWorkups.AnyAsync(
+            w => w.SpecimenId == specimen.Id && w.Status == DatElutionWorkupStatus.Open, ct);
+        var check = SpecimenDiscardRule.Evaluate(specimen.DiscardedUtc, openOrders, onInvestigation, keepUntil, now, request.Reason, onWorkup, onDatWorkup);
         if (check.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<DiscardedSpecimenDto>.Fail(check.Message);

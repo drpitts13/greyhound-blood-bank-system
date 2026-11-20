@@ -23,7 +23,8 @@ public static class SpecimenDiscardRule
         DateTime? keepUntilUtc,
         DateTime nowUtc,
         string? reason,
-        bool onOpenAntibodyWorkup = false)
+        bool onOpenAntibodyWorkup = false,
+        bool onOpenDatWorkup = false)
     {
         if (discardedUtc is DateTime discarded)
         {
@@ -34,6 +35,12 @@ public static class SpecimenDiscardRule
         if (onOpenAntibodyWorkup)
         {
             return RuleResult.HardStop(Code, "The tube is the specimen of an antibody identification that is still open; keep it until the workup is completed or voided.");
+        }
+
+        // Pass 337: and the tube of a DAT/elution workup still open (the eluate may need to be repeated or tested further).
+        if (onOpenDatWorkup)
+        {
+            return RuleResult.HardStop(Code, "The tube is the specimen of a DAT/elution workup that is still open; keep it until the workup is completed or voided.");
         }
 
         if (onOpenInvestigation)

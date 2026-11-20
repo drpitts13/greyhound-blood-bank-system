@@ -28665,3 +28665,21 @@ Opened Store tubes as the technologist clearing received tubes not yet put away.
 ### Tests
 
 - TEST-BB-1375. Full suite passed.
+
+## Iteration 1059 — End-user testing pass 337: keep the tube of an open DAT/elution workup (2026-11-20)
+
+### How it was tested
+
+Followed pass 336 to the other workups that name a specimen.
+
+### Found and fixed
+
+1. **The tube of an open DAT/elution workup could be discarded.** A DAT/elution workup names its specimen and stays open until completed or voided, like an antibody identification, but its tube was not kept; the eluate may need to be repeated or tested further. Such a tube is now kept (*Kept: a DAT/elution workup on it is still open*), and a discard is refused until the workup is completed or voided.
+
+### Retested
+
+- The dev data's only DAT/elution workup is completed with no specimen, so nothing changes on Store tubes; ACC-DEMO-ABID1 is still kept. Covered by TEST-BB-1376.
+
+### Tests
+
+- TEST-BB-1376. Full suite passed.

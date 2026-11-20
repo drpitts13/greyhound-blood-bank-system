@@ -204,7 +204,8 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         var onOrder = Tube("ORD");
         var free = Tube("FREE");
         var onWorkup = Tube("ABID");
-        c.Specimens.AddRange(onOrder, free, onWorkup);
+        var onDat = Tube("DAT");
+        c.Specimens.AddRange(onOrder, free, onWorkup, onDat);
         var order = new Order
         {
             PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderNumber = $"ORD-KPT-{key}",
@@ -222,12 +223,16 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         c.AntibodyPanelLots.Add(lot);
         await c.SaveChangesAsync();
         c.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup { PatientId = patient.Id, SpecimenId = onWorkup.Id, PrimaryLotId = lot.Id, Status = AntibodyWorkupStatus.PendingInterpretation });
+        c.DatElutionWorkups.Add(new DatElutionWorkup { PatientId = patient.Id, SpecimenId = onDat.Id });
         await c.SaveChangesAsync();
 
         var service = new SpecimenStorageService(new EfRepository<Specimen>(c), new EfRepository<SpecimenStorageEvent>(c), new EfRepository<Patient>(c), c,
             _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             orderSpecimens: new EfRepository<OrderSpecimen>(c), orders: new EfRepository<Order>(c), investigations: new EfRepository<ReactionInvestigation>(c),
-            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c), datWorkups: new EfRepository<DatElutionWorkup>(c));
+        // TEST-BB-1376 (pass 337): a DAT/elution workup still open keeps its tube too.
+        Assert.Equal("Kept: a DAT/elution workup on it is still open",
+            Assert.Single((await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id), r => r.SpecimenId == onDat.Id).KeptBecause);
         var rows = (await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id).ToList();
         Assert.Equal("Kept: an antibody identification on it is still open", Assert.Single(rows, r => r.SpecimenId == onWorkup.Id).KeptBecause);
         Assert.Equal($"Kept: order ORD-KPT-{key} not finished", Assert.Single(rows, r => r.SpecimenId == onOrder.Id).KeptBecause);

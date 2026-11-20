@@ -1384,5 +1384,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1373 | U | `DashboardHomeTests.TemperatureReadings_NotTracked_IsNotClear` | URS-BB-1113 / FRS-BB-1231 |
 | TEST-BB-1374 | U | `DashboardHomeTests.TubesDueForDiscard_NotTracked_IsNotClear` | URS-BB-1114 / FRS-BB-1232 |
 | TEST-BB-1375 | U, I | `SpecimenDiscardRuleTests.Evaluate_KeepsANeededTube_AndAsksForAReasonWhenEarly`, `SpecimenStorageTests.NotStoredList_SaysWhichTubesAreKept` | URS-BB-1115 / FRS-BB-1233 |
+| TEST-BB-1376 | U, I | `SpecimenDiscardRuleTests.Evaluate_KeepsANeededTube_AndAsksForAReasonWhenEarly`, `SpecimenStorageTests.NotStoredList_SaysWhichTubesAreKept` | URS-BB-1116 / FRS-BB-1234 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
