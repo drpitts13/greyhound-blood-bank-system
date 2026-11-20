@@ -194,6 +194,9 @@ public class ShiftHandoff : BaseEntity
 
     public int ReagentQcUnreviewed { get; set; }
 
+    /// <summary>Of those lots, the ones with a failed QC reading not yet reviewed (end-user testing pass 319).</summary>
+    public int ReagentQcUnreviewedFailed { get; set; }
+
     /// <summary>Patients waiting for a second ABO/Rh, and supervisor queue items (end-user testing pass 71).</summary>
     public int SecondAboRhDue { get; set; }
 

@@ -1102,3 +1102,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1094 | The patient timeline shows a massive transfusion protocol's activation and closure. | P3 | FRS-BB-1212 |
 | URS-BB-1095 | The patient chart says when the patient's massive transfusion protocol is open. | P2 | FRS-BB-1213 |
 | URS-BB-1096 | Each chart of a possible duplicate pair says what history it holds, so the reviewer keeps the right chart. | P2 | FRS-BB-1214 |
+| URS-BB-1097 | The shift handoff says when reagent QC to review includes a failed reading. | P2 | FRS-BB-1215 |

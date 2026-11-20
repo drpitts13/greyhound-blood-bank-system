@@ -91,7 +91,9 @@ public sealed record ShiftHandoffDto(
     // Pass 145: received tubes not yet put away.
     int TubesToStore = 0,
     // Pass 159: units to retype already reserved for patients.
-    int RetypesReserved = 0)
+    int RetypesReserved = 0,
+    // Pass 319: lots to review whose unreviewed QC includes a failed reading.
+    int ReagentQcUnreviewedFailed = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -121,7 +123,10 @@ public sealed record ShiftHandoffDto(
         (ReagentLotsQcDue > 0 ? $"; reagent QC to do {ReagentLotsQcDue} {(ReagentLotsQcDue == 1 ? "lot" : "lots")}" : "") +
         (SecondAboRhDue > 0 ? $"; second ABO/Rh {SecondAboRhDue}" : "") +
         (SupervisorQueueOpen > 0 ? $"; supervisor queue {SupervisorQueueOpen}" : "") +
-        (ReagentQcUnreviewed > 0 ? $"; reagent QC to review {ReagentQcUnreviewed} {(ReagentQcUnreviewed == 1 ? "lot" : "lots")}" : "") +
+        (ReagentQcUnreviewed > 0
+            ? $"; reagent QC to review {ReagentQcUnreviewed} {(ReagentQcUnreviewed == 1 ? "lot" : "lots")}" +
+              (ReagentQcUnreviewedFailed > 0 ? $" ({ReagentQcUnreviewedFailed} failed)" : "")
+            : "") +
         (WardRequestsWaiting > 0 ? $"; WARD WAITING FOR {WardRequestsWaiting} {(WardRequestsWaiting == 1 ? "UNIT" : "UNITS")}" : "") +
         (ReservationsLapsed > 0 ? $"; {ReservationsLapsed} past reservation" : "") +
         $"; tests {PendingTests}" +
@@ -184,7 +189,8 @@ public sealed record ShiftHandoffDto(
         h.EquipmentChecksToDo, h.EquipmentChecksFailedOrOverdue, h.EquipmentOutOfService, h.WardRequestsWaiting,
         h.ReagentLotsQcDue, h.ReagentQcUnreviewed, h.SecondAboRhDue, h.SupervisorQueueOpen,
         h.TemperatureExcursionsOpen, h.TemperatureExcursionsToClose, h.TemperatureReadingsDue, h.DeviationsOverdue,
-        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending, h.DeliveriesToComplete, h.TubesToStore, h.RetypesReserved);
+        h.LookbackDue, h.LookbackPastNotifyBy, h.RetypesPending, h.DeliveriesToComplete, h.TubesToStore, h.RetypesReserved,
+        h.ReagentQcUnreviewedFailed);
 }
 
 /// <summary>
@@ -495,6 +501,8 @@ public sealed class ShiftHandoffService
             // End-user testing pass 70: the handoff named failed QC only; the day's QC still to do and QC to review carry over too.
             ReagentLotsQcDue = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Overdue).Select(w => w.LotId).Distinct().Count(),
             ReagentQcUnreviewed = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Unreviewed).Select(w => w.LotId).Distinct().Count(),
+            // Pass 319: a failed reading still to review was one of "7 lots"; the supervisor queue puts it first.
+            ReagentQcUnreviewedFailed = reagentWork.Where(w => w.Kind == ReagentQcWorklistRule.Unreviewed && w.QcFailed).Select(w => w.LotId).Distinct().Count(),
             // Pass 71: on the dashboard, not yet in the handoff.
             SecondAboRhDue = _issuing is null ? 0 : (await _issuing.ListPendingSecondAboAsync(ct)).Count,
             SupervisorQueueOpen = _supervisorQueue is null ? 0
@@ -645,6 +653,7 @@ public sealed class ShiftHandoffService
         WardRequestsWaiting = row.WardRequestsWaiting,
         ReagentLotsQcDue = row.ReagentLotsQcDue,
         ReagentQcUnreviewed = row.ReagentQcUnreviewed,
+        ReagentQcUnreviewedFailed = row.ReagentQcUnreviewedFailed,
         SecondAboRhDue = row.SecondAboRhDue,
         SupervisorQueueOpen = row.SupervisorQueueOpen,
         TemperatureExcursionsOpen = row.TemperatureExcursionsOpen,

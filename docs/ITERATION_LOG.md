@@ -28283,3 +28283,21 @@ Opened Possible duplicates as a reviewer deciding which chart of Demo-Multi, Ril
 ### Tests
 
 - TEST-BB-1345. Full suite passed.
+
+## Iteration 1039 — End-user testing pass 319: unreviewed failed QC on the handoff (2026-11-20)
+
+### How it was tested
+
+Opened Reagent QC, then the shift handoff as the technologist going off shift.
+
+### Found and fixed
+
+1. **The handoff hid an unreviewed failed QC.** Lot AD-24092's QC failed and then passed, so it is no longer *Reagent QC failed*; its failed reading, still not reviewed and first on the supervisor queue, was one of *Reagent QC to review: 7 (lots)*. The item now reads *7 (lots, 1 with failed QC)*, is listed with the urgent items, and the summary adds *(1 failed)*.
+
+### Retested live
+
+- The handoff shows *Reagent QC to review: 7 (lots, 1 with failed QC)* among the urgent items. RhIG and Reagent QC were also reviewed; nothing else found.
+
+### Tests
+
+- TEST-BB-1346. Full suite passed.

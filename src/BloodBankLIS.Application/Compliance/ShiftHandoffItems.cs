@@ -42,7 +42,9 @@ public static class ShiftHandoffItems
         Add(h.SupervisorQueueOpen, "Supervisor queue", "/supervisor");
         // Pass 70: the day's QC the next shift has to run, and QC waiting for review.
         Add(h.ReagentLotsQcDue, "Reagent QC to do", "/reagents", detail: "no QC for today");
-        Add(h.ReagentQcUnreviewed, "Reagent QC to review", "/reagents", detail: h.ReagentQcUnreviewed == 1 ? "lot" : "lots");
+        // Pass 319: an unreviewed failed reading is named and makes the item urgent, as the supervisor queue puts it first.
+        Add(h.ReagentQcUnreviewed, "Reagent QC to review", "/reagents", urgent: h.ReagentQcUnreviewedFailed > 0,
+            detail: (h.ReagentQcUnreviewed == 1 ? "lot" : "lots") + (h.ReagentQcUnreviewedFailed > 0 ? $", {h.ReagentQcUnreviewedFailed} with failed QC" : ""));
         Add(h.TransfusionsRunning, "Transfusing", "/issuing?desk=issued",
             urgent: h.TransfusionsCompletionOverdue > 0, detail: Note((h.TransfusionsCompletionOverdue, "completion overdue")));
         Add(h.RetrospectiveDue, "Retrospective crossmatch", "/issuing?desk=retro",

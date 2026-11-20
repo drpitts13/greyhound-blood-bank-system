@@ -350,6 +350,22 @@ public class ShiftHandoffItemsTests
         Assert.Contains("reagent QC to review 1 lot", h.QueueSummary);
     }
 
+    // TEST-BB-1346 (end-user testing pass 319): a lot whose unreviewed QC failed is named on Reagent QC to review, which
+    // becomes urgent, and in the summary; with only passing QC to review the item stays as it was.
+    [Fact]
+    public void UnreviewedFailedQc_IsNamedAndUrgent()
+    {
+        var h = Handoff() with { ReagentQcUnreviewed = 7, ReagentQcUnreviewedFailed = 1 };
+        var item = Assert.Single(ShiftHandoffItems.For(h), i => i.Label == "Reagent QC to review");
+        Assert.Equal((7, "lots, 1 with failed QC", true), (item.Count, item.Detail, item.Urgent));
+        Assert.Contains("reagent QC to review 7 lots (1 failed)", h.QueueSummary);
+
+        var passing = Handoff() with { ReagentQcUnreviewed = 7 };
+        var plain = Assert.Single(ShiftHandoffItems.For(passing), i => i.Label == "Reagent QC to review");
+        Assert.Equal(("lots", false), (plain.Detail, plain.Urgent));
+        Assert.DoesNotContain("failed)", passing.QueueSummary);
+    }
+
     // TEST-BB-1202 (pass 179): results to review after a lot's failed QC stay on the handoff after its QC passes again,
     // urgent and named in the summary; Reagent QC to review says it counts lots.
     [Fact]
