@@ -189,6 +189,10 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E5166"));
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E3858"));
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E4253"));
+            // TEST-BB-1383 (end-user testing loop 2): the eight standard published ABO/RhD codes are loaded as placeholders.
+            Assert.Equal(8, await verify.IsbtAboRhdCodes.CountAsync(a => a.StandardVersion == UsPublicAboRhdCodeSeed.StandardVersion && a.IsPlaceholder));
+            Assert.True(await verify.IsbtAboRhdCodes.AnyAsync(a => a.Code == "9500" && a.Abo == AboGroup.O && a.RhD == RhType.Negative));
+            Assert.True(await verify.IsbtAboRhdCodes.AnyAsync(a => a.Code == "8400" && a.Abo == AboGroup.AB && a.RhD == RhType.Positive));
 
             await AssertExtendedScenariosAsync(verify);
         }

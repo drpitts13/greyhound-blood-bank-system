@@ -98,8 +98,8 @@
                 <span class="muted">Enter the full DIN as one string (facility + year + sequence). Spaces and an optional keyboard check character are allowed.</span>
             </div>
             <div class="form-row">
-                <div class="field"><label>ABO/RhD code (lookup)</label><input @bind="_aboCode" /></div>
-                <div class="field"><label>Product description code</label><input @bind="_pdc" maxlength="5" /></div>
+                <div class="field"><label>ABO/RhD code (lookup)</label><input @bind="_aboCode" placeholder="e.g. 5100" data-isbt-abo-code /></div>
+                <div class="field"><label>Product description code</label><input @bind="_pdc" maxlength="5" placeholder="e.g. E0336" data-isbt-pdc /></div>
                 <div class="field"><label>Collection type</label><input @bind="_collection" maxlength="1" /></div>
                 <div class="field"><label>Division</label><input @bind="_division" maxlength="2" /></div>
                 <div class="field"><label>Expiration (local)</label><input type="datetime-local" @bind="_expirationLocal" /></div>
@@ -185,9 +185,11 @@ Valid: @_session.Validation?.Valid</pre>
 </section>
 
 @code {
-    private string _donationNumber = "G123417654321";
-    private string _aboCode = "DEMO";
-    private string _pdc = "E0206";
+    // Loop 2: no sample DIN, ABO/RhD or product code is prefilled; each unit's codes come from its label (a prefilled
+    // DEMO code read as O positive on any unit received without changing it).
+    private string _donationNumber = string.Empty;
+    private string _aboCode = string.Empty;
+    private string _pdc = string.Empty;
     private string _collection = "0";
     private string _division = "00";
     private DateTime _expirationLocal = DateTime.Now.AddDays(30);

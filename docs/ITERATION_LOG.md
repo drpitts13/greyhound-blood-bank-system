@@ -28791,3 +28791,22 @@ Walked the cooler check, a newborn chart with maternal anti-K (DEMO-MATAB, Baby 
 ### Tests
 
 - TEST-BB-1382. Full suite passed.
+
+## Iteration 1066 — End-user testing loop 2, tick 1: known ABO/RhD codes; no prefilled receipt codes (2026-11-20)
+
+### How it was tested
+
+Started the new review loop (navigation, clutter, builder tools, simplification, blocking, test building, product modification setup, known product codes) with item 8: Admin › ISBT Product Codes and ISBT Receive.
+
+### Found and fixed
+
+1. **No real ABO/RhD codes were loaded.** The product description catalog carried 51 published US supplier codes, but the ABO/RhD table held only two made-up demo codes (DEMO, DEMA), so no real label's blood group decoded. The eight standard group codes with no additional typing (5100 O+, 9500 O−, 6200 A+, 0600 A−, 7300 B+, 1700 B−, 8400 AB+, 2800 AB−), confirmed against the UK Red Book chapter 23 table 23.1 and the Victoria ISBT 128 resources handout, are now seeded as placeholder rows pending ICCBBA validation (OCD-004 updated); a licensed row for a code is never changed, and codes carrying additional typing stay unknown.
+2. **Manual ISBT receipt started with sample codes.** Keyboard entry opened with a sample DIN, ABO/RhD code DEMO (decoded as O positive) and product E0206, so a unit received without retyping every field took those values. The fields now start empty, with examples only as placeholders.
+
+### Retested live
+
+- The readiness card counts 10 ABO/RhD codes (8 published, 2 old demo). ISBT Receive's manual entry opens empty. No unit was received.
+
+### Tests
+
+- TEST-BB-1383. Full suite passed.

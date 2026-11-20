@@ -1128,3 +1128,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1120 | The RhIG queue says why no dose was calculated for a suggested candidate. | P2 | FRS-BB-1238 |
 | URS-BB-1121 | Blood utilization compares each C:T ratio with the facility's target, when one is set. | P2 | FRS-BB-1239 |
 | URS-BB-1122 | Reagent QC names active reagents not linked to any test, whose lots results do not record. | P2 | FRS-BB-1240 |
+| URS-BB-1123 | The ISBT catalog loads the standard published ABO/RhD group codes, and manual ISBT receipt prefills no codes. | P1 | FRS-BB-1241 |

@@ -946,6 +946,7 @@ public static partial class DatabaseSeeder
         }
 
         await SeedUsSupplierProductCodesAsync(context, ct);
+        await SeedPublicAboRhdCodesAsync(context, ct);
 
         if (!await context.CompatibilityRuleVersions.AnyAsync(ct))
         {
@@ -1030,6 +1031,21 @@ public static partial class DatabaseSeeder
 
         if (changed)
             await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Adds the eight standard published ISBT 128 ABO/RhD codes when a code is not already in the catalog (under any
+    /// version), so a supplier label's blood group decodes; a licensed or facility row for the code is never changed.
+    /// </summary>
+    private static async Task SeedPublicAboRhdCodesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var existing = (await context.IsbtAboRhdCodes.Select(r => r.Code).ToListAsync(ct)).ToHashSet(StringComparer.Ordinal);
+        var missing = UsPublicAboRhdCodeSeed.CreateRows().Where(r => !existing.Contains(r.Code)).ToList();
+        if (missing.Count > 0)
+        {
+            context.IsbtAboRhdCodes.AddRange(missing);
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     /// <summary>

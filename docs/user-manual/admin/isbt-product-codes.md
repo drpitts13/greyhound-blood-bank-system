@@ -10,7 +10,7 @@ routes:
 
 ![ISBT product codes](figures/admin-isbt-product-codes.png)
 
-**ISBT Product Codes** is the catalog ISBT receive, modification, and product billing match against. The rows shipped with the application are a placeholder subset, not the licensed ICCBBA tables. Official codes are not included.
+**ISBT Product Codes** is the catalog ISBT receive, modification, and product billing match against. The rows shipped with the application are a placeholder subset, not the licensed ICCBBA tables: a set of commonly published US supplier product description codes, and the eight standard ABO/RhD group codes with no additional typing (5100 O RhD positive, 9500 O RhD negative, 6200 A positive, 0600 A negative, 7300 B positive, 1700 B negative, 8400 AB positive, 2800 AB negative), as published in the UK Red Book chapter 23 and Australian ISBT 128 guidance. They show as placeholders until a licensed extract replaces them; an ABO/RhD code carrying additional typing is not included and is refused as unknown.
 
 If your facility holds an ICCBBA license and you have an extract in CSV, TSV, or JSON, import it from this page. Review the import before you rely on it for live receipts. A code that is missing causes receive and modification to reject the unit. Do not invent a look-alike local code for a licensed product.
 
