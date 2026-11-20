@@ -140,7 +140,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             reactions: new EfRepository<ReactionInvestigation>(context),
             auditQuery: new AuditQuery(context),
             temperatureReadings: new EfRepository<StorageTemperatureReading>(context),
-            transportContainers: new EfRepository<TransportContainer>(context));
+            transportContainers: new EfRepository<TransportContainer>(context),
+            modifications: new EfRepository<UnitModification>(context));
     }
 
     /// <summary>A quarantined unit held for the given reason; optionally the remainder of a transfusion with an investigation.</summary>
@@ -2090,6 +2091,39 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal($"Irradiate Completed for Poe, Ann ({named.MedicalRecordNumber})", namedRow.Summary);
         Assert.Equal($"Wash Pending for patient #{blank.Id} ({blank.MedicalRecordNumber})", blankRow.Summary);
         Assert.DoesNotContain("could not be read", namedRow.Summary, StringComparison.Ordinal);
+    }
+
+    // TEST-BB-1371 (end-user testing pass 332): a thawed unit is not moved into a freezer; a refrigerator is fine.
+    [Fact]
+    public async Task Transfer_RefusesAThawedUnitIntoAFreezer()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var freezer = new InventoryLocation { Code = $"FRZ-{key}", Name = "Plasma freezer", LocationType = LocationType.Freezer, AllowsRbc = true, AllowsPlasma = true };
+        var fridge = new InventoryLocation { Code = $"FRG-{key}", Name = "Fridge", LocationType = LocationType.Refrigerator, AllowsRbc = true, AllowsPlasma = true };
+        var expiration = new ExpirationModificationCode { Code = $"T24-{key}", OffsetAmount = 24, OffsetUnit = ExpirationOffsetUnit.Hours, RelativeTo = ExpirationRelativeTo.ModificationDateTime, IsActive = true };
+        context.AddRange(freezer, fridge, expiration);
+        await context.SaveChangesAsync();
+        var rule = new ModificationRule { ModificationCode = $"THAW-{key}", SourceProductTypeId = productTypeId, TargetProductTypeId = productTypeId, ModificationType = ModificationType.Thaw, ExpirationModificationCodeId = expiration.Id, IsActive = true };
+        context.ModificationRules.Add(rule);
+        await context.SaveChangesAsync();
+        var thaw = new UnitModification { ModificationRuleId = rule.Id, ModificationType = ModificationType.Thaw, ExpirationOffsetCodeApplied = "24H", ResultExpiresUtc = _factory.Clock.UtcNow.AddHours(24), Reason = "Thawed", PerformedBy = "tech", PerformedUtc = _factory.Clock.UtcNow };
+        context.UnitModifications.Add(thaw);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest($"U-THW-{key}", productTypeId) with { LocationId = fridge.Id });
+        Assert.True(received.Succeeded, received.Error);
+        var unit = (await context.BloodUnits.FindAsync(received.Unit!.Id))!;
+        unit.DerivedFromModificationId = thaw.Id;
+        await context.SaveChangesAsync();
+
+        var refused = await service.TransferAsync(unit.Id, freezer.Id, "Back to the freezer");
+        Assert.False(refused.Succeeded);
+        Assert.Contains(refused.Evaluation!.HardStops, h => h.Code == InventoryLocationPolicyRule.ThawedToFreezerCode);
+        Assert.Equal(fridge.Id, (await context.BloodUnits.FindAsync(unit.Id))!.CurrentLocationId);
     }
 
     [Fact]

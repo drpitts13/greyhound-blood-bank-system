@@ -28563,3 +28563,25 @@ Checked every link the screens and queues build against the pages that exist (no
 ### Tests
 
 - TEST-BB-1370. Full suite passed.
+
+## Iteration 1054 — End-user testing pass 332: no thawed unit into a freezer (2026-11-20)
+
+### How it was tested
+
+Reviewed Compatibility and Discard expired as the technologist clearing expired stock.
+
+### Found and fixed
+
+1. **A thawed unit could be moved back into a freezer.** Discard expired listed thawed plasma W0001230001002-M01 recorded in the Plasma Freezer. It was made there on 2026-11-12, before thaw refused a freezer as the result location, but a move (Move units, the unit page, or Move here in a stock count) still checked only that the freezer takes plasma, so a thawed unit could be put back in a freezer, and thawed plasma is not refrozen. A move of a thawed unit into a freezer is now refused (`INV-LOC-THAWED`): *This unit was thawed; it cannot be moved into … a freezer. Store it in a refrigerator.*
+
+### Also checked
+
+- Platelets recorded in FRIDGE-1 are already marked Wrong storage on Inventory (passes 89 and 212).
+
+### Retested
+
+- Not moved live: the two thawed units in the dev data have expired and cannot be moved, and dev data is not changed. Covered by TEST-BB-1371.
+
+### Tests
+
+- TEST-BB-1371. Full suite passed.

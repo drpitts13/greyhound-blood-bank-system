@@ -53,6 +53,8 @@ public sealed class InventoryService
     private readonly IRepository<ProductRetypeResult>? _retypeResults;
     private readonly DeliveryService? _deliveries;
     private readonly IRepository<UnitModificationUnit>? _modificationUnits;
+    // Pass 332: the modifications, to know a unit was thawed.
+    private readonly IRepository<UnitModification>? _modifications;
     private readonly IRepository<UnitDiscardReason>? _discardReasons;
     private readonly IRepository<Allocation>? _allocations;
     private readonly IAuditQuery? _auditQuery;
@@ -85,8 +87,10 @@ public sealed class InventoryService
         IAuditQuery? auditQuery = null,
         IRepository<StorageTemperatureReading>? temperatureReadings = null,
         IFacilityTimeZone? facilityTimeZone = null,
-        IRepository<BloodBankLIS.Domain.Entities.Configuration.TransportContainer>? transportContainers = null)
+        IRepository<BloodBankLIS.Domain.Entities.Configuration.TransportContainer>? transportContainers = null,
+        IRepository<UnitModification>? modifications = null)
     {
+        _modifications = modifications;
         _transportContainers = transportContainers;
         _facilityTimeZone = facilityTimeZone;
         _temperatureReadings = temperatureReadings;
@@ -2670,6 +2674,15 @@ public sealed class InventoryService
             if (evaluation.IsHardStopped)
             {
                 return InventoryActionResult.Blocked(evaluation);
+            }
+
+            // Pass 332: a thawed unit is not moved into a freezer.
+            if (destination is not null && destination.LocationType == LocationType.Freezer
+                && unit.DerivedFromModificationId is long modificationId && _modifications is not null
+                && await _modifications.GetByIdAsync(modificationId, ct) is { ModificationType: ModificationType.Thaw })
+            {
+                return InventoryActionResult.Blocked(new RuleEvaluation([
+                    InventoryLocationPolicyRule.EvaluateThawedDestination(true, destination.LocationType, $"{destination.Code} {destination.Name}")]));
             }
         }
 

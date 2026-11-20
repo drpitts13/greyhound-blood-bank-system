@@ -18,6 +18,17 @@ public static class InventoryLocationPolicyRule
     public const string ExmEligibilityCode = "ISS-LOC-EXM-ELIGIBLE";
     public const string SecondVerifierCode = "ISS-LOC-VERIFY";
     public const string TempRangeCode = "INV-LOC-TEMP";
+    public const string ThawedToFreezerCode = "INV-LOC-THAWED";
+
+    /// <summary>
+    /// A thawed unit is not refrozen (end-user testing pass 332: thaw refused a freezer as the result location, but a
+    /// transfer could still move a thawed plasma unit into the plasma freezer).
+    /// </summary>
+    public static RuleResult EvaluateThawedDestination(bool thawed, LocationType destinationType, string destinationLabel) =>
+        thawed && destinationType == LocationType.Freezer
+            ? RuleResult.HardStop(ThawedToFreezerCode,
+                $"This unit was thawed; it cannot be moved into {destinationLabel}, a freezer. Store it in a refrigerator.")
+            : RuleResult.Pass(ThawedToFreezerCode);
 
     public static bool AllowsComponent(InventoryLocation location, ComponentClass component)
     {

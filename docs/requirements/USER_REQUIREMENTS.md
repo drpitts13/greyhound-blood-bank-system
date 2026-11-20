@@ -1116,3 +1116,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1108 | The blood bank can list patients' special transfusion requirements as a report. | P2 | FRS-BB-1226 |
 | URS-BB-1109 | Documenting a transfusion from the chart leads to ward receipt first when the unit has not been received and receipt is required. | P2 | FRS-BB-1227 |
 | URS-BB-1110 | A blood order says when the patient has a transfusion reaction under investigation. | P2 | FRS-BB-1228 |
+| URS-BB-1111 | A thawed unit cannot be moved into a freezer. | P1 | FRS-BB-1229 |

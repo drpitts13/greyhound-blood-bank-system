@@ -1379,5 +1379,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1368 | I | `ReportServiceTests.SpecialRequirementsReport_ListsEachRequirement` | URS-BB-1108 / FRS-BB-1226 |
 | TEST-BB-1369 | U | `IssuedRecalledBadgeTests.DocumentTransfusionLink_ForAUnitNotReceived_OpensWardReceipt` | URS-BB-1109 / FRS-BB-1227 |
 | TEST-BB-1370 | I | `BloodOrderWorklistTests.OpenReaction_IsNamedOnTheOrder` | URS-BB-1110 / FRS-BB-1228 |
+| TEST-BB-1371 | I | `InventoryServiceTests.Transfer_RefusesAThawedUnitIntoAFreezer` | URS-BB-1111 / FRS-BB-1229 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
