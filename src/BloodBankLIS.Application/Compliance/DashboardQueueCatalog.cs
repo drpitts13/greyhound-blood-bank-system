@@ -162,6 +162,13 @@ public static class DashboardQueueCatalog
         return (list.Count(l => l.ReadingDue is not null), notTracked ? "not tracked: the reading interval is not set" : null);
     }
 
+    /// <summary>
+    /// Pass 335: tubes due for discard; with the facility's specimen retention days not set (OCD-070) none is ever due, so
+    /// a note says they are not tracked rather than the card reading clear.
+    /// </summary>
+    public static (int Count, string? Note) TubesDueForDiscardCard(int due, int retentionDays) =>
+        (due, due == 0 && retentionDays <= 0 ? "not tracked: specimen retention days are not set" : null);
+
     public static (int Count, string? Note) ToVerifyCard(IEnumerable<TestWorkItemDto> pending, string? userName)
     {
         var mine = TestWorklistView.ToVerify(pending, userName);

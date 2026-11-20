@@ -477,7 +477,18 @@
                 return (card.Key, result.Value.Count, DashboardQueueCatalog.UnidentifiedNote(result.Value, DateTime.UtcNow));
             }
             case DashboardQueueCatalog.TubesDueForDiscard:
-                return await CountList(card.Key, Api.GetTubesDueForDiscardAsync());
+            {
+                var tubes = await Api.GetTubesDueForDiscardAsync();
+                if (!tubes.Succeeded || tubes.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var retention = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.SpecimenRetentionDays);
+                var days = retention.Succeeded && retention.Value is { } r ? r.Value : 1;
+                var (tubeCount, tubeNote) = DashboardQueueCatalog.TubesDueForDiscardCard(tubes.Value.Count, days);
+                return (card.Key, tubeCount, tubeNote);
+            }
             case DashboardQueueCatalog.LowStock:
             {
                 var result = await Api.GetMinimumStockAsync();

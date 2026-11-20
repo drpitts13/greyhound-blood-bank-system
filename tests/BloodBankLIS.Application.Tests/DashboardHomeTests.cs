@@ -311,4 +311,17 @@ public class DashboardHomeTests
         var tracked = DashboardHome.Arrange([State(DashboardQueueCatalog.TemperatureReadingsDue, setCount, setNote)], WorkFocus.Everything);
         Assert.Contains(tracked.Clear, c => c.Card.Key == DashboardQueueCatalog.TemperatureReadingsDue);
     }
+
+    // TEST-BB-1374 (end-user testing pass 335): with specimen retention days not set, Tubes due for discard says it is
+    // not tracked and is not listed as clear; with retention set and none due it is clear.
+    [Fact]
+    public void TubesDueForDiscard_NotTracked_IsNotClear()
+    {
+        var (count, note) = DashboardQueueCatalog.TubesDueForDiscardCard(0, 0);
+        Assert.Equal((0, "not tracked: specimen retention days are not set"), (count, note));
+        Assert.DoesNotContain(DashboardHome.Arrange([State(DashboardQueueCatalog.TubesDueForDiscard, count, note)], WorkFocus.Everything).Clear,
+            c => c.Card.Key == DashboardQueueCatalog.TubesDueForDiscard);
+        Assert.Equal((0, (string?)null), DashboardQueueCatalog.TubesDueForDiscardCard(0, 14));
+        Assert.Equal((3, (string?)null), DashboardQueueCatalog.TubesDueForDiscardCard(3, 14));
+    }
 }

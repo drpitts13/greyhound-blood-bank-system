@@ -28625,3 +28625,25 @@ Read the home page as the supervisor starting a shift.
 ### Tests
 
 - TEST-BB-1373. Full suite passed.
+
+## Iteration 1057 — End-user testing pass 335: tubes due for discard not tracked, not clear (2026-11-20)
+
+### How it was tested
+
+Read the home page's *Clear* list after pass 334 for other settings left unset.
+
+### Found and fixed
+
+1. **Tubes due for discard read clear while retention was not set.** With *Specimen retention days* not set (OCD-070, value for the facility to enter), no tube is ever due, so the card read zero under *Clear* although 19 tubes are in storage, some collected a month ago. The card now says *0 · not tracked: specimen retention days are not set* and is not listed as clear; once the days are entered it counts as before.
+
+### Also checked
+
+- The other cards under *Clear* (pending specimens, outside antibodies, panel lots, near expiry, recalled units, handoff, outage) are clear on their own terms, not because a setting is missing.
+
+### Retested live
+
+- The home page shows the card with the note.
+
+### Tests
+
+- TEST-BB-1374. Full suite passed.
