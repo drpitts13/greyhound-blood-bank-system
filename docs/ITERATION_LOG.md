@@ -28049,3 +28049,21 @@ Followed up pass 304: the antibody workup's assistance findings are stored, and 
 ### Tests
 
 - TEST-BB-1332. Full suite passed.
+
+## Iteration 1026 — End-user testing pass 306: opening a workup picks up a later patient type (2026-11-19)
+
+### How it was tested
+
+Traced the other ways a patient antigen type is recorded after pass 305: besides the chart's antigen form, a verified antigen typing result writes the patient's antigen profile (ResultService), and that path did not refresh open antibody workups.
+
+### Found and fixed
+
+1. **A type from a verified result left the workup stale.** Rather than wire every verify path, an open workup now checks when it is opened whether the patient was typed after its assistance last ran, and re-evaluates if so. Interpretation and review are unchanged.
+
+### Retested live
+
+- Kellerman, Diane's workup opened without a refresh, as expected: her only antigen type (K) predates the assistance. Covered by the integration test.
+
+### Tests
+
+- TEST-BB-1333. Full suite passed.

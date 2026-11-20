@@ -1089,3 +1089,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1081 | Worklist count buttons read correctly for one item. | P4 | FRS-BB-1199 |
 | URS-BB-1082 | A possible antibody specificity says whether the patient has been typed for the antigen. | P3 | FRS-BB-1200 |
 | URS-BB-1083 | Typing a patient's antigen updates the assistance on the patient's open antibody workups. | P3 | FRS-BB-1201 |
+| URS-BB-1084 | An open antibody workup reflects a patient antigen type however it was recorded. | P3 | FRS-BB-1202 |

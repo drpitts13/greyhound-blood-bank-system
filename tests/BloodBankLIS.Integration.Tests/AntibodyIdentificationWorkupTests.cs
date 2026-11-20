@@ -1299,6 +1299,52 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
         Assert.Contains("K-negative, as expected for anti-K", KellRationale(check));
     }
 
+    // TEST-BB-1333 (end-user testing pass 306): a patient typed after assistance ran (for example by a verified antigen
+    // result, which does not go through the chart) is read when the open workup is opened: the finding is evaluated again.
+    [Fact]
+    public async Task OpeningWorkup_AfterPatientTyped_RefreshesAssistance()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-OPEN");
+        long workupId;
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            var pos = created.Value.Cells.First(c => c.Role == PanelCellRole.Panel && c.Antigens.Any(a => a.AntigenCode == "K" && a.Expression != AntigenExpression.Absent)).CellId;
+            var neg = created.Value.Cells.First(c => c.Role == PanelCellRole.Panel && c.Antigens.Any(a => a.AntigenCode == "K" && a.Expression == AntigenExpression.Absent)).CellId;
+            Assert.True((await Svc(context).RecordReactionsAsync(workupId,
+            [
+                new RecordAntibodyIdReactionRequest(pos, "AHG", ReactionGrade.ThreePlus),
+                new RecordAntibodyIdReactionRequest(neg, "AHG", ReactionGrade.Negative)
+            ])).Succeeded);
+            Assert.True((await Svc(context).RunAssistAsync(workupId)).Succeeded);
+        }
+
+        var started = _factory.Clock.UtcNow;
+        try
+        {
+            _factory.Clock.UtcNow = started.AddMinutes(5);
+            await using (var context = _factory.Create())
+            {
+                context.AntigenProfiles.Add(new AntigenProfile { PatientId = patientId, BloodAttributeDefinitionId = attrId, Result = AntigenResult.Negative, Method = "Serologic" });
+                await context.SaveChangesAsync();
+            }
+
+            await using var check = _factory.Create();
+            var detail = await Svc(check).GetWorkupAsync(workupId);
+            Assert.NotNull(detail);
+            Assert.Contains("K-negative, as expected for anti-K", check.AntibodyIdentificationFindings
+                .Where(f => f.WorkupId == workupId && f.Source == AntibodyIdSource.Assist && f.Specificity == "anti-K")
+                .OrderByDescending(f => f.Id).Select(f => f.Rationale).First());
+        }
+        finally
+        {
+            _factory.Clock.UtcNow = started;
+        }
+    }
+
     [Fact]
     public async Task Assist_MolecularMethod_UsesGenotypeConflict()
     {

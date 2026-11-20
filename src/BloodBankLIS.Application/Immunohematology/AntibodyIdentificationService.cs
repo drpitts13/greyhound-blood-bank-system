@@ -154,7 +154,38 @@ public sealed class AntibodyIdentificationService
     public async Task<AntibodyIdWorkupDetailDto?> GetWorkupAsync(long workupId, CancellationToken ct = default)
     {
         var workup = await _workups.GetByIdAsync(workupId, ct);
-        return workup is null ? null : await MapDetailAsync(workup, ct);
+        if (workup is null)
+        {
+            return null;
+        }
+
+        // End-user testing pass 306: the patient may have been typed by a verified antigen result (not only on the chart,
+        // pass 305) since assistance last ran; an open workup is evaluated again when it is opened.
+        if (await PatientTypedSinceAssistAsync(workup, ct))
+        {
+            await RefreshAssistFindingsAsync(workup, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return await MapDetailAsync(workup, ct);
+    }
+
+    private async Task<bool> PatientTypedSinceAssistAsync(AntibodyIdentificationWorkup workup, CancellationToken ct)
+    {
+        if (workup.Status is AntibodyWorkupStatus.Completed or AntibodyWorkupStatus.Voided)
+        {
+            return false;
+        }
+
+        var assist = await _findings.ListAsync(f => f.WorkupId == workup.Id && f.Source == AntibodyIdSource.Assist, ct);
+        if (assist.Count == 0)
+        {
+            return false;
+        }
+
+        var lastAssist = assist.Max(f => f.CreatedUtc);
+        var typings = await _antigenProfiles.ListAsync(p => p.PatientId == workup.PatientId, ct);
+        return typings.Any(p => (p.ModifiedUtc ?? p.CreatedUtc) > lastAssist);
     }
 
     public async Task<EvaluationResult<AntibodyIdWorkupDetailDto>> CreateWorkupAsync(
