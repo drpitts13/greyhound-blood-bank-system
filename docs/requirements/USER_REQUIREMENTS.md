@@ -1092,3 +1092,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1084 | An open antibody workup reflects a patient antigen type however it was recorded. | P3 | FRS-BB-1202 |
 | URS-BB-1085 | The Modify page names the selected unit's product. | P3 | FRS-BB-1203 |
 | URS-BB-1086 | The instrument status says when each instrument last sent a message. | P3 | FRS-BB-1204 |
+| URS-BB-1087 | The chart header shows a recent pregnancy that shortens the patient's specimen window, to everyone who reads the chart. | P3 | FRS-BB-1205 |

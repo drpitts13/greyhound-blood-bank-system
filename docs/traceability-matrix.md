@@ -1200,6 +1200,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1084 / FRS-BB-1202 | End-user testing pass 306: opening a workup picks up a later patient type | `AntibodyIdentificationService.cs` | TEST-BB-1333 | I | |
 | URS-BB-1085 / FRS-BB-1203 | End-user testing pass 307: Modify names the product | `UnitProductText.cs`, `Modifications.razor` | TEST-BB-1334 | U | |
 | URS-BB-1086 / FRS-BB-1204 | End-user testing pass 308: instrument last message in the status | `InstrumentAdminDtos.cs`, `InstrumentEndpoints.cs`, `InstrumentLastMessageText.cs`, `Instruments.razor` | TEST-BB-1335 | U | |
+| URS-BB-1087 / FRS-BB-1205 | End-user testing pass 309: recent pregnancy in the chart header | `RecentPregnancyBanner.cs`, `PatientChartHeader.razor` | TEST-BB-1336 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

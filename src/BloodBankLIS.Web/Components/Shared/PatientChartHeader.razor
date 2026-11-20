@@ -180,6 +180,11 @@
             }
             <Outcome Value="_familyFb" />
         }
+        @if (RecentPregnancyBanner.For(Patient.RecentPregnancyUtc, DateTime.UtcNow) is { } pregnancyNote)
+        {
+            @* Pass 309: for everyone reading the chart, not only those who may edit the date on the Overview tab. *@
+            <div class="muted" style="margin-top:.25rem;" data-recent-pregnancy>@pregnancyNote</div>
+        }
         @if (VisitsLoaded)
         {
             var (visit, otherOpen) = CurrentVisit.For(Encounters);

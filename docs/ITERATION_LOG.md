@@ -28103,3 +28103,21 @@ Reviewed open delivery 2 (RBC expected 2, received 2: consistent) and the Instru
 ### Tests
 
 - TEST-BB-1335. Full suite passed.
+
+## Iteration 1029 — End-user testing pass 309: recent pregnancy in the chart header (2026-11-19)
+
+### How it was tested
+
+Checked Interface setup (no interfaces configured) and opened Gravid, Elena (MRN0007, L&D 2, no type on file, a pregnancy dated 2026-10-07).
+
+### Found and fixed
+
+1. **The recent pregnancy was not shown where the bench looks.** Elena's pregnancy date puts her specimens on the shorter alloimmunization-risk window, but it appeared only near the foot of the Overview tab, and only to users who may edit it. The header now says *Recent pregnancy 2026-10-07: specimens take the shorter alloimmunization-risk window.* for everyone, while the date is within the look-back period.
+
+### Retested live
+
+- Elena's header shows the line.
+
+### Tests
+
+- TEST-BB-1336. Full suite passed.
