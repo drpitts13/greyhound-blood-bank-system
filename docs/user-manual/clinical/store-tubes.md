@@ -27,3 +27,5 @@ How many days tubes are kept is set by your medical director (OCD-070). Until it
 > Demo data. In a development database the reaction demo's pre-transfusion tube ACC0014 is stored in Retention fridge R2, moved there from Bench rack 1.
 
 While *Specimen retention days* is not set, no tube is ever due for discard; the home card **Tubes due for discard** then says *not tracked: specimen retention days are not set* rather than reading clear.
+
+A tube that is the specimen of an antibody identification still open (not completed or voided) is kept too: its row says *Kept: an antibody identification on it is still open*, Discard is not offered, and a discard by scan is refused until the workup is completed or voided.

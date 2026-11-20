@@ -3,6 +3,7 @@ using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Search;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
@@ -202,7 +203,8 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         };
         var onOrder = Tube("ORD");
         var free = Tube("FREE");
-        c.Specimens.AddRange(onOrder, free);
+        var onWorkup = Tube("ABID");
+        c.Specimens.AddRange(onOrder, free, onWorkup);
         var order = new Order
         {
             PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderNumber = $"ORD-KPT-{key}",
@@ -212,11 +214,22 @@ public class SpecimenStorageTests : IClassFixture<SqliteContextFactory>
         await c.SaveChangesAsync();
         c.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = onOrder.Id, IsPrimary = true });
         await c.SaveChangesAsync();
+        // TEST-BB-1375 (pass 336): and the tube of an antibody identification still open.
+        var manufacturer = new AntibodyPanelManufacturer { Code = $"M-{key}", Name = "Panels", IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 };
+        c.AntibodyPanelManufacturers.Add(manufacturer);
+        await c.SaveChangesAsync();
+        var lot = new AntibodyPanelLot { ManufacturerId = manufacturer.Id, LotNumber = $"LOT-{key}", ExpiresOn = new DateOnly(2027, 12, 31), PanelName = "Panel", IsActive = true };
+        c.AntibodyPanelLots.Add(lot);
+        await c.SaveChangesAsync();
+        c.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup { PatientId = patient.Id, SpecimenId = onWorkup.Id, PrimaryLotId = lot.Id, Status = AntibodyWorkupStatus.PendingInterpretation });
+        await c.SaveChangesAsync();
 
         var service = new SpecimenStorageService(new EfRepository<Specimen>(c), new EfRepository<SpecimenStorageEvent>(c), new EfRepository<Patient>(c), c,
             _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            orderSpecimens: new EfRepository<OrderSpecimen>(c), orders: new EfRepository<Order>(c), investigations: new EfRepository<ReactionInvestigation>(c));
+            orderSpecimens: new EfRepository<OrderSpecimen>(c), orders: new EfRepository<Order>(c), investigations: new EfRepository<ReactionInvestigation>(c),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
         var rows = (await service.ListNotStoredAsync()).Where(t => t.PatientId == patient.Id).ToList();
+        Assert.Equal("Kept: an antibody identification on it is still open", Assert.Single(rows, r => r.SpecimenId == onWorkup.Id).KeptBecause);
         Assert.Equal($"Kept: order ORD-KPT-{key} not finished", Assert.Single(rows, r => r.SpecimenId == onOrder.Id).KeptBecause);
         Assert.Null(Assert.Single(rows, r => r.SpecimenId == free.Id).KeptBecause);
     }

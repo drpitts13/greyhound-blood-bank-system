@@ -22,11 +22,18 @@ public static class SpecimenDiscardRule
         bool onOpenInvestigation,
         DateTime? keepUntilUtc,
         DateTime nowUtc,
-        string? reason)
+        string? reason,
+        bool onOpenAntibodyWorkup = false)
     {
         if (discardedUtc is DateTime discarded)
         {
             return RuleResult.HardStop(Code, $"The tube was already discarded on {ClinicalTimeText.Local(discarded)}.");
+        }
+
+        // Pass 336: the tube an antibody identification is being worked on is kept until the workup is completed or voided.
+        if (onOpenAntibodyWorkup)
+        {
+            return RuleResult.HardStop(Code, "The tube is the specimen of an antibody identification that is still open; keep it until the workup is completed or voided.");
         }
 
         if (onOpenInvestigation)

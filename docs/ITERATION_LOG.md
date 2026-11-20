@@ -28647,3 +28647,21 @@ Read the home page's *Clear* list after pass 334 for other settings left unset.
 ### Tests
 
 - TEST-BB-1374. Full suite passed.
+
+## Iteration 1058 — End-user testing pass 336: keep the tube of an open antibody identification (2026-11-20)
+
+### How it was tested
+
+Opened Store tubes as the technologist clearing received tubes not yet put away.
+
+### Found and fixed
+
+1. **The tube of an open antibody workup could be discarded.** ACC-DEMO-ABID1, the specimen of Kellerman, Diane's antibody identification still waiting for interpretation, offered *Discard*; only unfinished orders and open reaction investigations kept a tube, so the specimen the workup may need to repeat or extend could be thrown away. Such a tube is now kept: its row says *Kept: an antibody identification on it is still open*, Discard is not offered, and a discard is refused until the workup is completed or voided.
+
+### Retested live
+
+- ACC-DEMO-ABID1 reads *Kept: an antibody identification on it is still open* with Store only; ACC-UAT-001 still reads *Kept: order ORD0024 not finished*.
+
+### Tests
+
+- TEST-BB-1375. Full suite passed.
