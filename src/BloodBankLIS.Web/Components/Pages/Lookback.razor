@@ -43,7 +43,13 @@ else
                     @foreach (var n in _openNotes)
                     {
                         <tr>
-                            <td class="mono">@n.Din</td>
+                            <td><span class="mono">@n.Din</span>
+                                @if (!string.IsNullOrWhiteSpace(n.Reason))
+                                {
+                                    @* Pass 320: why the lookback was opened, for the call to the physician. *@
+                                    <div class="sub" data-lookback-reason="@n.Id">Why: @n.Reason</div>
+                                }
+                            </td>
                             <td class="mono">@(n.UnitNumber ?? $"#{n.BloodProductId}")</td>
                             <td>@PatientLabel(n)</td>
                             <td>@Ui.EnumText(n.Status)</td>
@@ -239,7 +245,12 @@ else
                             {
                                 <tr>
                                     <td>@n.Id</td>
-                                    <td class="mono">@(n.UnitNumber ?? UnitLabel(n.BloodProductId))</td>
+                                    <td><span class="mono">@(n.UnitNumber ?? UnitLabel(n.BloodProductId))</span>
+                                        @if (!string.IsNullOrWhiteSpace(n.Reason))
+                                        {
+                                            <div class="sub" data-lookback-reason="@n.Id">Why: @n.Reason</div>
+                                        }
+                                    </td>
                                     <td>
                                         @if (n.PatientId is long notePatientId)
                                         {

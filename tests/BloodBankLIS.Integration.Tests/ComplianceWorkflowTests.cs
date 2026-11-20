@@ -349,6 +349,7 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(1, await verify.LookbackNotifications.CountAsync(n => n.BloodProductId == issuedId));
     }
 
+    // TEST-BB-1347 also: each open notification carries its lookback reason.
     [Fact]
     public async Task ListOpenNotifications_IncludesPending_AndOmitsCompleted()
     {
@@ -425,6 +426,8 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("U-LB-OPEN", row.UnitNumber);
         Assert.Equal("MRN-LB-OPEN", row.MedicalRecordNumber);
         Assert.Equal("Open, Recipient", row.PatientName);
+        // TEST-BB-1347 (end-user testing pass 320): the list says why the lookback was opened.
+        Assert.Equal("Still due", row.Reason);
         Assert.DoesNotContain(open.Value!, n => n.BloodProductId == completedId);
     }
 

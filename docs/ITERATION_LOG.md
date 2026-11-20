@@ -28301,3 +28301,22 @@ Opened Reagent QC, then the shift handoff as the technologist going off shift.
 ### Tests
 
 - TEST-BB-1346. Full suite passed.
+
+## Iteration 1040 — End-user testing pass 320: lookback reason on the notification lists (2026-11-20)
+
+### How it was tested
+
+Reviewed Minimum stock, the reaction board (Febrile, Marcus), the newborn of a mother with anti-K, open instrument failures, then Lookback as the technologist calling the physician of record.
+
+### Found and fixed
+
+1. **A lookback notification did not say why.** Demo, Patricia's notification for DIN W123426000001 was recorded with its reason (subsequent donor infectious-disease testing), but neither Notifications still due nor the DIN's notification worklist showed it, so the person calling Dr. Smith could not say why. Both lists now show *Why: …* under the DIN or unit.
+
+### Retested live
+
+- Both lists show *Why: Subsequent donor infectious-disease testing; recipient notification pending facility SOP.*
+- Also checked, nothing to fix: Marcus's patient type reads — because his pre-transfusion ABO/Rh is entered, not verified; the result_dt read as M0002 is on a message received before pass 29 corrected the simulator.
+
+### Tests
+
+- TEST-BB-1347. Full suite passed.

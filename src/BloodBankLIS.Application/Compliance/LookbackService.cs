@@ -115,9 +115,18 @@ public sealed record LookbackNotificationDto(
     public DateTime? NotifyByUtc { get; init; }
     public bool PastNotifyBy { get; init; }
 
+    /// <summary>
+    /// Why the lookback was opened, as recorded (end-user testing pass 320: the reason was stored but no list showed it,
+    /// so the technologist calling the physician could not say why).
+    /// </summary>
+    public string? Reason { get; init; }
+
     public static LookbackNotificationDto From(LookbackNotification n) => new(
         n.Id, n.Din, n.BloodProductId, n.PatientId, n.IssueId, n.Status,
-        n.PhysicianOfRecord, n.AttemptedUtc, n.AttemptedBy, n.Notes);
+        n.PhysicianOfRecord, n.AttemptedUtc, n.AttemptedBy, n.Notes)
+    {
+        Reason = string.IsNullOrWhiteSpace(n.Reason) ? null : n.Reason
+    };
 }
 
 public sealed record RecordLookbackAttemptRequest(string? PhysicianOfRecord, string? Notes, LookbackNotificationStatus Status);
