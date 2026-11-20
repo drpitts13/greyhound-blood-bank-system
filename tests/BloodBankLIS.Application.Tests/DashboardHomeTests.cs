@@ -293,4 +293,22 @@ public class DashboardHomeTests
         // TEST-BB-707 (note): orders that lost a reserved unit to expiry are counted.
         Assert.Equal("1 lost a reserved unit to expiry", BloodOrdersNote([Row(false, true) with { ExpiredReservations = ["Unit W1 expired."] }]));
     }
+
+    // TEST-BB-1373 (end-user testing pass 334): with the reading interval not set, Temperature readings due carries a
+    // note that readings are not tracked, so it is not listed as clear; with it set and nothing due, it is clear.
+    [Fact]
+    public void TemperatureReadings_NotTracked_IsNotClear()
+    {
+        BloodBankLIS.Application.Inventory.StorageLocationTemperatureDto Loc(bool notSet) =>
+            new(1, "FRIDGE-1", "Main", 1m, 6m, 4m, DateTime.UtcNow.AddDays(-7), null, 35) { ReadingIntervalNotSet = notSet };
+        var (count, note) = DashboardQueueCatalog.TemperatureReadingsCard([Loc(true)]);
+        Assert.Equal((0, "not tracked: the reading interval is not set"), (count, note));
+        var untracked = DashboardHome.Arrange([State(DashboardQueueCatalog.TemperatureReadingsDue, count, note)], WorkFocus.Everything);
+        Assert.DoesNotContain(untracked.Clear, c => c.Card.Key == DashboardQueueCatalog.TemperatureReadingsDue);
+
+        var (setCount, setNote) = DashboardQueueCatalog.TemperatureReadingsCard([Loc(false)]);
+        Assert.Equal((0, (string?)null), (setCount, setNote));
+        var tracked = DashboardHome.Arrange([State(DashboardQueueCatalog.TemperatureReadingsDue, setCount, setNote)], WorkFocus.Everything);
+        Assert.Contains(tracked.Clear, c => c.Card.Key == DashboardQueueCatalog.TemperatureReadingsDue);
+    }
 }

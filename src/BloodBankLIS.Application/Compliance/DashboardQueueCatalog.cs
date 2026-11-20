@@ -150,6 +150,18 @@ public static class DashboardQueueCatalog
     /// The Results to verify card: lines this user can verify now (the worklist's To verify view), and of those how
     /// many must be verified before their specimen expires.
     /// </summary>
+    /// <summary>
+    /// Pass 334: locations with a reading due; with the facility's reading interval not set, a note that readings are not
+    /// tracked, so the card is not listed as clear (FRIDGE-1's last reading was a week old and the home page said clear).
+    /// </summary>
+    public static (int Count, string? Note) TemperatureReadingsCard(IEnumerable<BloodBankLIS.Application.Inventory.StorageLocationTemperatureDto> locations)
+    {
+        var list = locations.ToList();
+        var notTracked = list.Count > 0 && list.All(l => l.ReadingIntervalNotSet)
+            && list.Any(l => l.RangeMinC is not null || l.RangeMaxC is not null);
+        return (list.Count(l => l.ReadingDue is not null), notTracked ? "not tracked: the reading interval is not set" : null);
+    }
+
     public static (int Count, string? Note) ToVerifyCard(IEnumerable<TestWorkItemDto> pending, string? userName)
     {
         var mine = TestWorklistView.ToVerify(pending, userName);

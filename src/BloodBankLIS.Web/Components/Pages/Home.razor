@@ -492,9 +492,13 @@
             case DashboardQueueCatalog.TemperatureReadingsDue:
             {
                 var result = await Api.GetStorageTemperatureLocationsAsync();
-                return result.Succeeded && result.Value is not null
-                    ? (card.Key, result.Value.Count(l => l.ReadingDue is not null), null)
-                    : (card.Key, null, null);
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var (due, readingsNote) = DashboardQueueCatalog.TemperatureReadingsCard(result.Value);
+                return (card.Key, due, readingsNote);
             }
             case DashboardQueueCatalog.TemperatureExcursions:
             {

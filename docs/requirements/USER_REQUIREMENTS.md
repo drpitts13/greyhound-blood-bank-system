@@ -1118,3 +1118,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1110 | A blood order says when the patient has a transfusion reaction under investigation. | P2 | FRS-BB-1228 |
 | URS-BB-1111 | A thawed unit cannot be moved into a freezer. | P1 | FRS-BB-1229 |
 | URS-BB-1112 | Inventory marks a thawed unit recorded in a freezer as wrong storage. | P2 | FRS-BB-1230 |
+| URS-BB-1113 | The home page does not list temperature readings as clear while they are not tracked. | P2 | FRS-BB-1231 |

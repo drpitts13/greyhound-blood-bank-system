@@ -28607,3 +28607,21 @@ Searched Inventory for expired units, continuing from pass 332.
 ### Tests
 
 - TEST-BB-1372 (pass 212's summary expectations updated for the wording). Full suite passed.
+
+## Iteration 1056 — End-user testing pass 334: temperature readings not tracked, not clear (2026-11-20)
+
+### How it was tested
+
+Read the home page as the supervisor starting a shift.
+
+### Found and fixed
+
+1. **The home page said temperature readings were clear.** *Temperature readings due* was listed under **Clear** while FRIDGE-1's last reading was a week old: with the reading interval not set nothing is ever due, so the card read zero and looked finished (pass 323 said so on Storage temperatures, but not here). The card now says *0 · not tracked: the reading interval is not set* and is no longer listed as clear; once the interval is set it counts as before.
+
+### Retested live
+
+- The home page shows the card with the note; *Clear* no longer lists it.
+
+### Tests
+
+- TEST-BB-1373. Full suite passed.
