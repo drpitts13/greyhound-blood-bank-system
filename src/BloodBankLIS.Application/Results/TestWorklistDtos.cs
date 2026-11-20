@@ -80,6 +80,12 @@ public sealed record TestWorkItemDto(
     /// </summary>
     public string? TurnaroundNotice { get; init; }
 
+    /// <summary>
+    /// The facility's STAT turnaround target is not set, so no rush test is marked past it (end-user testing pass 324:
+    /// STAT tests waiting 13 days showed only their wait, with nothing to say they were not being timed).
+    /// </summary>
+    public bool TurnaroundTargetNotSet { get; init; }
+
     /// <summary>Where the investigation waiting on this line is worked (the board opened on this patient).</summary>
     public string ReactionHref => $"/reactions?patientId={PatientId}";
 
@@ -250,6 +256,19 @@ public static class TestWorklistView
     /// <summary>Rush tests past the facility's turnaround target (pass 106).</summary>
     public static int PastTurnaroundTarget(IEnumerable<TestWorkItemDto> items) =>
         items.Count(i => i.TurnaroundNotice is not null);
+
+    /// <summary>
+    /// Pass 324: a note for the Pending tests card when rush tests are listed and the STAT turnaround target is not set,
+    /// naming the setting; null otherwise.
+    /// </summary>
+    public static string? TurnaroundTargetNotSetNote(IEnumerable<TestWorkItemDto> items)
+    {
+        var list = items.ToList();
+        var rush = list.Count(i => IsRush(i.Priority));
+        return rush > 0 && list.All(i => i.TurnaroundTargetNotSet)
+            ? $"{rush} rush test{(rush == 1 ? " is" : "s are")} listed, and none is marked past a turnaround target: the STAT test turnaround target is not set (Administration › Facility policies › Order). Check how long each has waited."
+            : null;
+    }
 
     public static int RushOrdersWithoutSpecimen(IEnumerable<TestWorkItemDto> items) =>
         NoSpecimen(items).Where(i => IsRush(i.Priority)).Select(i => i.OrderId).Distinct().Count();

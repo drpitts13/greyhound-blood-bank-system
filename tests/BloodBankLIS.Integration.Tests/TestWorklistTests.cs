@@ -191,6 +191,10 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         var oldRoutine = await OrderAsync(OrderPriority.Routine, now.AddHours(-6));
 
         Assert.All(await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending), i => Assert.Null(i.TurnaroundNotice));
+        // TEST-BB-1351 (pass 324): with no target set, the list says so: two rush tests are listed and none is timed.
+        var untimed = await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending);
+        Assert.All(untimed, i => Assert.True(i.TurnaroundTargetNotSet));
+        Assert.StartsWith("2 rush tests are listed", TestWorklistView.TurnaroundTargetNotSetNote(untimed));
 
         var setting = new SystemSetting { Key = FacilityPolicyKeys.RushTestTurnaroundMinutes, Value = "60" };
         c.SystemSettings.Add(setting);
@@ -203,6 +207,7 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
             Assert.Null(pending.Single(i => i.OrderNumber == newStat).TurnaroundNotice);
             Assert.Null(pending.Single(i => i.OrderNumber == oldRoutine).TurnaroundNotice);
             Assert.Equal(1, TestWorklistView.PastTurnaroundTarget(pending));
+            Assert.Null(TestWorklistView.TurnaroundTargetNotSetNote(pending));
         }
         finally
         {

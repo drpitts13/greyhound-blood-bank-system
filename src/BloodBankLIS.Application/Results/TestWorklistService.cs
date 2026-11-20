@@ -373,6 +373,12 @@ public sealed class TestWorklistService
 
         // Pass 106: rush tests past the facility's turnaround target are marked and come first, the longest waiting first.
         var turnaroundTarget = _policy is null ? 0 : await _policy.GetRushTestTurnaroundMinutesAsync(ct);
+        if (_policy is not null && turnaroundTarget <= 0)
+        {
+            // Pass 324: say the target is not set rather than leave rush work untimed without a word.
+            items = items.Select(i => i with { TurnaroundTargetNotSet = true }).ToList();
+        }
+
         if (turnaroundTarget > 0)
         {
             var now = _clock.UtcNow;

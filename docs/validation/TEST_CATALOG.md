@@ -1359,5 +1359,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1348 | U | `AntibodyWordingSourceTests.ScreenTimes_AreNotLabelledUtc` | URS-BB-1099 / FRS-BB-1217 |
 | TEST-BB-1349 | I | `AlertWorkflowTests.PassingRepeatQc_KeepsTheResultsToReview` | URS-BB-1100 / FRS-BB-1218 |
 | TEST-BB-1350 | U, I | `StorageReadingTextTests.IntervalNotSet_IsSaid`, `StorageTemperatureServiceTests.Locations_MarkAReadingDue_UnderTheFacilityInterval` | URS-BB-1101 / FRS-BB-1219 |
+| TEST-BB-1351 | I | `TestWorklistTests.PendingWorklist_MarksRushTestsPastTheTurnaroundTarget` | URS-BB-1102 / FRS-BB-1220 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

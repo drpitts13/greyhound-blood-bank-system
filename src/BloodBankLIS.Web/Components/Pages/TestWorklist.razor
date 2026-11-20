@@ -78,6 +78,11 @@
         <h3>Pending tests</h3>
         <button class="btn btn-secondary btn-sm" @onclick="LoadAsync">Refresh</button>
     </div>
+    @if (!_loading && TestWorklistView.TurnaroundTargetNotSetNote(_items) is { } targetNote)
+    {
+        @* Pass 324: rush work is not being timed against a target; say so and name the setting. *@
+        <p class="muted" data-turnaround-target-not-set>@targetNote</p>
+    }
 
     @if (!_loading && _items.Count > 0 && (Session.Has(PermissionCodes.ResultVerify) || RecollectCount > 0 || _show == ShowRecollect || NoSpecimenCount > 0 || _show == ShowNoSpecimen))
     {

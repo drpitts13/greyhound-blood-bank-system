@@ -28375,3 +28375,21 @@ Opened Storage temperatures as the technologist starting a shift.
 ### Tests
 
 - TEST-BB-1350. Full suite passed.
+
+## Iteration 1044 — End-user testing pass 324: STAT turnaround target not set on the test worklist (2026-11-20)
+
+### How it was tested
+
+Opened the Test Worklist as the bench technologist.
+
+### Found and fixed
+
+1. **Stat tests 13 days old were not called out.** Avery's Stat ABO/Rh and Patricia's Stat crossmatch had waited 13 days and Marcus's Stat reaction workup tests 7, each showing only *waiting 13 d*, because the facility's STAT test turnaround target is not set; nothing said rush work was not being timed. The Pending tests list now says *4 rush tests are listed, and none is marked past a turnaround target: the STAT test turnaround target is not set (Administration › Facility policies › Order)*. No target is assumed.
+
+### Retested live
+
+- The worklist shows the note above the pending tests.
+
+### Tests
+
+- TEST-BB-1351. Full suite passed except `Phase5Hl7Tests.OutboundSender_TransmitsQueuedMessage_AndRecordsAa`, which failed once while the API was starting alongside the run and passed in three reruns of its class.
