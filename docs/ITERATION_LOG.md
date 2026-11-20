@@ -28193,3 +28193,21 @@ Opened the issue desk's Issued units board after pass 312.
 ### Tests
 
 - TEST-BB-1340. Full suite passed.
+
+## Iteration 1034 — End-user testing pass 314: label times in local time (2026-11-20)
+
+### How it was tested
+
+Checked the Second ABO/Rh board (Kline, Nora: two reserved, Order ABO/Rh offered), Administration, Patricia's orders, and the Printing page and its templates.
+
+### Found and fixed
+
+1. **Labels and tags printed their times in UTC.** Specimen labels read *Coll: … UTC*, component labels *Expires: … UTC*, and compatibility tags *Unit expires: … UTC* and *Issued: … UTC*: a nurse checking a unit's expiry at the bedside against the ward clock read a time five hours off. They now print the facility's local time with its offset, *Unit expires: 2026-12-06 09:49 (UTC-05:00)*; with no zone available they still print UTC and say so.
+
+### Retested live
+
+- Not printed live: every print or preview creates an audited print job, and no job was added to the dev data. Covered by the template test.
+
+### Tests
+
+- TEST-BB-1341. Full suite passed.

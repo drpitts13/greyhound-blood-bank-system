@@ -50,6 +50,21 @@ public class TemplateTests
         Assert.Contains(doc.Elements.OfType<LabelText>(), t => t.Value.Contains("EMERGENCY"));
     }
 
+    // TEST-BB-1341 (end-user testing pass 314): with the facility's time zone a label prints the local time with its UTC
+    // offset; without one it prints UTC and says so.
+    [Fact]
+    public void LabelTimes_AreLocalWithTheirOffset()
+    {
+        var utc = new DateTime(2026, 12, 6, 14, 49, 0, DateTimeKind.Utc);
+        var zone = TimeZoneInfo.FindSystemTimeZoneById(OperatingSystem.IsWindows() ? "Eastern Standard Time" : "America/New_York");
+        Assert.Equal("2026-12-06 09:49 (UTC-05:00)", LabelTime.Format(utc, zone.Id));
+        Assert.Equal("2026-12-06 14:49 UTC", LabelTime.Format(utc, null));
+        Assert.Equal("2026-12-06 14:49 UTC", LabelTime.Format(utc, "No/SuchZone"));
+
+        var model = new ComponentLabelModel("U-1", null, "E0206V00", null, "O+", "Red Blood Cells", utc, null, TimeZoneId: zone.Id);
+        Assert.Contains(ComponentLabelTemplate.Build(model).Elements.OfType<LabelText>(), t => t.Value == "Expires: 2026-12-06 09:49 (UTC-05:00)");
+    }
+
     [Fact]
     public void ComponentLabel_IncludesDinBarcodeAboAndExpiration()
     {

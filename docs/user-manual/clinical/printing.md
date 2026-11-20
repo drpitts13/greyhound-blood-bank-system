@@ -12,6 +12,8 @@ routes:
 
 **Printing** produces specimen labels, component labels, and compatibility tags (P-tags). You can also open it from a specimen, a unit, or an issue, with that record already selected. For a specimen label, choose the **Label design** (the default tube design is chosen for you; designs are made under Administration › [Specimen labels](specimen-label)). Choose an aliquot design and enter how many aliquots to print one "Aliquot n of N" label for each; each is its own print job, and each aliquot's barcode is the parent specimen ID.
 
+Times on labels and tags (collection, unit expiration, issue) print in the facility's local time with its offset from UTC, for example *Unit expires: 2026-12-06 09:49 (UTC-05:00)*, so they read against the ward's clock. The facility's time zone is the server's unless set (configuration `Facility:TimeZone`). A reprint uses the time zone of the original print; labels printed before this change show UTC.
+
 ## What you are printing
 
 Confirm the identifiers on the preview before you send the job. The preview is a PDF. The printer may be a PDF queue or a Zebra printer that takes ZPL. Which printers exist, and which layout is active for the specimen label and the P-tag, is set in Administration. You pick the printer. You do not redesign the label here.

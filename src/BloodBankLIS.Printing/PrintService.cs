@@ -37,6 +37,9 @@ public sealed class PrintService
     private readonly IRepository<SpecimenLabelDesign>? _designs;
     private readonly IReadOnlyDictionary<LabelFormat, ILabelRenderer> _renderers;
 
+    // Pass 314: labels print the facility's local time with its offset, not UTC.
+    private readonly string? _timeZoneId;
+
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
 
     public PrintService(
@@ -56,8 +59,10 @@ public sealed class PrintService
         IPermissionEvaluator? permissions = null,
         IRepository<LabelLayout>? layouts = null,
         IRepository<PtagIdentifier>? ptagIdentifiers = null,
-        IRepository<SpecimenLabelDesign>? designs = null)
+        IRepository<SpecimenLabelDesign>? designs = null,
+        IFacilityTimeZone? timeZone = null)
     {
+        _timeZoneId = timeZone?.Zone.Id;
         _designs = designs;
         _printJobs = printJobs;
         _specimens = specimens;
@@ -197,7 +202,7 @@ public sealed class PrintService
         return OperationResult<IReadOnlyList<PrintJob>>.Ok(jobs);
     }
 
-    private static SpecimenLabelModel SpecimenModel(Specimen specimen, Patient patient) => new(
+    private SpecimenLabelModel SpecimenModel(Specimen specimen, Patient patient) => new(
         specimen.AccessionNumber,
         PatientName(patient),
         patient.MedicalRecordNumber,
@@ -206,7 +211,8 @@ public sealed class PrintService
         specimen.CollectedUtc,
         specimen.DrawLocation,
         specimen.Collector,
-        patient.Sex switch { Sex.Female => "F", Sex.Male => "M", _ => "U" });
+        patient.Sex switch { Sex.Female => "F", Sex.Male => "M", _ => "U" },
+        TimeZoneId: _timeZoneId);
 
     private async Task<SpecimenLabelDesign?> ResolveDesignAsync(string? code, SpecimenLabelPurpose purpose, CancellationToken ct)
     {
@@ -285,7 +291,8 @@ public sealed class PrintService
             IssuedBy: issue.IssuedBy,
             IsEmergency: issue.IssueType != IssueType.Standard,
             TestsIncomplete: issue.TestsIncompleteAtIssue,
-            PtagId: ptagId);
+            PtagId: ptagId,
+            TimeZoneId: _timeZoneId);
 
         var templateCode = request.TemplateCode ?? CompatibilityTagTemplate.TemplateCode;
         var document = layout is null
@@ -320,7 +327,8 @@ public sealed class PrintService
             UnitBloodType: unit.BloodType.ToString(),
             ProductName: productType?.Name ?? "Unknown",
             ExpiresUtc: unit.ExpiresUtc,
-            CollectionFacility: unit.CollectionFacility);
+            CollectionFacility: unit.CollectionFacility,
+            TimeZoneId: _timeZoneId);
 
         var templateCode = request.TemplateCode ?? ComponentLabelTemplate.TemplateCode;
         var document = ComponentLabelTemplate.Build(model);
@@ -378,7 +386,8 @@ public sealed class PrintService
             IssuedBy: _currentUser.UserName,
             IsEmergency: issueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion,
             TestsIncomplete: false,
-            PtagId: ptagId);
+            PtagId: ptagId,
+            TimeZoneId: _timeZoneId);
 
         var templateCode = request.TemplateCode ?? CompatibilityTagTemplate.TemplateCode;
         var document = layout is null
