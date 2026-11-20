@@ -10,7 +10,7 @@ routes:
 
 ![Instrument interfaces](figures/instruments.png)
 
-**Instrument Interfaces** shows the status of ASTM instrument connections and their recent messages. You need permission to manage instruments. The mapping of instrument tests onto LIS tests, and the if/then rules, are configured in Administration. The help panel on that administrator screen is the field reference. This page tells you whether messages are arriving.
+**Instrument Interfaces** shows the status of ASTM instrument connections and their recent messages. You need permission to manage instruments. The mapping of instrument tests onto LIS tests, and the if/then rules, are configured in Administration. The help panel on that administrator screen is the field reference. This page tells you whether messages are arriving. Each instrument's status says when it last sent a message and how long ago (*Last message 2026-11-17 21:10 (2 d ago)*), or *No message received yet*: an instrument that is listening but has been silent longer than your bench expects may have lost its link.
 
 The Messages list counts failed messages that are still open. Open one to see why it failed. Fix the cause (for example place the missing order) and choose **Replay**: when the replay applies, the failed message is marked resolved by that replay. If you handled it another way, such as entering the result by hand, give the reason under **Resolve without replay**. Replay is offered only for an open failed message, so results that already filed are never filed again.
 

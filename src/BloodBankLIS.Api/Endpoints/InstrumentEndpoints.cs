@@ -6,6 +6,7 @@ using BloodBankLIS.Astm.Framing;
 using BloodBankLIS.Astm.Messaging;
 using BloodBankLIS.Astm.Simulator;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -22,16 +23,21 @@ public static class InstrumentEndpoints
         group.MapGet("/status", async (
             IInstrumentInterfaceRepository interfaces,
             IInstrumentRuntimeStatus status,
+            IRepository<InstrumentMessageLog> messages,
             CancellationToken ct) =>
         {
             var items = await interfaces.ListWithChildrenAsync(ct);
+            var lastMessage = (await messages.ListAsync(m => m.Direction == Hl7Direction.Inbound, ct))
+                .GroupBy(m => m.InterfaceId)
+                .ToDictionary(g => g.Key, g => g.Max(m => m.ReceivedUtc));
             return Results.Ok(items.Select(i =>
             {
                 var snap = status.Get(i.Id);
                 var conn = i.Connection;
                 return new InstrumentStatusDto(
                     i.Id, i.Name, i.IsEnabled, conn?.IsServer ?? true, conn?.IpAddress, conn?.Port ?? 0,
-                    i.IsEnabled ? snap.State : "Disabled", snap.Detail, snap.LastEventUtc);
+                    i.IsEnabled ? snap.State : "Disabled", snap.Detail, snap.LastEventUtc,
+                    lastMessage.TryGetValue(i.Id, out var last) ? last : null);
             }).ToList());
         });
 

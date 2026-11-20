@@ -38,7 +38,10 @@
                         <td>@(row.IsServer ? "Server" : "Client")</td>
                         <td class="mono">@(row.IsServer ? $":{row.Port}" : $"{row.IpAddress}:{row.Port}")</td>
                         <td>@Ui.EnumText(row.State)</td>
-                        <td class="muted">@row.Detail</td>
+                        <td class="muted">@row.Detail
+                            @* Pass 308: when the instrument last sent anything, so a silent link shows. *@
+                            <div class="sub" data-instrument-last-message="@row.Id">@InstrumentLastMessageText.For(row.LastMessageUtc, DateTime.UtcNow)</div>
+                        </td>
                     </tr>
                 }
             </tbody>

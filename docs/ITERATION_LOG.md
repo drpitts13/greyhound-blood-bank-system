@@ -28085,3 +28085,21 @@ Opened Modify Products on FFP W0001230001008 (Plasma Freezer, A+) to see the tha
 ### Tests
 
 - TEST-BB-1334. Full suite passed.
+
+## Iteration 1028 — End-user testing pass 308: instrument last message in the status (2026-11-19)
+
+### How it was tested
+
+Reviewed open delivery 2 (RBC expected 2, received 2: consistent) and the Instruments page: status, session log and messages (five open failures, the newest two days old).
+
+### Found and fixed
+
+1. **"Listening" said nothing of whether anything was arriving.** The ImmuLINK Echo's status read *Listening · port 2576*; its last message was two days earlier, which the bench could find only by reading the log. A listener that hears nothing is the usual first sign of a broken instrument link. The status now says *Last message 2026-11-17 21:10 (2 d ago)*, or *No message received yet*.
+
+### Retested live
+
+- The Echo's row shows the line.
+
+### Tests
+
+- TEST-BB-1335. Full suite passed.

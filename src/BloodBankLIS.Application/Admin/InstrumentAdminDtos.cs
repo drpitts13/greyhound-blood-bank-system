@@ -73,7 +73,9 @@ public sealed record InstrumentStatusDto(
     int Port,
     string State,
     string? Detail,
-    DateTime? LastEventUtc);
+    DateTime? LastEventUtc,
+    // Pass 308: when the instrument last sent a message (inbound), so a silent link shows.
+    DateTime? LastMessageUtc = null);
 
 public sealed record InstrumentLogDto(
     long Id,
