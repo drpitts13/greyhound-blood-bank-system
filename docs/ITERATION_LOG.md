@@ -29562,3 +29562,21 @@ Checked the mixed-ABO pooling design against what was built (item 7).
 ### Tests
 
 - TEST-BB-1417. Full suite passed. Clean-tick count reset to 0 of 5.
+
+## Iteration 1112 — End-user testing loop 2, tick 44: mixed-pooling design reconciled with the build (2026-11-21)
+
+### How it was tested
+
+Read the design's inventory, label and interface sections against the code after phases 2 and 3 (item 7).
+
+### Found and fixed
+
+1. **The design described more than was built, or something different.**
+   - It said lists and labels would show the groups beneath *Mixed*; they show *Mixed ABO* with the Rh(D), and the groups are on the unit page and in the pre-pool note.
+   - It said minimum stock would get a separate *Mixed ABO* row; a pool counts toward *any group* minimums only.
+   - It said a mixed pool ranks after single-group units, which OCD-094 decision 3 replaced.
+   - It said HL7 would send a note segment; decision 4 sends nothing.
+
+   None of these weakens safety: a pool never reads as one group. The design now describes what is built and lists the three items not built: groups on labels and pick lists, a *Mixed ABO* stock row, and FHIR component entries.
+
+No code change. Clean-tick count stays at 0 of 5 (a finding).

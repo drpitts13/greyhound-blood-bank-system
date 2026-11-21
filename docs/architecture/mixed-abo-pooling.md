@@ -42,20 +42,26 @@ Migration: one nullable column plus the dev bootstrap column. `AboGroup` is stor
 - **Fail closed.** `AboGroup.Mixed` reaching `DeriveAboProfile` throws, and a `Mixed` unit with no components is a hard stop (*Pool components are not recorded*). A missed call site therefore blocks the unit; it can never pass it. A source test lists every `AboCompatibilityRule.Evaluate(` call outside the helper and fails if one is added.
 - Emergency release and MTP choose by group. A mixed pool is offered for a patient of unknown type only if every component would be offered alone. This uses the same per-component check against the facility's emergency choices.
 
-## Inventory, stock and selection
+## Inventory, stock and selection (as built)
 
-- Inventory, unit detail, pick lists and the allocation board show **Mixed** with the groups (*Mixed: A, O*). They never show a single group.
-- Minimum stock and supplier orders count mixed pools under their own row, *Mixed ABO*. They count toward no single group's minimum.
-- Selection order (`ProductSelectionOrder`) ranks a mixed pool after same-group and compatible single-group units. This is an assumption to confirm in OCD-094.
-- Retype does not apply to pools of non-red-cell products. If a red-cell product is ever pooled, retype stays required per source, as today.
+- A mixed pool reads **Mixed ABO** with its Rh(D) (for example *Mixed ABO +*) everywhere a unit's type is shown: inventory, pick lists, the allocation board and labels. It never shows a single group.
+- The unit page lists the groups under **Pooled from** (*2 units: A−, O+*), and Modify products names them before pooling.
+- Minimum stock: a mixed pool counts toward *any group* minimums only, never toward a single group's. No separate *Mixed ABO* row was added. Inventory search can filter for *Mixed*.
+- Selection order: a mixed pool is never an identical match, so it ranks with the other compatible units, after identical ones (OCD-094 decision 3).
+- Retype does not apply to cryoprecipitate. Mixed pools are cryoprecipitate only.
 
-## Labels, reports and interfaces
+## Labels, reports and interfaces (as built)
 
-- **Component label and P-tag:** the ABO field prints *MIXED* with the groups beneath (*A, O*), and the Rh field prints the pool's Rh(D). The ISBT ABO/RhD bar code is left off until a licensed pooled code is available (OCD-004).
-- **HL7 BPS/BTS** (BPX-11, blood product ABO/Rh): a mixed pool sends the pooled ABO/RhD code once one is licensed. Until then the field is empty and the components go in a note segment. Interfaces must be told before go-live, and this is listed as an interface change.
-- **FHIR** (`FhirMapper`): the unit's ABO is reported as a mixed pool with one component entry per source.
-- **Reports:** Antibodies and Special requirements are unaffected. Inventory and utilization reports show *Mixed ABO*.
-- **Lookback and recall:** these already trace pools to every source unit, so this change adds nothing there.
+- **Component label and P-tag:** the type prints as *Mixed ABO* with the Rh(D) sign. The ISBT ABO/RhD bar code is left off: modified units carry none, and no licensed pooled code is loaded (OCD-004).
+- **HL7 BPS/BTS** (BPX-11): both parts are left empty for a mixed pool (OCD-094 decision 4). No note segment is sent.
+- **FHIR** (`FhirMapper`): the unit's text reads *Mixed* with its Rh(D). Component entries are not sent.
+- **Reports:** Antibodies and Special requirements are unaffected. Inventory and utilization reports show the type as *Mixed ABO*.
+- **Lookback and recall:** these already trace pools to every source unit.
+
+**Not built, if wanted later:**
+- the groups printed beneath *Mixed ABO* on labels and pick lists;
+- a separate *Mixed ABO* minimum stock row;
+- FHIR component entries.
 
 ## Phases
 
