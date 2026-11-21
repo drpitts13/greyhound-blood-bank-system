@@ -29530,3 +29530,18 @@ No change. Clean tick 2 of 5.
 ### Tests
 
 - TEST-BB-1415 and TEST-BB-1416. Full suite passed.
+
+## Iteration 1110 — End-user testing loop 2, tick 42: mixed-pool loose ends reviewed, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Looked over the places a mixed-ABO pool could surface after phases 2 and 3 (item 7).
+
+### Findings
+
+- **Minimum stock:** levels are set only for real groups, since the picker uses `AboGroups.All`. An *any group* minimum counts mixed pools as stock.
+- **Inventory search:** the group filter keeps *Mixed*, so pools can be found.
+- **Fixed group lists:** the remaining ones in pages are explicit single-group choices, such as the special requirement's allowed groups.
+- **Retype:** it does not apply to cryoprecipitate.
+
+No change. Clean tick 3 of 5 (ticks 40 and 41 were clean; the pooling build came at the user's request in between).
