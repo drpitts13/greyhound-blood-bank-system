@@ -29291,3 +29291,16 @@ Checked the remaining retire paths:
 ### Tests
 
 - TEST-BB-1406. Full suite passed. Clean-tick count stays at 0 of 5.
+
+## Iteration 1095 — End-user testing loop 2, tick 28: MTP pack and special requirement builders reviewed, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Opened the new-item form on Admin › MTP Packs and Admin › Special Requirements (items 3 and 4). Nothing was saved.
+
+### Findings
+
+- **MTP packs:** code, name, sort and units per round for each component. It states that packs are guidance only and ship empty (OCD-012).
+- **Special requirements:** requirements are grouped by kind (unit typings, modifications, informational, issue procedures), and the form changes with the kind. A unit typing takes a category, a test (ABO group, RhD negative, antigen negative or unit test negative) and the allowed groups.
+
+No change. Clean tick 1 of 5.
