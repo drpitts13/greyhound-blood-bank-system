@@ -1143,3 +1143,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1135 | Graded subtests lacking a standard grade say so and can add it without losing their own choices. | P2 | FRS-BB-1253 |
 | URS-BB-1136 | One licensed ISBT product code can be added without building an extract. | P2 | FRS-BB-1254 |
 | URS-BB-1137 | A pool records the ABO/Rh of each unit it was made from, shown on the unit page. | P2 | FRS-BB-1255 |
+| URS-BB-1138 | The expiration code and modification rule builders describe freeze dating correctly. | P3 | FRS-BB-1256 |

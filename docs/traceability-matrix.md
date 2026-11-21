@@ -1251,6 +1251,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1135 / FRS-BB-1253 | End-user testing loop 2 tick 13: subtests missing standard grades | `SubtestChoiceDefinition.cs`, `AdminSubtests.razor` | TEST-BB-1395 | U | |
 | URS-BB-1136 / FRS-BB-1254 | End-user testing loop 2 tick 14: add one licensed product code | `AdminIsbtProductCodes.razor` | TEST-BB-1396 | U | |
 | URS-BB-1137 / FRS-BB-1255 | Mixed-ABO pooling phase 1: pool components recorded | `PoolComponents.cs`, `BloodUnit.cs`, `BloodProductModificationService.cs`, `UnitDetail.razor` | TEST-BB-1397 | U, I | |
+| URS-BB-1138 / FRS-BB-1256 | End-user testing loop 2 tick 16: freeze dating wording on the builders | `AdminExpirationModificationCodes.razor`, `AdminModificationRules.razor` | TEST-BB-1398 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

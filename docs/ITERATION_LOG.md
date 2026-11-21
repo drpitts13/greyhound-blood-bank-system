@@ -29105,3 +29105,21 @@ The design document records them.
 ### Tests
 
 - TEST-BB-1397. Full suite passed.
+
+## Iteration 1083 — End-user testing loop 2, tick 16: freeze dating wording on the builders (2026-11-21)
+
+### How it was tested
+
+Reviewed Admin › Expiration Codes (items 3 and 7). Mixed-ABO pooling phases 2 and 3 await the product owner's go-ahead, so pooling was not changed.
+
+### Found and fixed
+
+1. **The builders still said every result is capped.** Expiration Codes and Modification Rules told the administrator a result is always capped at the source unit's expiration, which stopped being true for a freeze in tick 10; someone setting up frozen red cells would have been told a 3650D code cannot work. Both pages, and the Expiration Codes help page, now state the cap with its freeze exception.
+
+### Retested live
+
+- Expiration Codes lists 24H, 28D, 42D and 5D; the new-code form offers hours or days from modification or collection.
+
+### Tests
+
+- TEST-BB-1398. Full suite passed.

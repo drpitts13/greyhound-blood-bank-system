@@ -1406,5 +1406,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1395 | U | `MissingStandardGradesTests.MissingStandardGrades_NamesOnlyWhatIsLacking`, `SubtestMissingGradesTests.List_NamesMissingStandardGrades_AndAddKeepsExistingChoices` | URS-BB-1135 / FRS-BB-1253 |
 | TEST-BB-1396 | U | `IsbtOneCodeTests.AddOneCode_ImportsASingleLicensedRow` | URS-BB-1136 / FRS-BB-1254 |
 | TEST-BB-1397 | U, I | `PoolComponentsTests.Components_RoundTrip_Summarize_AndDetectMixed`, `BloodProductModificationServiceTests.Pool_HappyPath_CreatesSingleResultAndRetiresAllSources` | URS-BB-1137 / FRS-BB-1255 |
+| TEST-BB-1398 | U | `FreezeDatingWordingTests.BuilderPages_SayAFreezeIsNotCapped` | URS-BB-1138 / FRS-BB-1256 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
