@@ -29445,3 +29445,16 @@ Read the Tests help against the builder (item 6).
 ### Tests
 
 - TEST-BB-1413. Full suite passed. Clean-tick count stays at 0 of 5.
+
+## Iteration 1105 — End-user testing loop 2, tick 38: ISBT and dating changes re-checked, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Re-checked this loop's earlier ISBT and dating changes for drift (items 7 and 8).
+
+### Findings
+
+- ISBT Receive's ABO/Rh(D) hint (*e.g. 5100*) is one of the seeded standard codes.
+- The freeze dating exception reads the same in all three places: Expiration Codes, the Expiration Codes help and the Modification Rules help.
+
+No change. Clean tick 1 of 5.
