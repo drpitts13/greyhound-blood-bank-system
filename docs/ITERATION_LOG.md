@@ -29337,3 +29337,21 @@ The only matches print single-word values, which already read as words:
 - an extract file's type
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1098 — End-user testing loop 2, tick 31: Admin Home grouped like the menu (2026-11-21)
+
+### How it was tested
+
+Compared Admin Home with the Administration menu regrouped in tick 4 (item 1).
+
+### Found and fixed
+
+1. **Admin Home was one ungrouped grid.** Its 49 cards ran in no clear order (antibody panel lots, blood attributes, charge codes, database backups, transfusion criteria …), unlike the menu's task groups. The cards now sit under the same groups as the menu, with reports joining directory and audit. Each card keeps its permission check, and a group shows only when the user can open one of its pages.
+
+### Retested live
+
+- Admin Home opens with *Tests & specimens* (Test Definitions, Subtests, Phases, Test Groupers, Reflex Rules, Order & Test Rules …) followed by the other groups.
+
+### Tests
+
+- TEST-BB-1408. Full suite passed. Clean-tick count reset to 0 of 5.

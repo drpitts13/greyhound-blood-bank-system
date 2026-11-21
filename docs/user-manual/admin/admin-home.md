@@ -20,7 +20,7 @@ Edits do not overwrite history. Saving records who changed the row, when, at whi
 
 ## Where to go next
 
-The Administration menu groups pages by task:
+The Administration menu and this page group pages by task the same way (the page shows a group only when you can open one of its pages):
 
 - **Tests & specimens**: tests, subtests, phases, test groupers, reflex and order rules, specimen types, labels and rejection reasons, antibody panel lots, blood attributes, coded comments.
 - **Products & inventory**: products, ISBT product codes, modification rules, expiration codes, actions, auto thaw, suppliers, inventory locations, refrigerators and freezers, transport containers, discard reasons.
