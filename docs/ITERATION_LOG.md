@@ -29169,3 +29169,18 @@ Followed the freeze and deglycerolize types (tick 3) to where Modify products re
 ### Tests
 
 - TEST-BB-1400. Full suite passed. Clean-tick count reset to 0 of 5.
+
+## Iteration 1087 — End-user testing loop 2, tick 20: ABO/Rh reflex trigger suggestions as matched (2026-11-21)
+
+### How it was tested
+
+- Reviewed Admin › Order & Test Rules (items 3 and 5).
+- Checked that the seeded example *Weak D on an Rh negative type* (`test.interpretation IN ('A Negative', …)`) can fire. It can: the rule facts resolve the stored key *A|Negative* to *A Negative*.
+
+### Found and fixed
+
+1. **Tick 11's reflex suggestions were wrong for ABO/Rh tests.** They offered the stored interpretation keys (*O|Positive*), but reflex matching compares the resolved form (*O Positive*). A suggested value would never have fired, and the correct one would have been warned about. Keys are now suggested in the matched form.
+
+### Tests
+
+- TEST-BB-1401. Full suite passed. Clean-tick count stays at 0 of 5.

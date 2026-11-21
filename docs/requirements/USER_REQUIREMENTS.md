@@ -1146,3 +1146,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1138 | The expiration code and modification rule builders describe freeze dating correctly. | P3 | FRS-BB-1256 |
 | URS-BB-1139 | Builder pages link to the pages they are built from. | P3 | FRS-BB-1257 |
 | URS-BB-1140 | A frozen unit is recorded in a freezer, and a deglycerolized unit is not. | P2 | FRS-BB-1258 |
+| URS-BB-1141 | Reflex trigger suggestions for ABO/Rh tests are written the way results are matched. | P2 | FRS-BB-1259 |

@@ -1,3 +1,5 @@
+using BloodBankLIS.Domain.ValueObjects;
+
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
@@ -12,7 +14,10 @@ public static class ReflexTriggerValues
     {
         var values = (allowedResultValues ?? string.Empty)
             .Split(['\n', '\r', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Concat((interpretationKeys ?? []).Where(k => !string.IsNullOrWhiteSpace(k)).Select(k => k.Trim()));
+            // Loop 2 tick 20: an interpretation key is matched as the result service resolves it ("O|Positive" reads
+            // "O Positive"), so it is suggested in that form.
+            .Concat((interpretationKeys ?? []).Where(k => !string.IsNullOrWhiteSpace(k))
+                .Select(k => ResultInterpretation.Resolve(k.Trim(), null) ?? k.Trim()));
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 

@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Domain.Tests;
 
@@ -16,5 +17,16 @@ public class ReflexTriggerValuesTests
         Assert.Contains("never fire", ReflexTriggerValues.Warning("Postive", known));
         Assert.Contains("Negative, Positive, Indeterminate", ReflexTriggerValues.Warning("Postive", known));
         Assert.Null(ReflexTriggerValues.Warning("anything", ReflexTriggerValues.Known(null, null)));
+    }
+
+    // TEST-BB-1401 (end-user testing loop 2 tick 20): ABO/Rh interpretation keys are suggested as reflex matching reads
+    // them ("O|Positive" as "O Positive"), so the suggestion fires and the correct value is not warned about.
+    [Fact]
+    public void AboRhKeys_AreSuggestedAsMatched()
+    {
+        var known = ReflexTriggerValues.Known(null, ["O|Positive", "A|Negative"]);
+        Assert.Equal(["O Positive", "A Negative"], known);
+        Assert.Null(ReflexTriggerValues.Warning("a negative", known));
+        Assert.Equal("A Negative", ResultInterpretation.Resolve("A|Negative", null));
     }
 }
