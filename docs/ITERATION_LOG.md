@@ -28973,3 +28973,21 @@ Reviewed how a modification's result is dated (item 7), against the freeze type 
 ### Tests
 
 - TEST-BB-1392. Full suite passed.
+
+## Iteration 1076 — End-user testing loop 2, tick 11: reflex trigger value suggestions and warning (2026-11-20)
+
+### How it was tested
+
+Reviewed the reflex rule builder (items 3 and 6), and the dashboard for clutter (it already has a Focus filter by role).
+
+### Found and fixed
+
+1. **The reflex trigger value was free text with no check.** A rule fires when a verified result's value or interpretation equals the trigger, so a typo (*Postive*) saved and silently never fired. The value box now suggests the trigger test's results, and a value it never produces is marked with the values it does produce. It warns and does not block.
+
+### Retested live
+
+- Editing ABSC-POS-ABID suggests Negative and Positive; typing *Postive* shows the warning. Cancelled without saving.
+
+### Tests
+
+- TEST-BB-1393. Full suite passed.

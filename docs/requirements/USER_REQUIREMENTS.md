@@ -1138,3 +1138,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1130 | Dropdown choices written into pages read as words. | P3 | FRS-BB-1248 |
 | URS-BB-1131 | A product or modification rule can be copied as the start of a new one. | P2 | FRS-BB-1249 |
 | URS-BB-1132 | Frozen red cells take their frozen storage dating, not the liquid unit's. | P1 | FRS-BB-1250 |
+| URS-BB-1133 | The reflex rule builder suggests the trigger test's results and warns about a value it never produces. | P2 | FRS-BB-1251 |

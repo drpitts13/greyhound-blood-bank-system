@@ -84,7 +84,7 @@
         <div class="form-row">
             <div class="field">
                 <label>Trigger test</label>
-                <select @bind="_editing.TriggerTestCode">
+                <select @bind="_editing.TriggerTestCode" @bind:after="LoadTriggerValuesAsync" data-reflex-trigger-test>
                     <option value="">Select test...</option>
                     @foreach (var test in _availableTests)
                     {
@@ -92,7 +92,20 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>Trigger result value</label><input @bind="_editing.TriggerResultValue" placeholder="e.g. Positive" /></div>
+            <div class="field"><label>Trigger result value</label>
+                @* Loop 2 tick 11: suggest the trigger test's results and warn about one it never produces. *@
+                <input @bind="_editing.TriggerResultValue" @bind:event="oninput" list="reflex-trigger-values" placeholder="e.g. Positive" data-reflex-trigger-value />
+                <datalist id="reflex-trigger-values">
+                    @foreach (var v in _triggerValues)
+                    {
+                        <option value="@v"></option>
+                    }
+                </datalist>
+                @if (ReflexTriggerValues.Warning(_editing.TriggerResultValue, _triggerValues) is { } triggerWarning)
+                {
+                    <span class="muted" style="color:var(--amber-700,#b45309);" data-reflex-trigger-warning>@triggerWarning</span>
+                }
+            </div>
             <div class="field">
                 <label>Reflex test</label>
                 <select @bind="_editing.ReflexTestCode">
@@ -139,6 +152,24 @@
 @code {
     private List<ReflexRuleDto> _items = new();
     private List<TestDefinitionListItemDto> _availableTests = new();
+    private IReadOnlyList<string> _triggerValues = [];
+
+    /// <summary>The results the chosen trigger test can produce (its allowed values and interpretations).</summary>
+    private async Task LoadTriggerValuesAsync()
+    {
+        _triggerValues = [];
+        var test = _availableTests.FirstOrDefault(t => string.Equals(t.Code, _editing?.TriggerTestCode, StringComparison.OrdinalIgnoreCase));
+        if (test is null || test.Id <= 0)
+        {
+            return;
+        }
+
+        var full = await Api.GetAdminTestAsync(test.Id);
+        if (full.Succeeded && full.Value is { } definition)
+        {
+            _triggerValues = ReflexTriggerValues.Known(definition.AllowedResultValues, definition.InterpretationLogic.Select(i => i.InterpretationKey));
+        }
+    }
     private bool _loading = true;
     private bool _includeInactive = true;
     private string _filter = string.Empty;
@@ -188,6 +219,7 @@
         _currentIsActive = false;
         _changeReason = null;
         _editing = new EditModel();
+        _triggerValues = [];
         _feedback = null;
     }
 
@@ -200,6 +232,7 @@
         _changeReason = null;
         _editing = EditModel.From(r.Value);
         _feedback = null;
+        await LoadTriggerValuesAsync();
     }
 
     private async Task SaveAsync()
