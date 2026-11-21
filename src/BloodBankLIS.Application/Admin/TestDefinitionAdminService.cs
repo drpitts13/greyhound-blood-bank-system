@@ -48,6 +48,12 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
+    private readonly IRepository<TestGrouper>? _groupers;
+
+    private readonly IRepository<ReflexRule>? _reflexRules;
+
+    private readonly IRepository<BloodBankLIS.Domain.Entities.ProductType>? _products;
+
 
 
     public TestDefinitionAdminService(
@@ -72,11 +78,23 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         IConfigurationHistoryWriter history,
 
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+
+        IRepository<TestGrouper>? groupers = null,
+
+        IRepository<ReflexRule>? reflexRules = null,
+
+        IRepository<BloodBankLIS.Domain.Entities.ProductType>? products = null)
 
         : base(unitOfWork, clock, currentUser, audit, history)
 
     {
+
+        _groupers = groupers;
+
+        _reflexRules = reflexRules;
+
+        _products = products;
 
         _repo = repo;
 
@@ -384,8 +402,29 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
 
 
-        return OperationResult<TestDefinitionDto>.Ok(Map(entity));
+        // Loop 2 tick 22: name what still uses the retired test (groupers, reflex rules, product retypes).
+        return OperationResult<TestDefinitionDto>.Ok(Map(entity), await RetirementWarningsAsync(entity, ct));
 
+    }
+
+    private async Task<IReadOnlyList<RuleResult>> RetirementWarningsAsync(TestDefinition test, CancellationToken ct)
+    {
+        var groupers = _groupers is null
+            ? []
+            : (await _groupers.ListAsync(g => g.IsActive, ct))
+                .Select(g => new TestRetirementImpactRule.Grouper(g.Code, TestGrouperMembers.Parse(g.MemberTestsJson).Select(m => m.TestCode).ToList()))
+                .ToList();
+        var reflexes = _reflexRules is null
+            ? []
+            : (await _reflexRules.ListAsync(r => r.IsActive, ct))
+                .Select(r => new TestRetirementImpactRule.Reflex(r.Code, r.TriggerTestCode, r.ReflexTestCode))
+                .ToList();
+        var products = _products is null
+            ? []
+            : (await _products.ListAsync(p => p.IsActive, ct))
+                .Select(p => new TestRetirementImpactRule.Product(p.ProductCode, p.RhPositiveRetypeTestId == test.Id || p.RhNegativeRetypeTestId == test.Id))
+                .ToList();
+        return TestRetirementImpactRule.Warnings(test.Code, groupers, reflexes, products);
     }
 
 

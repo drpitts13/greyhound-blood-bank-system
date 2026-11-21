@@ -51,3 +51,5 @@ Panel interpretation uses the subtests and the logic table on the definition. Ch
 Inactivating a test stops new orders. It does not remove historical results. Prefer inactive over deleting a code that already appears on patient records.
 
 Billing for a verified test is mapped on [Test and service billing](test-service-billing), not on this page.
+
+**Deactivating a test** still goes ahead, but the confirmation names what still uses it: active test groupers that order it, reflex rules that trigger on it or add it, and products that retype with it. Update each so orders, reflexes and retypes do not point at a retired test.

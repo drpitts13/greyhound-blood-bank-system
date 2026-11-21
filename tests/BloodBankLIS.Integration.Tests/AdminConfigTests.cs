@@ -1,7 +1,9 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
 using BloodBankLIS.Infrastructure.Persistence;
@@ -152,6 +154,40 @@ public class AdminConfigTests : IClassFixture<SqliteContextFactory>
                 .SingleAsync();
             Assert.Equal("Retire", history.ChangeReason);
         }
+    }
+
+    // TEST-BB-1402 (end-user testing loop 2 tick 22): retiring a test still in an active grouper and reflex rule succeeds
+    // and names both; a test nothing uses retires with no warning.
+    [Fact]
+    public async Task Deactivate_NamesWhatStillUsesTheTest()
+    {
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = new TestDefinitionAdminService(
+            new EfRepository<TestDefinition>(context), new EfRepository<SubtestDefinition>(context), new EfRepository<PhaseDefinition>(context),
+            new EfRepository<BloodAttributeDefinition>(context), new EfRepository<SpecimenTypeDefinition>(context), context, _factory.Clock,
+            _factory.CurrentUser, new AuditWriter(context, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
+            new ConfigurationHistoryWriter(context, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
+            groupers: new EfRepository<TestGrouper>(context), reflexRules: new EfRepository<ReflexRule>(context),
+            products: new EfRepository<ProductType>(context));
+        var used = await service.CreateAsync(NewRequest($"TU{key}"));
+        await service.ActivateAsync(used.Value!.Id, "activate");
+        var unused = await service.CreateAsync(NewRequest($"TN{key}"));
+        await service.ActivateAsync(unused.Value!.Id, "activate");
+        context.TestGroupers.Add(new TestGrouper { Code = $"GRP{key}", Name = "Grouper", IsActive = true,
+            MemberTestsJson = TestGrouperMembers.ToJson([new TestGrouperMember($"TU{key}")]) });
+        context.ReflexRules.Add(new ReflexRule { Code = $"RFX{key}", Name = "Reflex", IsActive = true,
+            TriggerTestCode = $"TU{key}", TriggerResultValue = "Positive", ReflexTestCode = "ABID" });
+        await context.SaveChangesAsync();
+
+        var retired = await service.DeactivateAsync(used.Value.Id, "Replaced");
+        Assert.True(retired.Succeeded);
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"GRP{key}") && w.Message.Contains("test grouper"));
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"RFX{key}") && w.Message.Contains("reflex rule"));
+
+        var clean = await service.DeactivateAsync(unused.Value.Id, "Unused");
+        Assert.True(clean.Succeeded);
+        Assert.Empty(clean.Warnings);
     }
 
     [Fact]

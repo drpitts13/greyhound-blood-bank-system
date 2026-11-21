@@ -29200,3 +29200,17 @@ Saving a rule already guards against this (`RuleDefinitionValidator`):
 - A test code not in the catalog is warned about. It is not refused, so a rule can be written before its test exists.
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1089 — End-user testing loop 2, tick 22: retiring a test names its uses (2026-11-21)
+
+### How it was tested
+
+Reviewed the test grouper builder (item 6). Saving a grouper already refuses missing or unknown member tests. Then asked the reverse: what happens when a test in use is retired?
+
+### Found and fixed
+
+1. **Retiring a test said nothing about what still used it.** A test could be deactivated while it was a member of an active grouper, the trigger or result of an active reflex rule, or a product's retype test, and each would keep pointing at a retired test. Deactivating still goes ahead (the facility may be replacing it), but the confirmation now names each use so it can be updated.
+
+### Tests
+
+- TEST-BB-1402. Full suite passed. Clean-tick count reset to 0 of 5.
