@@ -1402,5 +1402,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1391 | U | `AdminCopyTests.CopyProduct_OpensAPrefilledNewDraft`, `AdminCopyTests.CopyRule_OpensAPrefilledNewDraft` | URS-BB-1131 / FRS-BB-1249 |
 | TEST-BB-1392 | U | `ModificationExpirationRuleTests.Freeze_IsNotCappedAtTheLiquidExpiration_OthersAre` | URS-BB-1132 / FRS-BB-1250 |
 | TEST-BB-1393 | U | `ReflexTriggerValuesTests.Known_AndWarning` | URS-BB-1133 / FRS-BB-1251 |
+| TEST-BB-1394 | U | `StandardGradesTests.StandardGrades_IncludeMixedField` | URS-BB-1134 / FRS-BB-1252 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

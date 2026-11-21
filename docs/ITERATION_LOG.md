@@ -28991,3 +28991,21 @@ Reviewed the reflex rule builder (items 3 and 6), and the dashboard for clutter 
 ### Tests
 
 - TEST-BB-1393. Full suite passed.
+
+## Iteration 1077 — End-user testing loop 2, tick 12: mixed field grade (2026-11-20)
+
+### How it was tested
+
+Reviewed the subtest builder (item 6): result types (graded, free text, pick list) and the standard grade set used for screens, crossmatches, ABO/Rh and DAT panels.
+
+### Found and fixed
+
+1. **No mixed-field grade.** The standard grades were 0, 1+ to 4+, H, w+, +/- and NT, so a mixed-field reading (two cell populations, for example after transfusion or in an A subgroup), which the DAT/elution workup already knows as *mf*, could not be recorded on a panel. *mf* (Mixed field) is added, neutral so a reading goes to review instead of being interpreted; a facility may set its polarity per subtest. Existing subtests keep their stored choices until standard grades are loaded again.
+
+### Retested
+
+- Covered by TEST-BB-1394; the dev subtests were not changed.
+
+### Tests
+
+- TEST-BB-1394. Full suite passed.

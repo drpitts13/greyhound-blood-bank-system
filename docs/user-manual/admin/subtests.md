@@ -15,3 +15,5 @@ routes:
 Create a subtest once and attach it to the tests that need it. Editing the meaning of a graded reaction changes every test that uses that subtest. If only one test should change, create a new subtest rather than redefining a shared one.
 
 Phases assigned to panel subtests are maintained on [Phases](phases). The subtest says what is being read. The phase says when it was read.
+
+The standard grades are 0, 1+ to 4+, H (hemolysis), w+, +/-, mf (mixed field) and NT; mf and +/- are neutral, so a panel reading them goes to review rather than being interpreted for you. Load standard grades again on an existing subtest to add mf.
