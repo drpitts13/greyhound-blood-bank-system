@@ -29242,3 +29242,21 @@ Followed ticks 22 and 23 to the remaining building blocks (items 3, 6 and 7): su
 ### Tests
 
 - TEST-BB-1404. Full suite passed. Clean-tick count stays at 0 of 5.
+
+## Iteration 1092 — End-user testing loop 2, tick 25: retirement warnings reach the screen, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Traced ticks 22 to 24 from the service to the page.
+
+### Findings
+
+The retirement warnings reach the user:
+- The API sends a result with warnings as `{ data, warnings }`.
+- `BloodBankApiClient` reads them into `ApiResult.Warnings`.
+- `ToFeedback` carries them.
+- The shared `Outcome` panel lists them under *Warnings* beside *Deactivated.*
+
+The expiration code builder still refuses to retire a code an active modification rule uses. That stays, because a retired code would leave the rule unusable at the bench.
+
+No change. Clean tick 1 of 5.
