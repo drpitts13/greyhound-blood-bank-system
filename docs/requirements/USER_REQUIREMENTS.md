@@ -1163,3 +1163,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1155 | A cryoprecipitate product may allow mixed-ABO pools, labelled Mixed ABO. | P1 | FRS-BB-1273 |
 | URS-BB-1156 | A mixed-ABO pool is offered and issued only when every unit in it suits the patient; one without recorded components is refused. | P1 | FRS-BB-1274 |
 | URS-BB-1157 | Before pooling, Modify products says when the units differ in ABO/Rh and how the pool will be labelled. | P2 | FRS-BB-1275 |
+| URS-BB-1158 | Admin › Exceptions says which definitions the software uses for an override and which are listed for reference only, so marking an always-hard stop overridable is not mistaken for an override. | P2 | FRS-BB-1276 |

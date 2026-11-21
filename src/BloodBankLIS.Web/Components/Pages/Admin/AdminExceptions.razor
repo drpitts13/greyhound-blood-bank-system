@@ -15,7 +15,7 @@
         }
     </div>
 </div>
-<p class="muted">Catalog of clinical exceptions and the minimum security level required to override them. Override + e-sign still uses this catalog on the chart.</p>
+<p class="muted">Catalog of clinical exceptions and the minimum security level required to override them. Override + e-sign still uses this catalog on the chart. Only the stops marked <strong>Can be overridden</strong> in the Used for column look up their definition here; the others are listed for reference and stay hard stops whatever Overridable says.</p>
 
 <Outcome Value="_feedback" />
 
@@ -37,7 +37,7 @@
     {
         <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Rule code</th><th>Name</th><th>Min level</th><th>Overridable</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Rule code</th><th>Name</th><th>Min level</th><th>Overridable</th><th>Used for</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var e in Filtered)
                 {
@@ -46,6 +46,7 @@
                         <td>@e.Name</td>
                         <td>@e.MinSecurityLevel</td>
                         <td>@(e.IsOverridable ? "Yes" : "No")</td>
+                        <td data-override-use>@(ExceptionOverridePolicy.IsUsedForOverride(e.RuleCode) ? "Can be overridden" : "Reference only: always a hard stop")</td>
                         <td>@(e.IsActive ? "Active" : "Inactive")</td>
                         <td class="right nowrap">
                             @if (CanEdit)
@@ -91,6 +92,10 @@
         </div>
         <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
         <label class="flex" style="gap:.35rem; margin-top:.4rem;"><input type="checkbox" @bind="_draft.IsOverridable" /> Overridable</label>
+        @if (!string.IsNullOrWhiteSpace(_draft.RuleCode) && !ExceptionOverridePolicy.IsUsedForOverride(_draft.RuleCode))
+        {
+            <p class="muted" data-override-reference-note>The software does not look up @_draft.RuleCode before stopping, so this definition does not create an override. Overrides are available for: @string.Join(", ", ExceptionOverridePolicy.OverrideCodes).</p>
+        }
         <div class="field" style="margin-top:.4rem;"><label>Reason for the change@(_editId is null ? " (optional)" : string.Empty)</label><input @bind="_draft.Reason" placeholder="Who asked for it, and why" /></div>
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>

@@ -73,3 +73,36 @@ public partial class AboCheckRoutingSourceTests
         Assert.Empty(offenders);
     }
 }
+
+/// <summary>Admin › Exceptions says which definitions the software consults (end-user testing loop 2 tick 47).</summary>
+public partial class ExceptionOverrideCodesSourceTests
+{
+    // TEST-BB-1418: every place that looks up an exception definition before an override names a code listed in
+    // ExceptionOverridePolicy.OverrideCodes, so the Exceptions page's "Used for" column marks exactly those as
+    // overridable and every other definition (ABO incompatibility, for one) as reference only.
+    [Fact]
+    public void EveryOverrideLookup_IsListedInOverrideCodes()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var src = Path.Combine(dir!.FullName, "src");
+        var policy = File.ReadAllText(Path.Combine(src, "BloodBankLIS.Domain", "Rules", "ExceptionOverridePolicy.cs"));
+        var listed = policy[policy.IndexOf("OverrideCodes =", StringComparison.Ordinal)..policy.IndexOf("];", StringComparison.Ordinal)];
+        var codes = Directory.GetFiles(src, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .SelectMany(f => OverrideLookup().Matches(File.ReadAllText(f)).Select(m => m.Groups[1].Value))
+            .Distinct()
+            .ToList();
+        Assert.NotEmpty(codes);
+        Assert.All(codes, code => Assert.Contains(code, listed));
+        Assert.Equal(codes.Count, listed.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Count(p => p.Contains('.')));
+    }
+
+    [GeneratedRegex(@"ExceptionOverridePolicy\.EvaluateAccess\([^;]*?,\s*([A-Za-z]+\.[A-Za-z]+)\s*\)", System.Text.RegularExpressions.RegexOptions.Singleline)]
+    private static partial Regex OverrideLookup();
+}
+

@@ -29620,3 +29620,22 @@ Checked blocking (item 5) for the new `ISS-ABO-MIXED-POOL` hard stop: could Admi
 - Under emergency release the stop is not softened (phase 2).
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1116 — End-user testing loop 2, tick 47: the Exceptions page says which definitions are used (2026-11-21)
+
+### How it was tested
+
+- Read Admin › Exceptions from an administrator's side, against every `ExceptionOverridePolicy.EvaluateAccess` call.
+
+### Findings
+
+- Only five codes are looked up before an override. The page let an administrator tick Overridable on any row, for example ISS-ABO-COMPAT, with nothing saying that it changes nothing.
+
+### Change
+
+- `ExceptionOverridePolicy.OverrideCodes` lists the five codes.
+- The page has a **Used for** column ("Can be overridden" or "Reference only: always a hard stop"), and the editor gives a note for any other code.
+- TEST-BB-1418 checks that every lookup in the code is in the list. URS-BB-1158, FRS-BB-1276 and the Exceptions help were updated.
+
+Clean count reset to 0.
+
