@@ -20,7 +20,7 @@ If a test you order is already ordered and still open for this patient, the orde
 
 The test list leaves out tests that are done on a blood unit rather than on the patient: the unit ABO/Rh retypes and unit antigen typing. Those are recorded from the unit (the Retype desk, unit antigen typing from the Products tab).
 
-Product orders can carry modification actions: irradiate, wash, thaw, volume reduce, or leukoreduce. Those actions are defined in Administration. Completing the action later is done from inventory modification or the product workflow, and it can queue a charge when action billing is mapped.
+Product orders can carry modification actions: irradiate, wash, thaw, volume reduce, leukoreduce, deglycerolize, or plasma reduce. Those actions are defined in Administration. Completing the action later is done from inventory modification or the product workflow, and it can queue a charge when action billing is mapped.
 
 ## Link a specimen
 

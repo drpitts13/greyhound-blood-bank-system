@@ -45,7 +45,7 @@ For irradiate, thaw, volume reduction, leukoreduction, and wash, you can apply t
 
 ## Orders that asked for the modification
 
-A product order can request irradiate, wash, thaw, volume reduce, or leukoreduce. Completing that action here satisfies the order and can queue the action charge. Complete the action only when the physical modification is done.
+A product order can request irradiate, wash, thaw, volume reduce, leukoreduce, deglycerolize, or plasma reduce. Completing that action here satisfies the order and can queue the action charge. Complete the action only when the physical modification is done.
 
 > Warning. Resulting units are quarantined on purpose. Issuing the source unit after it has been modified, or issuing the child unit before release, is blocked by unit status.
 

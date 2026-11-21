@@ -29397,3 +29397,17 @@ Searched every page for clickable elements that are not buttons or links (items 
 ### Tests
 
 - TEST-BB-1410. Full suite passed. Clean-tick count stays at 0 of 5.
+
+## Iteration 1102 — End-user testing loop 2, tick 35: order action wording (2026-11-21)
+
+### How it was tested
+
+Opened Admin › Actions and its new-action form (item 7). Nothing was saved.
+
+### Found and fixed
+
+1. **The order action wording was out of date.** Admin › Actions and two help pages said an order may request irradiate, wash, thaw, volume reduce or leukoreduce, though tick 3 added deglycerolize and plasma reduce, which the form already offers. All three now name the seven. A test checks each type the order action validator accepts is named in each place.
+
+### Tests
+
+- TEST-BB-1411. Full suite passed. Clean-tick count stays at 0 of 5.
