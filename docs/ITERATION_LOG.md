@@ -29655,3 +29655,18 @@ Clean count reset to 0.
 
 Clean count stays at 0.
 
+## Iteration 1118 — End-user testing loop 2, tick 49: shared E0701 on frozen and thawed plasma, nothing to fix (2026-11-21)
+
+### How it was tested
+
+- Followed up on tick 48: the THAW-FFP rule turns Fresh Frozen Plasma (FFP) into Thawed Plasma (FFP-THAW), and both carry ISBT code E0701.
+- Checked every lookup of `Isbt128ProductCode` in receiving, modification, billing, MTP packing and printing.
+
+### Findings
+
+- Nothing resolves a product type from the ISBT code. On ISBT receive, the technologist chooses the product type and the code is filled in from it (`IsbtReceive.razor`). Modification takes the target from the rule.
+- So the shared code cannot receive or create a unit as the wrong product.
+- Whether thawed plasma should carry a different ISBT code needs the licensed ICCBBA table; no code is invented here.
+
+No change. Clean tick 1 of 5.
+
