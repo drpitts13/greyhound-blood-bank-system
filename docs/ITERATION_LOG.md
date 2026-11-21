@@ -29214,3 +29214,17 @@ Reviewed the test grouper builder (item 6). Saving a grouper already refuses mis
 ### Tests
 
 - TEST-BB-1402. Full suite passed. Clean-tick count reset to 0 of 5.
+
+## Iteration 1090 — End-user testing loop 2, tick 23: retiring a product names its uses (2026-11-21)
+
+### How it was tested
+
+Followed tick 22 from tests to products (item 7): what still depends on a product when it is retired?
+
+### Found and fixed
+
+1. **Retiring a product said nothing about what still used it.** A product could be deactivated while it was the source or target of an active modification rule, while units of it were still in inventory, or while a minimum stock level was set for it. Deactivating still goes ahead, but the confirmation now names each use.
+
+### Tests
+
+- TEST-BB-1403. Full suite passed. Clean-tick count stays at 0 of 5.

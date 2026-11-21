@@ -1411,5 +1411,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1400 | U | `ModificationResultStorageRuleTests.Problem_FollowsWhetherTheResultIsFrozen` | URS-BB-1140 / FRS-BB-1258 |
 | TEST-BB-1401 | U | `ReflexTriggerValuesTests.AboRhKeys_AreSuggestedAsMatched` | URS-BB-1141 / FRS-BB-1259 |
 | TEST-BB-1402 | U, I | `TestRetirementImpactRuleTests.Warnings_NameEachUse`, `AdminConfigTests.Deactivate_NamesWhatStillUsesTheTest` | URS-BB-1142 / FRS-BB-1260 |
+| TEST-BB-1403 | U, I | `ProductRetirementImpactRuleTests.Warnings_NameEachUse`, `ProductCatalogAuthorizationTests.Deactivate_NamesWhatStillUsesTheProduct` | URS-BB-1143 / FRS-BB-1261 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
