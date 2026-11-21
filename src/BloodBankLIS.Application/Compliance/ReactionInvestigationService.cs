@@ -1304,8 +1304,8 @@ public sealed class ReactionInvestigationService
             }
 
             var component = product?.ComponentClass ?? ComponentClass.RedBloodCells;
-            var firstStop = AboCompatibilityRule.Evaluate(
-                    patientAboRh, new AboRh(unit.Abo, unit.RhD), component, patientSex, policy)
+            var firstStop = AboCompatibilityRule.EvaluateUnit(
+                    patientAboRh, new AboRh(unit.Abo, unit.RhD), PoolComponents.Parse(unit.PoolComponentsJson), component, patientSex, policy)
                 .FirstOrDefault(r => r.Severity == RuleSeverity.HardStop);
             return firstStop is null ? (false, null) : (true, firstStop.Message);
         }

@@ -403,6 +403,7 @@ public sealed class IssuingService
             PatientBloodTypeKnown = bloodType is not null && bloodType.BloodType.IsKnown,
             PatientAboRh = bloodType?.BloodType ?? new AboRh(AboGroup.Unknown, RhType.Unknown),
             UnitAboRh = unit.BloodType,
+            UnitPoolComponents = PoolComponents.Parse(unit.PoolComponentsJson),
             ComponentClass = productType?.ComponentClass ?? ComponentClass.Other,
             UnitStatus = DowntimeBackEntryRule.StatusForGate(backEntry, unit.Status, unit.ExpiresUtc, gateTime),
             UnitExpiresUtc = unit.ExpiresUtc,

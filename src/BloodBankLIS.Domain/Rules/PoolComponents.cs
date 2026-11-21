@@ -40,6 +40,22 @@ public static class PoolComponents
         }
     }
 
+    /// <summary>The pool's ABO: the shared group, or Mixed when the sources differ (phase 3).</summary>
+    public static AboGroup ResultAbo(IReadOnlyList<PoolComponent> components)
+    {
+        var groups = components.Select(c => c.Abo).Distinct().ToList();
+        return groups.Count == 1 ? groups[0] : AboGroup.Mixed;
+    }
+
+    /// <summary>
+    /// The pool's Rh(D), read conservatively from what the bag contains: Unknown if any source is unknown, Positive if any
+    /// is positive, otherwise Negative (OCD-094 decision 2).
+    /// </summary>
+    public static RhType ResultRh(IReadOnlyList<PoolComponent> components) =>
+        components.Count == 0 || components.Any(c => c.RhD == RhType.Unknown) ? RhType.Unknown
+        : components.Any(c => c.RhD == RhType.Positive) ? RhType.Positive
+        : RhType.Negative;
+
     /// <summary>True when the sources differ in ABO or Rh(D).</summary>
     public static bool IsMixed(IReadOnlyList<PoolComponent> components) =>
         components.Select(c => c.Abo).Distinct().Count() > 1 || components.Select(c => c.RhD).Distinct().Count() > 1;

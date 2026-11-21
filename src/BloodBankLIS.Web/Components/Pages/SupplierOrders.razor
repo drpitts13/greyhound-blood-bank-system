@@ -150,7 +150,7 @@
                 <div class="field" style="max-width:7rem;"><label>ABO</label>
                     <select @bind="_newLine.Abo">
                         <option value="">Any</option>
-                        @foreach (var a in Enum.GetValues<AboGroup>().Where(g => g != AboGroup.Unknown)) { <option value="@a">@Ui.EnumText(a)</option> }
+                        @foreach (var a in AboGroups.All.Where(g => g != AboGroup.Unknown)) { <option value="@a">@Ui.EnumText(a)</option> }
                     </select>
                 </div>
                 <div class="field" style="max-width:7rem;"><label>Rh</label>

@@ -323,6 +323,8 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         e.RequiresAboMatch = req.RequiresAboMatch;
         e.RequiresRhMatch = req.RequiresRhMatch;
         e.RequiresRetype = req.RequiresRetype;
+        // OCD-094 (decided 2026-11-21): only cryoprecipitate may be pooled across ABO; the setting is ignored otherwise.
+        e.AllowMixedAboPool = req.AllowMixedAboPool && req.ComponentClass == ComponentClass.Cryoprecipitate;
         if (req.RequiresRetype)
         {
             e.RhPositiveRetypeTestId = req.RhPositiveRetypeTestId;
@@ -383,7 +385,10 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
             p.StorageRequirements, p.IssueRules, p.ReturnRules, p.ModificationRules, p.Version, p.IsActive, assigned,
             p.RhPositiveRetypeTestId, pos?.Code, pos?.Name,
             p.RhNegativeRetypeTestId, neg?.Code, neg?.Name,
-            abo, rh);
+            abo, rh)
+        {
+            AllowMixedAboPool = p.AllowMixedAboPool
+        };
     }
 
     private async Task<IReadOnlyList<ProductAboCompatibility>> LoadAboAsync(CancellationToken ct) =>

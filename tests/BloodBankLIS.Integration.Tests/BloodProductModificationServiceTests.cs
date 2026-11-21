@@ -685,6 +685,48 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         return await context.ProductTypes.CountAsync();
     }
 
+    // TEST-BB-1415 (mixed-ABO pooling phase 3, OCD-094): when the cryoprecipitate target allows mixed-ABO pools, A and O
+    // (and Rh positive and negative) sources pool into a Mixed, Rh-positive unit that records each source; without the
+    // setting the same sources are refused.
+    [Fact]
+    public async Task Pool_MixedAbo_AllowedOnlyWhenTheCryoTargetAllowsIt()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("MIXCRYO");
+        await using (var setup = _factory.Create())
+        {
+            var target = await setup.ProductTypes.FindAsync(targetProductId);
+            target!.ComponentClass = ComponentClass.Cryoprecipitate;
+            await setup.SaveChangesAsync();
+        }
+
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var a = await CreateUnitAsync("U-MIXCRYO-A", sourceProductId, abo: AboGroup.A, rh: RhType.Negative, volume: 15m);
+        var o = await CreateUnitAsync("U-MIXCRYO-O", sourceProductId, abo: AboGroup.O, rh: RhType.Positive, volume: 15m);
+
+        await using (var refusedContext = _factory.Create())
+        {
+            var refused = await CreateService(refusedContext).PoolAsync(new PerformPoolRequest(new[] { a, o }, ruleId, "Cryo pool"));
+            Assert.False(refused.Succeeded);
+            Assert.Contains(refused.Evaluation!.Results, r => r.Code == UnitModificationEligibilityRule.PoolAboMismatchCode);
+        }
+
+        await using (var allow = _factory.Create())
+        {
+            (await allow.ProductTypes.FindAsync(targetProductId))!.AllowMixedAboPool = true;
+            await allow.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var pooled = await CreateService(context).PoolAsync(new PerformPoolRequest(new[] { a, o }, ruleId, "Cryo pool"));
+
+        Assert.True(pooled.Succeeded, pooled.Error);
+        var unit = Assert.Single(pooled.ResultUnits!);
+        Assert.Equal(AboGroup.Mixed, unit.Abo);
+        Assert.Equal(RhType.Positive, unit.RhD);
+        Assert.Equal([new PoolComponent(AboGroup.A, RhType.Negative), new PoolComponent(AboGroup.O, RhType.Positive)],
+            PoolComponents.Parse(unit.PoolComponentsJson));
+    }
+
     [Fact]
     public async Task Pool_HappyPath_CreatesSingleResultAndRetiresAllSources()
     {

@@ -21,3 +21,5 @@ Attributes you add here become available on modification rules and on the unit c
 A patient's requirement for irradiated (or leukoreduced, washed, volume-reduced) units is met by the product's **Attributes**, not by its name. The starter products carry the attributes their names state; check them for any product you add. CMV-negative and HbS-negative are met by the unit's own test (Unit › Attributes › Unit tests) or its product code.
 
 **Deactivating a product** still goes ahead, but the confirmation names what still uses it: active modification rules that start from it or make it, units of it still in inventory (including quarantined, reserved and crossmatched units), and minimum stock levels set for it.
+
+**Allow mixed-ABO pools** appears for cryoprecipitate products only (OCD-094). When ticked, units of the product may be pooled across ABO and Rh(D) on Modify products; the pool is labelled Mixed ABO and checked against every unit in it at selection and issue. Leave it off to keep pools to one group.

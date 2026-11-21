@@ -1,6 +1,6 @@
 # Design: mixed-ABO pooling
 
-Status: phase 1 built (2026-11-21). OCD-094 decided 2026-11-21: cryoprecipitate only; Rh(D) may mix; for cryo a mixed pool ranks the same as single-group compatible units; no ABO/Rh type is sent on HL7 for a mixed pool.
+Status: phases 1 to 3 built (2026-11-21); HL7 sends no type for a mixed pool (decision 4). FHIR reports the pool's group as Mixed. Labels and P-tags print *Mixed ABO* with the Rh(D); the components are on the unit page. OCD-094 decided 2026-11-21: cryoprecipitate only; Rh(D) may mix; for cryo a mixed pool ranks the same as single-group compatible units; no ABO/Rh type is sent on HL7 for a mixed pool.
 
 ## Problem
 

@@ -14,7 +14,20 @@ public enum AboGroup
     O = 1,
     A = 2,
     B = 3,
-    AB = 4
+    AB = 4,
+
+    /// <summary>
+    /// A pool whose source units differ in ABO (mixed-ABO pooling, OCD-094). Never a group in its own right: compatibility
+    /// checks each recorded pool component (<c>BloodUnit.PoolComponentsJson</c>), and a bare Mixed is refused.
+    /// </summary>
+    Mixed = 5
+}
+
+/// <summary>The ABO groups a person or a single unit can be typed as, for pickers and typing (everything but Mixed).</summary>
+public static class AboGroups
+{
+    public static IReadOnlyList<AboGroup> All { get; } =
+        Enum.GetValues<AboGroup>().Where(a => a != AboGroup.Mixed).ToArray();
 }
 
 /// <summary>ABO subgroup used for A2 typing special requirements.</summary>

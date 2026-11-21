@@ -79,8 +79,9 @@ public static class Hl7BpsBuilder
             .Set("BPX-5", unit.Din ?? unit.UnitNumber)
             .Set("BPX-6-1", productCode)
             .Set("BPX-6-2", product?.Name)
-            .Set("BPX-11-1", unit.AboRhdCode)
-            .Set("BPX-11-2", unit.BloodType.ToString())
+            // OCD-094 (decided 2026-11-21): a mixed-ABO pool sends no ABO/Rh type.
+            .Set("BPX-11-1", unit.Abo == AboGroup.Mixed ? null : unit.AboRhdCode)
+            .Set("BPX-11-2", unit.Abo == AboGroup.Mixed ? null : unit.BloodType.ToString())
             .Set("BPX-14", "1")
             .Set("BPX-17", unit.UnitNumber);
         if (dispensed)

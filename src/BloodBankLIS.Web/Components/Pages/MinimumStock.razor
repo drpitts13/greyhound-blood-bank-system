@@ -113,7 +113,7 @@
                 <label>ABO</label>
                 <select @bind="_abo">
                     <option value="">Any</option>
-                    @foreach (var abo in Enum.GetValues<AboGroup>().Where(a => a != AboGroup.Unknown))
+                    @foreach (var abo in AboGroups.All.Where(a => a != AboGroup.Unknown))
                     {
                         <option value="@abo">@Ui.EnumText(abo)</option>
                     }

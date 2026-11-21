@@ -12,7 +12,8 @@ public readonly record struct AboRh(AboGroup Abo, RhType Rh)
 
     public override string ToString()
     {
-        var abo = Abo == AboGroup.Unknown ? "?" : Abo.ToString();
+        // A mixed-ABO pool reads "Mixed ABO" so it is never taken for one group.
+        var abo = Abo switch { AboGroup.Unknown => "?", AboGroup.Mixed => "Mixed ABO ", _ => Abo.ToString() };
         var rh = Rh switch
         {
             RhType.Positive => "+",

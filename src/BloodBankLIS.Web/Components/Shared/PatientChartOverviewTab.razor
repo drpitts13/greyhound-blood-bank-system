@@ -145,7 +145,7 @@
             <Outcome Value="TypeFeedback" />
             <div class="form-row">
                 <div class="field"><label>ABO</label>
-                    <select @bind="TypeAbo" @bind:after="() => TypeAboChanged.InvokeAsync(TypeAbo)"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
+                    <select @bind="TypeAbo" @bind:after="() => TypeAboChanged.InvokeAsync(TypeAbo)"><option value="">— Select —</option>@foreach (var a in AboGroups.All) { <option value="@a">@Ui.EnumText(a)</option> }</select>
                 </div>
                 <div class="field"><label>Rh(D)</label>
                     <select @bind="TypeRh" @bind:after="() => TypeRhChanged.InvokeAsync(TypeRh)"><option value="">— Select —</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@Ui.EnumText(r)</option> }</select>

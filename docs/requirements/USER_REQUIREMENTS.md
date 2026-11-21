@@ -1160,3 +1160,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1152 | Modify products and its help name every modification type and which can be applied to a batch. | P3 | FRS-BB-1270 |
 | URS-BB-1153 | The Tests help explains each result value type and the blood bank tests it suits. | P3 | FRS-BB-1271 |
 | URS-BB-1154 | Test groupers are called the same everywhere, so pages and messages point to the page by its menu name. | P3 | FRS-BB-1272 |
+| URS-BB-1155 | A cryoprecipitate product may allow mixed-ABO pools, labelled Mixed ABO. | P1 | FRS-BB-1273 |
+| URS-BB-1156 | A mixed-ABO pool is offered and issued only when every unit in it suits the patient; one without recorded components is refused. | P1 | FRS-BB-1274 |

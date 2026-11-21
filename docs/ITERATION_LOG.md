@@ -29503,3 +29503,30 @@ All 33 match, or the heading is the label's longer form:
 - *Downtime Snapshot* / *Downtime reconciliation snapshot*
 
 No change. Clean tick 2 of 5.
+
+## Iteration 1109 — Mixed-ABO pooling, phases 2 and 3 (2026-11-21)
+
+### What was built
+
+**Phase 2: compatibility checks each unit in a pool and fails closed.**
+- `AboGroup.Mixed` is added for pools only. It is left out of every typing picker.
+- The ABO check refuses a bare Mixed group. Without this, the antigen lookup would treat Mixed as carrying no antigens or antibodies, and the pool would pass any patient.
+- A new `EvaluateUnit` checks each distinct component of a pool with the product's usual rule or table; the worst result wins.
+- Compatibility, allocation, issue, reaction investigation and the ISBT rules engine all go through it. A source test refuses any other direct call.
+- Under emergency release, ABO hard stops are softened to warnings. The stop for a pool with no recorded components is excluded from that.
+
+**Phase 3: a cryo setting and the pool's group (OCD-094 decisions).**
+- Products have *Allow mixed-ABO pools*, offered and honoured for cryoprecipitate only, off by default.
+- With it on, sources of different ABO and Rh(D) pool. The pool reads *Mixed ABO*, its Rh is positive if any source is, and it records each source.
+- It ranks with the other compatible units at selection (decision 3).
+- HL7 BPX-11 is left empty for it (decision 4).
+
+### Retested live
+
+- The dev database gained the new column on start.
+- The CRYO-P product form offers *Allow mixed-ABO pools*; RBC-LR's does not.
+- The API logged no errors. Nothing was saved.
+
+### Tests
+
+- TEST-BB-1415 and TEST-BB-1416. Full suite passed.

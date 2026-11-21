@@ -302,6 +302,8 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "ReagentQcUnreviewedFailed", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ReagentQcUnreviewedFailed" INTEGER NOT NULL DEFAULT 0"""),
         // Mixed-ABO pooling phase 1: a pool records its sources' ABO/Rh.
         ("BloodProducts", "PoolComponentsJson", """ALTER TABLE "BloodProducts" ADD COLUMN "PoolComponentsJson" TEXT NULL"""),
+        // Mixed-ABO pooling phase 3: a cryoprecipitate product may allow mixed-ABO pools.
+        ("ProductTypes", "AllowMixedAboPool", """ALTER TABLE "ProductTypes" ADD COLUMN "AllowMixedAboPool" INTEGER NOT NULL DEFAULT 0"""),
         ("OrderLines", "RequestedVolumeMl", """ALTER TABLE "OrderLines" ADD COLUMN "RequestedVolumeMl" INTEGER NULL"""),
         ("Issues", "UrgencyStatementSignedBy", """ALTER TABLE "Issues" ADD COLUMN "UrgencyStatementSignedBy" TEXT NULL"""),
         ("Issues", "UrgencyStatementReceivedUtc", """ALTER TABLE "Issues" ADD COLUMN "UrgencyStatementReceivedUtc" TEXT NULL"""),

@@ -48,3 +48,28 @@ public partial class OptionWordingSourceTests
         throw new InvalidOperationException("Could not find the repository root.");
     }
 }
+
+/// <summary>Unit ABO/Rh checks go through the pool-aware check (mixed-ABO pooling phase 2).</summary>
+public partial class AboCheckRoutingSourceTests
+{
+    // TEST-BB-1416: outside the rule itself and the standard product table builder (which compares single groups), no
+    // code calls AboCompatibilityRule.Evaluate directly; a unit is checked with EvaluateUnit so a pool is checked against
+    // each component and a pool without components is refused.
+    [Fact]
+    public void UnitChecks_UseEvaluateUnit()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var allowed = new[] { "AboCompatibilityRule.cs", "ProductAboRhPolicy.cs" };
+        var offenders = Directory.GetFiles(Path.Combine(dir!.FullName, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(f => !allowed.Contains(Path.GetFileName(f)) && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Where(f => File.ReadAllText(f).Contains("AboCompatibilityRule.Evaluate(", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .ToList();
+        Assert.Empty(offenders);
+    }
+}

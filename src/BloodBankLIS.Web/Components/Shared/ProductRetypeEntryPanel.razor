@@ -135,7 +135,7 @@
     private RenderFragment EntryForm => @<div>
         <div class="form-row">
             <div class="field"><label>Interpreted ABO</label>
-                <select @bind="_abo"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select>
+                <select @bind="_abo"><option value="">— Select —</option>@foreach (var a in AboGroups.All) { <option value="@a">@Ui.EnumText(a)</option> }</select>
             </div>
             @if (Detail.AntiDRequired)
             {

@@ -189,7 +189,8 @@ public static class Ui
 
     public static string BloodType(AboGroup abo, RhType rh)
     {
-        var group = abo == AboGroup.Unknown ? "?" : abo.ToString();
+        // A mixed-ABO pool reads "Mixed ABO" so it is never taken for one group (pool components are on the unit page).
+        var group = abo switch { AboGroup.Unknown => "?", AboGroup.Mixed => "Mixed ABO ", _ => abo.ToString() };
         var sign = rh switch { RhType.Positive => "+", RhType.Negative => "\u2212", _ => "?" };
         return $"{group}{sign}";
     }

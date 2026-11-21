@@ -104,7 +104,7 @@
                     <div class="field"><label>Interpreted ABO</label>
                         <select @bind="_abo">
                             <option value="">— Select —</option>
-                            @foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }
+                            @foreach (var a in AboGroups.All) { <option value="@a">@Ui.EnumText(a)</option> }
                         </select>
                     </div>
                     <div class="field"><label>Interpreted Rh(D)</label>

@@ -130,7 +130,7 @@ public static class InterpretationLogicDefinitions
     public static IReadOnlyList<InterpretationLogicRow> DefaultAboRhLogic()
     {
         var rows = new List<InterpretationLogicRow>();
-        foreach (var abo in Enum.GetValues<AboGroup>().Where(a => a != AboGroup.Unknown))
+        foreach (var abo in AboGroups.All.Where(a => a != AboGroup.Unknown))
         {
             foreach (var rh in Enum.GetValues<RhType>().Where(r => r != RhType.Unknown))
             {
@@ -149,7 +149,7 @@ public static class InterpretationLogicDefinitions
     public static IReadOnlyList<InterpretationLogicRow> DefaultAboRhRetypeLogic()
     {
         var rows = new List<InterpretationLogicRow>();
-        foreach (var abo in Enum.GetValues<AboGroup>().Where(a => a != AboGroup.Unknown))
+        foreach (var abo in AboGroups.All.Where(a => a != AboGroup.Unknown))
         {
             foreach (var rh in Enum.GetValues<RhType>().Where(r => r != RhType.Unknown))
             {

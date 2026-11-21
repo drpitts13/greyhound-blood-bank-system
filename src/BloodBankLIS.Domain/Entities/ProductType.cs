@@ -38,6 +38,12 @@ public class ProductType : BaseEntity
     /// </summary>
     public bool RequiresRetype { get; set; }
 
+    /// <summary>
+    /// Mixed-ABO pooling phase 3 (OCD-094): units of this product may be pooled across ABO and Rh(D). Honoured only for
+    /// cryoprecipitate; the pool is then labelled Mixed and checked against each source unit's group.
+    /// </summary>
+    public bool AllowMixedAboPool { get; set; }
+
     /// <summary>Catalog test used when a labeled Rh-positive unit of this product is received.</summary>
     public long? RhPositiveRetypeTestId { get; set; }
 

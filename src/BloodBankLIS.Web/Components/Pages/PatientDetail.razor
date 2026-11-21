@@ -3489,7 +3489,7 @@ else
                     {
                     <p class="muted">@ResultSourceEntryCopy.PanelHint</p>
                     <div class="form-row">
-                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo"><option value="">— Select —</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
+                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo"><option value="">— Select —</option>@foreach (var a in AboGroups.All) { <option value="@a">@Ui.EnumText(a)</option> }</select></div>
                         <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh"><option value="">— Select —</option>@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@Ui.EnumText(rr)</option> }</select></div>
                     </div>
                     <div class="table-scroll">

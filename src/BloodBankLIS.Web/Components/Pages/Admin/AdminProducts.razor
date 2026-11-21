@@ -128,6 +128,13 @@
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresAboMatch" /> Requires ABO match</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRhMatch" /> Requires Rh match</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRetype" /> Retype (Y/N)</label>
+            @if (_editing.ComponentClass == ComponentClass.Cryoprecipitate)
+            {
+                @* Mixed-ABO pooling phase 3 (OCD-094: cryoprecipitate only). *@
+                <label class="flex" style="gap:.35rem;" title="Units may be pooled across ABO and Rh(D); the pool is labelled Mixed and checked against each unit in it at selection and issue." data-product-mixed-pool>
+                    <input type="checkbox" @bind="_editing.AllowMixedAboPool" /> Allow mixed-ABO pools
+                </label>
+            }
         </div>
 
         <div style="margin:.8rem 0;">
@@ -481,6 +488,7 @@
         public bool RequiresAboMatch { get; set; } = true;
         public bool RequiresRhMatch { get; set; } = true;
         public bool RequiresRetype { get; set; }
+        public bool AllowMixedAboPool { get; set; }
         public string RhPositiveRetypeTestId { get; set; } = string.Empty;
         public string RhNegativeRetypeTestId { get; set; } = string.Empty;
         public string? Isbt128ProductCode { get; set; }
@@ -516,6 +524,7 @@
                 ProductCode = p.ProductCode, Name = p.Name, ComponentClass = p.ComponentClass, Category = p.Category,
                 DefaultShelfLifeHours = p.DefaultShelfLifeHours, RequiresCrossmatch = p.RequiresCrossmatch,
                 RequiresAboMatch = p.RequiresAboMatch, RequiresRhMatch = p.RequiresRhMatch, RequiresRetype = p.RequiresRetype,
+                AllowMixedAboPool = p.AllowMixedAboPool,
                 RhPositiveRetypeTestId = p.RhPositiveRetypeTestId?.ToString() ?? string.Empty,
                 RhNegativeRetypeTestId = p.RhNegativeRetypeTestId?.ToString() ?? string.Empty,
                 Isbt128ProductCode = p.Isbt128ProductCode,
@@ -560,7 +569,8 @@
             ModificationRules, Attributes, reason,
             ParseId(RhPositiveRetypeTestId), ParseId(RhNegativeRetypeTestId),
             AboCells.Select(c => new ProductAboCompatibilityDto(c.PatientAbo, c.UnitAbo, c.IsAllowed)).ToList(),
-            RhCells.Select(c => new ProductRhCompatibilityDto(c.SexGroup, c.PatientRh, c.UnitRh, c.IsAllowed)).ToList());
+            RhCells.Select(c => new ProductRhCompatibilityDto(c.SexGroup, c.PatientRh, c.UnitRh, c.IsAllowed)).ToList(),
+            AllowMixedAboPool && ComponentClass == ComponentClass.Cryoprecipitate);
 
         private static long? ParseId(string? value) =>
             long.TryParse(value, out var id) && id > 0 ? id : null;

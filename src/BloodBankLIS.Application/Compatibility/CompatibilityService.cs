@@ -503,7 +503,7 @@ public sealed class CompatibilityService
         if (bloodType is not null && productType is not null && unit.BloodType.IsKnown)
         {
             results.AddRange(await EvaluateAboRhAsync(
-                request.PatientId, bloodType.BloodType, unit.BloodType, productType, ct));
+                request.PatientId, bloodType.BloodType, unit, productType, ct));
         }
         else if ((bloodType is null || !bloodType.BloodType.IsKnown) && productType is not null && unit.BloodType.IsKnown)
         {
@@ -585,7 +585,7 @@ public sealed class CompatibilityService
         if (bloodType is not null && productType is not null && unit.BloodType.IsKnown)
         {
             results.AddRange(await EvaluateAboRhAsync(
-                request.PatientId, bloodType.BloodType, unit.BloodType, productType, ct));
+                request.PatientId, bloodType.BloodType, unit, productType, ct));
         }
         else if ((bloodType is null || !bloodType.BloodType.IsKnown) && productType is not null && unit.BloodType.IsKnown)
         {
@@ -958,15 +958,16 @@ public sealed class CompatibilityService
     private async Task<IReadOnlyList<RuleResult>> EvaluateAboRhAsync(
         long patientId,
         AboRh patientType,
-        AboRh unitType,
+        BloodUnit unit,
         ProductType product,
         CancellationToken ct)
     {
         var patient = await _patients.GetByIdAsync(patientId, ct);
         var policy = await ProductAboRhPolicyLoader.ForProductAsync(
             _aboCompatibilities, _rhCompatibilities, product.Id, ct);
-        return AboCompatibilityRule.Evaluate(
-            patientType, unitType, product.ComponentClass, patient?.Sex ?? Sex.Unknown, policy);
+        // Mixed-ABO pooling phase 2: a pool is checked against each of its recorded components.
+        return AboCompatibilityRule.EvaluateUnit(
+            patientType, unit.BloodType, PoolComponents.Parse(unit.PoolComponentsJson), product.ComponentClass, patient?.Sex ?? Sex.Unknown, policy);
     }
 
     private async Task<EvaluationResult<T>?> RejectMergedPatientAsync<T>(long patientId, CancellationToken ct)

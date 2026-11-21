@@ -15,6 +15,12 @@ public static class AboCompatibilityRule
     public const string RhCode = "ISS-RH-COMPAT";
     public const string UnknownTypeCode = "ISS-ABORH-KNOWN";
 
+    /// <summary>A mixed-ABO pool was checked as a single group, or its components are not recorded (fails closed).</summary>
+    public const string MixedPoolCode = "ISS-ABO-MIXED-POOL";
+
+    private static RuleResult MixedWithoutComponents() => RuleResult.HardStop(MixedPoolCode,
+        "This is a mixed-ABO pool; it is checked against each unit in it, and its pool components are not recorded.");
+
     private const string AntigenA = "A";
     private const string AntigenB = "B";
     private const string AntigenD = "D";
@@ -36,6 +42,13 @@ public static class AboCompatibilityRule
     public static IReadOnlyList<RuleResult> Evaluate(AboRh recipient, AboRh donor, ComponentClass componentClass)
     {
         var results = new List<RuleResult>();
+
+        // Mixed-ABO pooling phase 2: a pool's "Mixed" is never compared as a group (it would carry no antigens and pass
+        // anyone); callers pass its components through EvaluateUnit.
+        if (recipient.Abo == AboGroup.Mixed || donor.Abo == AboGroup.Mixed)
+        {
+            return [MixedWithoutComponents()];
+        }
 
         if (recipient.Abo == AboGroup.Unknown || donor.Abo == AboGroup.Unknown)
         {
@@ -62,6 +75,11 @@ public static class AboCompatibilityRule
         if (policy is null || !policy.IsConfigured)
         {
             return Evaluate(recipient, donor, componentClass);
+        }
+
+        if (recipient.Abo == AboGroup.Mixed || donor.Abo == AboGroup.Mixed)
+        {
+            return [MixedWithoutComponents()];
         }
 
         if (recipient.Abo == AboGroup.Unknown || donor.Abo == AboGroup.Unknown)
@@ -194,6 +212,38 @@ public static class AboCompatibilityRule
 
         return antibodies.Any(ab => antigens.Contains(ab, StringComparer.Ordinal));
     }
+
+    /// <summary>
+    /// Mixed-ABO pooling phase 2 (docs/architecture/mixed-abo-pooling.md): checks a unit against the recipient. A pool
+    /// with recorded components is compatible only if every distinct component ABO/Rh is, under the same rule or product
+    /// table; any other unit is checked as itself. A unit whose ABO is Mixed but whose components are missing is refused.
+    /// </summary>
+    public static IReadOnlyList<RuleResult> EvaluateUnit(
+        AboRh recipient,
+        AboRh unit,
+        IReadOnlyList<PoolComponent>? components,
+        ComponentClass componentClass,
+        Sex patientSex = Sex.Unknown,
+        ProductAboRhPolicy? policy = null)
+    {
+        if (components is not { Count: > 0 })
+        {
+            return Evaluate(recipient, unit, componentClass, patientSex, policy);
+        }
+
+        var results = new List<RuleResult>();
+        foreach (var part in components.Distinct())
+        {
+            var partResults = Evaluate(recipient, new AboRh(part.Abo, part.RhD), componentClass, patientSex, policy);
+            results.AddRange(partResults.Where(r => r.Severity != RuleSeverity.Pass).Select(r =>
+                new RuleResult(r.Code, r.Severity, $"In this pool, the {Group(part)} unit: {r.Message}")));
+        }
+
+        return results.Count > 0 ? results : [RuleResult.Pass(AboCode), RuleResult.Pass(RhCode)];
+    }
+
+    private static string Group(PoolComponent part) =>
+        $"{part.Abo} {(part.RhD == RhType.Positive ? "Rh positive" : part.RhD == RhType.Negative ? "Rh negative" : "Rh unknown")}";
 
     public static AboProfile DeriveAboProfile(AboGroup abo) => abo switch
     {

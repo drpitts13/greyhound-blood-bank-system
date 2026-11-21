@@ -21,6 +21,9 @@ public sealed record IssueGateContext
     public AboRh PatientAboRh { get; init; }
 
     public required AboRh UnitAboRh { get; init; }
+
+    /// <summary>For a mixed-ABO pool, the ABO/Rh of each source unit (mixed-ABO pooling phase 2).</summary>
+    public IReadOnlyList<PoolComponent>? UnitPoolComponents { get; init; }
     public required ComponentClass ComponentClass { get; init; }
 
     public required UnitStatus UnitStatus { get; init; }
@@ -330,10 +333,11 @@ public static class IssueGate
         // Complex XM (3) is enforced at allocation/order time; compatible XM (4) above.
         if (c.PatientBloodTypeKnown && c.UnitAboRh.IsKnown)
         {
-            var abo = AboCompatibilityRule.Evaluate(
-                c.PatientAboRh, c.UnitAboRh, c.ComponentClass, c.PatientSex, c.AboRhPolicy);
+            var abo = AboCompatibilityRule.EvaluateUnit(
+                c.PatientAboRh, c.UnitAboRh, c.UnitPoolComponents, c.ComponentClass, c.PatientSex, c.AboRhPolicy);
+            // A mixed-ABO pool without recorded components stays refused even under emergency release (fails closed).
             results.AddRange(c.IsEmergencyRelease
-                ? abo.Select(r => r.Severity == RuleSeverity.HardStop
+                ? abo.Select(r => r.Severity == RuleSeverity.HardStop && r.Code != AboCompatibilityRule.MixedPoolCode
                     ? RuleResult.Warning(r.Code, r.Message)
                     : r)
                 : abo);

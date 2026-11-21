@@ -413,8 +413,8 @@ public sealed class PatientAllocationService
             }
             else
             {
-                eval.AddRange(AboCompatibilityRule.Evaluate(
-                    bloodType!.BloodType, unit.BloodType, product.ComponentClass, patient.Sex, aboRhPolicy));
+                eval.AddRange(AboCompatibilityRule.EvaluateUnit(
+                    bloodType!.BloodType, unit.BloodType, PoolComponents.Parse(unit.PoolComponentsJson), product.ComponentClass, patient.Sex, aboRhPolicy));
             }
 
             var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);
@@ -1210,8 +1210,8 @@ public sealed class PatientAllocationService
         var results = new List<RuleResult>();
         if (bloodType is not null && unit.BloodType.IsKnown)
         {
-            results.AddRange(AboCompatibilityRule.Evaluate(
-                bloodType.BloodType, unit.BloodType, product.ComponentClass, patient?.Sex ?? Sex.Unknown, aboRhPolicy));
+            results.AddRange(AboCompatibilityRule.EvaluateUnit(
+                bloodType.BloodType, unit.BloodType, PoolComponents.Parse(unit.PoolComponentsJson), product.ComponentClass, patient?.Sex ?? Sex.Unknown, aboRhPolicy));
         }
 
         var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);

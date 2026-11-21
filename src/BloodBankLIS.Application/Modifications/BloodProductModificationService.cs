@@ -536,7 +536,9 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Blocked(perUnitEval);
         }
 
-        var poolEval = UnitModificationEligibilityRule.EvaluatePool(sources.Select(ToSnapshot).ToList());
+        var poolTarget = await _inventory.GetProductTypeAsync(rule.TargetProductTypeId, ct);
+        var allowMixed = poolTarget is { AllowMixedAboPool: true, ComponentClass: ComponentClass.Cryoprecipitate };
+        var poolEval = UnitModificationEligibilityRule.EvaluatePool(sources.Select(ToSnapshot).ToList(), allowMixed);
         if (poolEval.IsHardStopped)
         {
             return ModificationActionResult.Blocked(poolEval);
@@ -1117,9 +1119,14 @@ public sealed class BloodProductModificationService
                 ProductDescriptionCode = dividePdc ?? targetProduct?.Isbt128ProductCode,
                 CollectionTypeCode = productCodeData is not null ? divideCollection : null,
                 DivisionCode = division,
-                Abo = primarySource.Abo,
-                RhD = primarySource.RhD,
-                // Mixed-ABO pooling phase 1: a pool records every source's ABO/Rh (pooling across ABO/Rh is still refused).
+                // Mixed-ABO pooling: a pool records every source's ABO/Rh (phase 1) and takes its group from them (phase 3):
+                // Mixed when the groups differ, Rh positive when any source is.
+                Abo = rule.ModificationType == ModificationType.Pool
+                    ? PoolComponents.ResultAbo(sources.Select(s => new PoolComponent(s.Abo, s.RhD)).ToList())
+                    : primarySource.Abo,
+                RhD = rule.ModificationType == ModificationType.Pool
+                    ? PoolComponents.ResultRh(sources.Select(s => new PoolComponent(s.Abo, s.RhD)).ToList())
+                    : primarySource.RhD,
                 PoolComponentsJson = rule.ModificationType == ModificationType.Pool
                     ? PoolComponents.ToJson(sources.Select(s => new PoolComponent(s.Abo, s.RhD)))
                     : null,

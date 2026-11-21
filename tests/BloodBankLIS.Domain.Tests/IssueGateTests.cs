@@ -660,4 +660,28 @@ public class IssueGateTests
     [Fact]
     public void NotIssuableMessage_OtherStatus_EndsAtTheStatus() =>
         Assert.Equal("Unit status CancelledAssignment is not issuable.", IssueGate.NotIssuableMessage(UnitStatus.CancelledAssignment));
+
+    // TEST-BB-1416 (mixed-ABO pooling phase 2): at issue a mixed pool is checked against its components, and one whose
+    // components are missing stays refused even under emergency release (the downgrade to a warning never applies to it).
+    [Fact]
+    public void MixedPool_IsCheckedByComponent_AndFailsClosedEvenInAnEmergency()
+    {
+        var cryo = PassingContext() with
+        {
+            ComponentClass = ComponentClass.Cryoprecipitate,
+            RequiresCrossmatch = false,
+            HasValidCrossmatch = false,
+            PatientAboRh = new AboRh(AboGroup.O, RhType.Positive),
+            UnitAboRh = new AboRh(AboGroup.Mixed, RhType.Positive)
+        };
+
+        Assert.True(IssueGate.Evaluate(cryo with
+        {
+            UnitPoolComponents = [new PoolComponent(AboGroup.A, RhType.Positive), new PoolComponent(AboGroup.O, RhType.Positive)]
+        }).IsAllowed);
+
+        var noComponents = IssueGate.Evaluate(cryo with { IsEmergencyRelease = true });
+        Assert.Contains(noComponents.Results, r => r.Code == AboCompatibilityRule.MixedPoolCode && r.Severity == RuleSeverity.HardStop);
+        Assert.False(noComponents.IsAllowed);
+    }
 }

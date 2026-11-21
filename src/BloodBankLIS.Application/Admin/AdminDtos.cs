@@ -351,6 +351,9 @@ public sealed record ProductDefinitionDto(
     IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
     IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null)
 {
+    /// <summary>Units may be pooled across ABO/Rh (mixed-ABO pooling phase 3; cryoprecipitate only, OCD-094).</summary>
+    public bool AllowMixedAboPool { get; init; }
+
     /// <summary>
     /// Charge-rule choice. The facility product code stays so the trigger key can be selected.
     /// A blank name stays the product id. The ISBT code is not used as the name.
@@ -395,7 +398,8 @@ public sealed record SaveProductDefinitionRequest(
     long? RhPositiveRetypeTestId = null,
     long? RhNegativeRetypeTestId = null,
     IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
-    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null);
+    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null,
+    bool AllowMixedAboPool = false);
 
 public sealed record ProductAttributeSelection(long AttributeId, bool IsRequired);
 
