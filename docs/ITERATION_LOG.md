@@ -29058,3 +29058,24 @@ Listed every hard stop on Modify products (items 5 and 7) and asked of each whet
 - **Pooling across ABO/Rh stays blocked.** A pool takes its first source's ABO/Rh and there is no mixed-ABO group, so allowing it would label a mixed pool with one source's group. Supporting mixed-ABO cryoprecipitate or platelet pools needs a mixed ABO state carried through selection and the issue checks; recorded as a design gap, not changed here.
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1081 — Design: mixed-ABO pooling (2026-11-20)
+
+### Why
+
+Tick 15 found pooling across ABO/Rh blocked, and kept the block because a pool takes its first source's group and the system has no mixed-ABO state. The product owner asked for a design.
+
+### Design
+
+`docs/architecture/mixed-abo-pooling.md`:
+- Record every pool's component ABO/Rh.
+- Add `AboGroup.Mixed`, used only for pools.
+- Check a mixed pool against each component with the product's existing rule or table; the worst result wins.
+- Route the six compatibility call sites through one helper, with a source test that fails if a new call site skips it.
+- Fail closed: an unrouted path or a pool with no recorded components is refused.
+- Add a per-product setting, off by default.
+- Show and count mixed pools in inventory, stock and selection.
+- Print MIXED on labels and P-tags until a licensed pooled ABO/RhD code exists.
+- Ship in four phases.
+
+The clinical choices are OCD-094. No code changed.
