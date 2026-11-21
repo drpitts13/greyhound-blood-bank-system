@@ -29123,3 +29123,17 @@ Reviewed Admin › Expiration Codes (items 3 and 7). Mixed-ABO pooling phases 2 
 ### Tests
 
 - TEST-BB-1398. Full suite passed.
+
+## Iteration 1084 — End-user testing loop 2, tick 17: builder page links (2026-11-21)
+
+### How it was tested
+
+Listed the header links on the twelve test and product builder pages (items 1, 6 and 7).
+
+### Found and fixed
+
+1. **Two builder pages did not link to their building blocks.** Tests linked to specimen types, groupers, reflex rules and billing, but not to Subtests or Phases, from which every panel test is built; Products did not link to Modification Rules. Both now do. Subtests, Phases, Modification Rules, Expiration Codes and the rest already linked back.
+
+### Tests
+
+- TEST-BB-1399. Full suite passed.
