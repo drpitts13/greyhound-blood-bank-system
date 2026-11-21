@@ -29488,3 +29488,18 @@ Every pair names the same thing. Where they differ, the heading is the label's l
 - *Admin Home* / *Administration*
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1108 — End-user testing loop 2, tick 41: bench menu labels against page headings, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Compared each label in the bench sections of the menu with its page's heading (item 1): Patients & Testing, Inventory, Transfusion, Quality & Review, Reports & Billing, Interfaces and Help.
+
+### Findings
+
+All 33 match, or the heading is the label's longer form:
+- *Inventory* / *Blood Product Inventory*
+- *Reactions* / *Transfusion reaction investigations*
+- *Downtime Snapshot* / *Downtime reconciliation snapshot*
+
+No change. Clean tick 2 of 5.
