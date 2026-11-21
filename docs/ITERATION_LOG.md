@@ -29322,3 +29322,18 @@ Reviewed Admin › Crossmatch Settings and Compatibility Tables (items 3 and 5).
 ### Tests
 
 - TEST-BB-1407. Full suite passed. Clean-tick count reset to 0 of 5.
+
+## Iteration 1097 — End-user testing loop 2, tick 30: other raw enum fields scanned, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Widened tick 29's scan to other enum-like fields printed straight into markup: category, location type, priority, container type, kind, direction, source, mode, role, context, polarity, result type, relative-to, unit, sex group, sex and disposition.
+
+### Findings
+
+The only matches print single-word values, which already read as words:
+- the panel cell role (Panel, Selected, Autocontrol)
+- the patient's sex (Male, Female, Unknown, Other)
+- an extract file's type
+
+No change. Clean tick 1 of 5.
