@@ -29274,3 +29274,20 @@ Reviewed the specimen type builder (item 6): code, description, expiration amoun
 ### Tests
 
 - TEST-BB-1405. Full suite passed. Clean-tick count reset to 0 of 5.
+
+## Iteration 1094 — End-user testing loop 2, tick 27: retiring a blood attribute names its uses (2026-11-21)
+
+### How it was tested
+
+Checked the remaining retire paths:
+- **Inventory locations** already refuse deactivation while they hold units. That block is kept, because stored units must be moved first.
+- **Suppliers and transport containers** are referenced only historically.
+- **Blood attributes** are the gap below.
+
+### Found and fixed
+
+1. **Retiring a blood attribute said nothing about what still used it.** An antigen such as K could be deactivated while still in an active typing test's scope, or named as the antigen of an active special requirement. The confirmation now names both. Codes match exactly, so C and c stay distinct.
+
+### Tests
+
+- TEST-BB-1406. Full suite passed. Clean-tick count stays at 0 of 5.

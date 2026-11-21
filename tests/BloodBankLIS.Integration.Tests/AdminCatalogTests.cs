@@ -42,7 +42,9 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
             _factory.Clock,
             _factory.CurrentUser,
             audit,
-            history);
+            history,
+            tests: new EfRepository<TestDefinition>(context),
+            requirements: new EfRepository<SpecialRequirementDefinition>(context));
     }
 
     private SpecimenTypeAdminService CreateSpecimenTypeService(BloodBankDbContext context)
@@ -622,5 +624,32 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
 
         Assert.True(retired.Succeeded);
         Assert.Contains(retired.Warnings, w => w.Message.Contains($"ST{key} is still the preferred specimen type") && w.Message.Contains($"TQ{key}"));
+    }
+
+    // TEST-BB-1406 (end-user testing loop 2 tick 27): retiring a blood attribute still in an active typing test's scope
+    // and an active special requirement succeeds and names both; a different-case code is not counted (C is not c).
+    [Fact]
+    public async Task BloodAttribute_Deactivate_NamesTestsAndRequirementsUsingIt()
+    {
+        var key = Guid.NewGuid().ToString("N")[..5].ToUpperInvariant();
+        await using var c = _factory.Create();
+        var svc = CreateBloodAttributeService(c);
+        var created = await svc.CreateAsync(new SaveBloodAttributeDefinitionRequest($"Q{key}", "Retiring antigen", $"anti-Q{key}", true, 1, null));
+        Assert.True(created.Succeeded, created.Error);
+        await svc.ActivateAsync(created.Value!.Id, "Initial");
+        c.TestDefinitions.Add(new TestDefinition { Code = $"TA{key}", Name = "Typing", IsActive = true, ResultValueType = ResultValueType.BloodAttribute,
+            BloodAttributeScopeJson = $"[{{\"code\":\"Q{key}\"}}]" });
+        c.TestDefinitions.Add(new TestDefinition { Code = $"TB{key}", Name = "Other case", IsActive = true, ResultValueType = ResultValueType.BloodAttribute,
+            BloodAttributeScopeJson = $"[{{\"code\":\"q{key.ToLowerInvariant()}\"}}]" });
+        c.SpecialRequirementDefinitions.Add(new SpecialRequirementDefinition { Code = $"SR{key}", Name = "Antigen negative", IsActive = true, AntigenCode = $"Q{key}" });
+        await c.SaveChangesAsync();
+
+        var retired = await svc.DeactivateAsync(created.Value.Id, "Replaced");
+
+        Assert.True(retired.Succeeded);
+        var typing = Assert.Single(retired.Warnings, w => w.Message.Contains("is still typed by"));
+        Assert.Contains($"TA{key}", typing.Message);
+        Assert.DoesNotContain($"TB{key}", typing.Message);
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"SR{key}") && w.Message.Contains("special requirement"));
     }
 }
