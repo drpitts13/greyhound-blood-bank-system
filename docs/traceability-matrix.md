@@ -1272,6 +1272,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1156 / FRS-BB-1274 | Mixed-ABO pooling phase 2: per-component compatibility, fail closed | `AboCompatibilityRule.cs`, `IssueGate.cs`, `CompatibilityService.cs`, `PatientAllocationService.cs` | TEST-BB-1416 | U | |
 | URS-BB-1157 / FRS-BB-1275 | End-user testing loop 2 tick 43: mixed-pool note before pooling | `Ui.cs`, `Modifications.razor` | TEST-BB-1417 | U | |
 | URS-BB-1158 / FRS-BB-1276 | End-user testing loop 2 tick 47: Exceptions page says which definitions are used | `ExceptionOverridePolicy.cs`, `AdminExceptions.razor` | TEST-BB-1418 | U | |
+| URS-BB-1159 / FRS-BB-1277 | End-user testing loop 2 tick 48: product names on the Modification Rules list | `AdminModificationRules.razor` | TEST-BB-1419 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

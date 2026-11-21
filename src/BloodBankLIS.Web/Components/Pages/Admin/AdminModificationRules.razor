@@ -48,9 +48,9 @@
                 {
                     <tr>
                         <td class="mono">@r.ModificationCode</td>
-                        <td class="mono">@r.SourceProductCode</td>
+                        <td><span class="mono">@r.SourceProductCode</span><div class="muted" data-rule-product-name>@ProductName(r.SourceProductTypeId)</div></td>
                         <td>@Ui.EnumText(r.ModificationType)</td>
-                        <td class="mono">@r.TargetProductCode</td>
+                        <td><span class="mono">@r.TargetProductCode</span><div class="muted" data-rule-product-name>@ProductName(r.TargetProductTypeId)</div></td>
                         <td class="mono">@r.ExpirationOffsetCode <span class="muted">(@RelativeLabel(r.ExpirationRelativeTo))</span></td>
                         <td>@r.Version</td>
                         <td>
@@ -169,6 +169,10 @@
 
     private IEnumerable<ExpirationModificationCodeDto> ExpirationChoices =>
         _expirationCodes.Where(c => c.IsActive || c.Id == _editing?.ExpirationModificationCodeId);
+
+    // End-user testing loop 2 tick 48: the list named products by code only (E0336 → E0332), while the form's pickers
+    // name them; the list now shows the product name under each code.
+    private string? ProductName(long productTypeId) => _products.FirstOrDefault(p => p.Id == productTypeId)?.Name;
 
     private static string RelativeLabel(ExpirationRelativeTo relativeTo) =>
         relativeTo == ExpirationRelativeTo.CollectionDateTime ? "collection" : "modification";

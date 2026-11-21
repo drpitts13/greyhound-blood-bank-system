@@ -106,3 +106,23 @@ public partial class ExceptionOverrideCodesSourceTests
     private static partial Regex OverrideLookup();
 }
 
+/// <summary>The Modification Rules list names its products (end-user testing loop 2 tick 48).</summary>
+public class ModificationRuleListSourceTests
+{
+    // TEST-BB-1419: the Modification Rules list shows the source and target product names under their codes, as the
+    // form's pickers do, so a rule reads "E0336 Red Blood Cells, leukoreduced → E0332 …" rather than two bare codes.
+    [Fact]
+    public void RuleList_ShowsProductNamesUnderCodes()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var page = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "Admin", "AdminModificationRules.razor"));
+        Assert.Contains("@ProductName(r.SourceProductTypeId)", page);
+        Assert.Contains("@ProductName(r.TargetProductTypeId)", page);
+    }
+}
+

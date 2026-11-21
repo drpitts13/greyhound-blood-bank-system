@@ -1427,5 +1427,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1416 | U | `MixedAboPoolCompatibilityTests.MixedPool_IsCheckedAgainstEachComponent_AndFailsClosedWithoutThem`, `MixedAboPoolCompatibilityTests.PoolGroup_AndEligibility_FollowTheSetting`, `MixedAboPoolCompatibilityTests.Mixed_IsNotATypingChoice`, `IssueGateTests.MixedPool_IsCheckedByComponent_AndFailsClosedEvenInAnEmergency`, `AboCheckRoutingSourceTests.UnitChecks_UseEvaluateUnit` | URS-BB-1156 / FRS-BB-1274 |
 | TEST-BB-1417 | U | `PoolMixNoteTests.PoolMixNote_NamesTheMixAndTheResult` | URS-BB-1157 / FRS-BB-1275 |
 | TEST-BB-1418 | U | `ExceptionOverrideCodesSourceTests.EveryOverrideLookup_IsListedInOverrideCodes` | URS-BB-1158 / FRS-BB-1276 |
+| TEST-BB-1419 | U | `ModificationRuleListSourceTests.RuleList_ShowsProductNamesUnderCodes` | URS-BB-1159 / FRS-BB-1277 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

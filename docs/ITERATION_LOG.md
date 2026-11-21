@@ -29639,3 +29639,19 @@ No change. Clean tick 1 of 5.
 
 Clean count reset to 0.
 
+## Iteration 1117 — End-user testing loop 2, tick 48: product names on the Modification Rules list (2026-11-21)
+
+### How it was tested
+
+- Opened Admin › Modification Rules as a builder would, to see which rule turns which product into which.
+
+### Findings
+
+- The list gave source and target products as bare codes: E0336 → E0332, E0336 → E5169. The form's pickers name the products, so a reader had to open each rule, or the Products page, to tell what a rule makes.
+
+### Change
+
+- Each product code in the list now has the product's name beneath it. TEST-BB-1419. URS-BB-1159 and FRS-BB-1277.
+
+Clean count stays at 0.
+
