@@ -1165,3 +1165,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1157 | Before pooling, Modify products says when the units differ in ABO/Rh and how the pool will be labelled. | P2 | FRS-BB-1275 |
 | URS-BB-1158 | Admin › Exceptions says which definitions the software uses for an override and which are listed for reference only, so marking an always-hard stop overridable is not mistaken for an override. | P2 | FRS-BB-1276 |
 | URS-BB-1159 | The Modification Rules list names the source and target products, not only their codes. | P3 | FRS-BB-1277 |
+| URS-BB-1160 | When a typed or scanned unit is not in a unit picker's list, the picker says so and which units it offers, instead of showing an empty list. | P2 | FRS-BB-1278 |

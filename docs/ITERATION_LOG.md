@@ -29670,3 +29670,22 @@ Clean count stays at 0.
 
 No change. Clean tick 1 of 5.
 
+## Iteration 1119 — End-user testing loop 2, tick 50: unit pickers say when nothing matches (2026-11-21)
+
+### How it was tested
+
+- On Modify products, typed the number of a seeded unit, W0001230001004, as a scanner would.
+
+### Findings
+
+- The unit is in quarantine, so it is rightly not offered.
+- The list showed only the blank clear row ("—"). `FilterableComboBox` hid its "No matches" line whenever the list could be cleared, and every unit picker can be cleared (Modify, Issue, Compatibility, Printing). The technologist got no reason.
+
+### Change
+
+- The combo box shows its no-match line whenever text is typed and nothing matches.
+- The unit picker's line names what it offers, for example: "No available unit matches. Units in quarantine, assigned, issued or expired are not offered here; look the unit up on Inventory to see its status."
+- TEST-BB-1420, URS-BB-1160, FRS-BB-1278.
+
+Clean count reset to 0.
+

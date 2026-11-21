@@ -126,3 +126,32 @@ public class ModificationRuleListSourceTests
     }
 }
 
+/// <summary>A typed or scanned value with no match says so (end-user testing loop 2 tick 50).</summary>
+public class ComboBoxNoMatchSourceTests
+{
+    // TEST-BB-1420: the shared combo box shows its no-match line whenever text is typed and nothing matches, even when
+    // the list has a clear row (a quarantined unit scanned on Modify products showed only "—"), and the unit picker
+    // says which units it offers for every scope.
+    [Fact]
+    public void NoMatch_IsShownForClearableLists_AndTheUnitPickerNamesItsScope()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var shared = Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Shared");
+        var combo = File.ReadAllText(Path.Combine(shared, "FilterableComboBox.razor"));
+        Assert.Contains("(!_showClearOption || !string.IsNullOrWhiteSpace(_inputText))", combo);
+        Assert.Contains("@NoMatchText", combo);
+
+        var picker = File.ReadAllText(Path.Combine(shared, "UnitPickerComboBox.razor"));
+        Assert.Contains("NoMatchText=\"@NoMatch\"", picker);
+        foreach (var scope in Enum.GetNames(typeof(BloodBankLIS.Web.Components.Shared.UnitPickerScope)).Where(s => s != "OnHand"))
+        {
+            Assert.Contains($"UnitPickerScope.{scope} =>", picker);
+        }
+    }
+}
+

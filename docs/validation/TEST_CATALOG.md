@@ -1428,5 +1428,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1417 | U | `PoolMixNoteTests.PoolMixNote_NamesTheMixAndTheResult` | URS-BB-1157 / FRS-BB-1275 |
 | TEST-BB-1418 | U | `ExceptionOverrideCodesSourceTests.EveryOverrideLookup_IsListedInOverrideCodes` | URS-BB-1158 / FRS-BB-1276 |
 | TEST-BB-1419 | U | `ModificationRuleListSourceTests.RuleList_ShowsProductNamesUnderCodes` | URS-BB-1159 / FRS-BB-1277 |
+| TEST-BB-1420 | U | `ComboBoxNoMatchSourceTests.NoMatch_IsShownForClearableLists_AndTheUnitPickerNamesItsScope` | URS-BB-1160 / FRS-BB-1278 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

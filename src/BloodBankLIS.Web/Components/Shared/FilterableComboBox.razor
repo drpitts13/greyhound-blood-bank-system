@@ -22,9 +22,11 @@
             {
                 <li class="bb-combobox-item" @onmousedown="() => SelectItemAsync(item)">@DisplayText(item)</li>
             }
-            @if (!Filtered.Any() && !_showClearOption)
+            @* End-user testing loop 2 tick 50: a clearable list hid "No matches", so a scanned unit that is not offered
+               showed only the blank clear row. *@
+            @if (!Filtered.Any() && (!_showClearOption || !string.IsNullOrWhiteSpace(_inputText)))
             {
-                <li class="bb-combobox-item bb-combobox-empty">No matches</li>
+                <li class="bb-combobox-item bb-combobox-empty" data-combobox-no-match>@NoMatchText</li>
             }
         </ul>
     }
@@ -44,6 +46,7 @@
     [Parameter] public Func<TValue, string>? UnresolvedText { get; set; }
     [Parameter] public bool Clearable { get; set; }
     [Parameter] public string ClearLabel { get; set; } = "—";
+    [Parameter] public string NoMatchText { get; set; } = "No matches";
     [Parameter] public string? Placeholder { get; set; }
     [Parameter] public int MaxSuggestions { get; set; } = 40;
     // Scan-first pages put the cursor here once, after the first render, without opening the list.
