@@ -94,7 +94,7 @@
         <div class="bb-card-title"><h3>3. Modification details</h3></div>
         <div class="form-row">
             <div class="field"><label>Modification code</label><div class="mono">@_selectedRule.ModificationCode</div></div>
-            <div class="field"><label>New product</label><div class="mono">@_selectedRule.TargetProductCode</div></div>
+            <div class="field"><label>New product</label><div data-new-product><span class="mono">@_selectedRule.TargetProductCode</span>@TargetName(_selectedRule.TargetProductTypeId)</div></div>
             <div class="field"><label>New expiration</label>
                 <div>@(_selectedRule.PreviewExpiresUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</div>
                 <div class="muted">@_selectedRule.ExpirationOffsetCode from @RelativeLabel(_selectedRule.ExpirationRelativeTo), capped at source expiration</div>

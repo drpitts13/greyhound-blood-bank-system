@@ -29706,3 +29706,20 @@ Clean count reset to 0.
 
 Clean count stays at 0.
 
+## Iteration 1121 — End-user testing loop 2, tick 52: step 3's New product names the product (2026-11-21)
+
+### How it was tested
+
+- Continued tick 51: chose IRR-RBC-LR for W0001230009201 and read step 3, Modification details. Nothing was saved.
+
+### Findings
+
+- Step 3 is where the technologist confirms what will be made, but it gave "New product E0332" as a bare code. Tick 51 had fixed the choice list only.
+
+### Change
+
+- New product reads "E0332 Red Blood Cells, Irradiated".
+- TEST-BB-1421 was extended to cover it, and FRS-BB-1279 now covers step 3 too.
+
+Clean count stays at 0.
+

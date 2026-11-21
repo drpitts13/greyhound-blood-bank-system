@@ -171,6 +171,9 @@ public class ModifyChoiceSourceTests
 
         var page = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "Modifications.razor"));
         Assert.Contains("@e.TargetProductCode@(TargetName(e.TargetProductTypeId))", page);
+
+        // Tick 52: step 3's "New product" names it too.
+        Assert.Contains("@_selectedRule.TargetProductCode</span>@TargetName(_selectedRule.TargetProductTypeId)", page);
     }
 }
 
