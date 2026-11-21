@@ -29580,3 +29580,15 @@ Read the design's inventory, label and interface sections against the code after
    None of these weakens safety: a pool never reads as one group. The design now describes what is built and lists the three items not built: groups on labels and pick lists, a *Mixed ABO* stock row, and FHIR component entries.
 
 No code change. Clean-tick count stays at 0 of 5 (a finding).
+
+## Iteration 1113 — End-user testing loop 2, tick 45: Pooled from example matches the screen (2026-11-21)
+
+### How it was tested
+
+Re-read the mixed-pool help against the screens after tick 44.
+
+### Found and fixed
+
+1. **The help's example did not match the screen.** It showed *Pooled from* as *4 units: O Pos ×3, O Neg*, but the unit page writes blood types as *O+* and *O−* (*4 units: O+ ×3, O−*). The example now matches. The products help and OCD-094 already read correctly.
+
+Docs only. Clean-tick count stays at 0 of 5 (a finding).
