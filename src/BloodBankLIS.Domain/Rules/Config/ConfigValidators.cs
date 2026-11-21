@@ -1205,7 +1205,7 @@ public static class SpecialRequirementDefinitionValidator
 }
 
 /// <summary>
-/// Reaction workup settings: each chosen Test Group must be an active, released group. A role left empty means the
+/// Reaction workup settings: each chosen Test Grouper must be an active, released group. A role left empty means the
 /// workup for that specimen cannot be ordered until an administrator chooses one.
 /// </summary>
 public static class ReactionWorkupSettingsValidator
@@ -1241,7 +1241,7 @@ public static class ReactionWorkupSettingsValidator
         if (group is null || !group.IsActive || group.IsDraft)
         {
             results.Add(RuleResult.HardStop(code,
-                $"Test Group '{chosen}' for the {role} specimen is not an active, released Test Group."));
+                $"Test Grouper '{chosen}' for the {role} specimen is not an active, released Test Grouper."));
         }
     }
 }

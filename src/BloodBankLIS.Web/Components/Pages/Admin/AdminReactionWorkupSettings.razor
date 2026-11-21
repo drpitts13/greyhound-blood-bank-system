@@ -8,13 +8,13 @@
 <div class="flex-between">
     <h1>Reaction Workup</h1>
     <div class="flex gap">
-        <a class="btn btn-ghost" href="/admin/test-groupers">Open Test Groups</a>
+        <a class="btn btn-ghost" href="/admin/test-groupers">Open Test Groupers</a>
         <a class="btn btn-ghost" href="/reactions">Open Reaction investigations</a>
     </div>
 </div>
 <p class="muted">
     A transfusion reaction workup tests two specimens: the pre-transfusion specimen, collected before the unit was issued,
-    and a post-transfusion specimen, drawn after the reaction. Choose the Test Group ordered on each. The investigator adds
+    and a post-transfusion specimen, drawn after the reaction. Choose the Test Grouper ordered on each. The investigator adds
     each specimen on the investigation, its group is ordered Stat, and the tests are resulted and verified on the bench.
     Changes are versioned and audited; they apply to specimens added afterwards.
 </p>
@@ -28,7 +28,7 @@
 else if (_settings is not null)
 {
     <div class="bb-card" style="margin-top:1rem;">
-        <div class="bb-card-title"><h3>Test Group for each specimen</h3><span class="muted">Version @_settings.Version</span></div>
+        <div class="bb-card-title"><h3>Test Grouper for each specimen</h3><span class="muted">Version @_settings.Version</span></div>
         <div class="form-row">
             <div class="field">
                 <label>Pre-transfusion specimen</label>
@@ -53,7 +53,7 @@ else if (_settings is not null)
                 <span class="sub">@Members(_postCode)</span>
             </div>
         </div>
-        <p class="muted">Only active, released Test Groups are offered. While a specimen has no group chosen, its workup cannot be ordered and an investigation cannot be closed.</p>
+        <p class="muted">Only active, released Test Groupers are offered. While a specimen has no group chosen, its workup cannot be ordered and an investigation cannot be closed.</p>
     </div>
 
     @if (CanEdit)
@@ -114,7 +114,7 @@ else if (_settings is not null)
         _busy = false;
         if (r.Succeeded)
         {
-            _feedback = r.ToFeedback("Reaction workup Test Groups saved.");
+            _feedback = r.ToFeedback("Reaction workup Test Groupers saved.");
             _reason = string.Empty;
             await LoadAsync();
         }

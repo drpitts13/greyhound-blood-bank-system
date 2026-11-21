@@ -29458,3 +29458,17 @@ Re-checked this loop's earlier ISBT and dating changes for drift (items 7 and 8)
 - The freeze dating exception reads the same in all three places: Expiration Codes, the Expiration Codes help and the Modification Rules help.
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1106 — End-user testing loop 2, tick 39: test grouper naming (2026-11-21)
+
+### How it was tested
+
+Opened Admin › Reaction Workup (items 1 and 3).
+
+### Found and fixed
+
+1. **The same thing had two names.** The menu and its page say *Test Groupers*, but Reaction Workup, its *Open Test Groups* button, Admin Home, the Reactions page, the workup messages and validator, and the help called them *Test Groups*. The help pointed to *Administration › Test Groups*, which is not in the menu. All now say *Test Grouper(s)*, and the help points to *Administration › Tests & specimens › Test Groupers*.
+
+### Tests
+
+- The reaction workup test asserting the unchosen-specimen message now expects *Test Grouper*. Full suite passed. Clean-tick count reset to 0 of 5.

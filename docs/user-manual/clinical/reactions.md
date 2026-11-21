@@ -21,7 +21,7 @@ If the investigation leads to a requirement for future products, choose **Add sp
 
 ## Workup specimens
 
-The workup tests two specimens, each with the tests of its Test Group (chosen in Administration › Reaction Workup):
+The workup tests two specimens, each with the tests of its Test Grouper (chosen in Administration › Reaction Workup):
 
 1. **Pre-transfusion specimen.** Choose it from the patient's specimens collected before the unit was issued; the tube the unit was crossmatched on is suggested. A pre-transfusion tube that has since expired can still be used for the workup (shown as "Expired: workup allowed"); it cannot be used for anything else.
 2. **Post-transfusion specimen.** Accession the tube drawn after the reaction (scan or type its accession, type, and collection time), or choose one already accessioned since the transfusion began.

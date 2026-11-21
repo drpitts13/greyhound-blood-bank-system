@@ -13,7 +13,7 @@
         <li>Each of those steps is recorded once.</li>
         <li>Choosing severity Fatal starts that same follow-up.</li>
         <li>Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA.</li>
-        <li>Close requires the clerical and visual checks, both workup specimens, and every Test Group test on them verified.</li>
+        <li>Close requires the clerical and visual checks, both workup specimens, and every Test Grouper test on them verified.</li>
     </ul>
 </details>
 
@@ -271,7 +271,7 @@ else
                 <p class="muted">Recorded at close: @_selected.ConcludedReactionText; treatment: @(_selected.TreatmentTexts ?? "—").</p>
             }
             <h4>Workup specimens</h4>
-            <p class="muted">The pre-transfusion specimen (collected before the unit was issued) and a post-transfusion specimen each get the tests of their Test Group (Administration › Reaction Workup), as a Stat order resulted on the bench. Repeat ABO/Rh and DAT come from these results.</p>
+            <p class="muted">The pre-transfusion specimen (collected before the unit was issued) and a post-transfusion specimen each get the tests of their Test Grouper (Administration › Reaction Workup), as a Stat order resulted on the bench. Repeat ABO/Rh and DAT come from these results.</p>
             <div class="form-row" style="align-items:flex-start;" data-workup-specimens>
                 @foreach (var role in new[] { ReactionWorkupSpecimenDto.PreRole, ReactionWorkupSpecimenDto.PostRole })
                 {
@@ -332,7 +332,7 @@ else
                         }
                         else if (string.IsNullOrWhiteSpace(isPre ? _workupOptions.PreTransfusionTestGroupCode : _workupOptions.PostTransfusionTestGroupCode))
                         {
-                            <span class="alert alert-warning">No Test Group is chosen for this specimen. An administrator chooses it in Administration › Reaction Workup.</span>
+                            <span class="alert alert-warning">No Test Grouper is chosen for this specimen. An administrator chooses it in Administration › Reaction Workup.</span>
                         }
                         else
                         {

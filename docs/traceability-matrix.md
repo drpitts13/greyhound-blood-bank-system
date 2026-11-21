@@ -1267,6 +1267,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1151 / FRS-BB-1269 | End-user testing loop 2 tick 35: order action wording | `AdminActions.razor`, `modifications.md`, `patient-orders.md` | TEST-BB-1411 | U | |
 | URS-BB-1152 / FRS-BB-1270 | End-user testing loop 2 tick 36: Modify products wording | `Modifications.razor`, `modifications.md` | TEST-BB-1412 | U | |
 | URS-BB-1153 / FRS-BB-1271 | End-user testing loop 2 tick 37: value types explained in the Tests help | `tests.md` | TEST-BB-1413 | U | |
+| URS-BB-1154 / FRS-BB-1272 | End-user testing loop 2 tick 39: test grouper naming | `AdminReactionWorkupSettings.razor`, `ReactionWorkupService.cs`, `ConfigValidators.cs` | TEST-BB-1414 | I | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

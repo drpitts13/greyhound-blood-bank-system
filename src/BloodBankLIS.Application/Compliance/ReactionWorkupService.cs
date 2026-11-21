@@ -10,7 +10,7 @@ namespace BloodBankLIS.Application.Compliance;
 
 /// <summary>
 /// Orders the transfusion reaction workup: the pre-transfusion specimen (collected before the unit was issued) and
-/// the post-transfusion specimen (drawn after the reaction) each get the tests of the Test Group the settings map
+/// the post-transfusion specimen (drawn after the reaction) each get the tests of the Test Grouper the settings map
 /// them to, as a Stat reaction workup order linked to that specimen. The tests are then resulted and verified on the
 /// bench like any other. Each specimen is set once; it is not swapped after its order exists.
 /// </summary>
@@ -133,7 +133,7 @@ public sealed class ReactionWorkupService
         long investigationId, AttachWorkupSpecimenRequest request, CancellationToken ct = default) =>
         AttachAsync(investigationId, request?.SpecimenId ?? 0, preTransfusion: false, ct);
 
-    /// <summary>Accessions the post-transfusion specimen drawn for the workup, then orders its Test Group on it.</summary>
+    /// <summary>Accessions the post-transfusion specimen drawn for the workup, then orders its Test Grouper on it.</summary>
     public async Task<OperationResult<ReactionInvestigation>> AccessionPostTransfusionSpecimenAsync(
         long investigationId, AccessionPostTransfusionSpecimenRequest request, CancellationToken ct = default)
     {
@@ -307,13 +307,13 @@ public sealed class ReactionWorkupService
                 SpecimenExpired = specimen.ExpiresUtc is DateTime expires && expires <= _clock.UtcNow
             },
             reason: replacing
-                ? $"{role} specimen replaced after its workup order was cancelled; Test Group {groupCode} ordered."
-                : $"{role} specimen added to the workup; Test Group {groupCode} ordered.");
+                ? $"{role} specimen replaced after its workup order was cancelled; Test Grouper {groupCode} ordered."
+                : $"{role} specimen added to the workup; Test Grouper {groupCode} ordered.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReactionInvestigation>.Ok(tracked);
     }
 
-    /// <summary>Open case, role not yet set, Test Group configured: the group code, or why not.</summary>
+    /// <summary>Open case, role not yet set, Test Grouper configured: the group code, or why not.</summary>
     /// <summary>True when the role already has an order and that order was cancelled or discontinued.</summary>
     private async Task<bool> ExistingOrderWithdrawnAsync(ReactionInvestigation row, bool preTransfusion, CancellationToken ct)
     {
@@ -345,7 +345,7 @@ public sealed class ReactionWorkupService
 
         var group = preTransfusion ? settings?.PreTransfusionTestGroupCode : settings?.PostTransfusionTestGroupCode;
         return string.IsNullOrWhiteSpace(group)
-            ? (null, $"No Test Group is chosen for the {role} specimen. Choose one in Administration, Reaction Workup.")
+            ? (null, $"No Test Grouper is chosen for the {role} specimen. Choose one in Administration, Reaction Workup.")
             : (group, null);
     }
 

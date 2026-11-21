@@ -1159,3 +1159,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1151 | Admin › Actions and the help name every modification a product order can request. | P3 | FRS-BB-1269 |
 | URS-BB-1152 | Modify products and its help name every modification type and which can be applied to a batch. | P3 | FRS-BB-1270 |
 | URS-BB-1153 | The Tests help explains each result value type and the blood bank tests it suits. | P3 | FRS-BB-1271 |
+| URS-BB-1154 | Test groupers are called the same everywhere, so pages and messages point to the page by its menu name. | P3 | FRS-BB-1272 |

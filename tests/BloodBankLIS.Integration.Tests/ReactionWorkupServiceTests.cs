@@ -14,7 +14,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
-/// <summary>Transfusion reaction workup: specimens mapped to Test Groups by the settings, ordered and linked.</summary>
+/// <summary>Transfusion reaction workup: specimens mapped to Test Groupers by the settings, ordered and linked.</summary>
 public class ReactionWorkupServiceTests : IDisposable
 {
     private readonly SqliteContextFactory _factory = new();
@@ -110,7 +110,7 @@ public class ReactionWorkupServiceTests : IDisposable
         return new Case(inv.Id, patient.Id, crossmatchTube.Id, olderTube.Id, afterIssue.Id, expiredTube.Id);
     }
 
-    // TEST-BB-442: the settings choose a released Test Group for each specimen, with a reason and history.
+    // TEST-BB-442: the settings choose a released Test Grouper for each specimen, with a reason and history.
     [Fact]
     public async Task Settings_StartAtTheStarterGroups_AndAcceptOnlyReleasedGroupsWithAReason()
     {
@@ -183,7 +183,7 @@ public class ReactionWorkupServiceTests : IDisposable
         settings.PostTransfusionTestGroupCode = null;
         await c.SaveChangesAsync();
         var unchosen = await Workup(c).AttachPostTransfusionSpecimenAsync(s.InvestigationId, new AttachWorkupSpecimenRequest(s.AfterIssueTubeId));
-        Assert.Contains("No Test Group is chosen for the post-transfusion specimen", unchosen.Error);
+        Assert.Contains("No Test Grouper is chosen for the post-transfusion specimen", unchosen.Error);
 
         var inv = await c.ReactionInvestigations.SingleAsync(r => r.Id == s.InvestigationId);
         inv.Status = ReactionInvestigationStatus.Closed;

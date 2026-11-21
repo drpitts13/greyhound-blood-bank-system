@@ -1422,5 +1422,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1411 | U | `OrderActionWordingTests.EveryAttachableType_IsNamed` | URS-BB-1151 / FRS-BB-1269 |
 | TEST-BB-1412 | U | `ModifyProductsWordingTests.Introduction_NamesEveryModificationType` | URS-BB-1152 / FRS-BB-1270 |
 | TEST-BB-1413 | U | `TestValueTypeHelpTests.Help_ExplainsEveryValueType` | URS-BB-1153 / FRS-BB-1271 |
+| TEST-BB-1414 | I | `ReactionWorkupServiceTests.Attach_RefusesTheWrongTube_AnUnchosenGroup_AndAClosedCase` | URS-BB-1154 / FRS-BB-1272 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
