@@ -29045,3 +29045,16 @@ Reviewed product code loading (item 8) from the administrator's side: a supplier
 ### Tests
 
 - TEST-BB-1396. Full suite passed.
+
+## Iteration 1080 — End-user testing loop 2, tick 15: modification hard stops reviewed, nothing to fix (2026-11-20)
+
+### How it was tested
+
+Listed every hard stop on Modify products (items 5 and 7) and asked of each whether an override would be safer than a block.
+
+### Findings
+
+- **Kept as blocks:** an expired or wrong-status source; volumes that are zero, exceed the source or go unaccounted; fewer than two sources to pool or two results to divide; ISBT division codes exhausted; equipment out of service; the irradiation indicator and irradiator; a missing supply lot where the rule requires one.
+- **Pooling across ABO/Rh stays blocked.** A pool takes its first source's ABO/Rh and there is no mixed-ABO group, so allowing it would label a mixed pool with one source's group. Supporting mixed-ABO cryoprecipitate or platelet pools needs a mixed ABO state carried through selection and the issue checks; recorded as a design gap, not changed here.
+
+No change. Clean tick 1 of 5.
