@@ -109,10 +109,11 @@ else
                                 }
                             </td>
                             <td>
-                                @(r.IssueType?.ToString() ?? "—")
+                                @* Loop 2 tick 7: issue type and crossmatch status in words (read "Standard" over "Compatible"). *@
+                                <span data-reaction-issue-type>@(r.IssueType is { } issueType ? Ui.EnumText(issueType) : "—")</span>
                                 @if (r.CrossmatchStatus is { } xm)
                                 {
-                                    <div class="muted">@xm</div>
+                                    <div class="muted" data-reaction-xm>@(xm == CrossmatchClinicalStatus.NotCrossmatchedEmergency ? "Not crossmatched (emergency)" : $"Crossmatch: {Ui.EnumText(xm).ToLowerInvariant()}")</div>
                                 }
                                 @if (r.TestsIncompleteAtIssue)
                                 {

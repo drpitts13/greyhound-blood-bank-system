@@ -101,7 +101,7 @@
                 {
                     <tr>
                         <td class="nowrap">@e.OccurredUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td><span class="badge badge-blue">@e.EventType</span></td>
+                        <td><span class="badge badge-blue" data-audit-event>@Ui.EnumText(e.EventType)</span></td>
                         <td>
                             @if (EntityHref(e) is { } href)
                             {

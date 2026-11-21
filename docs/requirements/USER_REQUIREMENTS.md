@@ -1134,3 +1134,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1126 | The Administration menu is grouped by task and reaches every admin page. | P2 | FRS-BB-1244 |
 | URS-BB-1127 | The product list shows each product's ISBT code and reads its class and retype in words. | P3 | FRS-BB-1245 |
 | URS-BB-1128 | Builder pages show billing triggers, rule severities, component classes and action types in words. | P3 | FRS-BB-1246 |
+| URS-BB-1129 | The audit trail and reaction list show event types, issue types and crossmatch status in words. | P3 | FRS-BB-1247 |

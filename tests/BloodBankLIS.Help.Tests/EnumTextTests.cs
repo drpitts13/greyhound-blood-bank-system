@@ -38,6 +38,9 @@ public partial class EnumTextTests
         Assert.Equal(BloodBankLIS.Domain.Rules.ComponentClassLabels.Label(ComponentClass.WholeBlood), Ui.ComponentClassText("WholeBlood"));
         Assert.Equal("Something new", Ui.ComponentClassText("SomethingNew"));
         Assert.Equal(string.Empty, Ui.ComponentClassText(null));
+        // TEST-BB-1389 (loop 2 tick 7): audit event types read in words on the audit trail.
+        Assert.Equal("Patient access", Ui.EnumText(AuditEventType.PatientAccess));
+        Assert.Equal("Report run", Ui.EnumText(AuditEventType.ReportRun));
     }
 
     [Theory]

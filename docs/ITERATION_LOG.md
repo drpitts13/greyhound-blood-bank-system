@@ -28905,3 +28905,21 @@ Swept the tables of all 44 admin builder pages (item 3) for values shown as code
 ### Tests
 
 - TEST-BB-1388. Full suite passed.
+
+## Iteration 1072 — End-user testing loop 2, tick 7: audit and reaction list in words (2026-11-20)
+
+### How it was tested
+
+Swept 37 bench pages (inventory, transfusion, quality, reports, testing, interfaces, a chart and a unit) for values shown as code names.
+
+### Found and fixed
+
+1. **Two bench pages showed code names.** The audit trail's event badges read *PatientAccess* and *ReportRun* (its filter already read in words), and the reaction list showed the issue type with a bare crossmatch status beneath (*Standard* / *Compatible*). Events now read *Patient access*, *Report run*; the reaction row reads *Standard* with *Crossmatch: compatible* (or *Not crossmatched (emergency)*). The other hits were button pairs run together.
+
+### Retested live
+
+- Audit Trail and Reactions read in words.
+
+### Tests
+
+- TEST-BB-1389. Full suite passed.
