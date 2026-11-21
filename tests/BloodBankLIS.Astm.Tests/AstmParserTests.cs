@@ -124,18 +124,21 @@ public class AstmParserTests
                 Sex = Sex.Male
             },
             new Specimen { AccessionNumber = "0651439A" },
-            [new OrderLine { TestCode = "XM", IsActive = true }],
-            [new InstrumentTestMapping
+            [new OrderLine { TestCode = "XM", IsActive = true }, new OrderLine { TestCode = "ABID", IsActive = true }],
+            InstrumentValueTranslator.From([new InstrumentValueTranslation
             {
-                InstrumentCode = "Crossmatch",
-                ApplicationCode = "XM",
-                Kind = InstrumentMappingKind.Assay,
-                Direction = InterfaceTranslationDirection.Both
-            }],
+                DataItemKey = InstrumentTranslationKeys.OrderTestCode,
+                InstrumentValue = "Crossmatch",
+                LocalValue = "XM",
+                Direction = InterfaceTranslationDirection.Outbound
+            }]),
+            out var notSent,
             donorUnitNumber: "R02460");
 
         Assert.Contains("^^^Crossmatch", raw);
         Assert.Contains("C|1|L|Donor^R02460", raw);
+        // A test with no instrument code is left out of the download, and named.
+        Assert.Equal(["ABID"], notSent);
     }
 
     [Fact]
@@ -148,6 +151,37 @@ public class AstmParserTests
         Assert.Contains(message.Records, r => r.Type == 'O' && r.GetComponent(5, 4) == "Group");
         Assert.Contains(message.Records, r => r.Type == 'O' && r.GetComponent(5, 4) == "Screen");
         Assert.Contains(message.Records, r => r.Type == 'L');
+    }
+
+    // TEST-BB-1043: the instrument run reads as analyzer and completion time; an unparseable time is kept as sent; the
+    // worklist shows what follows the reference's key (end-user testing pass 30).
+    [Fact]
+    public void InstrumentRun_ReadsAsAnalyzerAndCompletionTime()
+    {
+        Assert.Equal(" · M0002 · completed 2026-11-12 19:49 (instrument clock)",
+            BloodBankLIS.Astm.Messaging.AstmInboundProcessor.InstrumentRunText("M0002", "20261112194943"));
+        Assert.Equal(" · completed soon", BloodBankLIS.Astm.Messaging.AstmInboundProcessor.InstrumentRunText(null, "soon"));
+        Assert.Equal(string.Empty, BloodBankLIS.Astm.Messaging.AstmInboundProcessor.InstrumentRunText(" ", null));
+        Assert.Equal("M0002 · instrument flag W (Warn)",
+            BloodBankLIS.Application.Results.ResultSourceDetail.For("ASTM:ACC1:ABORH · M0002 · instrument flag W (Warn)"));
+        Assert.Null(BloodBankLIS.Application.Results.ResultSourceDetail.For("ASTM:ACC1:ABORH"));
+    }
+
+    // TEST-BB-1041: a simulated result record follows ASTM E1394 as the Echo does: status in R.9, completion time in R.13
+    // and instrument in R.14, where the catalog's data items read them (end-user testing pass 29: result_dt read M0002).
+    [Fact]
+    public void Simulator_PutsTheResultTimeAndInstrumentWhereTheEchoDoes()
+    {
+        var generated = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "DAT", "ACC-SIM", "MRN-SIM", "Patient", "Test", "19590422", "M", Seed: 5));
+        var result = AstmParser.Parse(generated.RawMessage).Records.First(r => r.Type == 'R');
+        Assert.Equal("F", result.GetField(9));
+        Assert.Matches("^[0-9]{14}$", result.GetField(13));
+        // The analyzer's own clock is local time (end-user testing pass 63: it stamped UTC).
+        var stamped = DateTime.ParseExact(result.GetField(13), "yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        Assert.True(Math.Abs((stamped - DateTime.Now).TotalMinutes) < 2, $"R.13 {stamped:O} is not the local clock {DateTime.Now:O}");
+        Assert.Equal("M0002", result.GetField(14));
+        Assert.Equal("R.13", BloodBankLIS.Domain.Instruments.InstrumentDataItemCatalog.Find("result_dt")!.DefaultAstmPath);
     }
 
     [Theory]

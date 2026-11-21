@@ -1,0 +1,106 @@
+@page "/inventory/return-to-supplier/list"
+@inject BloodBankApiClient Api
+
+<PageTitle>Return list &middot; HemoCore</PageTitle>
+
+@* The sheet that goes back with a return to the supplier: the reason, the units, and blanks for the courier or supplier. *@
+<div class="flex-between no-print">
+    <a class="btn btn-ghost" href="/inventory/return-to-supplier">Return to supplier</a>
+    @if (_return is not null)
+    {
+        <button type="button" class="btn btn-primary" onclick="window.print()" data-return-print>Print</button>
+    }
+</div>
+<Outcome Value="_feedback" />
+
+@if (_loaded && _return is null && _feedback is null)
+{
+    <div class="empty" data-return-not-found>No return matching this list was found in the past year.</div>
+}
+
+@if (_return is { } r)
+{
+    <div class="mtp-report" data-return-sheet>
+        <h1>Return to supplier</h1>
+        <p class="mtp-report-sub">@r.Units.Count unit@(r.Units.Count == 1 ? "" : "s") &middot; Times are local to the returning facility</p>
+
+        <table class="mtp-report-facts">
+            <tbody>
+                <tr><th>Reason</th><td colspan="3" data-return-reason-text>@r.Reason</td></tr>
+                <tr><th>Returned</th><td>@ReturnedText(r)</td><th>Returned by</th><td>@string.Join(", ", r.ReturnedBy)</td></tr>
+                <tr><th>Supplier</th><td colspan="3" data-return-suppliers>@(r.Suppliers.Count == 0 ? "Not recorded on the units" : string.Join(", ", r.Suppliers))</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Units (@r.Units.Count)</h2>
+        <table class="mtp-report-units" data-return-units>
+            <thead>
+                <tr><th>#</th><th>Unit number</th><th>Product code</th><th>ABO/Rh</th><th>Expires</th><th>Supplier</th><th>Received (initials)</th></tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < r.Units.Count; i++)
+                {
+                    var u = r.Units[i];
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td class="mono">@u.UnitNumber</td>
+                        <td class="mono">@(u.Isbt128ProductCode ?? u.ProductCodeData ?? "—")</td>
+                        <td>@u.BloodType</td>
+                        <td class="nowrap">@u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@(u.Supplier ?? "—")</td>
+                        <td class="mtp-blank"></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h2>Handed over</h2>
+        <table class="mtp-report-sign">
+            <tbody>
+                <tr><th>Courier or supplier (print name)</th><td class="mtp-blank"></td><th>Date/time</th><td class="mtp-blank"></td></tr>
+                <tr><th>Container and temperature</th><td class="mtp-blank"></td><th>Signature</th><td class="mtp-blank"></td></tr>
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    // The return's key (SupplierReturnListRule.ReturnKey): the reason and the UTC day.
+    [SupplyParameterFromQuery(Name = "key")] public string? Key { get; set; }
+
+    private SupplierReturnDto? _return;
+    private Feedback? _feedback;
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Key))
+        {
+            _feedback = Feedback.Fail("Open a return list from Return to supplier: no return was named.");
+            _loaded = true;
+            return;
+        }
+
+        var returns = await Api.GetSupplierReturnsAsync(366);
+        if (!returns.Succeeded)
+        {
+            _feedback = returns.ToFeedback();
+        }
+        else
+        {
+            _return = returns.Value?.FirstOrDefault(r => r.Key == Key);
+        }
+
+        _loaded = true;
+    }
+
+    // A run scanned over some minutes reads as its first and last time.
+    private static string ReturnedText(SupplierReturnDto r)
+    {
+        var first = r.FirstReturnedUtc.ToLocalTime();
+        var last = r.LastReturnedUtc.ToLocalTime();
+        return last - first >= TimeSpan.FromMinutes(1)
+            ? $"{first:yyyy-MM-dd HH:mm} to {last:yyyy-MM-dd HH:mm}"
+            : $"{first:yyyy-MM-dd HH:mm}";
+    }
+}

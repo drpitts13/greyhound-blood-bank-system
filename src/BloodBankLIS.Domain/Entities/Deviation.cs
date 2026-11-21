@@ -23,6 +23,22 @@ public class Deviation : BaseEntity
 
     public string? CorrectiveAction { get; set; }
 
+    /// <summary>Why it happened, as investigated (end-user testing pass 73).</summary>
+    public string? RootCause { get; set; }
+
+    /// <summary>The FDA reportability determination (BPDR, 21 CFR 606.171), and when and under what number it was reported.</summary>
+    public DeviationFdaReportability FdaReportability { get; set; }
+
+    public DateOnly? FdaReportedOn { get; set; }
+
+    public string? FdaReportNumber { get; set; }
+
+    /// <summary>Who is responsible for the investigation and corrective action (end-user testing pass 98).</summary>
+    public string? AssignedTo { get; set; }
+
+    /// <summary>When the deviation is to be closed by, as the quality unit sets it; none is built in.</summary>
+    public DateOnly? DueOn { get; set; }
+
     public string ReportedBy { get; set; } = "system";
 
     public DateTime ReportedUtc { get; set; }

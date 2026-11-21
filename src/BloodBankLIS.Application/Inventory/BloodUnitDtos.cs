@@ -61,9 +61,46 @@ public sealed record BloodUnitDto(
     string? CollectionFacility = null,
     DateTime? CollectionDateTime = null,
     string? ProcessingFacilityCode = null,
-    long? DeliveryId = null)
+    long? DeliveryId = null,
+    // Shipped to another facility: where, when, and the outbound shipment reference.
+    string? ShippedToFacility = null,
+    DateTime? ShippedUtc = null,
+    string? OutboundShipmentReference = null,
+    // OCD-072: how the shipment was packed and who receives it (null for shipments before Cycle 668).
+    string? ShipContainer = null,
+    decimal? ShipPackingTemperatureC = null,
+    string? ShipPackedBy = null,
+    string? ShipReceivingContact = null,
+    // OCD-083: when the EHR reported this unit transfused while it was recalled, quarantined, damaged or missing.
+    DateTime? TransfusionReportedUtc = null)
 {
+    /// <summary>Made by a thaw modification (pass 333: so the inventory list can say one is recorded in a freezer).</summary>
+    public bool Thawed { get; init; }
+
+    /// <summary>For a pool, the ABO/Rh of each source unit (mixed-ABO pooling phase 1); empty otherwise.</summary>
+    public IReadOnlyList<BloodBankLIS.Domain.Rules.PoolComponent> PoolComponents { get; init; } = [];
+
     public long? BloodSupplierId { get; init; }
+
+    /// <summary>
+    /// Pass 157: the patient an open reservation holds this unit for, "Name (MRN)", on the Inventory search list (an
+    /// Assigned unit said only Assigned; a unit reserved while Received or released as Available said nothing).
+    /// </summary>
+    public long? ReservedForPatientId { get; init; }
+
+    public string? ReservedForLabel { get; init; }
+
+    /// <summary>The row with the patient an open reservation holds it for: "Name (MRN)", else the MRN, else the id.</summary>
+    public BloodUnitDto WithReservation((long Id, string? Mrn, string? Name)? reservedFor) =>
+        reservedFor is not { } who
+            ? this
+            : this with
+            {
+                ReservedForPatientId = who.Id,
+                ReservedForLabel = string.IsNullOrWhiteSpace(who.Name)
+                    ? string.IsNullOrWhiteSpace(who.Mrn) ? $"patient {who.Id}" : who.Mrn
+                    : string.IsNullOrWhiteSpace(who.Mrn) ? who.Name : $"{who.Name} ({who.Mrn})"
+            };
 
     /// <summary>True when this unit was produced by a modification and release still needs a matching label scan.</summary>
     public bool RequiresModificationLabelScan { get; init; }
@@ -90,7 +127,12 @@ public sealed record BloodUnitDto(
         u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy,
         u.ExpectedArrivalDueUtc, u.QuarantineReasonCode,
         u.Volume, u.DivisionCode, u.CollectionTypeCode,
-        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId);
+        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId,
+        u.ShippedToFacility, u.ShippedUtc, u.OutboundShipmentReference,
+        u.ShipContainer, u.ShipPackingTemperatureC, u.ShipPackedBy, u.ShipReceivingContact, u.TransfusionReportedUtc)
+    {
+        PoolComponents = BloodBankLIS.Domain.Rules.PoolComponents.Parse(u.PoolComponentsJson)
+    };
 }
 
 public sealed record ExpectedInboundWorkItemDto(
@@ -134,9 +176,24 @@ public sealed record NearExpiryWorkItemDto(
     RhType RhD,
     long ProductTypeId,
     long? CurrentLocationId = null,
-    string? CurrentLocationName = null)
+    string? CurrentLocationName = null,
+    // The patient whose reservation is on this unit, when there is one: issue it first or reserve a replacement.
+    long? ReservedPatientId = null,
+    string? ReservedPatientMrn = null,
+    string? ReservedPatientName = null)
 {
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public bool IsReserved => ReservedPatientId is not null;
+
+    /// <summary>"Name (MRN)", or the MRN or patient id alone when that is all that is recorded.</summary>
+    public string? ReservedPatientLabel => ReservedPatientId is not long id
+        ? null
+        : !string.IsNullOrWhiteSpace(ReservedPatientName)
+            ? string.IsNullOrWhiteSpace(ReservedPatientMrn) ? ReservedPatientName : $"{ReservedPatientName} ({ReservedPatientMrn})"
+            : !string.IsNullOrWhiteSpace(ReservedPatientMrn) ? ReservedPatientMrn : $"patient {id}";
+
+    public const string ReservedNextStep = "Issue it first or reserve a replacement.";
 
     public static NearExpiryWorkItemDto From(BloodUnit u, string? locationName = null) => new(
         u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId,
@@ -160,8 +217,17 @@ public sealed record QuarantineWorkItemDto(
     long? CurrentLocationId = null,
     string? CurrentLocationName = null,
     decimal? Volume = null,
-    bool RequiresLabelScan = false)
+    bool RequiresLabelScan = false,
+    // From QuarantineReleaseRule: what to do with the unit, and whether Release is allowed.
+    string? NextStep = null,
+    bool CanRelease = true)
 {
+    /// <summary>When the unit went into quarantine (its latest move there, else when it was received); pass 88.</summary>
+    public DateTime? QuarantinedSinceUtc { get; init; }
+
+    /// <summary>"Held 2 days 10 hours (since …); expires …, in …" for the supervisor queue; pass 88.</summary>
+    public string? HeldText { get; init; }
+
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 
     public string VolumeLabel =>
@@ -204,6 +270,12 @@ public sealed record DiscrepancyWorkItemDto(
     string? ProductCode = null,
     string? CurrentLocationName = null)
 {
+    /// <summary>When the unit was recorded missing or damaged (its latest move to that status); pass 90.</summary>
+    public DateTime? SinceUtc { get; init; }
+
+    /// <summary>"Missing 50 hours (since …)"; pass 90.</summary>
+    public string? SinceText { get; init; }
+
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 
     public static DiscrepancyWorkItemDto From(BloodUnit u, string? productCode = null, string? locationName = null) => new(
@@ -227,6 +299,15 @@ public sealed record OnHoldWorkItemDto(
     long? CurrentLocationId = null,
     string? CurrentLocationName = null)
 {
+    /// <summary>When the unit was put on hold (its latest move to On hold, else its last change); pass 136.</summary>
+    public DateTime? HeldSinceUtc { get; init; }
+
+    /// <summary>Who put it on hold, when the status history records it; pass 136.</summary>
+    public string? HeldBy { get; init; }
+
+    /// <summary>"On hold 9 days 10 hours (since 2026-11-06 09:50) by tech2"; pass 136.</summary>
+    public string? SinceText { get; init; }
+
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 
     public static OnHoldWorkItemDto From(BloodUnit u, string? productCode = null, string? locationName = null) => new(
@@ -235,4 +316,25 @@ public sealed record OnHoldWorkItemDto(
         productCode ?? u.ProductType?.ProductCode,
         u.CurrentLocationId,
         string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
+}
+
+/// <summary>
+/// Cycle 688: a unit recalled and not yet pulled: still in Recalled status, waiting to be quarantined or discarded (a
+/// return to the supplier goes through quarantine). <see cref="WasStatus"/> is what it was when recalled (Issued means it is on the ward, not on a shelf).
+/// </summary>
+public sealed record RecalledWorkItemDto(
+    long UnitId,
+    string UnitNumber,
+    AboGroup Abo,
+    RhType RhD,
+    DateTime ExpiresUtc,
+    string? ProductCode,
+    long? CurrentLocationId,
+    string? CurrentLocationName,
+    string? RecallReason,
+    DateTime? RecalledUtc,
+    string? RecalledBy,
+    UnitStatus? WasStatus)
+{
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 }

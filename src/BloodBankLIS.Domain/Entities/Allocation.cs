@@ -33,5 +33,12 @@ public class Allocation : BaseEntity
 
     public DateTime? ExpiresUtc { get; set; }
 
+    /// <summary>The ward's request to issue this reserved unit now: when, by whom, and where to (null when none is open).</summary>
+    public DateTime? IssueRequestedUtc { get; set; }
+
+    public string? IssueRequestedBy { get; set; }
+
+    public string? IssueRequestedTo { get; set; }
+
     public string? ReleaseReason { get; set; }
 }

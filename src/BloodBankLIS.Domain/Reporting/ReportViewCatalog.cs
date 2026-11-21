@@ -15,6 +15,14 @@ public static class ReportViewCatalog
     public const string Overrides = "rpt_overrides";
     public const string CrossmatchTransfusion = "rpt_crossmatch_transfusion";
     public const string LabResults = "rpt_lab_results";
+    public const string SpecimenRejections = "rpt_specimen_rejections";
+    public const string TestTurnaround = "rpt_test_turnaround";
+    public const string BloodOrderTurnaround = "rpt_blood_order_turnaround";
+    public const string Rhig = "rpt_rhig";
+    public const string ReagentQc = "rpt_reagent_qc";
+    public const string EquipmentChecks = "rpt_equipment_checks";
+    public const string Antibodies = "rpt_antibodies";
+    public const string SpecialRequirements = "rpt_special_requirements";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -26,6 +34,14 @@ public static class ReportViewCatalog
         Deviations,
         Overrides,
         CrossmatchTransfusion,
-        LabResults
+        LabResults,
+        SpecimenRejections,
+        TestTurnaround,
+        BloodOrderTurnaround,
+        Rhig,
+        Antibodies,
+        SpecialRequirements,
+        ReagentQc,
+        EquipmentChecks
     };
 }

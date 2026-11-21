@@ -1,0 +1,126 @@
+@page "/admin/reaction-workup"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Reaction Workup &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Reaction Workup</h1>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/test-groupers">Open Test Groups</a>
+        <a class="btn btn-ghost" href="/reactions">Open Reaction investigations</a>
+    </div>
+</div>
+<p class="muted">
+    A transfusion reaction workup tests two specimens: the pre-transfusion specimen, collected before the unit was issued,
+    and a post-transfusion specimen, drawn after the reaction. Choose the Test Group ordered on each. The investigator adds
+    each specimen on the investigation, its group is ordered Stat, and the tests are resulted and verified on the bench.
+    Changes are versioned and audited; they apply to specimens added afterwards.
+</p>
+
+<Outcome Value="_feedback" />
+
+@if (_loading)
+{
+    <div class="loading">Loading...</div>
+}
+else if (_settings is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title"><h3>Test Group for each specimen</h3><span class="muted">Version @_settings.Version</span></div>
+        <div class="form-row">
+            <div class="field">
+                <label>Pre-transfusion specimen</label>
+                <select @bind="_preCode" disabled="@(!CanEdit)" data-group-pre>
+                    <option value="">Not chosen</option>
+                    @foreach (var g in _settings.TestGroups)
+                    {
+                        <option value="@g.Code">@g.Name (@g.Code)</option>
+                    }
+                </select>
+                <span class="sub">@Members(_preCode)</span>
+            </div>
+            <div class="field">
+                <label>Post-transfusion specimen</label>
+                <select @bind="_postCode" disabled="@(!CanEdit)" data-group-post>
+                    <option value="">Not chosen</option>
+                    @foreach (var g in _settings.TestGroups)
+                    {
+                        <option value="@g.Code">@g.Name (@g.Code)</option>
+                    }
+                </select>
+                <span class="sub">@Members(_postCode)</span>
+            </div>
+        </div>
+        <p class="muted">Only active, released Test Groups are offered. While a specimen has no group chosen, its workup cannot be ordered and an investigation cannot be closed.</p>
+    </div>
+
+    @if (CanEdit)
+    {
+        <div class="bb-card" style="margin-top:1rem;">
+            <div class="field">
+                <label>Change reason</label>
+                <input @bind="_reason" placeholder="Why this change is required" />
+            </div>
+            <div class="flex gap" style="margin-top:1rem;">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private ReactionWorkupSettingsDto? _settings;
+    private Feedback? _feedback;
+    private string _preCode = string.Empty;
+    private string _postCode = string.Empty;
+    private string _reason = string.Empty;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+
+    private string Members(string code)
+    {
+        var group = _settings?.TestGroups.FirstOrDefault(g => string.Equals(g.Code, code, StringComparison.OrdinalIgnoreCase));
+        return group is null ? string.Empty : $"Tests: {string.Join(", ", group.MemberTestCodes)}";
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetReactionWorkupSettingsAsync();
+        if (r.Succeeded && r.Value is not null)
+        {
+            _settings = r.Value;
+            _preCode = r.Value.PreTransfusionTestGroupCode ?? string.Empty;
+            _postCode = r.Value.PostTransfusionTestGroupCode ?? string.Empty;
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        var r = await Api.SaveReactionWorkupSettingsAsync(new SaveReactionWorkupSettingsRequest(_preCode, _postCode, _reason));
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Reaction workup Test Groups saved.");
+            _reason = string.Empty;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+}

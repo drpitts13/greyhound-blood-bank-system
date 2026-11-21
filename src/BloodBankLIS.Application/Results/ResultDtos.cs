@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Results;
 
@@ -57,7 +58,13 @@ public sealed record SaveTestResultRequest(
     long? SignatureId = null,
     ResultSource Source = ResultSource.Manual,
     string? SourceReference = null,
-    long? OrderActionId = null);
+    long? OrderActionId = null,
+    // Titer tests: the grade read at each dilution (1:n).
+    IReadOnlyList<TiterReading>? TiterReadings = null,
+    // Pass 85: when a hand-entered result was tested, if earlier than now (paper results after an outage).
+    DateTime? TestedUtc = null,
+    // OCD-091: why a result tested while its specimen was acceptable is entered after the specimen expired.
+    string? ExpiredSpecimenReason = null);
 
 public sealed record TestResultDto(
     long Id,
@@ -80,11 +87,15 @@ public sealed record TestResultDto(
     string? CorrectionReason,
     string? InvalidatedBy,
     DateTime? InvalidatedUtc,
-    string? InvalidationReason)
+    string? InvalidationReason,
+    // Numeric results: L or H outside the reference range, LL or HH beyond a critical limit.
+    string? AbnormalFlag = null,
+    // Reagent lots recorded when it was entered by hand ("AHG AHG-24033"); filled where lists show them.
+    IReadOnlyList<string>? ReagentLots = null)
 {
     public static TestResultDto From(TestResult r) => new(
         r.Id, r.SpecimenId, r.PatientId, r.OrderId, r.TestCode, r.Version, r.SupersededByResultId,
         r.Value, r.Units, r.Interpretation, r.Status, r.Source, r.SourceReference,
         r.EnteredBy, r.EnteredUtc, r.VerifiedBy, r.VerifiedUtc, r.CorrectionReason,
-        r.InvalidatedBy, r.InvalidatedUtc, r.InvalidationReason);
+        r.InvalidatedBy, r.InvalidatedUtc, r.InvalidationReason, r.AbnormalFlag);
 }

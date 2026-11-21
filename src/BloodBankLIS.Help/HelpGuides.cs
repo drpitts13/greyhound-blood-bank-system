@@ -16,8 +16,8 @@ public static class HelpGuides
 
     public static string FileName(string guide) => guide switch
     {
-        Clinical => "Greyhound-Blood-Bank-Clinical-User-Guide.pdf",
-        Admin => "Greyhound-Blood-Bank-Administrator-Guide.pdf",
+        Clinical => "HemoCore-Clinical-User-Guide.pdf",
+        Admin => "HemoCore-Administrator-Guide.pdf",
         _ => throw new ArgumentException($"Unknown help guide '{guide}'.", nameof(guide))
     };
 

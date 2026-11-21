@@ -30,6 +30,40 @@ public class CompatibilityRuleAdminTests : IClassFixture<SqliteContextFactory>
             history);
     }
 
+    // TEST-BB-382: a rule in the active compatibility table changes only with a reason; a draft table changes freely.
+    [Fact]
+    public async Task RuleInTheActiveTable_ChangesOnlyWithAReason()
+    {
+        await using var c = _factory.Create();
+        var svc = Service(c);
+        var version = await svc.CreateVersionAsync(new SaveCompatibilityRuleVersionRequest(
+            "TEST-REASON", "POLICY-R", new DateOnly(2026, 11, 1), "Medical director review of reason test table."));
+        Assert.True(version.Succeeded);
+
+        // Draft table: no reason needed.
+        var rule = await svc.CreateRuleAsync(version.Value!.Id, new SaveCompatibilityRuleRequest(
+            "RBC-RH-REASON", ComponentClass.RedBloodCells, "Rh", "{}", "HardStop", "Rh negative recipients get Rh negative red cells."));
+        Assert.True(rule.Succeeded, rule.Error);
+        Assert.True((await svc.ActivateVersionAsync(version.Value.Id, "Activate the reason test table.")).Succeeded);
+
+        var softened = new SaveCompatibilityRuleRequest(
+            "RBC-RH-REASON", ComponentClass.RedBloodCells, "Rh", "{}", "Warning", "Rh negative recipients get Rh negative red cells.");
+        var refused = await svc.UpdateRuleAsync(rule.Value!.Id, softened);
+        Assert.False(refused.Succeeded);
+        Assert.Contains(refused.Evaluation!.HardStops, h => h.Code == CompatibilityTableChangeReasonRule.Code);
+        Assert.Equal("HardStop", (await c.CompatibilityRules.AsNoTracking().SingleAsync(r => r.Id == rule.Value.Id)).Severity);
+
+        Assert.False((await svc.SetRuleActiveAsync(rule.Value.Id, false)).Succeeded);
+        Assert.False((await svc.CreateRuleAsync(version.Value.Id, new SaveCompatibilityRuleRequest(
+            "RBC-EXTRA-REASON", ComponentClass.RedBloodCells, "ABO", "{}", "HardStop", "Extra rule."))).Succeeded);
+
+        var changed = await svc.UpdateRuleAsync(rule.Value.Id, softened with { Reason = "Medical director approved warning for trauma bay" });
+        Assert.True(changed.Succeeded, changed.Error);
+        Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h =>
+            h.EntityType == nameof(CompatibilityRule) && h.EntityId == rule.Value.Id
+            && h.ChangeReason == "Medical director approved warning for trauma bay"));
+    }
+
     [Fact]
     public async Task CreateVersion_AndRule_PersistsWithHistory()
     {

@@ -18,8 +18,16 @@ public sealed record SpecialRequirementDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason)
+    string? ChangeReason,
+    SpecialRequirementCategory Category = SpecialRequirementCategory.IssueProcedure,
+    ComponentClass? ComponentClass = null,
+    string? AllowedAboGroups = null,
+    string? AntigenCode = null,
+    string? UnitTestCode = null)
 {
+    /// <summary>"Irradiated – RBC": the name with the unit category it applies to, for pick lists.</summary>
+    public string ChoiceLabel => SpecialRequirementLabel.Choice(NameLabel, Category, ComponentClass);
+
     /// <summary>
     /// Catalog list. A blank name stays the requirement id.
     /// The requirement code is not a substitute, and this label is not the stored name.
@@ -35,7 +43,13 @@ public sealed record SaveSpecialRequirementDefinitionRequest(
     string? ProductAttributeCode,
     string? Instruction,
     int SortOrder,
-    string? ChangeReason);
+    string? ChangeReason,
+    // Null places the entry by its enforcement kind.
+    SpecialRequirementCategory? Category = null,
+    ComponentClass? ComponentClass = null,
+    string? AllowedAboGroups = null,
+    string? AntigenCode = null,
+    string? UnitTestCode = null);
 
 public static class SpecialRequirementDefinitionDtoMapping
 {
@@ -53,5 +67,10 @@ public static class SpecialRequirementDefinitionDtoMapping
         d.IsDraft,
         d.EffectiveUtc,
         d.RetiredUtc,
-        d.ChangeReason);
+        d.ChangeReason,
+        d.Category,
+        d.ComponentClass,
+        d.AllowedAboGroups,
+        d.AntigenCode,
+        d.UnitTestCode);
 }

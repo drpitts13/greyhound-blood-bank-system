@@ -20,3 +20,5 @@ The delivery page shows the packing list and the status of each expected unit. U
 Open **Enter units** when you are ready to receive the physical units onto this delivery. Receiving checks temperature, appearance, and a second verifier when facility policy requires them. That work is on [Enter units on a delivery](delivery-receive). Scanning ISBT labels one unit at a time, outside a packing list, is [ISBT receive](isbt-receive).
 
 Do not mark a delivery complete while units are still sitting on the counter unreceived. The expected-inbound queue is how the next shift knows what has not been booked in.
+
+When the units entered do not match the expected counts, the delivery page names each product short or over (for example *RBC 2 short*) and **Complete delivery** stays disabled until you say why: supplier short and credit requested, a unit refused on arrival, an extra unit kept. The note is kept on the delivery, shown once it is completed, and written to the audit trail with the difference. A delivery that matches its packing list completes without one. **Complete delivery** on Enter units appears only when every count matches.

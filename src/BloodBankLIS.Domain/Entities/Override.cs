@@ -23,6 +23,12 @@ public class Override : BaseEntity
 
     public string AuthorizedBy { get; set; } = string.Empty;
 
+    /// <summary>How <see cref="AuthorizedBy"/> matched the provider and user directory when recorded. Null on older rows.</summary>
+    public AuthorizerDirectoryMatch? AuthorizerMatch { get; set; }
+
+    /// <summary>Provider id or user name matched, when exactly one entry matched.</summary>
+    public string? AuthorizerReference { get; set; }
+
     public long? SignatureId { get; set; }
 
     public DateTime OverriddenUtc { get; set; }
@@ -32,4 +38,13 @@ public class Override : BaseEntity
     /// for RES-ABORH-DELTA). Null for issue-path overrides.
     /// </summary>
     public string? Resolution { get; set; }
+
+    /// <summary>Second-person review after the fact (override.approve). Null until reviewed.</summary>
+    public OverrideReviewOutcome? ReviewOutcome { get; set; }
+
+    public string? ReviewedBy { get; set; }
+
+    public DateTime? ReviewedUtc { get; set; }
+
+    public string? ReviewNote { get; set; }
 }

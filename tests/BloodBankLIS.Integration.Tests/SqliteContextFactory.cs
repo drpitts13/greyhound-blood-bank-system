@@ -26,6 +26,16 @@ public sealed class SqliteContextFactory : IDisposable
         using var context = Create();
         context.Database.EnsureCreated();
         TestCatalogSeeder.EnsureSpecimenTypesAsync(context, Clock.UtcNow).GetAwaiter().GetResult();
+
+        // The shipped default requires a second verifier at issue and bedside (TEST-BB-397). These tests run as a
+        // facility that has turned it off (OCD-008); tests about the second verifier turn it back on themselves.
+        context.SystemSettings.Add(new Domain.Entities.SystemSetting
+        {
+            Key = Domain.Rules.FacilityPolicyKeys.RequireSecondVerifier,
+            Value = "false",
+            Category = "Transfusion"
+        });
+        context.SaveChanges();
     }
 
     public BloodBankDbContext Create()

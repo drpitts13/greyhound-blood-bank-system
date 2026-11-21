@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Results;
@@ -43,6 +43,8 @@ public sealed class AntibodyIdentificationService
     private readonly IRepository<Allocation>? _allocations;
     private readonly IRepository<Issue>? _issues;
 
+    private readonly IFacilityTimeZone? _timeZone;
+
     public AntibodyIdentificationService(
         IRepository<AntibodyPanelManufacturer> manufacturers,
         IRepository<AntibodyPanelLot> lots,
@@ -66,8 +68,10 @@ public sealed class AntibodyIdentificationService
         IRepository<TestResult>? results = null,
         IRepository<TestDefinition>? testDefinitions = null,
         IRepository<Allocation>? allocations = null,
-        IRepository<Issue>? issues = null)
+        IRepository<Issue>? issues = null,
+        IFacilityTimeZone? timeZone = null)
     {
+        _timeZone = timeZone;
         _manufacturers = manufacturers;
         _lots = lots;
         _cells = cells;
@@ -141,13 +145,47 @@ public sealed class AntibodyIdentificationService
             items.Count(w => w.HasNotReadySpecimen),
             items.Count(w => w.HasWithdrawnJudgment),
             items.Count(w => w.HasPendingTypeCorrection),
-            items.Count(w => w.HasReservedOrIssuedUnits));
+            items.Count(w => w.HasReservedOrIssuedUnits),
+            // Each workup once, however many of its lots or specimen conditions apply.
+            items.Count(w => w.HasInactiveLot || w.HasExpiredLot),
+            items.Count(w => w.HasUnusableSpecimen || w.HasExpiredSpecimen));
     }
 
     public async Task<AntibodyIdWorkupDetailDto?> GetWorkupAsync(long workupId, CancellationToken ct = default)
     {
         var workup = await _workups.GetByIdAsync(workupId, ct);
-        return workup is null ? null : await MapDetailAsync(workup, ct);
+        if (workup is null)
+        {
+            return null;
+        }
+
+        // End-user testing pass 306: the patient may have been typed by a verified antigen result (not only on the chart,
+        // pass 305) since assistance last ran; an open workup is evaluated again when it is opened.
+        if (await PatientTypedSinceAssistAsync(workup, ct))
+        {
+            await RefreshAssistFindingsAsync(workup, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return await MapDetailAsync(workup, ct);
+    }
+
+    private async Task<bool> PatientTypedSinceAssistAsync(AntibodyIdentificationWorkup workup, CancellationToken ct)
+    {
+        if (workup.Status is AntibodyWorkupStatus.Completed or AntibodyWorkupStatus.Voided)
+        {
+            return false;
+        }
+
+        var assist = await _findings.ListAsync(f => f.WorkupId == workup.Id && f.Source == AntibodyIdSource.Assist, ct);
+        if (assist.Count == 0)
+        {
+            return false;
+        }
+
+        var lastAssist = assist.Max(f => f.CreatedUtc);
+        var typings = await _antigenProfiles.ListAsync(p => p.PatientId == workup.PatientId, ct);
+        return typings.Any(p => (p.ModifiedUtc ?? p.CreatedUtc) > lastAssist);
     }
 
     public async Task<EvaluationResult<AntibodyIdWorkupDetailDto>> CreateWorkupAsync(
@@ -179,7 +217,7 @@ public sealed class AntibodyIdentificationService
                 return EvaluationResult<AntibodyIdWorkupDetailDto>.Fail("Specimen was not found for this patient.");
             }
 
-            specimenChecks.AddRange(EvaluateSpecimenForScope(specimen, completing: false));
+            specimenChecks.AddRange(await EvaluateSpecimenForScopeAsync(specimen, completing: false, ct));
             var specimenGate = new RuleEvaluation(specimenChecks);
             if (specimenGate.IsHardStopped)
             {
@@ -300,7 +338,7 @@ public sealed class AntibodyIdentificationService
             return EvaluationResult<AntibodyIdWorkupDetailDto>.Fail("Specimen was not found for this patient.");
         }
 
-        var usability = EvaluateSpecimenForScope(specimen, completing: false);
+        var usability = await EvaluateSpecimenForScopeAsync(specimen, completing: false, ct);
         var usabilityEval = new RuleEvaluation(usability);
         if (usabilityEval.IsHardStopped)
         {
@@ -478,6 +516,9 @@ public sealed class AntibodyIdentificationService
             .GroupBy(r => (r.CellId, Phase: r.PhaseCode.ToUpperInvariant()))
             .ToDictionary(g => g.Key, g => g.Last());
 
+        // Only a reading that changes counts: an unchanged one (or Not tested where nothing was recorded) is skipped, so
+        // saving the grid again neither rewrites history nor clears the interpretation.
+        var changes = new List<ReactionChange>();
         foreach (var incoming in reactions)
         {
             if (!allowedCells.Contains(incoming.CellId))
@@ -493,11 +534,23 @@ public sealed class AntibodyIdentificationService
 
             if (existing.TryGetValue((incoming.CellId, phase.ToUpperInvariant()), out var row))
             {
+                if (row.Strength == incoming.Strength)
+                {
+                    continue;
+                }
+
+                changes.Add(new ReactionChange(incoming.CellId, phase, row.Strength.ToString(), incoming.Strength.ToString()));
                 row.Strength = incoming.Strength;
                 _reactions.Update(row);
             }
             else
             {
+                if (incoming.Strength == ReactionGrade.NotTested)
+                {
+                    continue;
+                }
+
+                changes.Add(new ReactionChange(incoming.CellId, phase, null, incoming.Strength.ToString()));
                 var created = new AntibodyIdentificationReaction
                 {
                     WorkupId = workupId,
@@ -510,7 +563,13 @@ public sealed class AntibodyIdentificationService
             }
         }
 
-        if (reactions.Count > 0 && (workup.InterpretedUtc is not null || workup.ReviewedUtc is not null))
+        if (changes.Count == 0)
+        {
+            return OperationResult<AntibodyIdWorkupDetailDto>.Ok(await MapDetailAsync(workup, ct));
+        }
+
+        var hadJudgment = workup.InterpretedUtc is not null || workup.ReviewedUtc is not null;
+        if (hadJudgment)
         {
             await InvalidateJudgmentAfterPanelChangeAsync(workup, ct);
         }
@@ -520,12 +579,20 @@ public sealed class AntibodyIdentificationService
             _workups.Update(workup);
         }
 
+        _audit.Record(
+            AuditEventType.Antibody,
+            nameof(AntibodyIdentificationWorkup),
+            workupId,
+            oldValue: changes.Any(c => c.From is not null)
+                ? new { Reactions = changes.Where(c => c.From is not null).Select(c => new { c.CellId, c.Phase, Strength = c.From }).ToList() }
+                : null,
+            newValue: new { Reactions = changes.Select(c => new { c.CellId, c.Phase, Strength = c.To }).ToList() },
+            reason: hadJudgment
+                ? "Panel reactions recorded; the interpretation and review were cleared for re-interpretation."
+                : "Panel reactions recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
-        if (reactions.Count > 0)
-        {
-            await RefreshAssistFindingsAsync(workup, ct);
-            await _unitOfWork.SaveChangesAsync(ct);
-        }
+        await RefreshAssistFindingsAsync(workup, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<AntibodyIdWorkupDetailDto>.Ok(await MapDetailAsync(workup, ct));
     }
@@ -592,6 +659,44 @@ public sealed class AntibodyIdentificationService
         _workups.Update(workup.Value);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<AntibodyIdWorkupDetailDto>.Ok(await MapDetailAsync(workup.Value, ct));
+    }
+
+    /// <summary>
+    /// After the patient's antigen type changes, the open workups whose assistance has run are evaluated again, since a
+    /// possible specificity reads the patient's type (end-user testing pass 305: findings were refreshed only when
+    /// reactions, lots, DAT or specimen changed, so typing the patient E-negative left "not typed for E" in place, and a
+    /// patient typed K-positive kept a possible anti-K without the warning). Assistance is advisory; no judgment changes.
+    /// Returns how many workups were refreshed.
+    /// </summary>
+    public async Task<int> RefreshOpenWorkupsAfterPatientTypingAsync(long patientId, CancellationToken ct = default)
+    {
+        var open = (await _workups.ListAsync(w => w.PatientId == patientId
+                && w.Status != AntibodyWorkupStatus.Completed && w.Status != AntibodyWorkupStatus.Voided, ct))
+            .ToList();
+        var refreshed = 0;
+        foreach (var listed in open)
+        {
+            if (!await _findings.AnyAsync(f => f.WorkupId == listed.Id && f.Source == AntibodyIdSource.Assist, ct))
+            {
+                continue;
+            }
+
+            var workup = await _workups.GetByIdAsync(listed.Id, ct);
+            if (workup is null)
+            {
+                continue;
+            }
+
+            await RefreshAssistFindingsAsync(workup, ct);
+            refreshed++;
+        }
+
+        if (refreshed > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return refreshed;
     }
 
     public async Task<EvaluationResult<AntibodyIdAssistDto>> RunAssistAsync(long workupId, CancellationToken ct = default)
@@ -714,7 +819,9 @@ public sealed class AntibodyIdentificationService
 
         var exclusionRationale = AntibodyIdentificationInterpretationRule.EvaluateIdentifiedExclusionRationale(
             recordedForAssist, assist.Findings);
-        if (exclusionRationale.Severity == RuleSeverity.HardStop)
+        // OCD-028, a facility setting (AntibodyId.RequireExclusionRationale, default on): off, the warning above stands alone.
+        if (exclusionRationale.Severity == RuleSeverity.HardStop
+            && (await _policies.GetAntibodyIdentificationPolicyAsync(ct)).RequireExclusionRationale)
         {
             return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation([exclusionRationale]));
         }
@@ -865,6 +972,12 @@ public sealed class AntibodyIdentificationService
             if (reviewClinical.Any(r => r.Severity == RuleSeverity.HardStop))
             {
                 return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation(reviewClinical));
+            }
+
+            var refusedAtReview = (await _policies.GetAntibodyIdentificationPolicyAsync(ct)).RefusedWarnings(reviewClinical);
+            if (refusedAtReview.Count > 0)
+            {
+                return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation(refusedAtReview));
             }
 
             var reviewAck = AntibodyIdentificationInterpretationRule.EvaluateReviewAcknowledgment(
@@ -1059,7 +1172,7 @@ public sealed class AntibodyIdentificationService
             var linkedSpecimen = await _specimens.GetByIdAsync(linkedSpecimenId, ct);
             if (linkedSpecimen is not null)
             {
-                var atComplete = EvaluateSpecimenForScope(linkedSpecimen, completing: true);
+                var atComplete = await EvaluateSpecimenForScopeAsync(linkedSpecimen, completing: true, ct);
                 if (atComplete.Any(r => r.Severity == RuleSeverity.HardStop))
                 {
                     return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(
@@ -1086,6 +1199,13 @@ public sealed class AntibodyIdentificationService
         if (datAtComplete.Severity == RuleSeverity.Warning)
         {
             completionResults.Add(datAtComplete);
+        }
+
+        // OCD-025 / OCD-027, facility settings: an expired specimen or panel lot may be refused instead of acknowledged.
+        var refusedAtComplete = (await _policies.GetAntibodyIdentificationPolicyAsync(ct)).RefusedWarnings(completionResults);
+        if (refusedAtComplete.Count > 0)
+        {
+            return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation(refusedAtComplete));
         }
 
         evaluation = new RuleEvaluation(completionResults);
@@ -1211,6 +1331,23 @@ public sealed class AntibodyIdentificationService
             || string.Equals(a.AntibodySpecificity, finding.Specificity, StringComparison.Ordinal));
         if (existing is not null)
         {
+            // Cycle 678: an outside report this workup identifies is now confirmed here (OCD-073), naming the workup.
+            if (OutsideAntibodyReportRule.NeedsConfirmation(existing.ReportingFacility, existing.ConfirmedUtc, existing.IsActive)
+                && await _antibodies.GetByIdAsync(existing.Id, ct) is { } outside)
+            {
+                outside.ConfirmedUtc = _clock.UtcNow;
+                outside.ConfirmedBy = _currentUser.UserName;
+                outside.ConfirmationNote = OutsideAntibodyReportRule.WorkupConfirmationNote(workup.Id);
+                _audit.Record(
+                    AuditEventType.Antibody,
+                    nameof(AntibodyHistory),
+                    outside.Id,
+                    oldValue: new { ConfirmedUtc = (DateTime?)null },
+                    newValue: new { outside.PatientId, outside.AntibodySpecificity, outside.ReportingFacility, outside.ConfirmedUtc, WorkupId = workup.Id },
+                    reason: $"Outside report confirmed here: {outside.ConfirmationNote}");
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+
             return;
         }
 
@@ -1249,7 +1386,7 @@ public sealed class AntibodyIdentificationService
     {
         var lotLinks = await _workupLots.ListAsync(l => l.WorkupId == workup.Id, ct);
         var lotIds = lotLinks.Select(l => l.LotId).Distinct().ToList();
-        var cells = (await _cells.ListAsync(c => lotIds.Contains(c.LotId), ct))
+        var cells = (await _cells.ListAsync(c => lotIds.Contains(c.LotId) && c.SupersededUtc == null, ct))
             .OrderBy(c => c.SortOrder)
             .ToList();
         var cellIds = cells.Select(c => c.Id).ToHashSet();
@@ -1282,12 +1419,14 @@ public sealed class AntibodyIdentificationService
         var catalog = attributes.Values
             .Select(a => new AntibodyIdAntigenInfo(a.Code, a.AntibodyName))
             .ToList();
+        // OCD-024, a facility setting: which method words mean a predicted genotype.
+        var genotypeWords = await _policies.GetGenotypeMethodWordsAsync(ct);
         var patientAntigens = phenotype
             .Where(p => attributes.ContainsKey(p.BloodAttributeDefinitionId))
             .Select(p => new PatientAntigenSnapshot(
                 attributes[p.BloodAttributeDefinitionId].Code,
                 p.Result,
-                AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method)))
+                AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method, genotypeWords)))
             .ToList();
         var historical = history
             .Select(a => new HistoricalAntibodySnapshot(
@@ -1323,7 +1462,7 @@ public sealed class AntibodyIdentificationService
 
         var lotIds = lotLinks.Select(l => l.LotId).ToHashSet();
         var selectedLotIds = lots.Values.Where(l => lotIds.Contains(l.Id) && l.IsSelectedCellLot).Select(l => l.Id).ToHashSet();
-        var cells = (await _cells.ListAsync(c => lotIds.Contains(c.LotId), ct))
+        var cells = (await _cells.ListAsync(c => lotIds.Contains(c.LotId) && c.SupersededUtc == null, ct))
             .OrderBy(c => selectedLotIds.Contains(c.LotId) ? 1 : 0)
             .ThenBy(c => c.SortOrder)
             .ToList();
@@ -1391,6 +1530,8 @@ public sealed class AntibodyIdentificationService
             JudgmentWithdrawnReason: AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
                 workup.Status, workup.TechnologistInterpretation, workup.InterpretedUtc));
     }
+
+    private sealed record ReactionChange(long CellId, string Phase, string? From, string To);
 
     private async Task InvalidateJudgmentAfterPanelChangeAsync(
         AntibodyIdentificationWorkup workup,
@@ -1466,7 +1607,7 @@ public sealed class AntibodyIdentificationService
             .Select(l => l.LotId)
             .ToList();
         var acCells = await _cells.ListAsync(
-            c => lotIds.Contains(c.LotId) && c.Role == PanelCellRole.Autocontrol, ct);
+            c => lotIds.Contains(c.LotId) && c.Role == PanelCellRole.Autocontrol && c.SupersededUtc == null, ct);
         if (acCells.Count == 0)
         {
             return false;
@@ -1482,12 +1623,13 @@ public sealed class AntibodyIdentificationService
     {
         var attributes = (await _attributes.ListAsync(a => a.IsActive, ct)).ToDictionary(a => a.Id);
         var phenotype = await _antigenProfiles.ListAsync(p => p.PatientId == patientId, ct);
+        var genotypeWords = await _policies.GetGenotypeMethodWordsAsync(ct);
         return phenotype
             .Where(p => attributes.ContainsKey(p.BloodAttributeDefinitionId))
             .Select(p => new PatientAntigenSnapshot(
                 attributes[p.BloodAttributeDefinitionId].Code,
                 p.Result,
-                AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method)))
+                AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method, genotypeWords)))
             .ToList();
     }
 
@@ -1524,7 +1666,7 @@ public sealed class AntibodyIdentificationService
             var specimen = await _specimens.GetByIdAsync(specimenId, ct);
             if (specimen is not null)
             {
-                results.AddRange(EvaluateSpecimenForScope(specimen, completing: true));
+                results.AddRange(await EvaluateSpecimenForScopeAsync(specimen, completing: true, ct));
             }
         }
 
@@ -1733,12 +1875,27 @@ public sealed class AntibodyIdentificationService
         return open.Any(w => w.SpecimenId is long id && unusable.Contains(id));
     }
 
-    private IReadOnlyList<RuleResult> EvaluateSpecimenForScope(Specimen specimen, bool completing) =>
-    [
-        AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenUsable(specimen.Status, completing),
-        AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenExpiration(specimen.ExpiresUtc, _clock.UtcNow, completing),
-        AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenReadiness(specimen.Status, completing)
-    ];
+    private async Task<IReadOnlyList<RuleResult>> EvaluateSpecimenForScopeAsync(Specimen specimen, bool completing, CancellationToken ct)
+    {
+        IReadOnlyList<RuleResult> results =
+        [
+            AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenUsable(specimen.Status, completing),
+            AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenExpiration(specimen.ExpiresUtc, _clock.UtcNow, completing),
+            AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenReadiness(specimen.Status, completing)
+        ];
+
+        // OCD-026, a facility setting: a received specimen not yet accepted may be refused instead of warned.
+        var policy = await _policies.GetAntibodyIdentificationPolicyAsync(ct);
+        if (policy.OnReceivedSpecimen)
+        {
+            return results;
+        }
+
+        var refused = policy.RefusedWarnings(results.Where(r => r.Code == AntibodyIdentificationWorkupScopeRule.SpecimenUnacceptedCode));
+        return results.Where(r => r.Code != AntibodyIdentificationWorkupScopeRule.SpecimenUnacceptedCode || r.Severity != RuleSeverity.Warning)
+            .Concat(refused)
+            .ToList();
+    }
 
     private async Task<long?> ResolveSourceResultIdAsync(long? specimenId, CancellationToken ct)
     {
@@ -1936,7 +2093,7 @@ public sealed class AntibodyIdentificationService
     private async Task<HashSet<long>> AllowedCellIdsAsync(long workupId, CancellationToken ct)
     {
         var lotIds = (await _workupLots.ListAsync(l => l.WorkupId == workupId, ct)).Select(l => l.LotId).ToHashSet();
-        return (await _cells.ListAsync(c => lotIds.Contains(c.LotId), ct)).Select(c => c.Id).ToHashSet();
+        return (await _cells.ListAsync(c => lotIds.Contains(c.LotId) && c.SupersededUtc == null, ct)).Select(c => c.Id).ToHashSet();
     }
 
     private async Task<OperationResult<AntibodyIdentificationWorkup>> RequireEditableAsync(long workupId, CancellationToken ct)
@@ -1956,7 +2113,7 @@ public sealed class AntibodyIdentificationService
         return patientGate ?? OperationResult<AntibodyIdentificationWorkup>.Ok(workup);
     }
 
-    private DateOnly Today() => DateOnly.FromDateTime(_clock.UtcNow);
+    private DateOnly Today() => FacilityDay.Of(_clock.UtcNow, _timeZone);
 
     private async Task<EvaluationResult<T>?> RejectMergedOrMissingPatientAsync<T>(long patientId, CancellationToken ct)
     {

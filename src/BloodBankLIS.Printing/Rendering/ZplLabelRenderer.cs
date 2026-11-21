@@ -34,7 +34,7 @@ public sealed class ZplLabelRenderer : ILabelRenderer
 
                 case LabelBarcode barcode:
                     sb.Append("^FO").Append(barcode.X).Append(',').Append(barcode.Y);
-                    sb.Append("^BY2");
+                    sb.Append("^BY").Append(barcode.ModuleWidth);
                     sb.Append("^BCN,").Append(barcode.Height).Append(',').Append(barcode.PrintInterpretation ? 'Y' : 'N').Append(",N,N");
                     sb.Append("^FH^FD").Append(Escape(barcode.Data)).Append("^FS");
                     break;

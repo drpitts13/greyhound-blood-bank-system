@@ -31,4 +31,11 @@ public class InstrumentMessageLog : BaseEntity
     public string? SpecimenId { get; set; }
 
     public string? PatientId { get; set; }
+
+    /// <summary>When a failed message was closed: by a replay that applied, or by hand with a reason.</summary>
+    public DateTime? ResolvedUtc { get; set; }
+
+    public string? ResolvedBy { get; set; }
+
+    public string? ResolutionNote { get; set; }
 }

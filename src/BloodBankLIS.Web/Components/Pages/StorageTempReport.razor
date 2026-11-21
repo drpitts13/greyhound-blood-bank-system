@@ -6,7 +6,7 @@
 @inject ReportDownloadCache Downloads
 @inject IJSRuntime Js
 
-<PageTitle>Temperature history &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Temperature history &middot; HemoCore</PageTitle>
 
 <div class="flex-between">
     <h1>Temperature history</h1>
@@ -18,7 +18,7 @@
 <details class="bb-help">
     <summary>How it works</summary>
     <ul>
-        <li>Dates are UTC. The period runs from the start of the From date to the end of the To date, up to 366 days.</li>
+        <li>Dates are local days, as are the reading times. The period runs from the start of the From date to the end of the To date, up to 366 days.</li>
         <li>% in range counts only readings taken while the device had a range. An excursion is an unbroken run of out-of-range readings.</li>
         <li>Longest gap is the longest stretch with no reading, including from the period start and up to the period end (or now). Use it to spot missed rounds.</li>
         <li>Each reading shows the range in force when it was taken, so a later range change does not rewrite history.</li>
@@ -38,11 +38,11 @@
                 }
             </select>
         </div>
-        <div class="field"><label>From (UTC date)</label><input type="date" @bind="_from" /></div>
-        <div class="field"><label>To (UTC date)</label><input type="date" @bind="_to" /></div>
+        <div class="field"><label>From date</label><input type="date" @bind="_from" /></div>
+        <div class="field"><label>To date (inclusive)</label><input type="date" @bind="_to" /></div>
         <div class="field">
             <label>Readings</label>
-            <select @bind="_excursionsOnly">
+            <select @bind="ExcursionsOnlyChoice" data-excursions-only>
                 <option value="false">All readings</option>
                 <option value="true">Excursions only</option>
             </select>
@@ -68,7 +68,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title">
-            <h3>Summary &middot; @_report.FromUtc.ToString("yyyy-MM-dd") to @_report.ToUtc.AddTicks(-1).ToString("yyyy-MM-dd")</h3>
+            <h3>Summary &middot; @_report.FromUtc.ToLocalTime().ToString("yyyy-MM-dd") to @_report.ToUtc.AddTicks(-1).ToLocalTime().ToString("yyyy-MM-dd")</h3>
         </div>
         @if (_report.Devices.Count == 0)
         {
@@ -76,9 +76,10 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
-                    <tr><th>Device</th><th>Range °C</th><th class="right">Readings</th><th class="right">Min</th><th class="right">Max</th><th class="right">Mean</th><th class="right">% in range</th><th class="right">Excursions</th><th class="right">Out-of-range readings</th><th class="right">Longest gap</th><th>Last reading (UTC)</th></tr>
+                    <tr><th>Device</th><th>Range °C</th><th class="right">Readings</th><th class="right">Min</th><th class="right">Max</th><th class="right">Mean</th><th class="right">% in range</th><th class="right">Excursions</th><th class="right">Out-of-range readings</th><th class="right">Longest gap</th><th>Last reading</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var d in _report.Devices)
@@ -98,11 +99,12 @@
                             <td class="right @(s.ExcursionEvents > 0 ? "text-error" : null)">@s.ExcursionEvents</td>
                             <td class="right @(s.ExcursionReadings > 0 ? "text-error" : null)">@s.ExcursionReadings</td>
                             <td class="right">@GapText(s.LongestGapHours)</td>
-                            <td>@s.LastReadingUtc?.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@s.LastReadingUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         </tr>
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 
@@ -123,14 +125,15 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Device</th><th>Time (UTC)</th><th class="right">Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Deviation</th><th>Comment</th></tr></thead>
+                <thead><tr><th>Device</th><th>Time</th><th class="right">Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Deviation</th><th>Comment</th></tr></thead>
                 <tbody>
                     @foreach (var r in _report.Readings)
                     {
                         <tr>
                             <td class="mono">@r.LocationCode</td>
-                            <td class="nowrap">@r.ReadingUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@r.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right">@r.ReadingC °C</td>
                             <td class="@(StorageTemperatureRule.IsExcursion(r.Status) ? "text-error" : null)">@StatusText(r.Status)</td>
                             <td>@RangeText(r.RangeMinC, r.RangeMaxC)</td>
@@ -141,6 +144,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -156,16 +160,24 @@
     private bool _busy;
     private long _deviceId;
     private bool _excursionsOnly;
+
+    // A select cannot bind a bool (the binder casts a checkbox's true or false), so the choice stayed All readings (Cycle 633).
+    private string ExcursionsOnlyChoice
+    {
+        get => _excursionsOnly ? "true" : "false";
+        set => _excursionsOnly = value == "true";
+    }
     private bool _reportExcursionsOnly;
-    private DateTime _to = DateTime.UtcNow.Date;
-    private DateTime _from = DateTime.UtcNow.Date.AddDays(-30);
+    private DateTime _to = DateTime.Now.Date;
+    private DateTime _from = DateTime.Now.Date.AddDays(-30);
 
     // A period that ends today stops the trend at now rather than at midnight.
     private DateTime ChartEnd => _report is not null && _report.ToUtc < DateTime.UtcNow ? _report.ToUtc : DateTime.UtcNow;
 
     private static IEnumerable<(string Label, (DateTime From, DateTime To) Range)> Presets()
     {
-        var today = DateTime.UtcNow.Date;
+        // End-user testing pass 49: local days, as the times in the report are local.
+        var today = DateTime.Now.Date;
         var monthStart = new DateTime(today.Year, today.Month, 1);
         yield return ("Last 7 days", (today.AddDays(-7), today));
         yield return ("Last 30 days", (today.AddDays(-30), today));
@@ -203,8 +215,8 @@
         _busy = true;
         try
         {
-            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Utc);
-            var to = DateTime.SpecifyKind(_to.Date.AddDays(1), DateTimeKind.Utc);
+            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Local).ToUniversalTime();
+            var to = DateTime.SpecifyKind(_to.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime();
             long? device = _deviceId == 0 ? null : _deviceId;
             var result = await Api.GetStorageTemperatureReportAsync(device, from, to, _excursionsOnly);
             _report = result.Succeeded ? result.Value : null;
@@ -234,13 +246,13 @@
     private async Task ExportCsvAsync()
     {
         if (_report is null) return;
-        var columns = new[] { "Device", "Name", "Reading time (UTC)", "Reading (C)", "Status", "Range min (C)", "Range max (C)", "Recorded by", "Deviation", "Comment" };
+        var columns = new[] { "Device", "Name", "Reading time (local)", "Reading (C)", "Status", "Range min (C)", "Range max (C)", "Recorded by", "Deviation", "Comment" };
         var names = _report.Devices.ToDictionary(d => d.LocationId, d => d.Name);
         var rows = _report.Readings.Select(r => (IReadOnlyList<string?>)new[]
         {
             r.LocationCode,
             names.GetValueOrDefault(r.LocationId),
-            r.ReadingUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
+            r.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
             r.ReadingC.ToString(CultureInfo.InvariantCulture),
             StatusText(r.Status),
             r.RangeMinC?.ToString(CultureInfo.InvariantCulture),
@@ -250,7 +262,7 @@
             r.Comment
         });
         var scope = _report.Devices.Count == 1 ? _report.Devices[0].Code : "all-devices";
-        var name = $"temperature-history-{scope}-{_report.FromUtc:yyyyMMdd}-{_report.ToUtc.AddTicks(-1):yyyyMMdd}.csv";
+        var name = $"temperature-history-{scope}-{_report.FromUtc.ToLocalTime():yyyyMMdd}-{_report.ToUtc.AddTicks(-1).ToLocalTime():yyyyMMdd}.csv";
         var token = Downloads.Put(name, CsvFormat.ContentType, CsvFormat.Write(columns, rows));
         await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
     }

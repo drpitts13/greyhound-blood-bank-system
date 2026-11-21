@@ -36,6 +36,9 @@ public class TransfusionEvent : BaseEntity
 
     public string? SecondVerifier { get; set; }
 
+    /// <summary>The bedside confirmed the patient's consent is on the chart; null when not asked (pass 115).</summary>
+    public bool? ConsentConfirmed { get; set; }
+
     public string? Location { get; set; }
 
     public string? PreTransfusionVitalsJson { get; set; }
@@ -57,4 +60,17 @@ public class TransfusionEvent : BaseEntity
     public string? ReactionActions { get; set; }
 
     public string? OverrideDataJson { get; set; }
+
+    /// <summary>
+    /// OCD-083 (option B): the unit's status when the EHR reported this transfusion, when it was no longer issued
+    /// (recalled, quarantined, damaged or missing). Null for an ordinary transfusion. The unit keeps that status.
+    /// </summary>
+    public UnitStatus? UnitStatusAtReport { get; set; }
+
+    /// <summary>OCD-083: when a supervisor reviewed the reported transfusion, who, and what was found.</summary>
+    public DateTime? ReportReviewedUtc { get; set; }
+
+    public string? ReportReviewedBy { get; set; }
+
+    public string? ReportReviewNote { get; set; }
 }

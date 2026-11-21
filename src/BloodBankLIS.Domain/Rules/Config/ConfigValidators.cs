@@ -180,17 +180,91 @@ public static class TestDefinitionValidator
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(d.LoincCode) && !LoincCodeRule.IsValid(d.LoincCode))
+        {
+            results.Add(RuleResult.HardStop(LoincCodeRule.Code,
+                $"'{d.LoincCode.Trim()}' is not a LOINC code: digits, a hyphen, and the check digit (for example 882-1)."));
+        }
+
+        if (d.ResultValueType == ResultValueType.Numeric)
+        {
+            ValidateNumeric(d, results);
+        }
+
+        if (d.ResultValueType == ResultValueType.Titer)
+        {
+            ValidateTiter(d, phasesByCode, results);
+        }
+
         if (!string.IsNullOrWhiteSpace(d.RequiredSpecimenType) && activeSpecimenTypeCodes is not null)
         {
-            var required = d.RequiredSpecimenType.Trim();
-            if (!activeSpecimenTypeCodes.Contains(required))
+            foreach (var required in AcceptedSpecimenTypes.Parse(d.RequiredSpecimenType))
             {
-                results.Add(RuleResult.HardStop("TESTDEF.SPECTYPE.MISSING",
-                    $"Required specimen type '{required}' is not in the active specimen type catalog."));
+                if (!activeSpecimenTypeCodes.Contains(required))
+                {
+                    results.Add(RuleResult.HardStop("TESTDEF.SPECTYPE.MISSING",
+                        $"Specimen type '{required}' is not in the active specimen type catalog."));
+                }
             }
         }
 
         return new RuleEvaluation(results);
+    }
+
+    /// <summary>Numeric limits are consistent: each range low ≤ high, reference inside reportable, critical outside reference.</summary>
+    private static void ValidateNumeric(TestDefinition d, List<RuleResult> results)
+    {
+        if (d.DecimalPlaces is < 0 or > 4)
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.NUM.DECIMALS", "Decimal places must be 0 to 4."));
+        }
+
+        foreach (var (name, low, high) in new[]
+        {
+            ("Reportable", d.ReportableLow, d.ReportableHigh),
+            ("Reference", d.ReferenceLow, d.ReferenceHigh),
+            ("Critical", d.CriticalLow, d.CriticalHigh)
+        })
+        {
+            if (low is decimal l && high is decimal h && l > h)
+            {
+                results.Add(RuleResult.HardStop("TESTDEF.NUM.RANGE", $"{name} low must not be above {name.ToLowerInvariant()} high."));
+            }
+        }
+
+        if ((d.ReportableLow is decimal rl && d.ReferenceLow is decimal refLow && refLow < rl)
+            || (d.ReportableHigh is decimal rh && d.ReferenceHigh is decimal refHigh && refHigh > rh))
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.NUM.REFERENCE", "The reference range must lie inside the reportable range."));
+        }
+
+        if ((d.CriticalLow is decimal cl && d.ReferenceLow is decimal lowRef && cl > lowRef)
+            || (d.CriticalHigh is decimal ch && d.ReferenceHigh is decimal highRef && ch < highRef))
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.NUM.CRITICAL", "Critical limits must lie outside the reference range."));
+        }
+    }
+
+    /// <summary>A titer needs a doubling series, a known phase, and a positive endpoint grade.</summary>
+    private static void ValidateTiter(TestDefinition d, IReadOnlyDictionary<string, PhaseDefinition>? phasesByCode, List<RuleResult> results)
+    {
+        if (d.TiterStartDilution is not int start || d.TiterEndDilution is not int end || !TiterRule.IsValidSeries(start, end))
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.TITER.SERIES",
+                $"A titer needs a first dilution of at least 1 and a last dilution that is the first doubled 1 to {TiterRule.MaxSteps} times (for example 1 to 2048)."));
+        }
+
+        if (TiterRule.Strength(d.TiterEndpointMinGrade) <= 0)
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.TITER.ENDPOINT",
+                $"Choose the weakest grade that counts toward the endpoint ({string.Join(", ", TiterRule.Grades.Skip(1))})."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(d.TiterPhaseCode) && phasesByCode is not null && !phasesByCode.ContainsKey(d.TiterPhaseCode.Trim()))
+        {
+            results.Add(RuleResult.HardStop("TESTDEF.TITER.PHASE",
+                $"Titer phase '{d.TiterPhaseCode.Trim()}' is not in the active phase catalog."));
+        }
     }
 
     public static bool UsesPanelSubtests(ResultValueType valueType) =>
@@ -1007,7 +1081,47 @@ public static class RuleDefinitionValidator
 
 public static class SpecialRequirementDefinitionValidator
 {
-    public static RuleEvaluation Validate(SpecialRequirementDefinition d, bool duplicateActiveCode, bool knownProductAttribute)
+    /// <summary>The enforcement kinds each admin table offers.</summary>
+    public static IReadOnlyList<SpecialRequirementEnforcementKind> KindsFor(SpecialRequirementCategory category) => category switch
+    {
+        SpecialRequirementCategory.UnitTyping =>
+        [
+            SpecialRequirementEnforcementKind.RequireUnitAbo,
+            SpecialRequirementEnforcementKind.RequireRhNegative,
+            SpecialRequirementEnforcementKind.RequireAntigenNegative,
+            SpecialRequirementEnforcementKind.RequireUnitTestNegative
+        ],
+        SpecialRequirementCategory.UnitModification => [SpecialRequirementEnforcementKind.RequireProductAttribute],
+        SpecialRequirementCategory.Informational => [SpecialRequirementEnforcementKind.Informational],
+        _ =>
+        [
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment,
+            SpecialRequirementEnforcementKind.RequireComplexCrossmatch,
+            SpecialRequirementEnforcementKind.RequireAboSubgroup
+        ]
+    };
+
+    /// <summary>The table an entry belongs in when only its enforcement kind is known.</summary>
+    public static SpecialRequirementCategory CategoryFor(SpecialRequirementEnforcementKind kind) => kind switch
+    {
+        SpecialRequirementEnforcementKind.RequireProductAttribute => SpecialRequirementCategory.UnitModification,
+        SpecialRequirementEnforcementKind.RequireAntigenNegative
+            or SpecialRequirementEnforcementKind.RequireUnitAbo
+            or SpecialRequirementEnforcementKind.RequireRhNegative
+            or SpecialRequirementEnforcementKind.RequireUnitTestNegative => SpecialRequirementCategory.UnitTyping,
+        SpecialRequirementEnforcementKind.Informational => SpecialRequirementCategory.Informational,
+        _ => SpecialRequirementCategory.IssueProcedure
+    };
+
+    /// <param name="requireComponentClass">
+    /// New unit typings and modifications name the unit category they apply to. Entries made before categories keep
+    /// "All categories" when edited.
+    /// </param>
+    public static RuleEvaluation Validate(
+        SpecialRequirementDefinition d,
+        bool duplicateActiveCode,
+        bool knownProductAttribute,
+        bool requireComponentClass = false)
     {
         var results = new List<RuleResult>();
 
@@ -1027,6 +1141,51 @@ public static class SpecialRequirementDefinitionValidator
                 $"Another active special requirement already uses code '{d.Code}'."));
         }
 
+        if (!KindsFor(d.Category).Contains(d.EnforcementKind))
+        {
+            results.Add(RuleResult.HardStop("SRDEF.KIND.CATEGORY",
+                $"{SpecialRequirementLabel.Category(d.Category)} cannot use the enforcement '{SpecialRequirementLabel.Kind(d.EnforcementKind)}'."));
+        }
+
+        var unitFact = d.Category is SpecialRequirementCategory.UnitTyping or SpecialRequirementCategory.UnitModification;
+        if (unitFact && requireComponentClass && d.ComponentClass is null)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.CLASS.REQUIRED",
+                "Choose the unit category this requirement applies to (for example RBC or platelets)."));
+        }
+
+        if (!unitFact && d.ComponentClass is not null)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.CLASS.NOT.APPLICABLE",
+                "Only unit typings and modifications apply to a unit category."));
+        }
+
+        if (d.Category == SpecialRequirementCategory.Informational && string.IsNullOrWhiteSpace(d.Instruction))
+        {
+            results.Add(RuleResult.HardStop("SRDEF.BANNER.REQUIRED", "Give the banner text shown on the patient chart."));
+        }
+
+        if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireUnitAbo
+            && SpecialTransfusionRequirementRule.ParseAboGroups(d.AllowedAboGroups).Count == 0)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.ABO.REQUIRED", "Choose at least one allowed unit ABO group."));
+        }
+
+        if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireUnitTestNegative
+            && string.IsNullOrWhiteSpace(d.UnitTestCode))
+        {
+            results.Add(RuleResult.HardStop("SRDEF.TEST.REQUIRED",
+                "Give the unit test code whose negative result meets this requirement (for example CMV or HBS)."));
+        }
+
+        if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireUnitTestNegative
+            && !string.IsNullOrWhiteSpace(d.ProductAttributeCode)
+            && !knownProductAttribute)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.ATTR.UNKNOWN",
+                $"Product attribute '{d.ProductAttributeCode}' is not in the active product-attribute catalog."));
+        }
+
         if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireProductAttribute)
         {
             if (string.IsNullOrWhiteSpace(d.ProductAttributeCode))
@@ -1042,5 +1201,47 @@ public static class SpecialRequirementDefinitionValidator
         }
 
         return new RuleEvaluation(results);
+    }
+}
+
+/// <summary>
+/// Reaction workup settings: each chosen Test Group must be an active, released group. A role left empty means the
+/// workup for that specimen cannot be ordered until an administrator chooses one.
+/// </summary>
+public static class ReactionWorkupSettingsValidator
+{
+    public const string ReasonRequiredCode = "RXNSET.REASON.REQUIRED";
+    public const string PreGroupCode = "RXNSET.PRE.GROUP";
+    public const string PostGroupCode = "RXNSET.POST.GROUP";
+
+    public static RuleEvaluation Validate(
+        ReactionWorkupSettings settings,
+        string? reason,
+        TestGrouper? preGroup,
+        TestGrouper? postGroup)
+    {
+        var results = new List<RuleResult>();
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            results.Add(RuleResult.HardStop(ReasonRequiredCode, "A change reason is required."));
+        }
+
+        AddGroupCheck(results, PreGroupCode, "pre-transfusion", settings.PreTransfusionTestGroupCode, preGroup);
+        AddGroupCheck(results, PostGroupCode, "post-transfusion", settings.PostTransfusionTestGroupCode, postGroup);
+        return new RuleEvaluation(results);
+    }
+
+    private static void AddGroupCheck(List<RuleResult> results, string code, string role, string? chosen, TestGrouper? group)
+    {
+        if (string.IsNullOrWhiteSpace(chosen))
+        {
+            return;
+        }
+
+        if (group is null || !group.IsActive || group.IsDraft)
+        {
+            results.Add(RuleResult.HardStop(code,
+                $"Test Group '{chosen}' for the {role} specimen is not an active, released Test Group."));
+        }
     }
 }

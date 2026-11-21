@@ -12,10 +12,12 @@ routes:
 
 The **Audit Trail** records who did what, at which workstation, and when. It includes clinical actions and the reasons captured with them: overrides, corrections, reprints, discards, and configuration changes. You need audit read permission. You do not need to be an administrator to read it, if that permission was granted to your role.
 
-Filter by time, user, patient, or unit. Open the row to see the detail. The log is append-only. There is no delete and no edit. A new hash chain covers rows written after the chain was turned on. Older rows were not rewritten. If a chain check fails, treat that as a quality event and do not "fix" it by changing data.
+Filter by time, user, patient, or unit. To see everything recorded about one record, scan or type its DIN, MRN, accession, or order number into **Record: scan or type** and press Enter; the trail of that record is shown (choose one when several match). **Full audit trail** opens the same view from a unit's **Status history**, a patient chart's **Timeline**, and a specimen's **History**. Open the row to see the detail. The log is append-only. There is no delete and no edit. A new hash chain covers rows written after the chain was turned on. Older rows were not rewritten. If a chain check fails, treat that as a quality event and do not "fix" it by changing data.
 
 **Export CSV** downloads up to 50,000 events that match the current filters, newest first, with the old and new values and the hash chain. The export is itself recorded in the audit trail.
 
 Use the audit trail to answer a specific question. It is not a report designer. For a table you need to export on a schedule, use Reports.
 
 Configuration changes also appear in **Configuration History** under Administration, which compares versions. The audit trail is the broader record, including bench actions.
+
+The date filters and **Today**, **Last 7 days** and **Last 30 days** count local days, as the times in the list are local. Patients, units, specimens and orders are named in the list (name and MRN, unit number, accession, order number) rather than by record number.

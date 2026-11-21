@@ -68,8 +68,8 @@ public class TotpTests
         var secret = Totp.NewSecret();
         Assert.Equal(Totp.SecretBytes, secret.Length);
         Assert.Equal(secret, Totp.FromBase32(Totp.ToBase32(secret).ToLowerInvariant()));
-        var uri = Totp.ProvisioningUri("Greyhound Blood Bank LIS", "tech1", secret);
-        Assert.StartsWith("otpauth://totp/Greyhound%20Blood%20Bank%20LIS:tech1?secret=", uri);
+        var uri = Totp.ProvisioningUri("HemoCore", "tech1", secret);
+        Assert.StartsWith("otpauth://totp/HemoCore:tech1?secret=", uri);
         Assert.Contains("&digits=6&period=30", uri);
         Assert.Throws<FormatException>(() => Totp.FromBase32("ABC1"));
     }

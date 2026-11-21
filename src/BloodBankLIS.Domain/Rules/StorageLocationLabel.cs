@@ -1,3 +1,5 @@
+using BloodBankLIS.Domain.Enums;
+
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
@@ -66,6 +68,31 @@ public static class StorageLocationLabel
     /// </summary>
     public static string ForUnitChart(long? locationId, IEnumerable<CatalogLocation>? catalog) =>
         ForInventoryList(locationId, catalog);
+
+    /// <summary>
+    /// A unit that has left the blood bank (issued, transfused, shipped, discarded, missing, used in a modification)
+    /// keeps the location it was last stored in; shown bare, it read as where the bag is (end-user testing pass 126:
+    /// a unit in transit to the trauma bay showed "Main Blood Bank Refrigerator"). Such a unit reads "Not in storage
+    /// (issued) · last stored at …"; a unit in the bank reads its location as before.
+    /// </summary>
+    public static string WithStatus(UnitStatus status, string storedLabel) =>
+        LeftStorage(status)
+            ? $"Not in storage ({StatusWord(status)}) · last stored at {storedLabel}"
+            : storedLabel;
+
+    public static bool LeftStorage(UnitStatus status) => status is UnitStatus.Issued or UnitStatus.TransfusionStarted
+        or UnitStatus.TransfusionStopped or UnitStatus.Transfused or UnitStatus.Transferred or UnitStatus.ShippedOut
+        or UnitStatus.ReturnedToSupplier or UnitStatus.Discarded or UnitStatus.Missing or UnitStatus.Modified;
+
+    private static string StatusWord(UnitStatus status) => status switch
+    {
+        UnitStatus.TransfusionStarted => "transfusing",
+        UnitStatus.TransfusionStopped => "transfusion stopped",
+        UnitStatus.ShippedOut => "shipped out",
+        UnitStatus.ReturnedToSupplier => "returned to supplier",
+        UnitStatus.Modified => "modified into new units",
+        _ => status.ToString().ToLowerInvariant()
+    };
 
     /// <summary>
     /// Choice label for a transfer or delivery location.

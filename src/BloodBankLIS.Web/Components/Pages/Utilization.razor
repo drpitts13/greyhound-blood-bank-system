@@ -1,7 +1,7 @@
 @page "/utilization"
 @inject BloodBankApiClient Api
 
-<PageTitle>Utilization &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Utilization &middot; HemoCore</PageTitle>
 
 <h1>Blood utilization</h1>
 <p class="muted">Crossmatch-to-transfusion ratio by ordering location and provider.</p>
@@ -11,15 +11,15 @@
         <li>A crossmatched unit is one patient and one unit with a compatible crossmatch in the period, by any method. Repeat crossmatches of the same unit for the same patient count once.</li>
         <li>Issued and transfused are counted for that patient and unit whenever they happened. A transfusion counts when it was documented as completed or stopped after it started.</li>
         <li>The location and provider come from the order on the first crossmatch. A crossmatch with no order is listed as "(no order)".</li>
-        <li>C:T ratio is crossmatched units divided by transfused units. The page shows the numbers only. Your facility sets any target.</li>
+        <li>C:T ratio is crossmatched units divided by transfused units. When the facility's target is set (Facility Policies › C:T ratio target), a line above it, or with units crossmatched and none transfused, is marked <strong>Above target</strong> for review.</li>
     </ul>
 </details>
 <Outcome Value="_feedback" />
 
 <div class="bb-card">
     <div class="form-row">
-        <div class="field"><label>From (UTC date)</label><input type="date" @bind="_from" /></div>
-        <div class="field"><label>To (UTC date)</label><input type="date" @bind="_to" /></div>
+        <div class="field"><label>From date</label><input type="date" @bind="_from" /></div>
+        <div class="field"><label>To date (inclusive)</label><input type="date" @bind="_to" /></div>
     </div>
     <div class="flex gap" style="flex-wrap:wrap;align-items:center;">
         <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="LoadAsync">Run</button>
@@ -34,13 +34,17 @@
 @if (_report is not null)
 {
     <div class="bb-card">
-        <div class="bb-card-title"><h3>@_report.FromUtc.ToString("yyyy-MM-dd") to @_report.ToUtc.ToString("yyyy-MM-dd")</h3></div>
+        <div class="bb-card-title"><h3>@_report.FromUtc.ToLocalTime().ToString("yyyy-MM-dd") to @_report.ToUtc.ToLocalTime().ToString("yyyy-MM-dd")</h3></div>
+        <p class="muted" style="margin-top:0;" data-ct-target>@(_report.CtRatioTarget is decimal target
+            ? $"C:T ratio target: {target:0.0} or below (Facility Policies)."
+            : "No C:T ratio target is set (Facility Policies › C:T ratio target), so no line is marked.")</p>
         @if (_report.Total.Crossmatched == 0)
         {
             <div class="muted">No compatible crossmatches in this period.</div>
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr><th>Ordering location</th><th>Provider</th><th class="right">Crossmatched</th><th class="right">Issued</th><th class="right">Transfused</th><th class="right">C:T ratio</th><th class="right">Transfused / crossmatched</th><th class="right">Transfused / issued</th></tr>
@@ -48,13 +52,48 @@
                 <tbody>
                     @foreach (var row in _report.Rows)
                     {
-                        <UtilizationRow Row="row" />
+                        <UtilizationRow Row="row" Target="_report.CtRatioTarget" />
                     }
                 </tbody>
                 <tfoot>
-                    <UtilizationRow Row="_report.Total" Bold="true" />
+                    <UtilizationRow Row="_report.Total" Bold="true" Target="_report.CtRatioTarget" />
                 </tfoot>
             </table>
+            </div>
+        }
+    </div>
+
+    @* Pass 262: every product, including uncrossmatched emergency issues, and what was wasted. *@
+    <div class="bb-card" data-utilization-by-product>
+        <div class="bb-card-title"><h3>By product</h3></div>
+        <p class="muted" style="margin-top:0;">Units issued in the period by product (emergency and massive-transfusion issues are never crossmatched first, so they are not in the table above), how many of those were transfused or came back, and units discarded in the period.</p>
+        @if (_report.ByProduct.Count == 0)
+        {
+            <div class="muted">No units issued or discarded in this period.</div>
+        }
+        else
+        {
+            <div class="table-scroll">
+            <table class="bb">
+                <thead>
+                    <tr><th>Product</th><th class="right">Issued</th><th class="right">Of them emergency or MTP</th><th class="right">Transfused</th><th class="right">Returned</th><th class="right">Transfused / issued</th><th class="right">Discarded</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in _report.ByProduct)
+                    {
+                        <tr data-product-row="@p.Product">
+                            <td>@p.Product</td>
+                            <td class="right">@p.Issued</td>
+                            <td class="right">@p.EmergencyIssued</td>
+                            <td class="right">@p.Transfused</td>
+                            <td class="right">@p.Returned</td>
+                            <td class="right">@(p.TransfusedPercentOfIssued is decimal pct ? $"{pct:0.0}%" : "—")</td>
+                            <td class="right">@p.Discarded</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
         }
     </div>
 }
@@ -71,13 +110,14 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Ordered (UTC)</th><th>Order</th><th>MRN</th><th>Product</th><th>Location</th><th>Provider</th><th>Finding</th><th>Reason given</th></tr></thead>
+            <thead><tr><th>Ordered</th><th>Order</th><th>MRN</th><th>Product</th><th>Location</th><th>Provider</th><th>Finding</th><th>Reason given</th></tr></thead>
             <tbody>
                 @foreach (var row in _review)
                 {
                     <tr>
-                        <td class="nowrap">@row.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@row.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="mono">@row.OrderNumber</td>
                         <td class="mono">@row.Mrn</td>
                         <td class="mono">@row.ProductCode</td>
@@ -89,6 +129,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -97,14 +138,15 @@
     private UtilizationReportDto? _report;
     private Feedback? _feedback;
     private bool _busy;
-    private DateTime _to = DateTime.UtcNow.Date;
-    private DateTime _from = DateTime.UtcNow.Date.AddDays(-30);
+    private DateTime _to = DateTime.Now.Date;
+    private DateTime _from = DateTime.Now.Date.AddDays(-30);
     private string? _reviewError;
 
     // Reviews usually cover a calendar period; one click sets the dates and runs.
     private static IEnumerable<(string Label, (DateTime From, DateTime To) Range)> Presets()
     {
-        var today = DateTime.UtcNow.Date;
+        // End-user testing pass 49: local days, as the times in the report are local.
+        var today = DateTime.Now.Date;
         var monthStart = new DateTime(today.Year, today.Month, 1);
         var quarterStart = new DateTime(today.Year, (today.Month - 1) / 3 * 3 + 1, 1);
         yield return ("Last 30 days", (today.AddDays(-30), today));
@@ -127,8 +169,8 @@
         _busy = true;
         try
         {
-            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Utc);
-            var to = DateTime.SpecifyKind(_to.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Local).ToUniversalTime();
+            var to = DateTime.SpecifyKind(_to.Date.AddDays(1), DateTimeKind.Local).ToUniversalTime().AddTicks(-1);
             var review = await Api.GetPbmReviewAsync(from, to);
             _review = review.Succeeded ? review.Value ?? new() : new();
             // An empty list would read as "none in this period", so say when it failed instead.

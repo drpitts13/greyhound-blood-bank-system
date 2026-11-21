@@ -22,7 +22,7 @@ public static class SpecimenLabelTemplate
             new LabelText(10, 48, $"MRN: {model.MedicalRecordNumber}   DOB: {model.DateOfBirth:yyyy-MM-dd}"),
             new LabelText(10, 80, model.SpecimenType),
             new LabelBarcode(10, 112, model.AccessionNumber, height: 50),
-            new LabelText(10, 178, $"Coll: {model.CollectedUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} UTC"),
+            new LabelText(10, 178, $"Coll: {LabelTime.Format(model.CollectedUtc, model.TimeZoneId)}"),
         };
 
         if (!string.IsNullOrWhiteSpace(model.DrawLocation))

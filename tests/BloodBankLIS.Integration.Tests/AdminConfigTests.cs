@@ -1,7 +1,9 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
 using BloodBankLIS.Infrastructure.Persistence;
@@ -154,6 +156,40 @@ public class AdminConfigTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-1402 (end-user testing loop 2 tick 22): retiring a test still in an active grouper and reflex rule succeeds
+    // and names both; a test nothing uses retires with no warning.
+    [Fact]
+    public async Task Deactivate_NamesWhatStillUsesTheTest()
+    {
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = new TestDefinitionAdminService(
+            new EfRepository<TestDefinition>(context), new EfRepository<SubtestDefinition>(context), new EfRepository<PhaseDefinition>(context),
+            new EfRepository<BloodAttributeDefinition>(context), new EfRepository<SpecimenTypeDefinition>(context), context, _factory.Clock,
+            _factory.CurrentUser, new AuditWriter(context, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
+            new ConfigurationHistoryWriter(context, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", isDevMode: false)),
+            groupers: new EfRepository<TestGrouper>(context), reflexRules: new EfRepository<ReflexRule>(context),
+            products: new EfRepository<ProductType>(context));
+        var used = await service.CreateAsync(NewRequest($"TU{key}"));
+        await service.ActivateAsync(used.Value!.Id, "activate");
+        var unused = await service.CreateAsync(NewRequest($"TN{key}"));
+        await service.ActivateAsync(unused.Value!.Id, "activate");
+        context.TestGroupers.Add(new TestGrouper { Code = $"GRP{key}", Name = "Grouper", IsActive = true,
+            MemberTestsJson = TestGrouperMembers.ToJson([new TestGrouperMember($"TU{key}")]) });
+        context.ReflexRules.Add(new ReflexRule { Code = $"RFX{key}", Name = "Reflex", IsActive = true,
+            TriggerTestCode = $"TU{key}", TriggerResultValue = "Positive", ReflexTestCode = "ABID" });
+        await context.SaveChangesAsync();
+
+        var retired = await service.DeactivateAsync(used.Value.Id, "Replaced");
+        Assert.True(retired.Succeeded);
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"GRP{key}") && w.Message.Contains("test grouper"));
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"RFX{key}") && w.Message.Contains("reflex rule"));
+
+        var clean = await service.DeactivateAsync(unused.Value.Id, "Unused");
+        Assert.True(clean.Succeeded);
+        Assert.Empty(clean.Warnings);
+    }
+
     [Fact]
     public async Task DevMode_StampsHistoryEnvironmentAndFlag()
     {
@@ -189,5 +225,37 @@ public class AdminConfigTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("TD-CLONE", clone.Value!.Code);
         Assert.True(clone.Value.IsDraft);
         Assert.False(clone.Value.IsActive);
+    }
+
+    // TEST-BB-521: numeric and titer settings round-trip through the admin service, inconsistent limits are refused, and
+    // only the part matching the result value type is kept.
+    [Fact]
+    public async Task NumericAndTiterSettings_RoundTrip_AndOnlyTheMatchingPartIsKept()
+    {
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var code = $"NUM{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+        var shape = new TestResultShapeDto("%", 2, 0, 100, 0, 0.3m, null, 5, TiterStartDilution: 1, TiterEndDilution: 64, TiterEndpointMinGrade: "1+");
+        var created = await service.CreateAsync(NewRequest(code) with { ResultValueType = ResultValueType.Numeric, ResultShape = shape });
+        Assert.True(created.Succeeded, created.Error);
+        var dto = created.Value!.ResultShape!;
+        Assert.Equal(("%", 2, 100m, 0.3m, 5m), (dto.ResultUnits, dto.DecimalPlaces, dto.ReportableHigh, dto.ReferenceHigh, dto.CriticalHigh));
+        Assert.Null(dto.TiterStartDilution);
+
+        var bad = await service.UpdateAsync(created.Value.Id, NewRequest(code, reason: "Tighten") with
+        {
+            ResultValueType = ResultValueType.Numeric, ResultShape = shape with { CriticalHigh = 0.1m }
+        });
+        Assert.False(bad.Succeeded);
+
+        var titer = await service.UpdateAsync(created.Value.Id, NewRequest(code, reason: "Now a titer") with
+        {
+            ResultValueType = ResultValueType.Titer, ResultShape = shape with { TiterScored = true }
+        });
+        Assert.True(titer.Succeeded, titer.Error);
+        var saved = await context.TestDefinitions.AsNoTracking().SingleAsync(t => t.Id == created.Value.Id);
+        Assert.Equal((1, 64, "1+", true), (saved.TiterStartDilution, saved.TiterEndDilution, saved.TiterEndpointMinGrade, saved.TiterScored));
+        Assert.Null(saved.ResultUnits);
+        Assert.Null(saved.CriticalHigh);
     }
 }

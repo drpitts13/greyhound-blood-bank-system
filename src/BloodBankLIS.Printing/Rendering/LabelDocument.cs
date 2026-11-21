@@ -101,13 +101,17 @@ public sealed class LabelText : LabelElement
 /// <summary>A 1D barcode (Code 128 by default) with optional human-readable interpretation.</summary>
 public sealed class LabelBarcode : LabelElement
 {
-    public LabelBarcode(int x, int y, string data, int height = 80, bool printInterpretation = true)
+    public LabelBarcode(int x, int y, string data, int height = 80, bool printInterpretation = true, int moduleWidth = 2)
         : base(x, y)
     {
         Data = data ?? string.Empty;
         Height = height;
         PrintInterpretation = printInterpretation;
+        ModuleWidth = Math.Clamp(moduleWidth, 1, 4);
     }
+
+    /// <summary>Narrow bar width in dots (ZPL ^BY).</summary>
+    public int ModuleWidth { get; }
 
     public string Data { get; }
 

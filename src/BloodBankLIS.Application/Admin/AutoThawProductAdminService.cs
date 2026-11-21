@@ -74,7 +74,8 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         var entity = new AutoThawProduct
         {
             ProductCode = code,
-            IsActive = true
+            IsActive = true,
+            ThawedShelfLifeHours = request.ThawedShelfLifeHours ?? ThawedExpirationRule.DefaultHours
         };
         var duplicate = await _rows.AnyAsync(r => r.ProductCode == code, ct);
         var validation = AutoThawProductValidator.Validate(
@@ -138,6 +139,53 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         return EvaluationResult<AutoThawProductDto>.Ok(dto, new RuleEvaluation([]));
     }
 
+    /// <summary>Changes a code's thawed shelf life; a reason is required and the change is audited and versioned.</summary>
+    public async Task<EvaluationResult<AutoThawProductDto>> SetShelfLifeAsync(
+        long id, SetAutoThawShelfLifeRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, AutoThawProductAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var entity = await _rows.GetByIdAsync(id, ct);
+        if (entity is null)
+        {
+            return EvaluationResult<AutoThawProductDto>.Fail("Auto-thaw product not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return EvaluationResult<AutoThawProductDto>.Fail("Enter the reason for changing the thawed shelf life.");
+        }
+
+        var checks = new[]
+        {
+            ThawedExpirationRule.EvaluateShelfLife(request.ThawedShelfLifeHours),
+            ThawedExpirationRule.EvaluateOptionalShelfLife(request.OpenSystemShelfLifeHours, "open-system"),
+            ThawedExpirationRule.EvaluateOptionalShelfLife(request.PooledShelfLifeHours, "pooled")
+        }.Where(r => r.Severity == RuleSeverity.HardStop).ToList();
+        if (checks.Count > 0)
+        {
+            return EvaluationResult<AutoThawProductDto>.Blocked(new RuleEvaluation(checks));
+        }
+
+        var catalog = await FindCatalogAsync(entity.ProductCode, ct);
+        var old = AutoThawProductDto.From(entity, catalog?.Description);
+        entity.ThawedShelfLifeHours = request.ThawedShelfLifeHours;
+        entity.OpenSystemShelfLifeHours = request.OpenSystemShelfLifeHours;
+        entity.PooledShelfLifeHours = request.PooledShelfLifeHours;
+        _rows.Update(entity);
+        var dto = AutoThawProductDto.From(entity, catalog?.Description);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, request.Reason.Trim());
+        await UnitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<AutoThawProductDto>.Ok(dto, new RuleEvaluation([]));
+    }
+
     internal static string Normalize(string? code) =>
         string.IsNullOrWhiteSpace(code) ? string.Empty : code.Trim().ToUpperInvariant();
 
@@ -156,7 +204,8 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         catalog.TryGetValue(code, out var row) ? row.Description : null;
 
     private static bool IsRetired(IsbtProductCode? code) =>
-        code?.RetiredDate is DateOnly retired && retired <= DateOnly.FromDateTime(DateTime.UtcNow);
+        // The facility's day (the server's local day), not the UTC date (end-user testing pass 77).
+        code?.RetiredDate is DateOnly retired && retired <= DateOnly.FromDateTime(DateTime.Now);
 
     private async Task<EvaluationResult<AutoThawProductDto>?> RejectUnauthorizedAsync(
         string permissionCode,

@@ -18,6 +18,9 @@ public static class DependencyInjection
         services.AddScoped<Hl7OutboundSender>();
         services.AddScoped<Hl7FileDropInboundPoller>();
         services.AddScoped<IBillingInterfacePublisher>(sp => sp.GetRequiredService<Hl7OutboundService>());
+        services.AddScoped<IResultReleasePublisher>(sp => sp.GetRequiredService<Hl7OutboundService>());
+        services.AddScoped<ISpecimenRejectionPublisher>(sp => sp.GetRequiredService<Hl7OutboundService>());
+        services.AddScoped<IProductDispensePublisher>(sp => sp.GetRequiredService<Hl7OutboundService>());
         return services;
     }
 }

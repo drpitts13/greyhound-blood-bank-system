@@ -37,6 +37,130 @@ public class SpecialRequirementAdminTests : IClassFixture<SqliteContextFactory>
         new(code, "Blood warmer", SpecialRequirementLevel.Issuing,
             SpecialRequirementEnforcementKind.RequireIssueAcknowledgment, null, "Ack at issue.", 10, "Catalog.");
 
+    private SpecialRequirementService Chart(BloodBankDbContext c, IFacilityTimeZone? timeZone = null) =>
+        new(
+            new EfRepository<SpecialTransfusionRequirement>(c),
+            new EfRepository<Patient>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            definitions: new EfRepository<SpecialRequirementDefinition>(c),
+            timeZone: timeZone);
+
+    // TEST-BB-412: each table takes only its own kinds, and new typings and modifications name a unit category.
+    [Fact]
+    public async Task Create_InEachTable_AsksForWhatThatTableNeeds()
+    {
+        await using var c = _factory.Create();
+        if (!await c.ProductAttributes.AnyAsync(a => a.Code == "IRRAD"))
+        {
+            c.ProductAttributes.Add(new ProductAttribute { Code = "IRRAD", Name = "Irradiated" });
+            await c.SaveChangesAsync();
+        }
+
+        var admin = Admin(c);
+        string Code() => $"T{Guid.NewGuid():N}"[..8];
+
+        var noClass = await admin.CreateAsync(new(Code(), "Irradiated", SpecialRequirementLevel.Unit,
+            SpecialRequirementEnforcementKind.RequireProductAttribute, "IRRAD", null, 10, "New entry.",
+            SpecialRequirementCategory.UnitModification));
+        Assert.Contains(noClass.Evaluation!.HardStops, r => r.Code == "SRDEF.CLASS.REQUIRED");
+
+        var modification = await admin.CreateAsync(new(Code(), "Irradiated", SpecialRequirementLevel.Unit,
+            SpecialRequirementEnforcementKind.RequireProductAttribute, "IRRAD", null, 10, "New entry.",
+            SpecialRequirementCategory.UnitModification, ComponentClass.Platelets));
+        Assert.True(modification.Succeeded, modification.Error);
+        Assert.Equal("Irradiated – Platelets", modification.Value!.ChoiceLabel);
+
+        var noGroups = await admin.CreateAsync(new(Code(), "Group O only", SpecialRequirementLevel.Unit,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, null, null, 10, "New entry.",
+            SpecialRequirementCategory.UnitTyping, ComponentClass.RedBloodCells, AllowedAboGroups: "  "));
+        Assert.Contains(noGroups.Evaluation!.HardStops, r => r.Code == "SRDEF.ABO.REQUIRED");
+
+        var typing = await admin.CreateAsync(new(Code(), "Group O only", SpecialRequirementLevel.Unit,
+            SpecialRequirementEnforcementKind.RequireUnitAbo, null, null, 10, "New entry.",
+            SpecialRequirementCategory.UnitTyping, ComponentClass.RedBloodCells, AllowedAboGroups: "a, o"));
+        Assert.True(typing.Succeeded, typing.Error);
+        Assert.Equal("O,A", typing.Value!.AllowedAboGroups);
+
+        var wrongKind = await admin.CreateAsync(new(Code(), "Warmer", SpecialRequirementLevel.Issuing,
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment, null, null, 10, "New entry.",
+            SpecialRequirementCategory.UnitTyping, ComponentClass.RedBloodCells));
+        Assert.Contains(wrongKind.Evaluation!.HardStops, r => r.Code == "SRDEF.KIND.CATEGORY");
+
+        var noBanner = await admin.CreateAsync(new(Code(), "Call physician", SpecialRequirementLevel.Patient,
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment, null, null, 10, "New entry.",
+            SpecialRequirementCategory.Informational));
+        Assert.Contains(noBanner.Evaluation!.HardStops, r => r.Code == "SRDEF.BANNER.REQUIRED");
+
+        var info = await admin.CreateAsync(new(Code(), "Call physician", SpecialRequirementLevel.Patient,
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment, null, "Call before issue.", 10, "New entry.",
+            SpecialRequirementCategory.Informational));
+        Assert.True(info.Succeeded, info.Error);
+        Assert.Equal(SpecialRequirementEnforcementKind.Informational, info.Value!.EnforcementKind);
+    }
+
+    // TEST-BB-412: definitions made before categories keep what they enforce, for all unit categories.
+    [Fact]
+    public async Task Backfill_PlacesEarlierDefinitions_AndKeepsAllCategories()
+    {
+        await using var c = _factory.Create();
+        var irr = new SpecialRequirementDefinition
+        {
+            Code = $"BI{Guid.NewGuid():N}"[..8], Name = "Irradiated", Category = (SpecialRequirementCategory)(-1),
+            EnforcementKind = SpecialRequirementEnforcementKind.RequireProductAttribute, ProductAttributeCode = "IRRAD", IsActive = true
+        };
+        var warmer = new SpecialRequirementDefinition
+        {
+            Code = $"BW{Guid.NewGuid():N}"[..8], Name = "Warmer", Category = (SpecialRequirementCategory)(-1),
+            EnforcementKind = SpecialRequirementEnforcementKind.RequireIssueAcknowledgment, IsActive = true
+        };
+        c.SpecialRequirementDefinitions.AddRange(irr, warmer);
+        await c.SaveChangesAsync();
+
+        await c.Database.ExecuteSqlRawAsync(SpecialRequirementCategoryBackfill.Sql("Category = -1"));
+        await c.Entry(irr).ReloadAsync();
+        await c.Entry(warmer).ReloadAsync();
+
+        Assert.Equal(SpecialRequirementCategory.UnitModification, irr.Category);
+        Assert.Null(irr.ComponentClass);
+        Assert.Equal(SpecialRequirementEnforcementKind.RequireProductAttribute, irr.EnforcementKind);
+        Assert.Equal(SpecialRequirementCategory.IssueProcedure, warmer.Category);
+    }
+
+    // TEST-BB-412: chart dates are facility days; the end date must come after the start.
+    [Fact]
+    public async Task ChartDates_AreFacilityMidnight_AndTheEndMustFollowTheStart()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"DT{Guid.NewGuid():N}"[..8],
+            LastName = "Dates",
+            FirstName = "Chart",
+            DateOfBirth = new DateOnly(1980, 1, 1)
+        };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        var zone = FacilityTimeZone.FromId("America/New_York");
+        var chart = Chart(c, zone);
+
+        var backwards = await chart.AddAsync(patient.Id, new AddSpecialRequirementRequest(
+            SpecialTransfusionRequirementType.Irradiated, "Ordered",
+            StartDate: new DateOnly(2026, 6, 10), EndDate: new DateOnly(2026, 6, 10)));
+        Assert.False(backwards.Succeeded);
+        Assert.Contains("end date must be after the start date", backwards.Error);
+
+        var added = await chart.AddAsync(patient.Id, new AddSpecialRequirementRequest(
+            SpecialTransfusionRequirementType.Irradiated, "Ordered",
+            StartDate: new DateOnly(2026, 6, 1), EndDate: new DateOnly(2026, 6, 10)));
+        Assert.True(added.Succeeded, added.Error);
+        // New York is UTC-4 in June: facility midnight is 04:00 UTC.
+        Assert.Equal(new DateTime(2026, 6, 1, 4, 0, 0, DateTimeKind.Utc), added.Value!.EffectiveUtc);
+        Assert.Equal(new DateTime(2026, 6, 10, 4, 0, 0, DateTimeKind.Utc), added.Value.ExpiresUtc);
+    }
+
     [Fact]
     public async Task Create_WithoutAdminConfigEdit_IsRejected()
     {

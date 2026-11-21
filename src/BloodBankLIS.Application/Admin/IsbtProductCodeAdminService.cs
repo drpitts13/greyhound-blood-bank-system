@@ -21,6 +21,9 @@ public sealed class IsbtProductCodeAdminService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IIccbbaExtractDirectory? _extracts;
 
+    // The facility's calendar day for "today" (end-user testing pass 69: the UTC day turned over at 19:00 Eastern).
+    private readonly IFacilityTimeZone? _facilityTimeZone;
+
     public IsbtProductCodeAdminService(
         IRepository<IsbtProductCode> codes,
         IRepository<IsbtAboRhdCode> abo,
@@ -29,8 +32,10 @@ public sealed class IsbtProductCodeAdminService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        IIccbbaExtractDirectory? extracts = null)
+        IIccbbaExtractDirectory? extracts = null,
+        IFacilityTimeZone? facilityTimeZone = null)
     {
+        _facilityTimeZone = facilityTimeZone;
         _codes = codes;
         _abo = abo;
         _unitOfWork = unitOfWork;
@@ -46,7 +51,7 @@ public sealed class IsbtProductCodeAdminService
 
     public async Task<IReadOnlyList<IsbtProductCodeDto>> ListAsync(CancellationToken ct = default)
     {
-        var asOf = DateOnly.FromDateTime(_clock.UtcNow);
+        var asOf = FacilityDay.Of(_clock.UtcNow, _facilityTimeZone);
         var list = await _codes.ListAsync(_ => true, ct);
         return list
             .OrderBy(c => c.ProductDescriptionCode, StringComparer.Ordinal)

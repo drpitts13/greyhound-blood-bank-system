@@ -53,6 +53,8 @@ public static class ComponentScanVerifier
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentDamaged, "Component container is damaged."));
         if (unit.Status == Enums.UnitStatus.ReturnedToSupplier)
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentReturnedToSupplier, "Component was returned to the supplier."));
+        if (unit.Status == Enums.UnitStatus.ShippedOut)
+            results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentShippedOut, "Component was shipped to another facility."));
         if (unit.Status is Enums.UnitStatus.Transfused or Enums.UnitStatus.TransfusionStarted)
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentAlreadyTransfused, "Component transfusion already started or completed."));
 

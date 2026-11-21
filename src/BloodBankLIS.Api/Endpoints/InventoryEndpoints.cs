@@ -33,14 +33,19 @@ public static class InventoryEndpoints
             DateTime? expiringBeforeUtc,
             UnitStatus[]? statuses,
             bool? excludeIssuedAndTransfused,
+            string[]? antigenNegative,
             InventoryService service,
             CancellationToken ct) =>
         {
             var criteria = new InventorySearchCriteria(
                 unitNumber, status, abo, rh, productTypeId, locationId, expiringBeforeUtc, statuses,
-                excludeIssuedAndTransfused == true);
+                excludeIssuedAndTransfused == true, antigenNegative);
             var units = await service.SearchAsync(criteria, ct);
-            return Results.Ok(units.Select(BloodUnitDto.From));
+            // Pass 157: who each unit is reserved for, when an open reservation holds it.
+            var reserved = await service.ReservedPatientsAsync(units.Select(u => u.Id).ToList(), ct);
+            var thawed = await service.ThawedUnitIdsAsync(units, ct);
+            return Results.Ok(units.Select(u => BloodUnitDto.From(u).WithReservation(
+                reserved.TryGetValue(u.Id, out var who) ? who : null) with { Thawed = thawed.Contains(u.Id) }));
         });
 
         group.MapGet("/units/expected", async (InventoryService service, CancellationToken ct) =>
@@ -60,6 +65,10 @@ public static class InventoryEndpoints
         group.MapGet("/units/on-hold", async (InventoryService service, CancellationToken ct) =>
             Results.Ok(await service.ListOnHoldAsync(ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
+
+        // Cycle 688: recalled units not yet pulled.
+        group.MapGet("/units/recalled", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListRecalledAsync(ct)));
 
         group.MapGet("/units/{id:long}", async (long id, InventoryService service, CancellationToken ct) =>
         {
@@ -121,6 +130,14 @@ public static class InventoryEndpoints
             return EndpointResults.Created(result, a => ($"/api/inventory/units/{id}/blood-attributes/{a.Id}", (object)UnitBloodAttributeDto.From(a, def.Code, def.Name, def.AntibodyName)));
         }).RequirePermission(PermissionCodes.InventoryReceive);
 
+        // Tests recorded on the unit after it arrived (CMV, HbS); the latest per test is the unit's result.
+        group.MapGet("/units/{id:long}/special-tests", async (long id, UnitSpecialTestService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAsync(id, ct)));
+
+        group.MapPost("/units/{id:long}/special-tests", async (long id, RecordUnitSpecialTestRequest request, UnitSpecialTestService service, CancellationToken ct) =>
+            EndpointResults.From(await service.RecordAsync(id, request, ct), t => t))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
         group.MapGet("/deliveries/open", async (DeliveryService deliveries, CancellationToken ct) =>
             Results.Ok(await deliveries.ListOpenAsync(ct)));
 
@@ -138,8 +155,8 @@ public static class InventoryEndpoints
             EndpointResults.FromEvaluation(await deliveries.UpdateAsync(id, request, ct), d => d))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
-        group.MapPost("/deliveries/{id:long}/complete", async (long id, DeliveryService deliveries, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await deliveries.CompleteAsync(id, ct), d => d))
+        group.MapPost("/deliveries/{id:long}/complete", async (long id, CompleteDeliveryRequest? request, DeliveryService deliveries, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await deliveries.CompleteAsync(id, request ?? new CompleteDeliveryRequest(), ct), d => d))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
         // Intake: new units land in Quarantine.
@@ -179,25 +196,49 @@ public static class InventoryEndpoints
             ToHttpResult(await service.HoldAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
-        group.MapPost("/units/{id:long}/release-hold", async (long id, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.ReleaseFromHoldAsync(id, ct)))
+        group.MapPost("/units/{id:long}/release-hold", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ReleaseFromHoldAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
         group.MapPost("/units/{id:long}/missing", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.MarkMissingAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
-        group.MapPost("/units/{id:long}/locate", async (long id, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.LocateMissingAsync(id, ct)))
+        group.MapPost("/units/{id:long}/locate", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.LocateMissingAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
         group.MapPost("/units/{id:long}/damaged", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.MarkDamagedAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
-        group.MapPost("/units/{id:long}/inspect-damaged", async (long id, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.InspectDamagedAsync(id, ct)))
+        group.MapPost("/units/{id:long}/inspect-damaged", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.InspectDamagedAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
+
+        group.MapGet("/shipments", async (int? days, InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListShipmentsAsync(days ?? 30, ct)));
+
+        // Cycle 686: recent returns to the supplier, for the list and its printed return list.
+        group.MapGet("/supplier-returns", async (int? days, InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListSupplierReturnsAsync(days ?? 30, ct)));
+
+        group.MapGet("/ship-facilities", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.KnownShipFacilitiesAsync(ct)));
+
+        // Ship units to another facility by scan (receiving facility kept for recall and lookback).
+        group.MapPost("/units/ship-out-by-scan", async (ShipOutByScanRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ShipOutByScanAsync(request, ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
+        // Cycle 690: a recalled unit found and scanned is quarantined for the recall.
+        group.MapPost("/units/pull-recalled-by-scan", async (PullRecalledByScanRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.PullRecalledByScanAsync(request, ct)))
+            .RequirePermission(PermissionCodes.InventoryRelease);
+
+        group.MapPost("/units/return-to-supplier-by-scan", async (ReturnToSupplierByScanRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ReturnToSupplierByScanAsync(request, ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
 
         group.MapPost("/units/{id:long}/return-to-supplier", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.ReturnToSupplierAsync(id, request.Reason, ct)))
@@ -210,6 +251,26 @@ public static class InventoryEndpoints
         group.MapPost("/units/{id:long}/transfer", async (long id, TransferUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.TransferAsync(id, request.ToLocationId, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryTransfer);
+
+        group.MapGet("/counts", async (long? locationId, InventoryService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListCountHistoryAsync(locationId, ct: ct), d => d))
+            .RequirePermission(PermissionCodes.InventoryTransfer);
+
+        group.MapPost("/counts", async (InventoryCountRequest request, InventoryService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ReconcileCountAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.InventoryTransfer);
+
+        group.MapPost("/units/transfer-by-scan", async (TransferByScanRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.TransferByScanAsync(request, ct)))
+            .RequirePermission(PermissionCodes.InventoryTransfer);
+
+        group.MapGet("/expired", async (InventoryService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListExpiredOnShelfAsync(ct), d => d))
+            .RequirePermission(PermissionCodes.InventoryDiscard);
+
+        group.MapPost("/units/discard-expired-by-scan", async (DiscardExpiredByScanRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.DiscardExpiredByScanAsync(request, ct)))
+            .RequirePermission(PermissionCodes.InventoryDiscard);
 
         group.MapPost("/units/{id:long}/discard", async (long id, DiscardCodedUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.DiscardAsync(id, new DiscardUnitCommand(request.ReasonCode, request.Comment, request.SecondVerifier), ct)))

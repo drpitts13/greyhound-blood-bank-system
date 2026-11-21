@@ -48,6 +48,12 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
+    private readonly IRepository<TestGrouper>? _groupers;
+
+    private readonly IRepository<ReflexRule>? _reflexRules;
+
+    private readonly IRepository<BloodBankLIS.Domain.Entities.ProductType>? _products;
+
 
 
     public TestDefinitionAdminService(
@@ -72,11 +78,23 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         IConfigurationHistoryWriter history,
 
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+
+        IRepository<TestGrouper>? groupers = null,
+
+        IRepository<ReflexRule>? reflexRules = null,
+
+        IRepository<BloodBankLIS.Domain.Entities.ProductType>? products = null)
 
         : base(unitOfWork, clock, currentUser, audit, history)
 
     {
+
+        _groupers = groupers;
+
+        _reflexRules = reflexRules;
+
+        _products = products;
 
         _repo = repo;
 
@@ -384,8 +402,29 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
 
 
-        return OperationResult<TestDefinitionDto>.Ok(Map(entity));
+        // Loop 2 tick 22: name what still uses the retired test (groupers, reflex rules, product retypes).
+        return OperationResult<TestDefinitionDto>.Ok(Map(entity), await RetirementWarningsAsync(entity, ct));
 
+    }
+
+    private async Task<IReadOnlyList<RuleResult>> RetirementWarningsAsync(TestDefinition test, CancellationToken ct)
+    {
+        var groupers = _groupers is null
+            ? []
+            : (await _groupers.ListAsync(g => g.IsActive, ct))
+                .Select(g => new TestRetirementImpactRule.Grouper(g.Code, TestGrouperMembers.Parse(g.MemberTestsJson).Select(m => m.TestCode).ToList()))
+                .ToList();
+        var reflexes = _reflexRules is null
+            ? []
+            : (await _reflexRules.ListAsync(r => r.IsActive, ct))
+                .Select(r => new TestRetirementImpactRule.Reflex(r.Code, r.TriggerTestCode, r.ReflexTestCode))
+                .ToList();
+        var products = _products is null
+            ? []
+            : (await _products.ListAsync(p => p.IsActive, ct))
+                .Select(p => new TestRetirementImpactRule.Product(p.ProductCode, p.RhPositiveRetypeTestId == test.Id || p.RhNegativeRetypeTestId == test.Id))
+                .ToList();
+        return TestRetirementImpactRule.Warnings(test.Code, groupers, reflexes, products);
     }
 
 
@@ -600,9 +639,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
             : null;
 
-        e.RequiredSpecimenType = string.IsNullOrWhiteSpace(req.RequiredSpecimenType)
-            ? null
-            : req.RequiredSpecimenType.Trim().ToUpperInvariant();
+        // An ordered list: the preferred type first, then the others the test also accepts.
+        e.RequiredSpecimenType = AcceptedSpecimenTypes.Normalize(req.RequiredSpecimenType);
 
         e.TestingMethod = req.TestingMethod?.Trim();
 
@@ -636,11 +674,40 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         e.ContributesToUnitBloodAttributes = req.ContributesToUnitBloodAttributes;
 
+        ApplyResultShape(e, req.ResultValueType, req.ResultShape);
+
+        e.LoincCode = string.IsNullOrWhiteSpace(req.LoincCode) ? null : req.LoincCode.Trim();
+
         e.ChangeReason = req.ChangeReason;
 
     }
 
 
+
+    /// <summary>Numeric settings are kept only on a numeric test, titer settings only on a titer test.</summary>
+    private static void ApplyResultShape(TestDefinition e, ResultValueType valueType, TestResultShapeDto? shape)
+    {
+        var numeric = valueType == ResultValueType.Numeric ? shape : null;
+        e.ResultUnits = string.IsNullOrWhiteSpace(numeric?.ResultUnits) ? null : numeric.ResultUnits.Trim();
+        e.DecimalPlaces = numeric?.DecimalPlaces;
+        e.ReportableLow = numeric?.ReportableLow;
+        e.ReportableHigh = numeric?.ReportableHigh;
+        e.ReferenceLow = numeric?.ReferenceLow;
+        e.ReferenceHigh = numeric?.ReferenceHigh;
+        e.CriticalLow = numeric?.CriticalLow;
+        e.CriticalHigh = numeric?.CriticalHigh;
+
+        var titer = valueType == ResultValueType.Titer ? shape : null;
+        e.TiterStartDilution = titer?.TiterStartDilution;
+        e.TiterEndDilution = titer?.TiterEndDilution;
+        e.TiterPhaseCode = string.IsNullOrWhiteSpace(titer?.TiterPhaseCode) ? null : titer.TiterPhaseCode.Trim().ToUpperInvariant();
+        e.TiterEndpointMinGrade = string.IsNullOrWhiteSpace(titer?.TiterEndpointMinGrade) ? null : titer.TiterEndpointMinGrade.Trim();
+        e.TiterScored = titer?.TiterScored ?? false;
+    }
+
+    private static TestResultShapeDto ShapeOf(TestDefinition t) => new(
+        t.ResultUnits, t.DecimalPlaces, t.ReportableLow, t.ReportableHigh, t.ReferenceLow, t.ReferenceHigh, t.CriticalLow, t.CriticalHigh,
+        t.TiterStartDilution, t.TiterEndDilution, t.TiterPhaseCode, t.TiterEndpointMinGrade, t.TiterScored);
 
     private static TestDefinitionDto Map(TestDefinition t) => new(
 
@@ -660,7 +727,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         t.ContributesToUnitBloodAttributes,
 
-        t.Version, t.IsActive, t.IsDraft, t.EffectiveUtc, t.RetiredUtc, t.ChangeReason);
+        t.Version, t.IsActive, t.IsDraft, t.EffectiveUtc, t.RetiredUtc, t.ChangeReason, ShapeOf(t), t.LoincCode);
 
 
 

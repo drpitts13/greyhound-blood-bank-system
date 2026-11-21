@@ -189,14 +189,15 @@ public sealed class SpecialRequirementAdminService : ConfigAdminServiceBase
     {
         var duplicate = await HasActiveDuplicateAsync(entity.Code, selfId, ct);
         var knownAttribute = true;
-        if (entity.EnforcementKind == SpecialRequirementEnforcementKind.RequireProductAttribute
+        if (entity.EnforcementKind is SpecialRequirementEnforcementKind.RequireProductAttribute
+                or SpecialRequirementEnforcementKind.RequireUnitTestNegative
             && !string.IsNullOrWhiteSpace(entity.ProductAttributeCode))
         {
             var code = entity.ProductAttributeCode.Trim();
             knownAttribute = await _productAttributes.AnyAsync(a => a.IsActive && a.Code == code, ct);
         }
 
-        return SpecialRequirementDefinitionValidator.Validate(entity, duplicate, knownAttribute);
+        return SpecialRequirementDefinitionValidator.Validate(entity, duplicate, knownAttribute, requireComponentClass: selfId == 0);
     }
 
     private async Task<bool> HasActiveDuplicateAsync(string code, long selfId, CancellationToken ct)
@@ -215,10 +216,18 @@ public sealed class SpecialRequirementAdminService : ConfigAdminServiceBase
         e.Code = (req.Code ?? string.Empty).Trim().ToUpperInvariant();
         e.Name = req.Name?.Trim() ?? string.Empty;
         e.Level = req.Level;
-        e.EnforcementKind = req.EnforcementKind;
+        e.Category = req.Category ?? SpecialRequirementDefinitionValidator.CategoryFor(req.EnforcementKind);
+        e.EnforcementKind = e.Category == SpecialRequirementCategory.Informational
+            ? SpecialRequirementEnforcementKind.Informational
+            : req.EnforcementKind;
         e.ProductAttributeCode = string.IsNullOrWhiteSpace(req.ProductAttributeCode)
             ? null
             : req.ProductAttributeCode.Trim().ToUpperInvariant();
+        e.ComponentClass = req.ComponentClass;
+        var groups = SpecialTransfusionRequirementRule.ParseAboGroups(req.AllowedAboGroups);
+        e.AllowedAboGroups = groups.Count == 0 ? null : string.Join(",", groups.OrderBy(g => g));
+        e.AntigenCode = string.IsNullOrWhiteSpace(req.AntigenCode) ? null : req.AntigenCode.Trim();
+        e.UnitTestCode = string.IsNullOrWhiteSpace(req.UnitTestCode) ? null : req.UnitTestCode.Trim().ToUpperInvariant();
         e.Instruction = string.IsNullOrWhiteSpace(req.Instruction) ? null : req.Instruction.Trim();
         e.SortOrder = req.SortOrder;
         e.ChangeReason = req.ChangeReason;

@@ -12,7 +12,11 @@ public sealed record OverdueDispositionWorkItemDto(
     string UnitNumber,
     string PatientLabel,
     DateTime IssuedUtc,
-    DateTime DueUtc);
+    DateTime DueUtc)
+{
+    /// <summary>Where the unit was sent, in which cooler, to whom, and whether the ward received it (pass 134).</summary>
+    public string SentTo { get; init; } = string.Empty;
+}
 
 public sealed class FinalDispositionBoardService
 {
@@ -61,7 +65,8 @@ public sealed class FinalDispositionBoardService
         foreach (var issue in issued.OrderBy(row => row.IssuedUtc))
         {
             var unit = await _inventory.GetUnitAsync(issue.BloodProductId, ct);
-            var discarded = unit?.Status == UnitStatus.Discarded;
+            // Pass 326: a unit recorded missing after issue has its outcome recorded (it is reviewed on the supervisor queue).
+            var discarded = unit?.Status is UnitStatus.Discarded or UnitStatus.Missing;
             if (!FinalDispositionDueRule.IsOverdue(
                     issue.IssuedUtc, now, hours, transfusionIds.Contains(issue.Id), returnIds.Contains(issue.Id), discarded))
             {
@@ -78,7 +83,10 @@ public sealed class FinalDispositionBoardService
                 unit?.UnitNumber ?? string.Empty,
                 patientLabel,
                 issue.IssuedUtc,
-                issue.IssuedUtc.AddHours(hours > 0 ? hours : FinalDispositionDueRule.DefaultDueHours)));
+                issue.IssuedUtc.AddHours(hours > 0 ? hours : FinalDispositionDueRule.DefaultDueHours))
+            {
+                SentTo = IssuedUnitWhereabouts.Text(issue.IssuedToLocation, issue.CoolerId, issue.IssuedTo, issue.WardReceivedUtc, issue.WardReceivedBy)
+            });
         }
 
         return items;

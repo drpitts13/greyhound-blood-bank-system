@@ -11,7 +11,13 @@ public sealed record SpecimenLabelModel(
     DateOnly DateOfBirth,
     string SpecimenType,
     DateTime CollectedUtc,
-    string? DrawLocation);
+    string? DrawLocation,
+    string? Collector = null,
+    string? Sex = null,
+    int? AliquotNumber = null,
+    int? AliquotCount = null,
+    // Pass 314: the facility's time zone id, so the label prints local time with its offset (null prints UTC).
+    string? TimeZoneId = null);
 
 /// <summary>
 /// P-tag / compatibility tag data contract (docs A.4). Generated from the issue record
@@ -32,7 +38,8 @@ public sealed record CompatibilityTagModel(
     string IssuedBy,
     bool IsEmergency,
     bool TestsIncomplete = false,
-    string? PtagId = null);
+    string? PtagId = null,
+    string? TimeZoneId = null);
 
 /// <summary>
 /// ISBT 128 component label data (docs A.1). Assembled from the audited unit so
@@ -46,4 +53,5 @@ public sealed record ComponentLabelModel(
     string UnitBloodType,
     string ProductName,
     DateTime ExpiresUtc,
-    string? CollectionFacility);
+    string? CollectionFacility,
+    string? TimeZoneId = null);

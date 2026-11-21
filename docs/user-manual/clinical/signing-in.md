@@ -24,6 +24,8 @@ If you have set up an authenticator app, the page then asks for the 6-digit code
 
 The sidebar shows only the areas your permissions allow. The dashboard lists those permission codes under **Your access**. A role change does not apply to a session that is already open. Sign out and sign in again after an administrator changes your roles.
 
+**Text size**, under your name at the bottom of the sidebar, makes text, fields, and buttons smaller or larger: Small, Default, Large, Larger, or Largest. The size is kept for your account on this workstation's browser, so another person signing in at the same bench keeps their own size. At the larger sizes, wide tables may need sideways scrolling.
+
 ## How long a session lasts
 
 The session ends after 30 minutes without activity, and it ends 12 hours after sign-in even if you are still working. Signing out, an administrator lock, or deactivating the account also ends it. When the session ends, the next action returns you to the sign-in screen. Finish or save the work you are in before you leave the bench.

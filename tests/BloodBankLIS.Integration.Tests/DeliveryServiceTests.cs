@@ -244,8 +244,17 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("RBC", line.ProductLabel);
         Assert.Equal(2, line.ReceivedQuantity);
 
-        var completed = await deliveries.CompleteAsync(deliveryId);
+        // TEST-BB-1096 (end-user testing pass 83): one over the packing list needs a note to complete; the note is kept
+        // on the delivery and in the audit.
+        var unexplained = await deliveries.CompleteAsync(deliveryId);
+        Assert.False(unexplained.Succeeded);
+        Assert.Contains("does not match its packing list (RBC 1 over)", string.Join(" ", unexplained.Evaluation!.HardStops.Select(h => h.Message)));
+        var completed = await deliveries.CompleteAsync(deliveryId, new CompleteDeliveryRequest(" Supplier sent an extra unit; kept, invoice to be corrected "));
         Assert.True(completed.Succeeded, completed.Error);
+        Assert.Equal("Supplier sent an extra unit; kept, invoice to be corrected", completed.Value!.CompletionNote);
+        Assert.Equal("RBC 1 over", completed.Value.Differences);
+        Assert.True(await context.AuditEvents.AnyAsync(a => a.EntityType == nameof(BloodDelivery) && a.EntityId == deliveryId
+            && a.Reason == "Delivery completed with differences (RBC 1 over): Supplier sent an extra unit; kept, invoice to be corrected"));
 
         var after = await inventory.ReceiveUnitAsync(UnitRequest("U-CLOSED", productTypeId, deliveryId));
         Assert.False(after.Succeeded);
@@ -284,7 +293,7 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
             false,
             productTypeId,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
 
         Assert.False(result.Succeeded);
         Assert.Contains("delivery", result.Error, StringComparison.OrdinalIgnoreCase);
@@ -329,6 +338,7 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
             _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: "E0206",
             SecondVerifier: "tech2",
+            Appearance: UnitAppearance.Acceptable,
             ReceiveTemperatureCelsius: 4.0m,
             DeliveryId: deliveryId);
 

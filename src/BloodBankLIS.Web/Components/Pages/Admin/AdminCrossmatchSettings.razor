@@ -33,7 +33,7 @@ else if (_settings is not null)
                 <select @bind="_negCode" disabled="@(!CanEdit)">
                     @foreach (var t in SerologicTests)
                     {
-                        <option value="@t.Code">@t.Name (@t.Code) — @t.ResultValueType</option>
+                        <option value="@t.Code">@t.Name (@t.Code) — @Ui.EnumText(t.ResultValueType)</option>
                     }
                 </select>
             </div>
@@ -42,7 +42,7 @@ else if (_settings is not null)
                 <select @bind="_posCode" disabled="@(!CanEdit)">
                     @foreach (var t in SerologicTests)
                     {
-                        <option value="@t.Code">@t.Name (@t.Code) — @t.ResultValueType</option>
+                        <option value="@t.Code">@t.Name (@t.Code) — @Ui.EnumText(t.ResultValueType)</option>
                     }
                 </select>
             </div>

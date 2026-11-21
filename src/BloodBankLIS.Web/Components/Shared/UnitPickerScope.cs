@@ -5,5 +5,6 @@ public enum UnitPickerScope
     OnHand,
     Available,
     Issuable,
-    Crossmatch
+    Crossmatch,
+    DowntimeBackEntry
 }

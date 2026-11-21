@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -111,6 +112,25 @@ public static class ResultEndpoints
             return EndpointResults.FromEvaluation(result, r => TestResultDto.From(r));
         }).RequirePermission(PermissionCodes.ResultVerify);
 
+        // OCD-061: eligible routine results verified together; each still goes through the single verify and its billing.
+        group.MapGet("/batch-verify/candidates", async (BatchVerifyService service, CancellationToken ct) =>
+            Results.Ok(await service.ListCandidatesAsync(ct)))
+            .RequirePermission(PermissionCodes.ResultVerify);
+
+        group.MapPost("/batch-verify", async (BatchVerifyRequest request, BatchVerifyService service, BillingService billing, CancellationToken ct) =>
+        {
+            var outcome = await service.VerifyAsync(request, ct);
+            if (outcome.Succeeded)
+            {
+                foreach (var verifiedId in outcome.Value!.Verified)
+                {
+                    await billing.CaptureForResultAsync(verifiedId, ct);
+                }
+            }
+
+            return EndpointResults.From(outcome, o => o);
+        }).RequirePermission(PermissionCodes.ResultVerify);
+
         group.MapPost("/{id:long}/correct", async (long id, CorrectResultRequest request, ResultService service, CancellationToken ct) =>
             EndpointResults.From(await service.CorrectResultAsync(id, request.NewValue, request.Reason, ct), r => TestResultDto.From(r)))
             .RequirePermission(PermissionCodes.ResultCorrect);
@@ -149,10 +169,11 @@ public static class ResultEndpoints
                 r => TestResultDto.From(r));
         }).RequirePermission(PermissionCodes.ResultInvalidate);
 
-        app.MapGet("/api/specimens/{specimenId:long}/results", async (long specimenId, ResultService service, CancellationToken ct) =>
+        app.MapGet("/api/specimens/{specimenId:long}/results", async (long specimenId, ResultService service, ReagentQcService reagents, CancellationToken ct) =>
         {
             var results = await service.GetBySpecimenAsync(specimenId, ct);
-            return Results.Ok(results.Select(TestResultDto.From));
+            var lots = await reagents.LotLabelsForResultsAsync(results.Select(r => r.Id), ct);
+            return Results.Ok(results.Select(r => TestResultDto.From(r) with { ReagentLots = lots.GetValueOrDefault(r.Id) }));
         }).WithTags("Results");
     }
 

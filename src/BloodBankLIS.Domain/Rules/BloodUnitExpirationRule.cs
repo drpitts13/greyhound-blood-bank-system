@@ -1,4 +1,4 @@
-namespace BloodBankLIS.Domain.Rules;
+﻿namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// Pure evaluation of blood-unit expiration. A unit is expired at or after its
@@ -35,12 +35,12 @@ public static class BloodUnitExpirationRule
     {
         if (IsExpired(expiresUtc, nowUtc))
         {
-            return RuleResult.HardStop(ExpiredCode, $"Unit expired at {expiresUtc:u}.");
+            return RuleResult.HardStop(ExpiredCode, $"Unit expired at {ClinicalTimeText.Local(expiresUtc)}.");
         }
 
         if (expiresUtc - nowUtc <= nearExpiryWindow)
         {
-            return RuleResult.Warning(NearExpiryCode, $"Unit expires soon, at {expiresUtc:u}.");
+            return RuleResult.Warning(NearExpiryCode, $"Unit expires soon, at {ClinicalTimeText.Local(expiresUtc)}.");
         }
 
         return RuleResult.Pass(ExpiredCode);

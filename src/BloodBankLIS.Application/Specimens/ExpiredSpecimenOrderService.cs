@@ -34,6 +34,8 @@ public sealed class ExpiredSpecimenOrderService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditWriter? _audit;
 
+    private readonly BloodBankLIS.Application.Compliance.FacilityPolicyService? _policy;
+
     public ExpiredSpecimenOrderService(
         IRepository<Specimen> specimens,
         IRepository<Order> orders,
@@ -47,8 +49,10 @@ public sealed class ExpiredSpecimenOrderService
         IRepository<OrderCancellationReason> cancellationReasons,
         IClock clock,
         IUnitOfWork unitOfWork,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        BloodBankLIS.Application.Compliance.FacilityPolicyService? policy = null)
     {
+        _policy = policy;
         _specimens = specimens;
         _orders = orders;
         _orderLines = orderLines;
@@ -67,6 +71,8 @@ public sealed class ExpiredSpecimenOrderService
     public async Task<ExpiredSpecimenOrderSweepResult> ProcessAsync(CancellationToken ct = default)
     {
         var now = _clock.UtcNow;
+        // OCD-093, a facility setting (default on): off, an unverified result no longer keeps its order open.
+        var verifyAfterExpiry = _policy is null || await _policy.GetVerifyAfterSpecimenExpiryAsync(ct);
         var expired = await _specimens.ListAsync(
             s => s.ExpiresUtc != null && s.ExpiresUtc <= now, ct);
         if (expired.Count == 0)
@@ -119,6 +125,14 @@ public sealed class ExpiredSpecimenOrderService
                 continue;
             }
 
+            // A transfusion reaction workup is ordered on the retained pre-transfusion tube, often past its crossmatch
+            // expiry, on purpose. End-user testing pass 38: the sweep cancelled RXN-1-PRE 30 seconds after it was ordered,
+            // so the workup could never be resulted. It stays open; the investigation decides when it is done.
+            if (ExpiredSpecimenOrderDisposition.KeepsExpiredSpecimen(order.OrderType))
+            {
+                continue;
+            }
+
             var lines = await _orderLines.ListAsync(l => l.OrderId == order.Id, ct);
             var requiresCrossmatch = await ProductRequiresCrossmatchAsync(lines, ct);
             var pendingCrossmatch = ExpiredSpecimenOrderDisposition.IsPendingCrossmatchOrder(
@@ -141,6 +155,20 @@ public sealed class ExpiredSpecimenOrderService
 
             if (await _allocations.AnyAsync(
                     a => a.OrderId == order.Id && a.Status == AllocationStatus.Reserved, ct))
+            {
+                leftOpen++;
+                continue;
+            }
+
+            // OCD-093 (decided 2026-11-17, end-user testing pass 226): a result entered on the order while the specimen was
+            // in date and not yet verified keeps the order open, so it stays on the worklist and can still be verified.
+            // MRN0022's Stat antibody screen, resulted Positive, was cancelled at expiry and appeared nowhere to verify.
+            if (verifyAfterExpiry
+                && await _results.AnyAsync(
+                    r => r.OrderId == order.Id
+                         && r.SupersededByResultId == null
+                         && (r.Status == ResultStatus.Entered || r.Status == ResultStatus.PendingVerification),
+                    ct))
             {
                 leftOpen++;
                 continue;

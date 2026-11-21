@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -26,6 +27,11 @@ public sealed class TestWorklistService
     private readonly IClock _clock;
     private readonly ElectronicCrossmatchEligibilityService? _eligibility;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
+    private readonly FacilityPolicyService? _policy;
+
+    private readonly Inventory.ReagentQcService? _reagentQc;
+
+    private readonly Inventory.EquipmentService? _equipmentService;
 
     public TestWorklistService(
         IRepository<Order> orders,
@@ -40,8 +46,13 @@ public sealed class TestWorklistService
         IRepository<SpecimenTypeDefinition> specimenTypes,
         IClock clock,
         ElectronicCrossmatchEligibilityService? eligibility = null,
-        IRepository<AntibodyIdentificationWorkup>? workups = null)
+        IRepository<AntibodyIdentificationWorkup>? workups = null,
+        FacilityPolicyService? policy = null,
+        Inventory.ReagentQcService? reagentQc = null,
+        Inventory.EquipmentService? equipment = null)
     {
+        _equipmentService = equipment;
+        _reagentQc = reagentQc;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -55,6 +66,7 @@ public sealed class TestWorklistService
         _clock = clock;
         _eligibility = eligibility;
         _workups = workups;
+        _policy = policy;
     }
 
     public Task<IReadOnlyList<TestWorkItemDto>> ListForPatientAsync(
@@ -189,8 +201,22 @@ public sealed class TestWorklistService
         var results = await _results.ListAsync(
             r => r.OrderId != null && orderIds.Contains(r.OrderId.Value), ct);
         var currentResults = BuildCurrentResults(results);
+        var resultVersions = results.ToDictionary(
+            r => r.Id,
+            r => new ReflexTriggerChangeRule.ResultVersion(r.Id, r.SupersededByResultId, r.Status, r.Value, r.Interpretation));
+
+        // Same read as ResultService.VerifyAsync, so the Verify button matches what the server allows.
+        // Fail closed: a missing policy service still blocks ABO self-verify.
+        var blockAboSelfVerify = _policy is null || await _policy.GetBlockAboSelfVerifyAsync(ct);
+        var deadlineWindow = TimeSpan.FromHours(_policy is null ? 12 : await _policy.GetNearExpiryWarningHoursAsync(ct));
 
         var items = new List<TestWorkItemDto>();
+        // Facility settings for results on expired specimens (OCD-051, OCD-093, OCD-058; each default on).
+        var expirySettings = _policy is null
+            ? (Corrections: true, Entered: true, ReactionWorkup: true)
+            : (Corrections: await _policy.GetCorrectAfterSpecimenExpiryAsync(ct),
+                Entered: await _policy.GetVerifyAfterSpecimenExpiryAsync(ct),
+                ReactionWorkup: await _policy.GetReactionWorkupOnExpiredSpecimenAsync(ct));
         foreach (var line in lines.OrderByDescending(l => orderById[l.OrderId].OrderedUtc).ThenBy(l => l.LineNumber))
         {
             if (string.IsNullOrWhiteSpace(line.TestCode))
@@ -257,17 +283,26 @@ public sealed class TestWorklistService
                 specimen,
                 line.TestCode!,
                 testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType,
-                specimenTypeDefs);
+                specimenTypeDefs,
+                VerificationDeadlineRule.AllowsExpiredSpecimen(current?.Status, current?.EnteredUtc, current?.TestedUtc, specimen?.ExpiresUtc,
+                        expirySettings.Corrections, expirySettings.Entered)
+                    || ReactionWorkupSpecimenRule.AllowsExpiredSpecimen(order.OrderType, expirySettings.ReactionWorkup));
+            var expiredOnly = !canEnter && specimen is not null && EvaluateEntryGate(
+                specimen, line.TestCode!, testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType, specimenTypeDefs, allowExpired: true).CanEnter;
             if (OrderControlRule.BlocksResultEntry(order.Status))
             {
                 canEnter = false;
+                expiredOnly = false;
                 blockReason = OrderControlRule.ResultEntryHoldMessage(order.OrderNumber);
             }
             currentTypes.TryGetValue(order.PatientId, out var currentType);
             antibodyRows.TryGetValue(order.PatientId, out var history);
             eligibility.TryGetValue(order.PatientId, out var exm);
             openWorkupIds.TryGetValue(order.PatientId, out var openWorkupId);
-            var (aboRhDeltaHold, aboRhDeltaDetail) = EvaluateAboRhDelta(line.TestCode, current, currentType);
+            // Pass 123: any test that types the patient (the neonatal type too) is checked against the type on file.
+            var lineDef = testDefs.GetValueOrDefault(line.TestCode!);
+            var patientTyping = PatientTypingTestRule.Is(line.TestCode, lineDef?.ResultValueType, lineDef?.ContributesToAboRhHistory ?? false);
+            var (aboRhDeltaHold, aboRhDeltaDetail) = EvaluateAboRhDelta(patientTyping, current, currentType);
             items.Add(new TestWorkItemDto(
                 line.Id,
                 order.Id,
@@ -304,11 +339,69 @@ public sealed class TestWorklistService
                 current?.EnteredBy,
                 aboRhDeltaHold,
                 aboRhDeltaDetail,
-                line.Comment));
+                line.Comment,
+                blockAboSelfVerify,
+                VerificationDeadlineRule.Notice(current?.Status, specimen?.ExpiresUtc, _clock.UtcNow, deadlineWindow),
+                specimen?.Barcode,
+                order.OrderType == OrderType.TransfusionReactionWorkup,
+                SpecimenStorageLocation: specimen?.StorageLocation,
+                CurrentResultSourceDetail: current?.Source is ResultSource.Instrument or ResultSource.Interface or ResultSource.Manual
+                    ? ResultSourceDetail.For(current.SourceReference)
+                    : null,
+                ReflexFrom: TestWorklistView.ReflexLabel(line.ReflexFromTestCode, line.ReflexFromValue),
+                ReflexTriggerNotice: line.ReflexFromResultId is long triggerId
+                    ? ReflexTriggerChangeRule.Notice(triggerId, line.ReflexFromTestCode, line.ReflexFromValue, line.TestCode, resultVersions)
+                    : null) { SpecimenExpiredOnly = expiredOnly, PatientTyping = patientTyping });
         }
 
+        // The verifier sees the reagent lots a hand-entered result was tested with.
+        if (_reagentQc is not null)
+        {
+            var lots = await _reagentQc.LotLabelsForResultsAsync(items.Where(i => i.CurrentResultId is not null).Select(i => i.CurrentResultId!.Value), ct);
+            if (lots.Count > 0)
+            {
+                items = items.Select(i => i.CurrentResultId is long id && lots.TryGetValue(id, out var labels)
+                    ? i with { CurrentResultReagentLots = labels }
+                    : i).ToList();
+            }
+        }
+
+        // Pass 75: and the equipment used, marked when it was out of service or due a check.
+        if (_equipmentService is not null)
+        {
+            var used = await _equipmentService.LabelsForResultsAsync(items.Where(i => i.CurrentResultId is not null).Select(i => i.CurrentResultId!.Value), ct);
+            if (used.Count > 0)
+            {
+                items = items.Select(i => i.CurrentResultId is long id && used.TryGetValue(id, out var labels)
+                    ? i with { CurrentResultEquipment = labels }
+                    : i).ToList();
+            }
+        }
+
+        // Pass 106: rush tests past the facility's turnaround target are marked and come first, the longest waiting first.
+        var turnaroundTarget = _policy is null ? 0 : await _policy.GetRushTestTurnaroundMinutesAsync(ct);
+        if (_policy is not null && turnaroundTarget <= 0)
+        {
+            // Pass 324: say the target is not set rather than leave rush work untimed without a word.
+            items = items.Select(i => i with { TurnaroundTargetNotSet = true }).ToList();
+        }
+
+        if (turnaroundTarget > 0)
+        {
+            var now = _clock.UtcNow;
+            items = items.Select(i => i with
+            {
+                TurnaroundNotice = RushTurnaroundRule.Notice(i.Priority, i.OrderedUtc, i.CurrentResultStatus, turnaroundTarget, now)
+            }).ToList();
+        }
+
+        // Results that stop being verifiable when their specimen expires come right after rush work.
         return items
             .OrderBy(i => IsRush(i.Priority) ? 0 : 1)
+            .ThenBy(i => i.TurnaroundNotice is null ? 1 : 0)
+            .ThenBy(i => i.TurnaroundNotice is null ? DateTime.MinValue : i.OrderedUtc)
+            .ThenBy(i => i.VerificationDeadlineNotice is null ? 1 : 0)
+            .ThenBy(i => i.VerificationDeadlineNotice is null ? DateTime.MaxValue : i.SpecimenExpiresUtc ?? DateTime.MaxValue)
             .ThenByDescending(i => i.OrderedUtc)
             .ThenBy(i => i.TestCode, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -324,11 +417,11 @@ public sealed class TestWorklistService
             or OrderPriority.MassiveTransfusionProtocol;
 
     private static (bool Hold, string? Detail) EvaluateAboRhDelta(
-        string? testCode,
+        bool patientTyping,
         TestResult? current,
         PatientBloodTypeHistory? currentType)
     {
-        if (!string.Equals(testCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
+        if (!patientTyping
             || current is null
             || !AboRhResultValue.TryParse(current.Value, out var entered))
         {
@@ -345,19 +438,28 @@ public sealed class TestWorklistService
         Specimen? specimen,
         string testCode,
         string? requiredSpecimenType,
-        IReadOnlyDictionary<string, SpecimenTypeDefinition> specimenTypeDefs)
+        IReadOnlyDictionary<string, SpecimenTypeDefinition> specimenTypeDefs,
+        bool allowExpired = false)
     {
         if (specimen is null)
         {
             return (false, "No specimen is linked to this order. Accession a specimen and link it before entering results.");
         }
 
-        if (specimen.Status != SpecimenStatus.Accepted)
+        // A rejected or cancelled tube: say why, and that a new specimen is needed (the row offers Accession).
+        if (SpecimenRecollectionRule.NeedsRecollection(specimen.Status))
+        {
+            return (false, SpecimenRecollectionRule.BlockReason(specimen.AccessionNumber, specimen.Status, specimen.RejectionReason));
+        }
+
+        // Same rule as ResultService: a pending correction is not stopped by expiration (OCD-051).
+        if (specimen.Status != SpecimenStatus.Accepted
+            && !(allowExpired && specimen.Status == SpecimenStatus.Expired))
         {
             return (false, $"Specimen {specimen.AccessionNumber} is {specimen.Status}; only Accepted specimens allow result entry.");
         }
 
-        if (specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
+        if (!allowExpired && specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
         {
             return (false, $"Specimen {specimen.AccessionNumber} has expired.");
         }
@@ -387,10 +489,9 @@ public sealed class TestWorklistService
             return null;
         }
 
+        // One wording with the chart header: an antibody known only from another facility's report says so.
         return string.Join(", ", history.Select(a =>
-            a.IsActive
-                ? a.AntibodySpecificity
-                : $"{a.AntibodySpecificity} (historical / currently undetectable)"));
+            OutsideAntibodyReportRule.HistoryEntry(a.AntibodySpecificity, a.IsActive, a.ReportingFacility, a.IdentifiedOn, a.ConfirmedUtc is not null)));
     }
 
     private static string BuildResultKey(long orderId, string testCode, long specimenId) =>

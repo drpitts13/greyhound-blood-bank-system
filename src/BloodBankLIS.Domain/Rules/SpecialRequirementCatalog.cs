@@ -79,6 +79,7 @@ public static class SpecialRequirementCatalog
             _ => (SpecialRequirementEnforcementKind.RequireIssueAcknowledgment, (string?)null)
         };
 
+        // A row without a catalog entry is named as every screen names its type, never by its code.
         return new SpecialTransfusionRequirementRule.RequirementRef(
             CodeFor(type),
             kind,
@@ -86,6 +87,7 @@ public static class SpecialRequirementCatalog
             antigenCode,
             effectiveUtc,
             expiresUtc,
-            isActive);
+            isActive,
+            Name: SpecialRequirementLabel.TypeName(type));
     }
 }

@@ -25,6 +25,10 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
     private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
     private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
+    private readonly IRepository<ModificationRule>? _modificationRules;
+    private readonly IRepository<BloodUnit>? _units;
+    private readonly IRepository<MinimumStockLevel>? _minimumStock;
+
     public ProductAdminService(
         IRepository<ProductType> products,
         IRepository<ProductAttribute> attributes,
@@ -37,9 +41,15 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         IRepository<TestDefinition>? tests = null,
         IPermissionEvaluator? permissionEvaluator = null,
         IRepository<ProductAboCompatibility>? aboCompatibilities = null,
-        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null,
+        IRepository<ModificationRule>? modificationRules = null,
+        IRepository<BloodUnit>? units = null,
+        IRepository<MinimumStockLevel>? minimumStock = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
+        _modificationRules = modificationRules;
+        _units = units;
+        _minimumStock = minimumStock;
         _products = products;
         _attributes = attributes;
         _assignments = assignments;
@@ -235,7 +245,24 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
             oldValue: null, newValue: dto, reason: reason);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        return OperationResult<ProductDefinitionDto>.Ok(dto!);
+        // Loop 2 tick 23: name what still uses the retired product (modification rules, stock, minimum levels).
+        return OperationResult<ProductDefinitionDto>.Ok(dto!, await RetirementWarningsAsync(entity, ct));
+    }
+
+    private async Task<IReadOnlyList<RuleResult>> RetirementWarningsAsync(ProductType product, CancellationToken ct)
+    {
+        var rules = _modificationRules is null
+            ? []
+            : await _modificationRules.ListAsync(r => r.IsActive && (r.SourceProductTypeId == product.Id || r.TargetProductTypeId == product.Id), ct);
+        var inInventory = ProductRetirementImpactRule.InInventory.ToList();
+        var units = _units is null ? 0 : (await _units.ListAsync(u => u.ProductTypeId == product.Id && inInventory.Contains(u.Status), ct)).Count;
+        var minimums = _minimumStock is null ? 0 : (await _minimumStock.ListAsync(m => m.ProductTypeId == product.Id, ct)).Count;
+        return ProductRetirementImpactRule.Warnings(
+            product.ProductCode,
+            rules.Where(r => r.SourceProductTypeId == product.Id).Select(r => r.ModificationCode).ToList(),
+            rules.Where(r => r.TargetProductTypeId == product.Id && r.SourceProductTypeId != product.Id).Select(r => r.ModificationCode).ToList(),
+            units,
+            minimums);
     }
 
     private async Task ApplyAttributesAsync(long productId, IReadOnlyList<ProductAttributeSelection>? selections, CancellationToken ct)

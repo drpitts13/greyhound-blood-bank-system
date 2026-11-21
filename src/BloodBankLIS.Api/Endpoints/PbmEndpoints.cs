@@ -38,6 +38,11 @@ public static class PbmEndpoints
                 EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
+        // OCD-038: unverified drafts, loaded inactive; existing codes are skipped.
+        admin.MapPost("/load-drafts", async (TransfusionIndicationAdminService svc, CancellationToken ct) =>
+                Results.Ok(await svc.LoadDraftsAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
         admin.MapPost("/{id:long}/activate", async (long id, TransfusionIndicationAdminService svc, CancellationToken ct) =>
                 EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);

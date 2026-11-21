@@ -70,7 +70,8 @@ public class CompatibilityRuleValidatorTests
         {
             RuleCode = "ISS-ABO-COMPAT",
             ComponentClass = ComponentClass.RedBloodCells,
-            Severity = "Warning",
+            // OCD-052: a row may not be softer than the built-in rule, so the valid example keeps HardStop.
+            Severity = "HardStop",
             Description = "ABO",
             ExpressionJson = """{"alwaysFail":false}"""
         };

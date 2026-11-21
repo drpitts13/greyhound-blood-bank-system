@@ -55,6 +55,9 @@ public sealed class BillingService
     private readonly IRepository<Hl7MessageLog>? _messages;
     private readonly FacilityPolicyService? _policy;
 
+    private readonly IRepository<Return>? _returns;
+    private readonly IRepository<TransfusionEvent>? _transfusions;
+
     public BillingService(
         IRepository<BillingEvent> events,
         IRepository<ChargeRule> rules,
@@ -77,8 +80,12 @@ public sealed class BillingService
         IRepository<OrderAction>? orderActions = null,
         IRepository<ActionDefinition>? actionDefinitions = null,
         IRepository<Order>? orders = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<Return>? returns = null,
+        IRepository<TransfusionEvent>? transfusions = null)
     {
+        _returns = returns;
+        _transfusions = transfusions;
         _events = events;
         _rules = rules;
         _codes = codes;
@@ -144,8 +151,12 @@ public sealed class BillingService
     /// SoftBank / SafeTrace administration charge: captured when transfusion is
     /// documented complete. Other dispositions do not bill. Idempotent.
     /// </summary>
+    /// <param name="transfusedUtc">
+    /// When the transfusion happened (its stop, else its start). End-user testing pass 79: the charge's service date was
+    /// the time it was charted, so a transfusion charted a week later was billed a week late.
+    /// </param>
     public async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForTransfusionAsync(
-        long issueId, TransfusionDisposition disposition, CancellationToken ct = default)
+        long issueId, TransfusionDisposition disposition, CancellationToken ct = default, DateTime? transfusedUtc = null)
     {
         if (disposition != TransfusionDisposition.Completed)
         {
@@ -157,11 +168,11 @@ public sealed class BillingService
             return OperationResult<IReadOnlyList<BillingEvent>>.Ok(Array.Empty<BillingEvent>());
         }
 
-        return await CaptureForUnitEventAsync(issueId, BillingTriggerType.UnitTransfused, ct);
+        return await CaptureForUnitEventAsync(issueId, BillingTriggerType.UnitTransfused, ct, transfusedUtc);
     }
 
     private async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForUnitEventAsync(
-        long issueId, BillingTriggerType triggerType, CancellationToken ct)
+        long issueId, BillingTriggerType triggerType, CancellationToken ct, DateTime? transfusedUtc = null)
     {
         var issue = await _issues.GetByIdAsync(issueId, ct);
         if (issue is null)
@@ -180,7 +191,7 @@ public sealed class BillingService
         }
 
         var serviceDate = triggerType == BillingTriggerType.UnitTransfused
-            ? _clock.UtcNow
+            ? transfusedUtc ?? _clock.UtcNow
             : issue.IssuedUtc;
         var context = new BillingTriggerContext(
             triggerType,
@@ -652,6 +663,21 @@ public sealed class BillingService
             ? new Dictionary<long, Issue>()
             : (await _issues.ListAsync(i => issueIds.Contains(i.Id), ct)).ToDictionary(i => i.Id);
 
+        // Pass 101: issue charges whose unit came back without a transfusion.
+        var returnedUnused = new Dictionary<long, DateTime>();
+        if (_returns is not null && _transfusions is not null && issueIds.Count > 0)
+        {
+            var transfused = (await _transfusions.ListAsync(t => issueIds.Contains(t.IssueId), ct)).Select(t => t.IssueId).ToHashSet();
+            foreach (var r in await _returns.ListAsync(r => issueIds.Contains(r.IssueId), ct))
+            {
+                if (!transfused.Contains(r.IssueId)
+                    && (!returnedUnused.TryGetValue(r.IssueId, out var earlier) || r.ReturnedUtc > earlier))
+                {
+                    returnedUnused[r.IssueId] = r.ReturnedUtc;
+                }
+            }
+        }
+
         var actionIds = queue
             .Where(e => e.TriggerEntityType == nameof(OrderAction))
             .Select(e => e.TriggerEntityId)
@@ -716,7 +742,12 @@ public sealed class BillingService
                 clinical,
                 message?.MessageControlId,
                 dftBlocksExport: dftGate.Severity == RuleSeverity.HardStop,
-                dftBlockReason: dftGate.Severity == RuleSeverity.HardStop ? dftGate.Message : null);
+                dftBlockReason: dftGate.Severity == RuleSeverity.HardStop ? dftGate.Message : null)
+            with
+            {
+                ReturnedUnusedUtc = e.TriggerType == BillingTriggerType.UnitIssued && e.TriggerEntityType == nameof(Issue)
+                    && returnedUnused.TryGetValue(e.TriggerEntityId, out var back) ? back : null
+            };
         }).ToList();
     }
 
@@ -891,6 +922,18 @@ public sealed class BillingService
         if (await _events.AnyAsync(e => e.DedupeKey == dedupeKey, ct))
         {
             return;
+        }
+
+        // A unit is issued, or transfused, once per issue: the same charge for the same issue on another service day is
+        // the same event recaptured (end-user testing pass 79: a transfusion charted later, or its stop time corrected by
+        // the EHR, must not bill twice).
+        if (context.TriggerType is BillingTriggerType.UnitIssued or BillingTriggerType.UnitTransfused)
+        {
+            var sameIssue = $"{context.TriggerType}|{context.TriggerEntityType}|{context.TriggerEntityId}|{sourceKind}|{sourceId}|";
+            if (await _events.AnyAsync(e => e.DedupeKey.StartsWith(sameIssue), ct))
+            {
+                return;
+            }
         }
 
         var billingEvent = new BillingEvent

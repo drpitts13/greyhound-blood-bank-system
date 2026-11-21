@@ -52,9 +52,18 @@ public sealed record DeliveryDetailDto(
     DeliveryStatus Status,
     bool SupplierLocked,
     IReadOnlyList<DeliveryLineDto> Lines,
-    IReadOnlyList<BloodUnitDto> Units)
+    IReadOnlyList<BloodUnitDto> Units,
+    string? CompletionNote = null,
+    DateTime? CompletedUtc = null)
 {
+    /// <summary>The products short or over, for example "RBC 2 short"; null when everything matches.</summary>
+    public string? Differences => DeliveryCompletionRule.Differences(
+        Lines.Select(l => new DeliveryCompletionRule.Line(l.ProductLabel, l.ExpectedQuantity, l.ReceivedQuantity)));
+
     public string SupplierNameLabel => BloodSupplierLabel.Name(BloodSupplierId, SupplierName);
 }
+
+/// <summary>Completing a delivery; the note is required when it does not match its packing list (pass 83).</summary>
+public sealed record CompleteDeliveryRequest(string? Note = null);
 
 public sealed record DeliveryReceiveContext(long Id, string SupplierName, string? PackingListNumber);

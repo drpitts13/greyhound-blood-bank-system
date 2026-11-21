@@ -19,6 +19,8 @@ public sealed class EncounterService
     private readonly ICurrentUser? _currentUser;
     private readonly IAuditWriter? _audit;
 
+    private readonly IRepository<Specimen>? _specimens;
+
     public EncounterService(
         IRepository<Encounter> encounters,
         IRepository<Patient> patients,
@@ -28,8 +30,10 @@ public sealed class EncounterService
         IClock clock,
         IPermissionEvaluator? permissions = null,
         ICurrentUser? currentUser = null,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        IRepository<Specimen>? specimens = null)
     {
+        _specimens = specimens;
         _encounters = encounters;
         _patients = patients;
         _providers = providers;
@@ -142,6 +146,7 @@ public sealed class EncounterService
         encounter.Status = request.Status;
         encounter.AdmitUtc = request.AdmitUtc;
         encounter.DischargeUtc = request.DischargeUtc;
+        await EndNeonatalAdmissionSpecimensAsync(encounter, ct);
         encounter.AccountNumber = request.AccountNumber;
         encounter.AttendingProviderId = providerId;
         encounter.AttendingProvider = providerName;
@@ -168,6 +173,39 @@ public sealed class EncounterService
         return OperationResult<Encounter>.Ok(encounter);
     }
 
+    public const string VisitOtherPatientCode = "ADT-VISIT-OTHER-PATIENT";
+
+    /// <summary>
+    /// Why an ADT message may not apply its visit: the visit number is already another patient's visit (not one merged
+    /// into this patient). End-user testing pass 60: an A03 for MRN0022 naming UAT0001's visit moved the visit, and
+    /// whatever was recorded on it, to MRN0022 and discharged it, acknowledged AA. Null when the visit is new or this
+    /// patient's. <paramref name="patientId"/> is null for a patient the message would create.
+    /// </summary>
+    public async Task<string?> VisitOwnerConflictAsync(long? patientId, string? visitNumber, string messageMrn, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(visitNumber))
+        {
+            return null;
+        }
+
+        var visit = visitNumber.Trim();
+        var encounter = await _encounters.FirstOrDefaultAsync(e => e.VisitNumber == visit, ct);
+        if (encounter is null || (patientId is long id && encounter.PatientId == id))
+        {
+            return null;
+        }
+
+        var owner = await _patients.GetByIdAsync(encounter.PatientId, ct);
+        if (owner is { Status: PatientStatus.Merged } && patientId is long survivor && owner.MergedIntoPatientId == survivor)
+        {
+            return null;
+        }
+
+        var ownerText = owner is null ? $"patient {encounter.PatientId}" : $"{owner.LastName}, {owner.FirstName} ({owner.MedicalRecordNumber})";
+        return $"{VisitOtherPatientCode}: Visit {visit} belongs to {ownerText}, but this message is for {messageMrn}. "
+            + "Nothing was applied. Correct the visit or patient in the EHR (a visit move is a separate message), then replay.";
+    }
+
     /// <summary>
     /// Creates or updates a visit from ADT PV1 when a visit number is present.
     /// </summary>
@@ -181,7 +219,8 @@ public sealed class EncounterService
         string? attendingProviderId,
         string? attendingProviderName,
         string? triggerEvent,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        EncounterType? patientType = null)
     {
         if (string.IsNullOrWhiteSpace(visitNumber))
         {
@@ -232,7 +271,8 @@ public sealed class EncounterService
                 PatientId = patientId,
                 VisitNumber = visit,
                 AccountNumber = accountNumber,
-                EncounterType = EncounterType.Inpatient,
+                // PV1-2 patient class, translated; Unknown when the message does not say (it used to assume Inpatient).
+                EncounterType = patientType ?? EncounterType.Unknown,
                 Status = isDischarge ? EncounterStatus.Discharged : EncounterStatus.Active,
                 AdmitUtc = admitUtc ?? _clock.UtcNow,
                 DischargeUtc = isDischarge ? dischargeUtc ?? _clock.UtcNow : dischargeUtc,
@@ -249,8 +289,13 @@ public sealed class EncounterService
         encounter.PatientId = patientId;
         if (accountNumber is not null) encounter.AccountNumber = accountNumber;
         if (admitUtc is not null) encounter.AdmitUtc = admitUtc;
-        if (dischargeUtc is not null) encounter.DischargeUtc = dischargeUtc;
+        if (dischargeUtc is not null)
+        {
+            encounter.DischargeUtc = dischargeUtc;
+            await EndNeonatalAdmissionSpecimensAsync(encounter, ct);
+        }
         if (currentLocation is not null) encounter.CurrentLocation = currentLocation;
+        if (patientType is not null) encounter.EncounterType = patientType.Value;
         if (attending is not null)
         {
             encounter.AttendingProviderId = attending.Id;
@@ -399,5 +444,34 @@ public sealed class EncounterService
         return auth.Severity == RuleSeverity.HardStop
             ? OperationResult<Encounter>.Fail(auth.Message)
             : null;
+    }
+
+    /// <summary>
+    /// OCD-074: an infant's admission-long specimens on a discharged visit end at discharge (never before their usual
+    /// expiration). Audited; saved with the visit.
+    /// </summary>
+    private async Task EndNeonatalAdmissionSpecimensAsync(Encounter encounter, CancellationToken ct)
+    {
+        if (_specimens is null || encounter.DischargeUtc is not DateTime discharged || encounter.Id == 0)
+        {
+            return;
+        }
+
+        var listed = await _specimens.ListAsync(s => s.EncounterId == encounter.Id && s.NeonatalStandardExpiresUtc != null, ct);
+        foreach (var id in listed.Select(s => s.Id))
+        {
+            // The tracked row (the list may be untracked copies), changed in place and saved with the visit.
+            if (await _specimens.GetByIdAsync(id, ct) is not { } specimen
+                || specimen.ExpiresUtc is not DateTime current
+                || NeonatalTestingRule.OnDischarge(current, specimen.NeonatalStandardExpiresUtc!.Value, discharged) is not { } next)
+            {
+                continue;
+            }
+
+            specimen.ExpiresUtc = next;
+            _audit?.Record(AuditEventType.Specimen, nameof(Specimen), specimen.Id,
+                oldValue: new { ExpiresUtc = current }, newValue: new { ExpiresUtc = next },
+                reason: $"Visit {encounter.VisitNumber} discharged: the infant's admission specimen ends (OCD-074).");
+        }
     }
 }

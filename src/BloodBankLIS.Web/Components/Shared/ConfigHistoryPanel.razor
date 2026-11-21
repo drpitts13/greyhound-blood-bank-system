@@ -19,15 +19,16 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
-                <tr><th>When (UTC)</th><th>Action</th><th>Entity</th><th>Id</th><th>Ver</th><th>By</th><th>Env</th><th>Reason</th><th></th></tr>
+                <tr><th>When</th><th>Action</th><th>Entity</th><th>Id</th><th>Ver</th><th>By</th><th>Env</th><th>Reason</th><th></th></tr>
             </thead>
             <tbody>
                 @foreach (var h in DisplayRows)
                 {
                     <tr>
-                        <td class="nowrap">@h.ChangedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td class="nowrap">@h.ChangedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td>@h.Action</td>
                         <td class="mono">@h.EntityType</td>
                         <td class="mono">@(h.EntityId is null ? "—" : $"#{h.EntityId}")</td>
@@ -66,6 +67,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -126,7 +128,8 @@
         "InstrumentInterface" => "/admin/instruments",
         "PdfPrinter" => "/admin/printers",
         "ZebraPrinter" => "/admin/printers",
-        "SpecimenLabelLayout" => "/admin/specimen-label",
+        "SpecimenLabelLayout" => "/admin/specimen-labels",
+        "SpecimenLabelDesign" => "/admin/specimen-labels",
         "PtagLabelLayout" => "/admin/ptag",
         "User" => "/admin/users",
         "Role" => "/admin/roles",
@@ -149,6 +152,7 @@
         "InventoryLocation" => "/admin/inventory-locations",
         "SystemSetting" => "/admin/facility-policies",
         "CrossmatchSettings" => "/admin/crossmatch-settings",
+        "ReactionWorkupSettings" => "/admin/reaction-workup",
         "AntibodyPanelLot" => "/admin/antibody-panel-lots",
         "AntibodyPanelManufacturer" => "/admin/antibody-panel-lots",
         "OrderingProvider" => "/admin/providers",

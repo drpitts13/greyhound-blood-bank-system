@@ -1,4 +1,5 @@
 @inject UserSession Session
+@inject BloodBankApiClient Api
 
 <div class="bb-card">
     <p class="muted" style="margin:0 0 .75rem;">For order-driven result entry, use the <strong>Tests</strong> tab.</p>
@@ -26,7 +27,7 @@
             <div class="form-row">
                 <div class="field"><label>Accession #</label><input @bind="Accession.AccessionNumber" /></div>
                 <div class="field"><label>Specimen type</label>
-                    <select @bind="Accession.SpecimenType">
+                    <select @bind="Accession.SpecimenType" @bind:after="RefreshAccessionPreviewAsync">
                         @if (SpecimenTypes.Count == 0)
                         {
                             <option value="EDTA">EDTA — EDTA Whole Blood</option>
@@ -39,17 +40,46 @@
                             }
                         }
                     </select>
+                    @if (SpecimenTypeOrderHint.WaitingNote(Orders, TestDefs) is { } waitingNote)
+                    {
+                        <span class="sub" data-accession-waiting-note>@waitingNote</span>
+                    }
                 </div>
-                <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Accession.CollectedLocal" /></div>
+                <div class="field"><label>Visit drawn on</label>
+                    <select @bind="Accession.EncounterId" data-accession-visit>
+                        <option value="0">No visit chosen</option>
+                        @foreach (var visit in CurrentVisit.ChoicesForNewTube(Encounters))
+                        {
+                            <option value="@visit.Id">@CurrentVisit.ChoiceLabel(visit)</option>
+                        }
+                    </select>
+                    @if (Accession.EncounterId == 0 && CurrentVisit.For(Encounters).OtherOpen > 0)
+                    {
+                        <span class="sub" data-several-open>More than one visit is open: choose the one this tube was drawn on.</span>
+                    }
+                </div>
+                <div class="field"><label>Collected</label><input type="datetime-local" @bind="Accession.CollectedLocal" @bind:after="RefreshAccessionPreviewAsync" /></div>
                 @if (AccessionPreviewExpires is { } preview)
                 {
                     <div class="field"><label>Expires (preview)</label>
-                        <input value="@preview.ToString("yyyy-MM-dd HH:mm")" disabled />
+                        <input value="@LocalEntry.FromUtc(preview).ToString("yyyy-MM-dd HH:mm")" disabled />
+                        @if (_accessionPreview?.ShortenedForAlloimmunizationRisk == true)
+                        {
+                            <span class="sub">Shorter window: patient transfused or pregnant recently.</span>
+                        }
                     </div>
                 }
-                <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Accession.ValidityHours" /></div>
-                <div class="field"><label>Identifier 1 (MRN)</label><input @bind="Accession.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
-                <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="Accession.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
+                <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Accession.ValidityHours" @bind:after="RefreshAccessionPreviewAsync" /></div>
+                <div class="field"><label>Patient ID 1 (MRN) on the tube</label>
+                    <input @bind="Accession.Identifier1Value" @bind:event="oninput" placeholder="Scan or type from the tube label" autocomplete="off" />
+                    <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@Accession.Identifier1Value" Patient="Patient" />
+                </div>
+                <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd) on the tube</label>
+                    <input @bind="Accession.Identifier2Value" @bind:event="oninput" placeholder="From the tube label" autocomplete="off" />
+                    <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@Accession.Identifier2Value" Patient="Patient" />
+                </div>
+                <div class="field"><label>Collected by@(CollectorRequired && Accession.AcceptImmediately ? " (required to accept)" : "")</label><input @bind="Accession.Collector" placeholder="Who drew the specimen" data-collector-required="@(CollectorRequired ? "true" : "false")" /></div>
+                <div class="field"><label>Draw location</label><input @bind="Accession.DrawLocation" placeholder="Ward or unit" /></div>
             </div>
                 <div class="field">
                     <label>Comment</label>
@@ -60,6 +90,35 @@
                     Accept now — specimen is already in the blood bank
                 </label>
                 <p class="muted" style="margin:.25rem 0 .75rem;">Leave unchecked to record collection only. Receive and accept from the pending-specimens worklist. Result entry still requires Accepted.</p>
+                @{ var linkable = SpecimenTypeOrderHint.LinkableOnAccession(Orders, TestDefs, Accession.SpecimenType, Accession.EncounterId); }
+                @if (linkable.Count > 0)
+                {
+                    @if (Accession.AcceptImmediately)
+                    {
+                        <div class="field" data-accession-link-orders>
+                            <label>Link to waiting orders</label>
+                            @foreach (var o in linkable)
+                            {
+                                <label class="flex gap" style="align-items:center;">
+                                    <input type="checkbox" checked="@(!Accession.SkipLinkOrderIds.Contains(o.Id))"
+                                           @onchange="e => ToggleLink(o.Id, e.Value is true)" data-link-order="@o.OrderNumber" />
+                                    <span class="mono">@o.OrderNumber</span> @o.OrderName
+                                </label>
+                            }
+                            <span class="sub">Their tests appear on the worklist on this tube as soon as it is accessioned.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="muted" style="margin:0 0 .75rem;" data-accession-link-later>
+                            @linkable.Count waiting order@(linkable.Count == 1 ? "" : "s") can use this tube once it is accepted: link them from the Orders tab, or accept now to link them here.
+                        </p>
+                    }
+                }
+                @if (SpecimenTypeOrderHint.MismatchWarning(TestDefs, SpecimenTypeOrderHint.Waiting(Orders).TestCodes, Accession.SpecimenType) is { } typeWarning)
+                {
+                    <div class="alert alert-warning" data-accession-type-warning>@typeWarning</div>
+                }
                 <button class="btn btn-primary" disabled="@Busy" @onclick="OnAccession">Accession</button>
         </div>
     }
@@ -70,20 +129,45 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Accession</th><th>Type</th><th>Collected</th><th>Expires</th><th>Status</th><th>Comment</th><th></th></tr></thead>
-            <tbody>
+            <thead><tr><th>Accession</th><th>Type</th><th>Visit</th><th>Collected</th><th>Expires</th><th>Status</th><th>Comment</th></tr></thead>
                 @foreach (var s in Specimens)
                 {
+                    @* One record per tbody: the facts, the row's actions on a line underneath (so a narrow chart never pushes
+                       them off the card), then any open form. *@
+                    <tbody class="record">
                     <tr>
                         <td class="mono">@s.AccessionNumber</td>
                         <td>@(s.SpecimenTypeDescription ?? s.SpecimenType)</td>
-                        <td class="nowrap">@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td class="nowrap">@(s.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
-                        <td><span class="@Ui.Badge(s.Status)">@s.Status</span></td>
+                        <td class="mono nowrap" data-specimen-visit>@(Encounters.FirstOrDefault(v => v.Id == s.EncounterId)?.VisitNumber ?? "—")</td>
+                        <td class="nowrap">@s.CollectedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">
+                            @(s.ExpiresUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")
+                            @if (s.NeonatalAdmission)
+                            {
+                                @* OCD-074: an infant's specimen valid for the admission (until discharge or the age limit). *@
+                                <span class="sub" data-specimen-neonatal title="Infant under the neonatal age limit: this specimen covers the admission, ending at discharge or the age limit.">For the admission (infant)</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="@Ui.Badge(s.Status)">@Ui.EnumText(s.Status)</span>
+                            @if (!string.IsNullOrWhiteSpace(s.StorageLocation))
+                            {
+                                <div class="sub" data-specimen-stored>Stored: @s.StorageLocation</div>
+                            }
+                            @if (s.DiscardedUtc is DateTime discarded)
+                            {
+                                <div class="sub" data-specimen-discarded>Discarded @discarded.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+                            }
+                        </td>
                         <td>@(string.IsNullOrWhiteSpace(s.Comment) ? "—" : s.Comment)</td>
-                        <td class="right nowrap">
+                    </tr>
+                    <tr class="row-actions">
+                        <td colspan="7">
+                          <div class="row-actions-bar">
                             <button class="btn btn-ghost btn-sm" @onclick="() => OnSelect.InvokeAsync(s)">@(SelectedId == s.Id ? "Hide" : "Results")</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ToggleHistory(s.Id)">@(_historyId == s.Id ? "Hide history" : "History")</button>
                             @if (Session.Has(PermissionCodes.PrintLabel))
                             {
                                 <a class="btn btn-ghost btn-sm" href="@($"/printing?specimenId={s.Id}")">Print label</a>
@@ -99,7 +183,14 @@
                             }
                             @if (s.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
                             {
-                                <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnReceive.InvokeAsync(s.Id)">Receive</button>
+                                @if (ReceiveByScanOnly)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="/test-worklist?tab=specimens" title="Your facility requires receipt by scan">Scan to receive</a>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnReceive.InvokeAsync(s.Id)">Receive</button>
+                                }
                             }
                             @if (s.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
                             {
@@ -110,6 +201,7 @@
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginReject.InvokeAsync(s)">Reject</button>
                             }
+                          </div>
                         </td>
                     </tr>
                     @if (EditId == s.Id)
@@ -126,11 +218,11 @@
                                 <div class="form-row">
                                     <div class="field"><label>Accession #</label><input value="@s.AccessionNumber" disabled /></div>
                                     <div class="field"><label>Specimen type</label><input value="@(s.SpecimenTypeDescription ?? s.SpecimenType)" disabled /></div>
-                                    <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Edit.CollectedLocal" @bind:after="OnCollectedChanged" /></div>
+                                    <div class="field"><label>Collected</label><input type="datetime-local" @bind="Edit.CollectedLocal" @bind:after="OnCollectedChanged" /></div>
                                     <div class="field"><label>Barcode</label><input value="@(s.Barcode ?? "—")" disabled /><span class="muted">Use Relabel to change.</span></div>
                                     <div class="field"><label>Draw location</label><input @bind="Edit.DrawLocation" /></div>
                                     <div class="field"><label>Collector</label><input @bind="Edit.Collector" /></div>
-                                    <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="Edit.ExpiresLocal" @bind:after="OnExpiresChanged" /></div>
+                                    <div class="field"><label>Expires</label><input type="datetime-local" @bind="Edit.ExpiresLocal" @bind:after="OnExpiresChanged" /></div>
                                 </div>
                                 <div class="field">
                                     <label>Comment</label>
@@ -148,7 +240,7 @@
                                         else
                                         {
                                             <div class="form-row">
-                                                <div class="field"><label>Authorized by</label><input @bind="Edit.AuthorizedBy" placeholder="@Session.UserName" /></div>
+                                                <AuthorizerField @bind-Value="Edit.AuthorizedBy" />
                                                 <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="Edit.OverrideReason" /></div>
                                             </div>
                                         }
@@ -188,10 +280,17 @@
                                         This specimen has an open antibody-identification workup. Reject still succeeds. Interpretation is withdrawn; void the workup or link a usable specimen before a new identification can post.
                                     </div>
                                 }
-                                <input @bind="RejectReason" @bind:after="() => RejectReasonChanged.InvokeAsync(RejectReason)" placeholder="Rejection reason" style="flex:1;" />
-                                <button class="btn btn-danger btn-sm" disabled="@Busy" @onclick="() => OnReject.InvokeAsync(s.Id)">Confirm reject</button>
+                                <SpecimenRejectReasonPicker Code="@RejectReason" CodeChanged="v => RejectReasonChanged.InvokeAsync(v)"
+                                                            Comment="@RejectComment" CommentChanged="v => RejectCommentChanged.InvokeAsync(v)" />
+                                <button class="btn btn-danger btn-sm" disabled="@(Busy || string.IsNullOrWhiteSpace(RejectReason))" @onclick="() => OnReject.InvokeAsync(s.Id)">Confirm reject</button>
                                 <button class="btn btn-secondary btn-sm" @onclick="OnCancelReject">Cancel</button>
                             </div>
+                        </td></tr>
+                    }
+                    @if (_historyId == s.Id)
+                    {
+                        <tr><td colspan="7">
+                            <SpecimenTimelinePanel SpecimenId="s.Id" Accession="@s.AccessionNumber" OnClose="() => _historyId = null" />
                         </td></tr>
                     }
                     @if (SelectedId == s.Id)
@@ -229,19 +328,48 @@
                             }
                         </td></tr>
                     }
+                    </tbody>
                 }
-            </tbody>
         </table>
+        </div>
     }
 </div>
 
 @code {
+    // The chart patient, for the live match hint under the tube-label identifiers.
+    [Parameter] public PatientDto? Patient { get; set; }
+
+    /// <summary>A specimen whose history opens when the tab opens (a scanned accession in the find box).</summary>
+    [Parameter] public long? OpenHistoryId { get; set; }
+
+    private long? _historyId;
+    private long? _appliedOpenHistoryId;
+
+    protected override void OnParametersSet()
+    {
+        if (OpenHistoryId != _appliedOpenHistoryId)
+        {
+            _appliedOpenHistoryId = OpenHistoryId;
+            if (OpenHistoryId is long id)
+            {
+                _historyId = id;
+            }
+        }
+    }
+
+    private void ToggleHistory(long specimenId) => _historyId = _historyId == specimenId ? null : specimenId;
+
     [Parameter] public bool ShowAccession { get; set; }
+    [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
+    // Facility policy Specimen.RequireCollector: a tube is accepted only with its collector recorded.
+    [Parameter] public bool CollectorRequired { get; set; }
     [Parameter] public Feedback? Feedback { get; set; }
     [Parameter] public Feedback? EditFeedback { get; set; }
     [Parameter] public PatientAccessionForm Accession { get; set; } = new();
     [Parameter] public PatientSpecimenEditForm Edit { get; set; } = new();
     [Parameter] public IReadOnlyList<SpecimenTypeListItemDto> SpecimenTypes { get; set; } = [];
+    [Parameter] public IReadOnlyList<PatientOrderDto> Orders { get; set; } = [];
+    [Parameter] public IReadOnlyList<TestDefinitionListItemDto> TestDefs { get; set; } = [];
     [Parameter] public IReadOnlyList<SpecimenDto> Specimens { get; set; } = [];
     [Parameter] public long? SelectedId { get; set; }
     [Parameter] public long? EditId { get; set; }
@@ -253,6 +381,8 @@
     [Parameter] public long? RejectId { get; set; }
     [Parameter] public string RejectReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> RejectReasonChanged { get; set; }
+    [Parameter] public string RejectComment { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> RejectCommentChanged { get; set; }
     [Parameter] public IReadOnlyList<TestWorkItemDto> SpecimenWorklist { get; set; } = [];
     [Parameter] public IReadOnlyList<AntibodyIdWorkupListItemDto> OpenAbidWorkups { get; set; } = [];
     [Parameter] public string AbidHref { get; set; } = "/antibody-id";
@@ -271,12 +401,52 @@
     [Parameter] public EventCallback<long> OnReject { get; set; }
     [Parameter] public EventCallback OnCancelReject { get; set; }
     [Parameter] public EventCallback<long> OnReceive { get; set; }
+    /// <summary>OCD-056: the facility requires receipt by scanning the tube, so the row offers no Receive button.</summary>
+    [Parameter] public bool ReceiveByScanOnly { get; set; }
     [Parameter] public EventCallback<long> OnAccept { get; set; }
     [Parameter] public EventCallback OnOpenOrders { get; set; }
     [Parameter] public int ExceptionMinLevel { get; set; } = 2;
 
+    // The server's policy for this patient, as accession will compute it; the catalog value only while it loads or if it fails.
+    private SpecimenExpirationPreviewDto? _accessionPreview;
+    private (string? Type, DateTime Collected, int? Hours)? _accessionPreviewKey;
+
     private DateTime? AccessionPreviewExpires =>
-        SpecimenTypeOrderHint.PreviewExpiresUtc(Accession.CollectedLocal, Accession.SpecimenType, SpecimenTypes);
+        _accessionPreview?.PolicyExpiresUtc
+        ?? SpecimenTypeOrderHint.PreviewExpiresUtc(LocalEntry.ToUtc(Accession.CollectedLocal), Accession.SpecimenType, SpecimenTypes);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ShowAccession)
+        {
+            await RefreshAccessionPreviewAsync();
+        }
+    }
+
+    private void ToggleLink(long orderId, bool link)
+    {
+        if (link)
+        {
+            Accession.SkipLinkOrderIds.Remove(orderId);
+        }
+        else
+        {
+            Accession.SkipLinkOrderIds.Add(orderId);
+        }
+    }
+
+    private async Task RefreshAccessionPreviewAsync()
+    {
+        var key = (Accession.SpecimenType, Accession.CollectedLocal, Accession.ValidityHours);
+        if (Patient is null || _accessionPreviewKey == key)
+        {
+            return;
+        }
+
+        _accessionPreviewKey = key;
+        var r = await Api.PreviewSpecimenExpirationAsync(Patient.Id, Accession.SpecimenType, LocalEntry.ToUtc(Accession.CollectedLocal), validityHours: Accession.ValidityHours);
+        _accessionPreview = r.Succeeded ? r.Value : null;
+    }
 
     private bool NeedsExpirationOverride =>
         SpecimenExpirationOverrideRule.Evaluate(
@@ -284,10 +454,20 @@
             Edit.ExpiresLocal,
             overrideAuthorized: false).Severity == RuleSeverity.Warning;
 
-    private void OnCollectedChanged()
+    private async Task OnCollectedChanged()
     {
-        var preview = SpecimenTypeOrderHint.PreviewExpiresUtc(Edit.CollectedLocal, Edit.SpecimenType, SpecimenTypes)
-            ?? Edit.CollectedLocal.AddHours(Edit.PolicyHours);
+        // The server's policy for this patient (a recently transfused or pregnant patient gets the shorter window).
+        DateTime? server = null;
+        if (Patient is not null)
+        {
+            var r = await Api.PreviewSpecimenExpirationAsync(Patient.Id, Edit.SpecimenType, LocalEntry.ToUtc(Edit.CollectedLocal));
+            server = r.Succeeded ? r.Value?.PolicyExpiresUtc : null;
+        }
+
+        // The form holds local times (pass 57): the server and catalog give UTC.
+        var previewUtc = server
+            ?? SpecimenTypeOrderHint.PreviewExpiresUtc(LocalEntry.ToUtc(Edit.CollectedLocal), Edit.SpecimenType, SpecimenTypes);
+        var preview = previewUtc is DateTime utc ? LocalEntry.FromUtc(utc) : Edit.CollectedLocal.AddHours(Edit.PolicyHours);
         Edit.PolicyExpires = preview;
         if (!Edit.ExpiryTouched)
         {

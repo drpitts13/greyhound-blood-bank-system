@@ -13,7 +13,13 @@ public sealed record AddSpecialRequirementRequest(
     string? AntigenCode = null,
     DateTime? EffectiveUtc = null,
     DateTime? ExpiresUtc = null,
-    long? RequirementDefinitionId = null);
+    long? RequirementDefinitionId = null,
+    /// <summary>The reaction investigation that led to this requirement, if it was added from one.</summary>
+    long? ReactionInvestigationId = null,
+    // Facility dates: applies from the start of StartDate; no longer applies on and after EndDate.
+    // They take the place of EffectiveUtc / ExpiresUtc when given.
+    DateOnly? StartDate = null,
+    DateOnly? EndDate = null);
 
 public sealed record SpecialRequirementDto(
     long Id,
@@ -31,8 +37,20 @@ public sealed record SpecialRequirementDto(
     SpecialRequirementLevel? Level = null,
     SpecialRequirementEnforcementKind? EnforcementKind = null,
     string? Instruction = null,
-    bool IsClinicallyActive = false)
+    bool IsClinicallyActive = false,
+    long? ReactionInvestigationId = null,
+    SpecialRequirementCategory? Category = null,
+    ComponentClass? ComponentClass = null)
 {
+    /// <summary>"Unit typing – RBC", "Informational"; empty for chart rows without a catalog entry.</summary>
+    public string CategoryLabel => Category is { } c
+        ? (SpecialRequirementLabel.UnitCategory(c, ComponentClass) is { Length: > 0 } unit
+            ? $"{SpecialRequirementLabel.Category(c)} – {unit}"
+            : SpecialRequirementLabel.Category(c))
+        : string.Empty;
+
+    public bool IsInformational => Category == SpecialRequirementCategory.Informational;
+
     public static SpecialRequirementDto From(
         SpecialTransfusionRequirement r,
         SpecialRequirementDefinition? definition = null,
@@ -54,11 +72,14 @@ public sealed record SpecialRequirementDto(
             r.EnteredBy,
             r.RequirementDefinitionId ?? definition?.Id,
             code,
-            definition?.Name ?? r.RequirementType.ToString(),
+            string.IsNullOrWhiteSpace(definition?.Name) ? SpecialRequirementLabel.TypeName(r.RequirementType) : definition.Name,
             definition?.Level,
             definition?.EnforcementKind,
             definition?.Instruction,
-            clinicallyActive);
+            clinicallyActive,
+            r.ReactionInvestigationId,
+            definition?.Category,
+            definition?.ComponentClass);
     }
 }
 
@@ -73,6 +94,8 @@ public sealed class SpecialRequirementService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
     private readonly IRepository<SpecialRequirementDefinition>? _definitions;
+    private readonly IRepository<ReactionInvestigation>? _reactions;
+    private readonly IFacilityTimeZone? _timeZone;
 
     public SpecialRequirementService(
         IRepository<SpecialTransfusionRequirement> requirements,
@@ -83,8 +106,12 @@ public sealed class SpecialRequirementService
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
         IRepository<AntibodyIdentificationWorkup>? workups = null,
-        IRepository<SpecialRequirementDefinition>? definitions = null)
+        IRepository<SpecialRequirementDefinition>? definitions = null,
+        IRepository<ReactionInvestigation>? reactions = null,
+        IFacilityTimeZone? timeZone = null)
     {
+        _reactions = reactions;
+        _timeZone = timeZone;
         _requirements = requirements;
         _patients = patients;
         _unitOfWork = unitOfWork;
@@ -146,6 +173,17 @@ public sealed class SpecialRequirementService
             return OperationResult<SpecialTransfusionRequirement>.Fail(clinical.Message);
         }
 
+        // A requirement added from a reaction investigation must name one of this patient's investigations.
+        if (request.ReactionInvestigationId is long reactionId)
+        {
+            var reaction = _reactions is null ? null : await _reactions.GetByIdAsync(reactionId, ct);
+            if (reaction is null || reaction.PatientId != patientId)
+            {
+                return OperationResult<SpecialTransfusionRequirement>.Fail(
+                    $"Reaction investigation {reactionId} is not one of this patient's investigations.");
+            }
+        }
+
         var definition = await ResolveDefinitionAsync(request, ct);
         var requirementType = definition is not null
             ? SpecialRequirementCatalog.TypeFor(definition.Code) ?? request.RequirementType
@@ -153,7 +191,15 @@ public sealed class SpecialRequirementService
         var enforcement = definition?.EnforcementKind
             ?? SpecialRequirementCatalog.ToRef(requirementType, request.AntigenCode, _clock.UtcNow, null, true).EnforcementKind;
 
+        var effective = request.StartDate is { } startDate ? FacilityMidnightUtc(startDate) : request.EffectiveUtc ?? _clock.UtcNow;
+        var expires = request.EndDate is { } endDate ? FacilityMidnightUtc(endDate) : request.ExpiresUtc;
+        if (expires is { } end && end <= effective)
+        {
+            return OperationResult<SpecialTransfusionRequirement>.Fail("The end date must be after the start date.");
+        }
+
         if (enforcement == SpecialRequirementEnforcementKind.RequireAntigenNegative
+            && string.IsNullOrWhiteSpace(definition?.AntigenCode)
             && string.IsNullOrWhiteSpace(request.AntigenCode))
         {
             return OperationResult<SpecialTransfusionRequirement>.Fail("An antigen code is required for antigen-negative requirements.");
@@ -166,10 +212,11 @@ public sealed class SpecialRequirementService
             RequirementType = requirementType,
             AntigenCode = string.IsNullOrWhiteSpace(request.AntigenCode) ? null : request.AntigenCode.Trim(),
             Reason = request.Reason.Trim(),
-            EffectiveUtc = request.EffectiveUtc ?? _clock.UtcNow,
-            ExpiresUtc = request.ExpiresUtc,
+            EffectiveUtc = effective,
+            ExpiresUtc = expires,
             IsActive = true,
-            EnteredBy = _currentUser.UserName
+            EnteredBy = _currentUser.UserName,
+            ReactionInvestigationId = request.ReactionInvestigationId
         };
         await _requirements.AddAsync(row, ct);
         await _unitOfWork.SaveChangesAsync(ct);
@@ -177,7 +224,7 @@ public sealed class SpecialRequirementService
             AuditEventType.Antibody,
             nameof(SpecialTransfusionRequirement),
             row.Id,
-            newValue: new { row.PatientId, row.RequirementType, row.RequirementDefinitionId, row.AntigenCode, row.IsActive, row.ExpiresUtc },
+            newValue: new { row.PatientId, row.RequirementType, row.RequirementDefinitionId, row.AntigenCode, row.IsActive, row.EffectiveUtc, row.ExpiresUtc, row.ReactionInvestigationId },
             reason: request.Reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SpecialTransfusionRequirement>.Ok(row, await EvaluateOpenWorkupWarningsAsync(patientId, ct));
@@ -231,6 +278,24 @@ public sealed class SpecialRequirementService
             reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SpecialTransfusionRequirement>.Ok(row, await EvaluateOpenWorkupWarningsAsync(row.PatientId, ct));
+    }
+
+    /// <summary>The start of a facility calendar day, in UTC. Without a facility time zone, UTC midnight.</summary>
+    private DateTime FacilityMidnightUtc(DateOnly date)
+    {
+        var local = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        if (_timeZone is null)
+        {
+            return DateTime.SpecifyKind(local, DateTimeKind.Utc);
+        }
+
+        // Where a clock change skips midnight, the day starts at the first valid local time.
+        while (_timeZone.Zone.IsInvalidTime(local))
+        {
+            local = local.AddMinutes(30);
+        }
+
+        return TimeZoneInfo.ConvertTimeToUtc(local, _timeZone.Zone);
     }
 
     private async Task<IReadOnlyList<SpecialRequirementDefinition>> LoadDefinitionsAsync(CancellationToken ct)

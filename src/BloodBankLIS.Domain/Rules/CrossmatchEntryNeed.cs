@@ -6,6 +6,7 @@ namespace BloodBankLIS.Domain.Rules;
 /// <summary>
 /// Whether a reserved unit still needs a manual serologic crossmatch entered.
 /// Electronic crossmatch and products that do not require crossmatch are excluded.
+/// A compatible crossmatch that is no longer in date needs repeating.
 /// </summary>
 public static class CrossmatchEntryNeed
 {
@@ -14,14 +15,16 @@ public static class CrossmatchEntryNeed
         CrossmatchResult? result,
         string? testCode,
         AllocationStatus status,
-        long? issueId)
+        long? issueId,
+        bool compatibleCrossmatchExpired = false)
     {
         if (!requiresCrossmatch || issueId is not null || status != AllocationStatus.Reserved)
         {
             return false;
         }
 
-        if (result is CrossmatchResult.Compatible or CrossmatchResult.Incompatible)
+        if (result is CrossmatchResult.Incompatible
+            || (result is CrossmatchResult.Compatible && !compatibleCrossmatchExpired))
         {
             return false;
         }

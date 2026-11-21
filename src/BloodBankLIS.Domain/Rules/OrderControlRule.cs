@@ -15,6 +15,7 @@ public static class OrderControlRule
     public const string TerminalCode = "ORM-ORC-TERMINAL";
     public const string NotHeldCode = "ORM-ORC-NOTHELD";
     public const string IssueCode = "ISS-ORDER-STATUS";
+    public const string ReservedCode = "ORM-ORC-RESERVED";
 
     public static bool IsNewOrder(string? control)
     {

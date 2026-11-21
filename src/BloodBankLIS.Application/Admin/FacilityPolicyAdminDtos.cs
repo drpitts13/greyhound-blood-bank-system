@@ -15,7 +15,9 @@ public sealed record FacilityPolicyDto(
     string DefaultValue,
     int? MinInclusive,
     int? MaxInclusive,
-    bool LegalHold)
+    bool LegalHold,
+    // Decided to be used, still at its "not set" default: the value is waiting to be entered (Cycle 677).
+    bool AwaitsEntry = false)
 {
     public static FacilityPolicyDto From(SystemSetting setting, FacilityPolicyDefinition definition) => new(
         setting.Id,
@@ -29,7 +31,8 @@ public sealed record FacilityPolicyDto(
         definition.DefaultValue,
         definition.MinInclusive,
         definition.MaxInclusive,
-        setting.LegalHold);
+        setting.LegalHold,
+        FacilityPolicyCatalog.AwaitsEntry(definition, setting.Value));
 }
 
 public sealed record SaveFacilityPolicyRequest(string Value, string Reason);

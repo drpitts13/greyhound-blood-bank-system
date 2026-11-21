@@ -25,6 +25,9 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     private readonly IIdentityAdminStore _identity;
     private readonly IPermissionEvaluator? _permissionEvaluator;
     private readonly IAuthSessionService? _sessions;
+    private readonly IAuditQuery? _auditQuery;
+    private const string AccessReviewEntity = "AccessReview";
+    private const string AccessReviewReasonPrefix = "Access review: ";
 
     public UserAdminService(
         IRepository<User> users,
@@ -39,9 +42,11 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
         IPermissionEvaluator? permissionEvaluator = null,
-        IAuthSessionService? sessions = null)
+        IAuthSessionService? sessions = null,
+        IAuditQuery? auditQuery = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
+        _auditQuery = auditQuery;
         _users = users;
         _roles = roles;
         _permissions = permissions;
@@ -236,6 +241,70 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         return OperationResult<AdminUserDto>.Ok(after!);
     }
 
+    /// <summary>
+    /// Records a periodic access review: one audit event holding every active account with its roles and last sign-in,
+    /// the reviewer, and the reviewer's note. It changes no account; deactivating or changing roles stays per user.
+    /// </summary>
+    public async Task<OperationResult<AccessReviewDto>> RecordAccessReviewAsync(RecordAccessReviewRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync<AccessReviewDto>(
+            PermissionCodes.AdminUsersManage, AdminAuthorizationRule.EvaluateUpdateUser, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Note))
+        {
+            return OperationResult<AccessReviewDto>.Fail("Say what was reviewed and what was decided.");
+        }
+
+        var active = (await ListUsersAsync(includeInactive: false, ct)).ToList();
+        var note = request.Note.Trim();
+        Audit.Record(
+            AuditEventType.UserRole,
+            AccessReviewEntity,
+            0,
+            newValue: new
+            {
+                Document = "Access review",
+                Note = note,
+                ActiveAccounts = active.Select(u => new { u.UserName, u.Roles, u.LastLoginUtc, u.IsLocked, u.IsServiceAccount }).ToList()
+            },
+            reason: AccessReviewReasonPrefix + note);
+        await UnitOfWork.SaveChangesAsync(ct);
+        return OperationResult<AccessReviewDto>.Ok(new AccessReviewDto(Clock.UtcNow, CurrentUser.UserName, note, active.Count));
+    }
+
+    /// <summary>The latest recorded access review, or null when none has been recorded.</summary>
+    public async Task<AccessReviewDto?> GetLastAccessReviewAsync(CancellationToken ct = default)
+    {
+        if (_auditQuery is null)
+        {
+            return null;
+        }
+
+        var last = (await _auditQuery.ListForEntityAsync(AccessReviewEntity, 0, ct))
+            .LastOrDefault(e => e.Reason is not null && e.Reason.StartsWith(AccessReviewReasonPrefix, StringComparison.Ordinal));
+        if (last is null)
+        {
+            return null;
+        }
+
+        var count = 0;
+        if (last.NewValueJson is { } json)
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("ActiveAccounts", out var accounts) && accounts.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                count = accounts.GetArrayLength();
+            }
+        }
+
+        return new AccessReviewDto(last.OccurredUtc, last.UserName, last.Reason![AccessReviewReasonPrefix.Length..], count);
+    }
+
     public async Task<OperationResult<AdminUserDto>> SetActiveAsync(long id, bool active, string? reason, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync<AdminUserDto>(
@@ -256,12 +325,18 @@ public sealed class UserAdminService : ConfigAdminServiceBase
             return OperationResult<AdminUserDto>.Fail("You cannot deactivate your own account.");
         }
 
+        if (AccessChangeReasonRule.Missing(reason) is { } missingReason)
+        {
+            return OperationResult<AdminUserDto>.Fail(missingReason);
+        }
+
+        var before = await GetUserAsync(id, ct);
         user.IsActive = active;
         _users.Update(user);
 
         var action = active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate;
         var dto = await GetUserAsync(id, ct);
-        RecordChange(UserEntity, user.Id, 1, action, ToAuditType(action), null, dto, reason);
+        RecordChange(UserEntity, user.Id, 1, action, ToAuditType(action), before, dto, reason!.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         if (!active && _sessions is not null)
         {
@@ -291,11 +366,19 @@ public sealed class UserAdminService : ConfigAdminServiceBase
             return OperationResult<AdminUserDto>.Fail("You cannot lock your own account.");
         }
 
+        // Locking protects; unlocking lets someone act again, so it records why.
+        if (!locked && AccessChangeReasonRule.Missing(reason) is { } missingReason)
+        {
+            return OperationResult<AdminUserDto>.Fail(missingReason);
+        }
+
+        var before = await GetUserAsync(id, ct);
         user.IsLocked = locked;
         _users.Update(user);
 
         var dto = await GetUserAsync(id, ct);
-        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, null, dto, reason ?? (locked ? "Locked" : "Unlocked"));
+        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, before, dto,
+            string.IsNullOrWhiteSpace(reason) ? (locked ? "Locked" : "Unlocked") : reason.Trim());
         await UnitOfWork.SaveChangesAsync(ct);
         if (locked && _sessions is not null)
         {
@@ -396,8 +479,18 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         }
 
         var before = await GetRoleAsync(id, ct);
+        var newLevel = Math.Max(0, req.SecurityLevel);
+        var accessChanged = before is not null
+            && (before.SecurityLevel != newLevel
+                || !before.Permissions.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                    .SetEquals((req.Permissions ?? []).Select(p => p.Trim()).Where(p => p.Length > 0)));
+        if (accessChanged && AccessChangeReasonRule.Missing(req.ChangeReason) is { } missingReason)
+        {
+            return OperationResult<AdminRoleDto>.Fail(missingReason);
+        }
+
         role.Description = req.Description?.Trim();
-        role.SecurityLevel = Math.Max(0, req.SecurityLevel);
+        role.SecurityLevel = newLevel;
         _roles.Update(role);
         await _identity.StageRolePermissionsAsync(role.Id, permissionIds, ct);
 
@@ -449,9 +542,10 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         var currentlyAdmin = await UserGrantsAdminAsync(user.Id, ct);
         var willBeAdmin = await GrantsAdminAsync(roleIds, ct);
 
-        if (willBeAdmin && !currentlyAdmin && string.IsNullOrWhiteSpace(reason))
+        var currentRoleIds = (await _userRoles.ListAsync(ur => ur.UserId == user.Id, ct)).Select(l => l.RoleId).ToHashSet();
+        if (!currentRoleIds.SetEquals(roleIds) && AccessChangeReasonRule.Missing(reason) is { } missingReason)
         {
-            return OperationResult<bool>.Fail("A change reason is required when granting administrative roles.");
+            return OperationResult<bool>.Fail(missingReason);
         }
 
         if (editingSelf && currentlyAdmin && !willBeAdmin)

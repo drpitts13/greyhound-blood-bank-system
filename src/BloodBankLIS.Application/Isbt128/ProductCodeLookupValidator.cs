@@ -56,7 +56,7 @@ public static class ProductCodeLookupValidator
                 $"{IsbtErrorCodes.UnknownProductCode}: Unrecognized product description code '{pdc}'.");
         }
 
-        var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = asOf ?? DateOnly.FromDateTime(DateTime.Now);
         if (row.RetiredDate is not null && row.RetiredDate < today)
         {
             return (false, null,

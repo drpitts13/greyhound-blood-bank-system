@@ -38,6 +38,7 @@
         @foreach (var group in AttributeGroups)
         {
             <h4 style="margin-top:.9rem;">@group.Key attributes</h4>
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Attribute</th><th>Type</th><th>Available to</th><th>Description</th><th>Example</th></tr></thead>
                 <tbody>
@@ -45,7 +46,7 @@
                     {
                         <tr>
                             <td class="mono">@a.Path</td>
-                            <td>@a.Kind</td>
+                            <td>@Ui.EnumText(a.Kind)</td>
                             <td class="nowrap">@a.AvailableTo</td>
                             <td>@a.Description</td>
                             <td class="mono">@a.Example</td>
@@ -53,6 +54,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
 
         <h4 style="margin-top:.9rem;">Functions</h4>
@@ -60,6 +62,7 @@
             Functions take one quoted argument. The prefix is optional, so
             <span class="mono">hasTest('ABORH')</span> and <span class="mono">order.hasTest('ABORH')</span> are the same.
         </p>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Function</th><th>Returns</th><th>Available to</th><th>Description</th><th>Example</th></tr></thead>
             <tbody>
@@ -67,7 +70,7 @@
                 {
                     <tr>
                         <td class="mono">@(f.Name)(...)</td>
-                        <td>@f.Kind</td>
+                        <td>@Ui.EnumText(f.Kind)</td>
                         <td class="nowrap">@f.AvailableTo</td>
                         <td>@f.Description</td>
                         <td class="mono">@f.Example</td>
@@ -75,8 +78,10 @@
                 }
             </tbody>
         </table>
+        </div>
 
         <h4 style="margin-top:.9rem;">Operators</h4>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Operator</th><th>Description</th><th>Example</th></tr></thead>
             <tbody>
@@ -90,6 +95,7 @@
                 }
             </tbody>
         </table>
+        </div>
 
         <h4 style="margin-top:.9rem;">Things that catch people out</h4>
         <ul>
@@ -109,6 +115,7 @@
             An action is one or more calls separated by semicolons, each taking a single quoted argument. They run
             in the order written, for example <span class="mono">cancelTest('TNS'); addTest('TSNEO')</span>.
         </p>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Action</th><th>Available to</th><th>Description</th><th>Example</th></tr></thead>
             <tbody>
@@ -123,6 +130,7 @@
                 }
             </tbody>
         </table>
+        </div>
 
         <h4 style="margin-top:.9rem;">How actions behave</h4>
         <ul>

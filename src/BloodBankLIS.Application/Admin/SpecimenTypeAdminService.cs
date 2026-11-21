@@ -184,7 +184,18 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
             oldValue: null, newValue: SpecimenTypeDefinitionDtoMapping.From(entity), reason: reason);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        return OperationResult<SpecimenTypeDefinitionDto>.Ok(SpecimenTypeDefinitionDtoMapping.From(entity));
+        // Loop 2 tick 26: name the active tests that still prefer this specimen type.
+        var code = entity.Code.Trim();
+        var preferring = (await _testRepo.ListAsync(t => t.IsActive && t.RequiredSpecimenType != null, ct))
+            .Where(t => string.Equals(t.RequiredSpecimenType!.Trim(), code, StringComparison.OrdinalIgnoreCase))
+            .Select(t => t.Code)
+            .OrderBy(c => c)
+            .ToList();
+        IReadOnlyList<RuleResult> warnings = preferring.Count == 0
+            ? []
+            : [RuleResult.Warning("SPECTYPE-RETIRE-IN-USE",
+                $"{code} is still the preferred specimen type of {(preferring.Count == 1 ? "1 test" : $"{preferring.Count} tests")} ({string.Join(", ", preferring)}). Choose another on Tests.")];
+        return OperationResult<SpecimenTypeDefinitionDto>.Ok(SpecimenTypeDefinitionDtoMapping.From(entity), warnings);
     }
 
     private async Task<HashSet<string>> LoadActiveTestCodesAsync(CancellationToken ct)

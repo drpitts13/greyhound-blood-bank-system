@@ -8,7 +8,9 @@
     ItemValue="@(u => u.Id)"
     SearchText="FormatSearch"
     Clearable="Clearable"
-    Placeholder="@(Placeholder ?? "Type unit number")" />
+    UnresolvedText="UnresolvedUnit"
+    Placeholder="@(Placeholder ?? "Type unit number")"
+    Autofocus="Autofocus" />
 
 @code {
     [Parameter] public long? Value { get; set; }
@@ -17,17 +19,30 @@
     [Parameter] public UnitPickerScope Scope { get; set; } = UnitPickerScope.OnHand;
     [Parameter] public IEnumerable<BloodUnitDto>? Items { get; set; }
     [Parameter] public IEnumerable<long>? ExcludeIds { get; set; }
+    // When set, only these units are offered (the unit already chosen stays, so a scanned unit is not dropped).
+    [Parameter] public IReadOnlySet<long>? OnlyIds { get; set; }
     [Parameter] public bool Clearable { get; set; } = true;
     [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Autofocus { get; set; }
 
     private List<BloodUnitDto> _loaded = new();
+    // Product names, so a picked unit says what it is (end-user testing, 2026-11-12: "6 compatible units" were all
+    // plasma for a patient needing irradiated red cells, and the list did not say so).
+    private Dictionary<long, string> _productNames = new();
+    private bool _productsLoaded;
     private bool _loadStarted;
+    private bool _loadFinished;
 
     private IEnumerable<BloodUnitDto> VisibleItems
     {
         get
         {
             IEnumerable<BloodUnitDto> source = Items ?? _loaded;
+            if (OnlyIds is not null)
+            {
+                source = source.Where(u => OnlyIds.Contains(u.Id) || u.Id == Value);
+            }
+
             if (ExcludeIds is null)
             {
                 return source;
@@ -40,6 +55,13 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!_productsLoaded)
+        {
+            _productsLoaded = true;
+            var products = await Api.GetProductTypesAsync();
+            _productNames = (products.Value ?? new()).ToDictionary(p => p.Id, p => p.Name);
+        }
+
         if (Items is not null || _loadStarted)
         {
             return;
@@ -51,10 +73,12 @@
             UnitPickerScope.Available => InventoryUnitScopes.Available,
             UnitPickerScope.Issuable => InventoryUnitScopes.Issuable,
             UnitPickerScope.Crossmatch => InventoryUnitScopes.Crossmatch,
+            UnitPickerScope.DowntimeBackEntry => InventoryUnitScopes.DowntimeBackEntry,
             _ => InventoryUnitScopes.OnHand
         };
         var result = await Api.SearchUnitsAsync(new InventorySearchCriteria(Statuses: statuses));
         _loaded = result.Value ?? new();
+        _loadFinished = true;
     }
 
     private async Task OnValueChangedAsync(long? id)
@@ -64,9 +88,14 @@
         await SelectedItemChanged.InvokeAsync(item);
     }
 
-    private static string FormatDisplay(BloodUnitDto u) =>
-        $"{u.UnitNumber} · {Ui.BloodType(u.Abo, u.RhD)} · {u.Status} · {ReadyToIssueFormCue.ExpirationNotice(u.ExpiresUtc)}";
+    private string FormatDisplay(BloodUnitDto u) =>
+        $"{u.UnitNumber} · {(_productNames.TryGetValue(u.ProductTypeId, out var product) ? product + " · " : "")}{Ui.BloodType(u.Abo, u.RhD)} · {Ui.EnumText(u.Status)} · {ReadyToIssueFormCue.ExpirationNotice(u.ExpiresUtc)}";
 
-    private static string FormatSearch(BloodUnitDto u) =>
-        $"{u.UnitNumber} {u.Din} {u.ComponentIdentity} {u.Id}";
+    // Never show a bare internal id where a unit number belongs.
+    private string UnresolvedUnit(long? id) => Items is not null || _loadFinished
+        ? $"Unit record {id} is not in this list. Clear it and scan the unit."
+        : "Loading unit...";
+
+    private string FormatSearch(BloodUnitDto u) =>
+        $"{u.UnitNumber} {u.Din} {u.ComponentIdentity} {u.Id} {_productNames.GetValueOrDefault(u.ProductTypeId)}";
 }

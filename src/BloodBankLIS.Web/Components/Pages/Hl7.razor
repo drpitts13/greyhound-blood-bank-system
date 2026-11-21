@@ -1,7 +1,8 @@
 @page "/hl7"
 @inject BloodBankApiClient Api
+@inject UserSession Session
 
-<PageTitle>HL7 Interface &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>HL7 Interface &middot; HemoCore</PageTitle>
 
 <h1>HL7 Interface</h1>
 <p class="muted">Operational view of the HL7 v2.x message log.</p>
@@ -27,6 +28,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead>
                 <tr>
@@ -39,6 +41,7 @@
                     <th>Error</th>
                     <th>Detail</th>
                     <th>Retries</th>
+                    <th>Waiting</th>
                     <th></th>
                 </tr>
             </thead>
@@ -61,9 +64,10 @@
                         <td class="mono">@(e.PatientMrn ?? "—")</td>
                         <td class="mono">@FormatContext(e.PlacerOrderNumber, e.TestCode, e.UnitNumber)</td>
                         <td>@(string.IsNullOrEmpty(e.MessageType) ? $"#{e.Hl7MessageId}" : $"{e.MessageType}{(string.IsNullOrEmpty(e.TriggerEvent) ? "" : $"^{e.TriggerEvent}")}")</td>
-                        <td>@e.ErrorType</td>
+                        <td>@Ui.EnumText(e.ErrorType)</td>
                         <td>@e.ErrorDetail</td>
                         <td>@e.RetryCount</td>
+                        <td class="nowrap" data-error-waiting="@e.Id" title="@e.QueuedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")">@(e.QueuedUtc is { } queued ? AlertInboxView.OpenFor(queued, DateTime.UtcNow) : "—")</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
                             @if (e.Direction is null or Hl7Direction.Inbound)
@@ -75,6 +79,11 @@
                                 else if (e.ControlAlreadyApplied == true)
                                 {
                                     <span class="muted" title="This control id already applied. Replay is not offered.">Applied</span>
+                                    @if (e.AppliedByMessageId is long errorAppliedBy)
+                                    {
+                                        @* End-user testing pass 286: which message applied it, in view (hover text never shows on a touch screen). *@
+                                        <div class="sub muted" data-applied-by="@errorAppliedBy">Applied by message @errorAppliedBy; replay is not offered. <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(errorAppliedBy)">View @errorAppliedBy</button></div>
+                                    }
                                 }
                                 else
                                 {
@@ -98,6 +107,7 @@
                 }
             </tbody>
         </table>
+        </div>
         @if (_resolveId is not null)
         {
             <div @key="_resolveId" class="alert alert-info" style="margin-top:1rem;" data-scroll-on-show>
@@ -108,7 +118,80 @@
             </div>
         }
     }
+    @if (_resolvedErrors.Count > 0)
+    {
+        @* Who closed each error and why: a reason given by hand, or the replay or resend that delivered it. *@
+        <details style="margin-top:1rem;">
+            <summary>Recently resolved (@_resolvedErrors.Count)</summary>
+            <div class="table-scroll">
+            <table class="bb" style="margin-top:.5rem;">
+                <thead><tr><th>Resolved</th><th>By</th><th>Message</th><th>Error</th><th>Why</th></tr></thead>
+                <tbody>
+                    @foreach (var r in _resolvedErrors)
+                    {
+                        <tr>
+                            <td class="nowrap">@(r.ResolvedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td>@(r.ResolvedBy ?? "—")</td>
+                            <td>@(string.IsNullOrEmpty(r.MessageType) ? $"#{r.Hl7MessageId}" : $"{r.MessageType}{(string.IsNullOrEmpty(r.TriggerEvent) ? "" : $"^{r.TriggerEvent}")}")<span class="sub mono">@r.MessageControlId</span></td>
+                            <td>@Ui.EnumText(r.ErrorType)<span class="sub">@r.ErrorDetail</span></td>
+                            <td>@(r.ResolutionNote ?? "Not recorded (resolved before notes were kept)")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        </details>
+    }
 </div>
+
+@* Results and charges that have not gone out: none of them is an error, so they never reached the error queue (Cycle 660). *@
+@if (_waiting.Count > 0)
+{
+    <div class="bb-card" data-outbound-waiting>
+        <div class="bb-card-title"><h3>Waiting to send (@_waiting.Count)</h3></div>
+        <p class="muted">Outbound messages not yet acknowledged. Those waiting longer than @((int)OutboundMessageWaitRule.StuckAfter.TotalMinutes) minutes will not go by themselves.</p>
+        <div class="table-scroll">
+        <table class="bb">
+            <thead><tr><th>Message</th><th>Control id</th><th>Waiting</th><th>Why</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var w in _waiting)
+                {
+                    <tr data-waiting="@w.Id">
+                        <td>@w.MessageType</td>
+                        <td class="mono">@w.ControlId</td>
+                        <td class="nowrap" title="@w.QueuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")">
+                            @if (w.Stuck)
+                            {
+                                <span class="badge badge-amber">@AlertInboxView.OpenFor(w.QueuedUtc, DateTime.UtcNow)</span>
+                            }
+                            else
+                            {
+                                @AlertInboxView.OpenFor(w.QueuedUtc, DateTime.UtcNow)
+                            }
+                        </td>
+                        <td>@w.Reason</td>
+                        <td class="right">
+                            @if (w.Reason == OutboundMessageWaitRule.NoInterface)
+                            {
+                                @* Pass 219: with no interface to take it, Send cannot go; point to where one is set up. *@
+                                @if (Session.Has(PermissionCodes.AdminHl7Manage))
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="/admin/hl7" data-waiting-setup>Set up an interface</a>
+                                }
+                            }
+                            else
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(w.Id)">Send</button>
+                            }
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(w.Id)">View</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    </div>
+}
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>Submit inbound message</h3></div>
@@ -138,16 +221,43 @@
         </div>
     </div>
     <Outcome Value="_logFb" />
+    @* Pass 96: find one patient's, order's or control id's messages. *@
+    <div class="form-row" style="align-items:flex-end;" data-hl7-log-filter>
+        <div class="field" style="flex:2;"><label>Search</label>
+            <input @bind="_logSearch" @bind:event="oninput" @onkeydown="OnLogSearchKey" placeholder="MRN, name, order, unit or control id" data-hl7-log-search />
+        </div>
+        <div class="field"><label>Type</label>
+            <select @bind="_logType" data-hl7-log-type>
+                <option value="">Any</option>
+                @foreach (var t in new[] { "ADT", "ORM", "OML", "ORU", "RAS", "BPS", "BTS", "DFT", "ACK" })
+                {
+                    <option value="@t">@t.ToUpperInvariant()</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label>Direction</label>
+            <select @bind="_logDirection"><option value="">Any</option>@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@Ui.EnumText(d)</option> }</select>
+        </div>
+        <div class="field"><label>Status</label>
+            <select @bind="_logStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<Hl7MessageStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
+        </div>
+        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync" data-hl7-log-apply>Search</button>
+    </div>
+    @if (!_loading && _messages.Count >= BloodBankLIS.Domain.Interfaces.Hl7MessageSearch.DefaultTake)
+    {
+        <p class="muted" data-hl7-log-limited>Showing the newest @_messages.Count. Search to find older messages.</p>
+    }
     @if (_loading)
     {
         <div class="loading">Loading messages...</div>
     }
     else if (_messages.Count == 0)
     {
-        <div class="empty">No messages logged.</div>
+        <div class="empty">@(LogFiltered ? "No message matches the search." : "No messages logged.")</div>
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Id</th><th>Dir</th><th>Type</th><th>Patient</th><th>MRN</th><th>Order / test / unit</th><th>Control id</th><th>Received</th><th>Status</th><th>Ack</th><th></th></tr></thead>
             <tbody>
@@ -155,7 +265,7 @@
                 {
                     <tr>
                         <td>@m.Id</td>
-                        <td>@m.Direction</td>
+                        <td>@Ui.EnumText(m.Direction)</td>
                         <td>@m.MessageType@(string.IsNullOrEmpty(m.TriggerEvent) ? "" : $"^{m.TriggerEvent}")</td>
                         <td>
                             @if (m.PatientId is long patientId)
@@ -170,8 +280,9 @@
                         <td class="mono">@(m.PatientMrn ?? "—")</td>
                         <td class="mono">@FormatContext(m.PlacerOrderNumber, m.TestCode, m.UnitNumber)</td>
                         <td class="mono">@m.MessageControlId</td>
-                        <td class="nowrap">@m.ReceivedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td><span class="@Ui.Badge(m.Status)">@m.Status</span></td>
+                        <td class="nowrap">@m.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        @* An outbound message the LIS has written but not yet sent is queued, not received. *@
+                        <td><span class="@Ui.Badge(m.Status)">@(m.Direction == Hl7Direction.Outbound && m.Status == Hl7MessageStatus.Received ? "Queued" : Ui.EnumText(m.Status))</span></td>
                         <td class="mono">@m.AckCode</td>
                         <td class="right nowrap">
                             @if (m.PatientId is long logChartId)
@@ -189,6 +300,11 @@
                                     || m.ControlAlreadyApplied == true)
                                 {
                                     <span class="muted" title="This control id already applied. Replay is not offered.">Applied</span>
+                                    @if (m.AppliedByMessageId is long logAppliedBy)
+                                    {
+                                        @* End-user testing pass 286: an errored copy says which message applied its control id. *@
+                                        <div class="sub muted" data-applied-by="@logAppliedBy">Applied by message @logAppliedBy; replay is not offered. <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(logAppliedBy)">View @logAppliedBy</button></div>
+                                    }
                                 }
                                 else
                                 {
@@ -205,6 +321,10 @@
                                 {
                                     <span class="muted" title="This outbound message has used the endpoint retry limit. Resolve the error, or raise Max retries on the interface.">Retries used</span>
                                 }
+                                else if (NoInterfaceFor(m.Id))
+                                {
+                                    <span class="muted" data-log-no-interface title="@OutboundMessageWaitRule.NoInterface">No interface</span>
+                                }
                                 else
                                 {
                                     <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(m.Id)">Send</button>
@@ -219,12 +339,13 @@
                             {
                                 <div class="alert alert-danger">@m.ErrorDetail</div>
                             }
-                            <div class="pre">@_detail.Raw</div>
+                            <div class="pre" data-hl7-raw>@MessageRawText.ForDisplay(_detail.Raw)</div>
                         </td></tr>
                     }
                 }
             </tbody>
         </table>
+        </div>
     }
     @if (_detail is not null && _viewId is long viewedId && !_messages.Any(m => m.Id == viewedId))
     {
@@ -234,7 +355,7 @@
                 <h4 style="margin:0;">Message #@viewedId</h4>
                 <button class="btn btn-ghost btn-sm" @onclick="() => { _viewId = null; _detail = null; }">Close</button>
             </div>
-            <div class="pre">@_detail.Raw</div>
+            <div class="pre" data-hl7-raw>@MessageRawText.ForDisplay(_detail.Raw)</div>
         </div>
     }
 </div>
@@ -249,7 +370,22 @@
     private string? _resolveLabel;
 
     private List<Hl7MessageVm> _messages = new();
+    private string _logSearch = string.Empty;
+    private string _logType = string.Empty;
+    private Hl7Direction? _logDirection;
+    private Hl7MessageStatus? _logStatus;
+
+    private bool LogFiltered => !string.IsNullOrWhiteSpace(_logSearch) || !string.IsNullOrWhiteSpace(_logType) || _logDirection is not null || _logStatus is not null;
+
+    private async Task OnLogSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await LoadAsync();
+        }
+    }
     private List<Hl7ErrorVm> _errors = new();
+    private List<Hl7ErrorVm> _resolvedErrors = new();
     private bool _loading = true;
     private bool _busy;
     private long? _viewId;
@@ -260,7 +396,19 @@
     [SupplyParameterFromQuery]
     public long? MessageId { get; set; }
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    /// <summary>Pass 276: a control ID (or MRN, order, unit) to search the message log for, from the Unmapped values list.</summary>
+    [SupplyParameterFromQuery(Name = "search")]
+    public string? SearchQuery { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            _logSearch = SearchQuery.Trim();
+        }
+
+        await LoadAsync();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -274,10 +422,14 @@
     {
         _loading = true;
         _busy = true;
-        var messages = await Api.GetHl7MessagesAsync();
+        var messages = await Api.GetHl7MessagesAsync(_logSearch, _logType, _logDirection, _logStatus);
         var errors = await Api.GetHl7ErrorsAsync();
         _messages = messages.Value ?? new();
         _errors = errors.Value ?? new();
+        var waiting = await Api.GetHl7OutboundWaitingAsync();
+        _waiting = waiting.Value ?? new();
+        var resolved = await Api.GetResolvedHl7ErrorsAsync();
+        _resolvedErrors = resolved.Value ?? new();
         // A refused or failed load must not look like an empty log.
         _logFb = !messages.Succeeded ? messages.ToFeedback() : !errors.Succeeded ? errors.ToFeedback() : null;
         _loading = false;
@@ -354,6 +506,12 @@
         var text = string.Join(" · ", parts);
         return string.IsNullOrEmpty(text) ? "—" : text;
     }
+
+    private List<Hl7OutboundWaitingVm> _waiting = new();
+
+    // Pass 219: a queued message no interface will take; Send would only fail.
+    private bool NoInterfaceFor(long messageId) =>
+        _waiting.Any(w => w.Id == messageId && w.Reason == OutboundMessageWaitRule.NoInterface);
 
     private async Task SendAsync(long id)
     {

@@ -15,3 +15,5 @@ routes:
 Add a phase when the procedure adds a reading. Do not rename a phase to mean a different stage if historical panels used the old name. Inactivate the old row and add the new one so old workups still display the phase they were read at.
 
 The antibody-identification screen and the crossmatch reaction fields show phases in the order defined here. Put them in the order the bench reads them.
+
+**Deactivating a phase** still goes ahead, but the confirmation names the active tests whose panels still assign it to a subtest, so their panels can be updated on Tests.

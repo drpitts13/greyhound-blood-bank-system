@@ -51,4 +51,21 @@ public class SupplierOrderRuleTests
         Assert.Equal(RuleSeverity.HardStop, SupplierOrderRule.EvaluateCancel(SupplierOrderStatus.Received, "late").Severity);
         Assert.Equal(RuleSeverity.Pass, SupplierOrderRule.EvaluateCancel(SupplierOrderStatus.Submitted, "Supplier out of stock").Severity);
     }
+
+    // TEST-BB-510: a submitted order is due its window after submit and overdue only after that; drafts, received and
+    // cancelled orders, and an order never submitted, are never overdue.
+    [Fact]
+    public void Arrival_IsDueAfterTheWindow_AndOverdueOnlyWhileSubmitted()
+    {
+        var submitted = new DateTime(2026, 11, 6, 8, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(submitted.AddHours(24), SupplierOrderRule.ArrivalDueUtc(submitted, 24));
+        Assert.Equal(submitted.AddHours(1), SupplierOrderRule.ArrivalDueUtc(submitted, 0));
+        Assert.Null(SupplierOrderRule.ArrivalDueUtc(null, 24));
+
+        Assert.False(SupplierOrderRule.IsArrivalOverdue(SupplierOrderStatus.Submitted, submitted, 24, submitted.AddHours(24)));
+        Assert.True(SupplierOrderRule.IsArrivalOverdue(SupplierOrderStatus.Submitted, submitted, 24, submitted.AddHours(24).AddMinutes(1)));
+        Assert.False(SupplierOrderRule.IsArrivalOverdue(SupplierOrderStatus.Received, submitted, 24, submitted.AddDays(3)));
+        Assert.False(SupplierOrderRule.IsArrivalOverdue(SupplierOrderStatus.Cancelled, submitted, 24, submitted.AddDays(3)));
+        Assert.False(SupplierOrderRule.IsArrivalOverdue(SupplierOrderStatus.Draft, null, 24, submitted.AddDays(3)));
+    }
 }

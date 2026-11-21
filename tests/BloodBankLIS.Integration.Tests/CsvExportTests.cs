@@ -50,7 +50,8 @@ public class CsvExportTests : IDisposable
         Assert.Equal(CsvFormat.ContentType, file.Value!.ContentType);
         Assert.Equal("RPT-DISCARDS.csv", file.Value.FileName);
         var lines = Text(file.Value.Bytes).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal("unit_number,product_name,abo,rh,status,discard_reason_code,discard_reason,discarded_utc,expires_utc", lines[0]);
+        // Exports are headed by field name (end-user testing pass 50).
+        Assert.Equal("Unit number,Product,ABO,Rh,Status,Reason code,Discard reason,Discarded,Expiration", lines[0]);
         Assert.StartsWith("U-CSV-1,\"Red cells, \"\"leukoreduced\"\"\",A,Negative,Discarded,OTHER,'=CMD() typed by mistake,", lines[1]);
         Assert.True(await db.AuditEvents.AnyAsync(e => e.EventType == AuditEventType.Export && e.EntityId == discards.Id));
 

@@ -40,11 +40,24 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(StorageTemperatureStatus.InRange, result.Value!.Status);
         Assert.Null(result.Value.DeviationId);
+        Assert.Null(result.Value.QuarantineAfterMinutes);
         var stored = await c.StorageTemperatureReadings.SingleAsync(r => r.Id == result.Value.Id);
         Assert.Equal(4.2m, stored.ReadingC);
         Assert.Equal("tech-test", stored.RecordedBy);
         Assert.Equal(_factory.Clock.UtcNow, stored.ReadingUtc);
         Assert.False(await c.Deviations.AnyAsync(d => d.ContextId == stored.Id && d.ContextType == StorageTemperatureService.DeviationContextType));
+    }
+
+    // TEST-BB-1032: an excursion says how long until the location's units are quarantined automatically (OCD-036; the
+    // facility default is 30 minutes), so the user is warned (end-user testing pass 24).
+    [Fact]
+    public async Task Excursion_SaysWhenUnitsWillBeQuarantined()
+    {
+        await using var c = _factory.Create();
+        var location = await AddLocationAsync(c, $"TMP-Q-{Guid.NewGuid():N}"[..14], 1m, 6m);
+        var result = await Service(c).RecordAsync(new RecordStorageTemperatureRequest(location.Id, 9m));
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(30, result.Value!.QuarantineAfterMinutes);
     }
 
     [Fact]
@@ -128,6 +141,61 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
         await c.SaveChangesAsync();
 
         Assert.DoesNotContain(await service.ListOpenExcursionsAsync(), r => r.Id == excursion.Value!.Id);
+    }
+
+    // TEST-BB-1057: an open excursion says when its location is back in range; the dashboard counts only those still out
+    // of range and names the recovered ones (end-user testing pass 40).
+    [Fact]
+    public async Task OpenExcursion_SaysWhenBackInRange_AndTheDashboardCountsOnlyOngoing()
+    {
+        await using var c = _factory.Create();
+        var start = _factory.Clock.UtcNow;
+        var location = await AddLocationAsync(c, $"TMP-BK-{Guid.NewGuid():N}"[..14], 1m, 6m);
+        var service = Service(c);
+        var excursion = await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 8m, start.AddMinutes(-20)));
+        Assert.True(excursion.Succeeded, excursion.Error);
+        Assert.False((await service.ListOpenExcursionsAsync()).Single(r => r.Id == excursion.Value!.Id).BackInRange);
+
+        Assert.True((await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 4m, start.AddMinutes(-5)))).Succeeded);
+        var open = await service.ListOpenExcursionsAsync();
+        Assert.True(open.Single(r => r.Id == excursion.Value!.Id).BackInRange);
+        var (count, note) = BloodBankLIS.Application.Compliance.DashboardQueueCatalog.ExcursionsCard(open.Where(r => r.LocationId == location.Id));
+        Assert.Equal((0, "1 back in range: close its deviation"), (count, note));
+    }
+
+    // TEST-BB-1101 (end-user testing pass 87): with the reading interval set, a location never read, or read longer ago
+    // than the interval, is marked reading due; one read within it is not; with the interval not set, none is.
+    [Fact]
+    public async Task Locations_MarkAReadingDue_UnderTheFacilityInterval()
+    {
+        await using var c = _factory.Create();
+        var read = await AddLocationAsync(c, "TMP-DUE1", 1m, 6m);
+        var stale = await AddLocationAsync(c, "TMP-DUE2", 1m, 6m);
+        var never = await AddLocationAsync(c, "TMP-DUE3", -30m, -18m);
+        var service = Service(c);
+        await service.RecordAsync(new RecordStorageTemperatureRequest(read.Id, 4m, _factory.Clock.UtcNow.AddHours(-1)));
+        await service.RecordAsync(new RecordStorageTemperatureRequest(stale.Id, 4m, _factory.Clock.UtcNow.AddHours(-5)));
+
+        Assert.All((await service.ListLocationsAsync()).Where(l => l.Code.StartsWith("TMP-DUE")), l => Assert.Null(l.ReadingDue));
+        // TEST-BB-1350 (pass 323): with the interval not set, each location says so.
+        Assert.All((await service.ListLocationsAsync()).Where(l => l.Code.StartsWith("TMP-DUE")), l => Assert.True(l.ReadingIntervalNotSet));
+
+        var setting = new SystemSetting { Key = FacilityPolicyKeys.TemperatureReadingIntervalHours, Value = "4" };
+        c.SystemSettings.Add(setting);
+        await c.SaveChangesAsync();
+        try
+        {
+            var rows = (await service.ListLocationsAsync()).ToDictionary(l => l.Code);
+            Assert.Null(rows["TMP-DUE1"].ReadingDue);
+            Assert.StartsWith("Due since ", rows["TMP-DUE2"].ReadingDue);
+            Assert.Equal("No reading recorded", rows["TMP-DUE3"].ReadingDue);
+            Assert.False(rows["TMP-DUE1"].ReadingIntervalNotSet);
+        }
+        finally
+        {
+            c.SystemSettings.Remove(setting);
+            await c.SaveChangesAsync();
+        }
     }
 
     [Fact]

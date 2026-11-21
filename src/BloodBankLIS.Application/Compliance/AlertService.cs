@@ -79,6 +79,33 @@ public sealed class AlertService
             await _alerts.AddAsync(ToEntity(candidate), ct);
         }
 
+        // A condition that still holds but changed (a shortage now on order, say) keeps its alert and says what is true now.
+        var changed = AlertRule.Changed(active, found.Where(c => c.Source == source).ToList());
+        var raisedAgain = 0;
+        foreach (var (alert, current) in changed)
+        {
+            var tracked = await _alerts.GetByIdAsync(alert.Id, ct);
+            if (tracked is null)
+            {
+                continue;
+            }
+
+            if (AlertRule.RaisesAgain(tracked, current))
+            {
+                tracked.ResolvedUtc = _clock.UtcNow;
+                _alerts.Update(tracked);
+                await _alerts.AddAsync(ToEntity(current), ct);
+                raisedAgain++;
+                continue;
+            }
+
+            tracked.Severity = current.Severity;
+            tracked.Title = current.Title;
+            tracked.Message = current.Message;
+            tracked.Link = current.Link;
+            _alerts.Update(tracked);
+        }
+
         var now = _clock.UtcNow;
         foreach (var cleared in toResolve)
         {
@@ -92,12 +119,50 @@ public sealed class AlertService
             _alerts.Update(tracked);
         }
 
-        if (toRaise.Count > 0 || toResolve.Count > 0)
+        if (toRaise.Count > 0 || toResolve.Count > 0 || changed.Count > 0)
         {
             await _unitOfWork.SaveChangesAsync(ct);
         }
 
-        return (toRaise.Count, toResolve.Count);
+        return (toRaise.Count + raisedAgain, toResolve.Count);
+    }
+
+    /// <summary>
+    /// Re-checks open alerts of one source whose key starts with <paramref name="keyPrefix"/>: <paramref name="current"/>
+    /// returns what the alert should say now, or null once its condition has cleared (it is then resolved). For alerts
+    /// raised once by an event rather than found by a scan (end-user testing pass 94).
+    /// </summary>
+    public async Task<(int Updated, int Resolved)> RecheckAsync(
+        string source, string keyPrefix, Func<Alert, AlertCandidate?> current, CancellationToken ct = default)
+    {
+        var open = await _alerts.ListAsync(a => a.Source == source && a.ResolvedUtc == null && a.Key.StartsWith(keyPrefix), ct);
+        var updated = 0;
+        var resolved = 0;
+        foreach (var alert in open)
+        {
+            var now = current(alert);
+            if (now is null)
+            {
+                alert.ResolvedUtc = _clock.UtcNow;
+                _alerts.Update(alert);
+                resolved++;
+            }
+            else if (now.Title != alert.Title || now.Message != alert.Message || now.Link != alert.Link)
+            {
+                alert.Title = now.Title;
+                alert.Message = now.Message;
+                alert.Link = now.Link;
+                _alerts.Update(alert);
+                updated++;
+            }
+        }
+
+        if (updated > 0 || resolved > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        return (updated, resolved);
     }
 
     public async Task<IReadOnlyList<AlertDto>> ListAsync(bool openOnly, CancellationToken ct = default)

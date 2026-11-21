@@ -18,13 +18,21 @@ public static class PatientMergeRule
     /// A merged (losing) record must not be used for issue, allocation, or testing.
     /// Inactive patients remain clinically usable pending facility policy (OCD-009).
     /// </summary>
-    public static RuleResult EvaluateClinicalUse(PatientStatus status)
+    /// <param name="blockInactive">Facility setting <c>Patient.BlockInactiveClinicalUse</c> (OCD-009, default off).</param>
+    public static RuleResult EvaluateClinicalUse(PatientStatus status, bool blockInactive = false)
     {
         if (status == PatientStatus.Merged)
         {
             return RuleResult.HardStop(
                 ClinicalUseCode,
                 "This patient record is merged. Continue testing, allocation, and issue on the surviving patient record.");
+        }
+
+        if (blockInactive && status == PatientStatus.Inactive)
+        {
+            return RuleResult.HardStop(
+                ClinicalUseCode,
+                "This patient record is inactive. Reactivate it (Edit demographics) before ordering, testing, crossmatching or issuing (facility setting).");
         }
 
         return RuleResult.Pass(ClinicalUseCode);

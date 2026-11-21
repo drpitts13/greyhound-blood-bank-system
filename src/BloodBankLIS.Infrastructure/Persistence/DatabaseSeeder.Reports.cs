@@ -25,6 +25,22 @@ public static partial class DatabaseSeeder
             await context.SaveChangesAsync(ct);
         }
 
+        // Pass 120: system reports cannot be edited (they are cloned to change), so their layout follows the catalog;
+        // a column added to a system report (the physician statement on emergency releases) reaches existing databases.
+        var catalog = ReportSeedCatalog.Create().ToDictionary(r => r.Code, StringComparer.OrdinalIgnoreCase);
+        var stale = (await context.ReportDefinitions.Where(r => r.IsSystemOwned).ToListAsync(ct))
+            .Where(r => catalog.TryGetValue(r.Code, out var seed) && seed.LayoutJson != r.LayoutJson)
+            .ToList();
+        foreach (var report in stale)
+        {
+            report.LayoutJson = catalog[report.Code].LayoutJson;
+        }
+
+        if (stale.Count > 0)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+
         await GrantReportRunAsync(context, ct);
     }
 

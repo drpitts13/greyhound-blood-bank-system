@@ -17,6 +17,7 @@ public sealed class ReportService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
     private readonly IPermissionEvaluator _permissions;
+    private readonly IFacilityTimeZone? _timeZone;
 
     public ReportService(
         IReportDefinitionStore store,
@@ -26,8 +27,10 @@ public sealed class ReportService
         IAuditWriter audit,
         IUnitOfWork unitOfWork,
         ICurrentUser currentUser,
-        IPermissionEvaluator permissions)
+        IPermissionEvaluator permissions,
+        IFacilityTimeZone? timeZone = null)
     {
+        _timeZone = timeZone;
         _store = store;
         _sources = sources;
         _sql = sql;
@@ -219,19 +222,19 @@ public sealed class ReportService
         {
             if (pdf)
             {
-                bytes = _renderer.ToPdf(entity.Name, grid.Columns, grid.Rows, grid.Truncated);
+                bytes = _renderer.ToPdf(entity.Name, Headings(grid), grid.Rows, grid.Truncated);
                 contentType = "application/pdf";
                 extension = "pdf";
             }
             else if (csv)
             {
-                bytes = CsvFormat.Write(grid.Columns, grid.Rows);
+                bytes = CsvFormat.Write(Headings(grid), grid.Rows);
                 contentType = CsvFormat.ContentType;
                 extension = "csv";
             }
             else
             {
-                bytes = _renderer.ToExcel(entity.Name, grid.Columns, grid.Rows, grid.Truncated);
+                bytes = _renderer.ToExcel(entity.Name, Headings(grid), grid.Rows, grid.Truncated);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }
@@ -289,7 +292,7 @@ public sealed class ReportService
             return OperationResult<ReportGrid>.Fail(layoutError);
 
         var rows = await _sources.LoadAsync(source.Code, cancellationToken);
-        return VisualReportCompiler.Compile(layout, source.Fields, rows, parameters, maxRows);
+        return VisualReportCompiler.Compile(layout, source.Fields, rows, parameters, maxRows, _timeZone?.Zone ?? TimeZoneInfo.Local);
     }
 
     private static string? ValidateDefinition(ReportKind kind, ReportLayout? layout, string? sql)
@@ -392,11 +395,15 @@ public sealed class ReportService
         };
     }
 
+    private static IReadOnlyList<string> Headings(ReportGrid grid) =>
+        grid.ColumnLabels.Count == grid.Columns.Count ? grid.ColumnLabels : grid.Columns;
+
     private static ReportResultDto ToResult(long? id, string name, ReportGrid grid) => new()
     {
         ReportId = id,
         Name = name,
         Columns = grid.Columns,
+        ColumnLabels = grid.ColumnLabels,
         Rows = grid.Rows,
         Truncated = grid.Truncated
     };

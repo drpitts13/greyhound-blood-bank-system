@@ -48,6 +48,16 @@ public static class SubtestChoiceDefinitions
         }
     }
 
+    /// <summary>
+    /// The standard grades a graded subtest's choices lack, by code ignoring case (loop 2 tick 13: subtests saved before
+    /// mixed field was added did not offer it).
+    /// </summary>
+    public static IReadOnlyList<SubtestChoiceDefinition> MissingStandardGrades(IEnumerable<string> choiceCodes)
+    {
+        var have = choiceCodes.Select(c => c.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return DefaultGradedReaction().Where(g => !have.Contains(g.Code)).ToList();
+    }
+
     /// <summary>Standard graded-reaction choices mapped from <see cref="CellReactionGradeValue"/>.</summary>
     public static IReadOnlyList<SubtestChoiceDefinition> DefaultGradedReaction() =>
     [
@@ -59,6 +69,9 @@ public static class SubtestChoiceDefinitions
         new("H", "Hemolysis", ReactionPolarity.Positive),
         new("w+", "Weak positive", ReactionPolarity.Positive),
         new("+/-", "Mixed", ReactionPolarity.Neutral),
+        // Loop 2 tick 12: mixed-field agglutination (two cell populations), read as its own grade; neutral, so a reading
+        // of mf goes to review instead of auto-interpreting, and a facility may set its polarity per subtest.
+        new("mf", "Mixed field", ReactionPolarity.Neutral),
         new("NT", "Not tested", ReactionPolarity.Neutral)
     ];
 }

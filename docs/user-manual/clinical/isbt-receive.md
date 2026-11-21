@@ -14,7 +14,7 @@ routes:
 
 Start a scan session and scan the bag. The product code must exist in the ISBT catalog. The catalog shipped with the system is a placeholder until your facility imports a licensed ICCBBA extract. If a real product code is rejected as unknown, do not invent a local code that looks similar. Ask an administrator to import or add the code your license allows.
 
-Confirm ABO, Rh, and expiration against the label after the scan. The scan can misread a damaged barcode. Keyboard entry is there for that case. Treat keyboard entry with the same second check you would give a scan.
+Keyboard entry starts empty: no sample donation number, ABO/RhD code, or product code is filled in, so each comes from the unit's label (the ABO/RhD field shows *e.g. 5100* only as a hint). Confirm ABO, Rh, and expiration against the label after the scan. The scan can misread a damaged barcode. Keyboard entry is there for that case. Treat keyboard entry with the same second check you would give a scan.
 
 > Facility policy. Official ISBT codes are licensed. The software does not include the ICCBBA tables. A code that is missing is a catalog gap, not a reason to relabel the unit.
 

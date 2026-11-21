@@ -41,6 +41,14 @@ public sealed class PatientMergeService
     private readonly IRepository<PatientMerge>? _mergeLedger;
     private readonly IRepository<PatientMergeMove>? _mergeMoves;
     private readonly IClock? _clock;
+    private readonly IRepository<RhigEvaluation>? _rhig;
+    // Pass 124: records that named the patient but did not follow a merge.
+    private readonly IRepository<LookbackNotification>? _lookback;
+    private readonly IRepository<MtpActivation>? _mtpActivations;
+    private readonly IRepository<SupplierOrderLine>? _supplierOrderLines;
+
+    /// <summary>Merge ledger entity type for an infant whose mother link moved to the surviving chart.</summary>
+    private const string MotherLinkMove = "PatientMotherLink";
 
     public PatientMergeService(
         IRepository<Patient> patients,
@@ -70,8 +78,16 @@ public sealed class PatientMergeService
         IRepository<BloodComponentCompatibilityDecision>? decisions = null,
         IRepository<PatientMerge>? mergeLedger = null,
         IRepository<PatientMergeMove>? mergeMoves = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IRepository<RhigEvaluation>? rhig = null,
+        IRepository<LookbackNotification>? lookback = null,
+        IRepository<MtpActivation>? mtpActivations = null,
+        IRepository<SupplierOrderLine>? supplierOrderLines = null)
     {
+        _lookback = lookback;
+        _mtpActivations = mtpActivations;
+        _supplierOrderLines = supplierOrderLines;
+        _rhig = rhig;
         _patients = patients;
         _identifiers = identifiers;
         _antibodies = antibodies;
@@ -145,6 +161,79 @@ public sealed class PatientMergeService
         return patient;
     }
 
+    /// <summary>
+    /// Units still out (issued, not transfused or returned) on this chart that were issued under another MRN, oldest first
+    /// (<see cref="IssuedUnderEarlierIdentityRule"/>).
+    /// </summary>
+    public async Task<IReadOnlyList<IssuedUnderEarlierIdentityDto>> ListIssuedUnderEarlierIdentityAsync(long patientId, CancellationToken ct = default)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return [];
+        }
+
+        var issues = (await _issues.ListAsync(i => i.PatientId == patientId && i.Status == IssueStatus.Issued, ct))
+            .Where(i => IssuedUnderEarlierIdentityRule.Applies(i.PatientIdentifier1, patient.MedicalRecordNumber))
+            .OrderBy(i => i.IssuedUtc)
+            .ToList();
+        var rows = new List<IssuedUnderEarlierIdentityDto>();
+        foreach (var issue in issues)
+        {
+            var unit = await _units.GetByIdAsync(issue.BloodProductId, ct);
+            rows.Add(new IssuedUnderEarlierIdentityDto(
+                issue.Id, issue.BloodProductId, unit?.UnitNumber ?? $"Unit {issue.BloodProductId}",
+                issue.PatientIdentifier1!.Trim(), issue.IssuedUtc, issue.IssuedToLocation));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// An unidentified chart is now known to be the patient with this MRN: it is merged into theirs (the identified chart
+    /// survives), with the usual merge checks, ledger, and undo.
+    /// </summary>
+    public async Task<OperationResult<Patient>> IdentifyAsync(long unidentifiedId, IdentifyPatientRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return OperationResult<Patient>.Fail("A reason is required, for example how the patient was identified.");
+        }
+
+        var chart = await _patients.GetByIdAsync(unidentifiedId, ct);
+        if (chart is null)
+        {
+            return OperationResult<Patient>.Fail($"No patient {unidentifiedId}.");
+        }
+
+        var identified = await FindByMrnAsync(request.IdentifiedMrn, followMerge: false, ct);
+        var check = UnidentifiedPatientRule.EvaluateIdentify(
+            chart.Unidentified, chart.Status, chart.Id, identified?.Id, identified?.Unidentified ?? false, identified?.Status);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(check.Message);
+        }
+
+        var merged = await MergeCoreAsync(identified!.Id, chart.Id, $"Unidentified patient {chart.MedicalRecordNumber} identified: {request.Reason.Trim()}", ct);
+        if (!merged.Succeeded)
+        {
+            return merged;
+        }
+
+        // Units issued under the temporary identity and still out: the wristband and the chart now differ.
+        var stillOut = await ListIssuedUnderEarlierIdentityAsync(identified.Id, ct);
+        return stillOut.Count == 0
+            ? merged
+            : OperationResult<Patient>.Ok(merged.Value!, [IssuedUnderEarlierIdentityRule.Warning(stillOut.Count, stillOut.Select(s => s.IssuedUnder), identified.MedicalRecordNumber)]);
+    }
+
     public async Task<OperationResult<Patient>> MergeAsync(
         long survivorId,
         long duplicateId,
@@ -206,6 +295,15 @@ public sealed class PatientMergeService
         if (workupMerge.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<Patient>.Fail(workupMerge.Message);
+        }
+
+        // Pass 125: a patient has one active massive transfusion protocol; a merge must not leave two on one chart.
+        if (_mtpActivations is not null
+            && await _mtpActivations.AnyAsync(a => a.PatientId == survivor.Id && a.Status == MtpActivationStatus.Active, ct)
+            && await _mtpActivations.AnyAsync(a => a.PatientId == duplicate.Id && a.Status == MtpActivationStatus.Active, ct))
+        {
+            return OperationResult<Patient>.Fail(
+                "Both charts have an active massive transfusion protocol. Close the one opened on the duplicate chart, then merge.");
         }
 
         if (workupMerge.Severity == RuleSeverity.Warning)
@@ -282,6 +380,30 @@ public sealed class PatientMergeService
                 nameof(BloodComponentCompatibilityDecision),
                 ct));
         }
+
+        if (_rhig is not null)
+        {
+            moves.AddRange(await ReassignAsync(_rhig, r => r.PatientId == duplicate.Id, r => r.PatientId = survivor.Id, nameof(RhigEvaluation), ct));
+        }
+
+        // Pass 124: lookback recipient notifications, massive transfusion activations and special-order lines follow too.
+        if (_lookback is not null)
+        {
+            moves.AddRange(await ReassignAsync(_lookback, n => n.PatientId == duplicate.Id, n => n.PatientId = survivor.Id, nameof(LookbackNotification), ct));
+        }
+
+        if (_mtpActivations is not null)
+        {
+            moves.AddRange(await ReassignAsync(_mtpActivations, m => m.PatientId == duplicate.Id, m => m.PatientId = survivor.Id, nameof(MtpActivation), ct));
+        }
+
+        if (_supplierOrderLines is not null)
+        {
+            moves.AddRange(await ReassignAsync(_supplierOrderLines, l => l.PatientId == duplicate.Id, l => l.PatientId = survivor.Id, nameof(SupplierOrderLine), ct));
+        }
+
+        // Infants linked to the duplicate (as their mother) are linked to the surviving chart.
+        moves.AddRange(await ReassignAsync(_patients, p => p.MotherPatientId == duplicate.Id, p => p.MotherPatientId = survivor.Id, MotherLinkMove, ct));
 
         PatientMerge? ledger = null;
         if (_mergeLedger is not null)
@@ -492,10 +614,12 @@ public sealed class PatientMergeService
         var existing = await _identifiers.ListAsync(i => i.PatientId == survivorId, ct);
         foreach (var identifier in incoming)
         {
+            // An external identifier kept "also on" the other chart is the same identifier: it stays with the duplicate
+            // rather than becoming a second copy on the survivor.
             var already = existing.Any(e =>
                 e.IdentifierType == identifier.IdentifierType
                 && string.Equals(e.Value, identifier.Value, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(e.AssigningAuthority, identifier.AssigningAuthority, StringComparison.OrdinalIgnoreCase));
+                && ExternalIdentifierAuthority.SameIssuer(e.AssigningAuthority, identifier.AssigningAuthority));
             if (already)
             {
                 moves.Add(Move(nameof(PatientIdentifier), identifier.Id, PatientMergeMoveAction.SkippedDuplicate));
@@ -768,6 +892,11 @@ public sealed class PatientMergeService
             nameof(DatElutionWorkup) => _datElutions is null || await ChangedPatientAsync(_datElutions, move.EntityId, survivorId, mergedUtc, w => w.PatientId, ct),
             nameof(PtagIdentifier) => _ptags is null || await ChangedPatientAsync(_ptags, move.EntityId, survivorId, mergedUtc, p => p.PatientId, ct),
             nameof(BloodComponentCompatibilityDecision) => _decisions is null || await ChangedPatientAsync(_decisions, move.EntityId, survivorId, mergedUtc, d => d.PatientId, ct),
+            nameof(RhigEvaluation) => _rhig is null || await ChangedPatientAsync(_rhig, move.EntityId, survivorId, mergedUtc, r => r.PatientId, ct),
+            nameof(LookbackNotification) => _lookback is null || await ChangedNullablePatientAsync(_lookback, move.EntityId, survivorId, mergedUtc, n => n.PatientId, ct),
+            nameof(MtpActivation) => _mtpActivations is null || await ChangedPatientAsync(_mtpActivations, move.EntityId, survivorId, mergedUtc, m => m.PatientId, ct),
+            nameof(SupplierOrderLine) => _supplierOrderLines is null || await ChangedNullablePatientAsync(_supplierOrderLines, move.EntityId, survivorId, mergedUtc, l => l.PatientId, ct),
+            MotherLinkMove => await ChangedNullablePatientAsync(_patients, move.EntityId, survivorId, mergedUtc, p => p.MotherPatientId, ct),
             _ => true
         };
     }
@@ -884,6 +1013,33 @@ public sealed class PatientMergeService
                 {
                     await AssignAsync(_decisions, move.EntityId, row => row.PatientId = duplicateId, ct);
                 }
+                break;
+            case nameof(RhigEvaluation):
+                if (_rhig is not null)
+                {
+                    await AssignAsync(_rhig, move.EntityId, row => row.PatientId = duplicateId, ct);
+                }
+                break;
+            case nameof(LookbackNotification):
+                if (_lookback is not null)
+                {
+                    await AssignAsync(_lookback, move.EntityId, row => row.PatientId = duplicateId, ct);
+                }
+                break;
+            case nameof(MtpActivation):
+                if (_mtpActivations is not null)
+                {
+                    await AssignAsync(_mtpActivations, move.EntityId, row => row.PatientId = duplicateId, ct);
+                }
+                break;
+            case nameof(SupplierOrderLine):
+                if (_supplierOrderLines is not null)
+                {
+                    await AssignAsync(_supplierOrderLines, move.EntityId, row => row.PatientId = duplicateId, ct);
+                }
+                break;
+            case MotherLinkMove:
+                await AssignAsync(_patients, move.EntityId, row => row.MotherPatientId = duplicateId, ct);
                 break;
         }
     }

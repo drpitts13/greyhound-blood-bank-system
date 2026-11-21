@@ -1,0 +1,197 @@
+using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Patients;
+using BloodBankLIS.Application.Specimens;
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Infrastructure.Audit;
+using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace BloodBankLIS.Integration.Tests;
+
+// TEST-BB-606: an infant's chart is linked to the mother's by MRN (audited, permission, rule checks); each chart shows
+// the other with current type and active antibodies; the link is removed only with a reason; merging the mother's
+// chart into another moves the infant's link to the surviving chart and undoing the merge moves it back.
+public class MotherInfantTests
+{
+    private static PatientService Patients(SqliteContextFactory f, BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+        new(new EfRepository<Patient>(c), c, f.Clock,
+            new SpecimenService(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, f.Clock, currentUser: f.CurrentUser),
+            new AuditWriter(c, f.Clock, f.CurrentUser), f.CurrentUser, permissions, new EfRepository<PatientIdentifier>(c),
+            bloodTypes: new EfRepository<PatientBloodTypeHistory>(c), antibodies: new EfRepository<AntibodyHistory>(c));
+
+    private static PatientMergeService Merge(SqliteContextFactory f, BloodBankDbContext c) =>
+        new(new EfRepository<Patient>(c), new EfRepository<PatientIdentifier>(c), new EfRepository<AntibodyHistory>(c),
+            new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<Encounter>(c), new EfRepository<Order>(c),
+            new EfRepository<Specimen>(c), new EfRepository<Allocation>(c), new EfRepository<Issue>(c), new EfRepository<Crossmatch>(c),
+            new EfRepository<BloodUnit>(c), new EfRepository<SpecialTransfusionRequirement>(c), new EfRepository<TransfusionEvent>(c),
+            new EfRepository<ReactionInvestigation>(c), new EfRepository<AntigenProfile>(c), new EfRepository<BillingEvent>(c),
+            new EfRepository<TestResult>(c), c,
+            audit: new AuditWriter(c, f.Clock, f.CurrentUser), currentUser: f.CurrentUser,
+            mergeLedger: new EfRepository<PatientMerge>(c), mergeMoves: new EfRepository<PatientMergeMove>(c), clock: f.Clock,
+            lookback: new EfRepository<LookbackNotification>(c), mtpActivations: new EfRepository<MtpActivation>(c),
+            supplierOrderLines: new EfRepository<SupplierOrderLine>(c));
+
+    // TEST-BB-1127: an infant's family lists the mother's clinically significant antibodies the infant has no antigen-negative
+    // cover for; a not clinically significant one is not listed; once the requirement is added, or the infant has the
+    // antibody too, it is no longer listed (end-user testing pass 110).
+    [Fact]
+    public async Task Infant_IsOfferedTheMothersAntigenNegativeRequirements()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var now = factory.Clock.UtcNow;
+        c.BloodAttributeDefinitions.AddRange(
+            new BloodAttributeDefinition { Code = "K", Name = "Kell", AntibodyName = "anti-K", IsClinicallySignificant = true, IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 },
+            new BloodAttributeDefinition { Code = "JKA", Name = "Kidd a", AntibodyName = "anti-Jka", IsClinicallySignificant = true, IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 },
+            new BloodAttributeDefinition { Code = "M", Name = "M", AntibodyName = "anti-M", IsClinicallySignificant = false, IsActive = true, IsDraft = false, EffectiveUtc = now, Version = 1 });
+        var mother = new Patient { MedicalRecordNumber = "MRN-MOM-K", LastName = "Kell", FirstName = "Mom", DateOfBirth = new DateOnly(1990, 1, 1), Sex = Sex.Female };
+        var infant = new Patient { MedicalRecordNumber = "MRN-BABY-K", LastName = "Kell", FirstName = "Baby", DateOfBirth = new DateOnly(2026, 6, 1), Sex = Sex.Male };
+        c.Patients.AddRange(mother, infant);
+        await c.SaveChangesAsync();
+        infant.MotherPatientId = mother.Id;
+        foreach (var spec in new[] { "anti-K", "anti-Jka", "anti-M" })
+        {
+            c.AntibodyHistory.Add(new AntibodyHistory { PatientId = mother.Id, AntibodySpecificity = spec, IsActive = true });
+        }
+
+        await c.SaveChangesAsync();
+        PatientService Service() => new(new EfRepository<Patient>(c), c, factory.Clock,
+            new SpecimenService(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, factory.Clock, currentUser: factory.CurrentUser),
+            new AuditWriter(c, factory.Clock, factory.CurrentUser), factory.CurrentUser, null, new EfRepository<PatientIdentifier>(c),
+            bloodTypes: new EfRepository<PatientBloodTypeHistory>(c), antibodies: new EfRepository<AntibodyHistory>(c),
+            requirements: new EfRepository<SpecialTransfusionRequirement>(c), attributes: new EfRepository<BloodAttributeDefinition>(c));
+
+        var family = (await Service().GetFamilyAsync(infant.Id))!;
+        Assert.Equal([("JKA", "anti-Jka"), ("K", "anti-K")], family.MaternalAntigenNegative.Select(s => (s.AntigenCode, s.AntibodyName)));
+        Assert.Empty((await Service().GetFamilyAsync(mother.Id))!.MaternalAntigenNegative);
+
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = infant.Id, RequirementType = SpecialTransfusionRequirementType.AntigenNegative, AntigenCode = "K",
+            Reason = "Maternal anti-K", EffectiveUtc = now.AddMinutes(-1), IsActive = true
+        });
+        c.AntibodyHistory.Add(new AntibodyHistory { PatientId = infant.Id, AntibodySpecificity = "anti-Jka", IsActive = true });
+        await c.SaveChangesAsync();
+        Assert.Empty((await Service().GetFamilyAsync(infant.Id))!.MaternalAntigenNegative);
+    }
+
+    // TEST-BB-1145: a merge moves the duplicate's lookback notifications and massive transfusion activations to the
+    // surviving chart, and undoing it moves them back (end-user testing pass 124: they stayed on the merged-away chart).
+    [Fact]
+    public async Task Merge_MovesLookbackAndMtp_AndUnmergeMovesThemBack()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var duplicate = new Patient { MedicalRecordNumber = "MRN-DUP-LB", LastName = "Trace", FirstName = "Dee", DateOfBirth = new DateOnly(1980, 2, 2), Sex = Sex.Female };
+        var survivor = new Patient { MedicalRecordNumber = "MRN-KEEP-LB", LastName = "Trace", FirstName = "Dee", DateOfBirth = new DateOnly(1980, 2, 2), Sex = Sex.Female };
+        var product = new ProductType { ProductCode = "RBC-LB", Name = "Red cells", ComponentClass = ComponentClass.RedBloodCells };
+        c.Patients.AddRange(duplicate, survivor);
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "W-LB-1", ProductTypeId = product.Id, Abo = AboGroup.O, RhD = RhType.Positive, ExpiresUtc = factory.Clock.UtcNow.AddDays(-30), Status = UnitStatus.Transfused };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        var note = new LookbackNotification { Din = "W000000000001", BloodProductId = unit.Id, PatientId = duplicate.Id, Reason = "Donor reactive" };
+        var mtp = new MtpActivation { PatientId = duplicate.Id, RequestedBy = "Dr. Lee", Reason = "Trauma", ActivatedUtc = factory.Clock.UtcNow, ActivatedBy = "tech", Status = MtpActivationStatus.Closed, ClosedUtc = factory.Clock.UtcNow, ClosedBy = "tech", CloseReason = "Done" };
+        c.LookbackNotifications.Add(note);
+        c.MtpActivations.Add(mtp);
+        await c.SaveChangesAsync();
+
+        var merged = await Merge(factory, c).MergeAsync(survivor.Id, duplicate.Id, "Same person");
+        Assert.True(merged.Succeeded, merged.Error);
+        Assert.Equal(survivor.Id, (await c.LookbackNotifications.AsNoTracking().SingleAsync(n => n.Id == note.Id)).PatientId);
+        Assert.Equal(survivor.Id, (await c.MtpActivations.AsNoTracking().SingleAsync(m => m.Id == mtp.Id)).PatientId);
+
+        var undone = await Merge(factory, c).UnmergeAsync(duplicate.Id, "Wrong merge");
+        Assert.True(undone.Succeeded, undone.Error);
+        Assert.Equal(duplicate.Id, (await c.LookbackNotifications.AsNoTracking().SingleAsync(n => n.Id == note.Id)).PatientId);
+        Assert.Equal(duplicate.Id, (await c.MtpActivations.AsNoTracking().SingleAsync(m => m.Id == mtp.Id)).PatientId);
+
+        // TEST-BB-1146: with an active protocol on each chart the merge is refused, and nothing moves (pass 125).
+        var other = new Patient { MedicalRecordNumber = "MRN-DUP-MTP", LastName = "Trace", FirstName = "Dee", DateOfBirth = new DateOnly(1980, 2, 2), Sex = Sex.Female };
+        c.Patients.Add(other);
+        await c.SaveChangesAsync();
+        MtpActivation Active(long patientId) => new() { PatientId = patientId, RequestedBy = "Dr. Lee", Reason = "Trauma", ActivatedUtc = factory.Clock.UtcNow, ActivatedBy = "tech" };
+        var survivorMtp = Active(survivor.Id);
+        var otherMtp = Active(other.Id);
+        c.MtpActivations.AddRange(survivorMtp, otherMtp);
+        await c.SaveChangesAsync();
+        var refused = await Merge(factory, c).MergeAsync(survivor.Id, other.Id, "Same person");
+        Assert.False(refused.Succeeded);
+        Assert.Contains("Both charts have an active massive transfusion protocol", refused.Error);
+        Assert.Equal(other.Id, (await c.MtpActivations.AsNoTracking().SingleAsync(m => m.Id == otherMtp.Id)).PatientId);
+    }
+
+    [Fact]
+    public async Task Infant_IsLinkedToTheMother_AndTheLinkFollowsAMerge()
+    {
+        using var factory = new SqliteContextFactory();
+        await using var c = factory.Create();
+        var mother = new Patient { MedicalRecordNumber = "MRN-MOM", LastName = "Rivera", FirstName = "Ana", DateOfBirth = new DateOnly(1994, 3, 14), Sex = Sex.Female };
+        var survivor = new Patient { MedicalRecordNumber = "MRN-MOM-KEEP", LastName = "Rivera", FirstName = "Ana", DateOfBirth = new DateOnly(1994, 3, 14), Sex = Sex.Female };
+        var infant = new Patient { MedicalRecordNumber = "MRN-BABY", LastName = "Rivera", FirstName = "Baby Girl", DateOfBirth = new DateOnly(2026, 5, 29), Sex = Sex.Female };
+        c.Patients.AddRange(mother, survivor, infant);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = mother.Id, Abo = AboGroup.O, RhD = RhType.Negative, IsCurrent = true });
+        c.AntibodyHistory.Add(new AntibodyHistory { PatientId = mother.Id, AntibodySpecificity = "anti-D", IsActive = true });
+        await c.SaveChangesAsync();
+
+        var patients = Patients(factory, c, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite));
+        Assert.False((await Patients(factory, c, new FixedPermissionEvaluator(1, PermissionCodes.ResultEnter))
+            .LinkMotherAsync(infant.Id, new LinkMotherRequest("MRN-MOM"))).Succeeded);
+        Assert.Contains("No patient has that MRN", (await patients.LinkMotherAsync(infant.Id, new LinkMotherRequest("MRN-NOPE"))).Error);
+        Assert.Contains("must be before", (await patients.LinkMotherAsync(mother.Id, new LinkMotherRequest("MRN-BABY"))).Error);
+
+        var linked = await patients.LinkMotherAsync(infant.Id, new LinkMotherRequest(" MRN-MOM "));
+        Assert.True(linked.Succeeded, linked.Error);
+        Assert.Contains("already linked", (await patients.LinkMotherAsync(infant.Id, new LinkMotherRequest("MRN-MOM"))).Error);
+        Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityType == nameof(Patient) && a.EntityId == infant.Id && a.Reason == "Mother linked: MRN-MOM."));
+
+        var infantSide = (await patients.GetFamilyAsync(infant.Id))!;
+        Assert.Equal(("MRN-MOM", "Rivera, Ana"), (infantSide.Mother!.MedicalRecordNumber, infantSide.Mother.Name));
+        Assert.Equal(["anti-D"], infantSide.Mother.ActiveAntibodies);
+        Assert.NotNull(infantSide.Mother.CurrentBloodType);
+        // TEST-BB-609: each family member carries the current type's Rh (for the RhIG infant Rh suggestion).
+        Assert.Equal(RhType.Negative, infantSide.Mother.CurrentRh);
+        var motherSide = (await patients.GetFamilyAsync(mother.Id))!;
+        Assert.Null(motherSide.Mother);
+        Assert.Equal("MRN-BABY", Assert.Single(motherSide.Infants).MedicalRecordNumber);
+        Assert.Null(await patients.GetFamilyAsync(-1));
+
+        // The mother's chart merged into another: the infant follows to the surviving chart, and back on undo.
+        var merged = await Merge(factory, c).MergeAsync(survivor.Id, mother.Id, "Same person");
+        Assert.True(merged.Succeeded, merged.Error);
+        Assert.Equal(survivor.Id, (await c.Patients.AsNoTracking().SingleAsync(p => p.Id == infant.Id)).MotherPatientId);
+        var undone = await Merge(factory, c).UnmergeAsync(mother.Id, "Wrong merge");
+        Assert.True(undone.Succeeded, undone.Error);
+        Assert.Equal(mother.Id, (await c.Patients.AsNoTracking().SingleAsync(p => p.Id == infant.Id)).MotherPatientId);
+
+        Assert.Contains("reason", (await patients.UnlinkMotherAsync(infant.Id, new UnlinkMotherRequest(" "))).Error);
+        var unlinked = await patients.UnlinkMotherAsync(infant.Id, new UnlinkMotherRequest("Linked to the wrong chart"));
+        Assert.True(unlinked.Succeeded, unlinked.Error);
+        Assert.Null((await c.Patients.AsNoTracking().SingleAsync(p => p.Id == infant.Id)).MotherPatientId);
+        Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityId == infant.Id && a.Reason == "Mother link removed: Linked to the wrong chart"));
+        Assert.Contains("no mother linked", (await patients.UnlinkMotherAsync(infant.Id, new UnlinkMotherRequest("Again"))).Error);
+    }
+
+    // TEST-BB-607: the demo newborn MRN0027 is linked to the RhIG demo mother MRN0025, added once.
+    [Fact]
+    public async Task Demo_NewbornIsLinkedToTheRhigMother()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var v = factory.Create();
+        var mother = await v.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "MRN0025");
+        var infant = await v.Patients.AsNoTracking().SingleAsync(p => p.MedicalRecordNumber == "MRN0027");
+        Assert.Equal(mother.Id, infant.MotherPatientId);
+        Assert.Equal(1, await v.Patients.CountAsync(p => p.MotherPatientId == mother.Id));
+    }
+}

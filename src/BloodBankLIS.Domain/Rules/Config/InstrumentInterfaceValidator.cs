@@ -12,7 +12,7 @@ public static class InstrumentInterfaceValidator
         bool duplicateName,
         bool duplicatePort,
         IReadOnlyList<InstrumentFieldMapping> fieldMappings,
-        IReadOnlyList<InstrumentTestMapping> testMappings,
+        IReadOnlyList<InstrumentValueTranslation> translations,
         IReadOnlyList<InstrumentInterfaceRule> rules)
     {
         var results = new List<RuleResult>();
@@ -77,26 +77,7 @@ public static class InstrumentInterfaceValidator
             }
         }
 
-        var outboundApp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var map in testMappings)
-        {
-            if (string.IsNullOrWhiteSpace(map.InstrumentCode) || string.IsNullOrWhiteSpace(map.ApplicationCode))
-            {
-                results.Add(RuleResult.HardStop("INST-MAP", "Each test mapping needs an instrument code and an application code."));
-                continue;
-            }
-
-            if (map.Direction is InterfaceTranslationDirection.Outbound or InterfaceTranslationDirection.Both)
-            {
-                var key = $"{map.Kind}:{map.ApplicationCode.Trim()}";
-                if (!outboundApp.Add(key))
-                {
-                    results.Add(RuleResult.HardStop(
-                        "INST-MAP-APP",
-                        $"Application code '{map.ApplicationCode}' cannot map to more than one instrument code for outbound/both."));
-                }
-            }
-        }
+        results.AddRange(ValidateTranslations(translations));
 
         foreach (var rule in rules)
         {
@@ -120,5 +101,51 @@ public static class InstrumentInterfaceValidator
         }
 
         return new RuleEvaluation(results);
+    }
+
+    /// <summary>
+    /// Translation rows: a known field, both values, one instrument code per LIS test sent to the instrument, a test
+    /// limit only on value, interpretation, and error rows, and Hold, Warn, or Ignore for error codes. Whether a local
+    /// test or subtest exists is checked by the admin service, which can see the catalog.
+    /// </summary>
+    public static IReadOnlyList<RuleResult> ValidateTranslations(IReadOnlyList<InstrumentValueTranslation> translations)
+    {
+        var results = new List<RuleResult>();
+        var outbound = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in translations)
+        {
+            var field = InstrumentTranslationKeys.Find(row.DataItemKey);
+            if (field is null)
+            {
+                results.Add(RuleResult.HardStop("INST-XLAT-KEY", $"Unknown translation field '{row.DataItemKey}'."));
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.InstrumentValue) || string.IsNullOrWhiteSpace(row.LocalValue))
+            {
+                results.Add(RuleResult.HardStop("INST-XLAT", $"{field.DisplayName}: each row needs an instrument value and a local value."));
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(row.Context) && !field.AllowsContext)
+            {
+                results.Add(RuleResult.HardStop("INST-XLAT-CONTEXT", $"{field.DisplayName} rows apply to every test; remove the test limit on '{row.InstrumentValue}'."));
+            }
+
+            if (row.DataItemKey == InstrumentTranslationKeys.ErrorCode
+                && !Enum.TryParse<InstrumentErrorAction>(row.LocalValue.Trim(), ignoreCase: true, out _))
+            {
+                results.Add(RuleResult.HardStop("INST-XLAT-ACTION", $"Error code '{row.InstrumentValue}' must translate to Hold, Warn, or Ignore."));
+            }
+
+            if (row.DataItemKey == InstrumentTranslationKeys.OrderTestCode
+                && row.Direction is InterfaceTranslationDirection.Outbound or InterfaceTranslationDirection.Both
+                && !outbound.Add(row.LocalValue.Trim()))
+            {
+                results.Add(RuleResult.HardStop("INST-XLAT-OUT", $"Test '{row.LocalValue}' can be sent to the instrument under only one code."));
+            }
+        }
+
+        return results;
     }
 }

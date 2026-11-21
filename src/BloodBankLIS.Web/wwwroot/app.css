@@ -15,6 +15,12 @@
     --bb-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .1);
 }
 
+/* Text and control size (TextSizeSelect). Sizes in this file and in Bootstrap are rem, so these scale both. */
+html[data-text-size="small"] { font-size: 87.5%; }
+html[data-text-size="large"] { font-size: 112.5%; }
+html[data-text-size="larger"] { font-size: 125%; }
+html[data-text-size="largest"] { font-size: 150%; }
+
 html, body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--bb-bg);
@@ -30,7 +36,8 @@ a:hover { text-decoration: underline; }
 /* Layout shell */
 .bb-shell { display: flex; min-height: 100vh; }
 .bb-sidebar {
-    width: 248px;
+    width: 15.5rem;
+    flex-shrink: 0;
     background: var(--bb-sidebar);
     color: var(--bb-sidebar-ink);
     display: flex;
@@ -78,6 +85,29 @@ a:hover { text-decoration: underline; }
 .bb-nav details.nav-group > summary::after { content: " ▾"; font-size: .7em; }
 .bb-nav details.nav-group:not([open]) > summary::after { content: " ▸"; }
 .bb-nav details.nav-group a { padding-left: 1.15rem; }
+.bb-nav details.nav-section { margin-top: .35rem; }
+.bb-nav details.nav-section > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .55rem .75rem;
+    border-radius: 8px;
+    font-size: .72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #8f9aab;
+    user-select: none;
+}
+.bb-nav details.nav-section > summary:hover { background: rgba(255,255,255,.04); color: #fff; }
+.bb-nav details.nav-section > summary::-webkit-details-marker { display: none; }
+.bb-nav details.nav-section > summary::after { content: "▸"; font-size: .8em; transition: transform .15s; }
+.bb-nav details.nav-section[open] > summary::after { transform: rotate(90deg); }
+.bb-nav details.nav-section > a,
+.bb-nav details.nav-section > details.nav-group { margin-left: .5rem; }
+.bb-nav .nav-footer { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid rgba(255,255,255,.08); }
 
 .workflow-ribbon {
     display: flex;
@@ -124,6 +154,9 @@ a:hover { text-decoration: underline; }
 .bb-user { padding: .85rem 1rem; border-top: 1px solid rgba(255,255,255,.08); font-size: .82rem; }
 .bb-user .name { color: #fff; font-weight: 600; }
 .bb-user .role { color: #8b95a3; }
+.bb-text-size { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin: .5rem 0 .15rem; color: #8b95a3; }
+.bb-text-size select { background: rgba(255,255,255,.06); color: var(--bb-sidebar-ink); border: 1px solid rgba(255,255,255,.15); border-radius: 6px; padding: .2rem .35rem; font-size: .8rem; }
+.bb-text-size select option { color: var(--bb-ink); background: #fff; }
 
 .bb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .bb-topbar {
@@ -149,7 +182,7 @@ a:hover { text-decoration: underline; }
 .bb-breadcrumb a:hover { color: var(--bb-ink); text-decoration: none; }
 .bb-breadcrumb .current { color: var(--bb-ink); font-weight: 600; }
 .bb-breadcrumb .sep { color: #9aa3af; }
-.bb-content { padding: 1.5rem; max-width: 1280px; width: 100%; }
+.bb-content { padding: 1.5rem; max-width: 80rem; width: 100%; }
 
 /* Cards */
 .bb-card {
@@ -180,6 +213,9 @@ a.stat:hover { border-color: var(--bb-accent, #3b5bdb); }
 table.bb { width: 100%; border-collapse: collapse; font-size: .88rem; }
 table.bb th, table.bb td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--bb-border); }
 table.bb th { color: var(--bb-muted); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; }
+/* A group header inside a table (Store tubes pull list): the place as staff wrote it, not an uppercase column label. */
+table.bb th.antigen { text-transform: none; font-size: .8rem; color: var(--bb-ink); }
+table.bb tr.group-row th { color: var(--bb-ink); background: var(--bb-bg); font-size: .85rem; text-transform: none; letter-spacing: 0; }
 table.bb td { overflow-wrap: break-word; }
 table.bb tbody tr:hover { background: #fafbfe; }
 /* Row action cells: let several buttons wrap onto a second line instead of widening the table. */
@@ -191,6 +227,16 @@ table.bb tbody.record td { border-bottom: 0; }
 table.bb tr.row-actions > td { padding-top: 0; }
 .row-actions-bar { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .35rem; }
 table.bb tr.row-actions:not(:has(.btn, .badge, .muted)) { display: none; }
+/* A wide board scrolls sideways inside its card, with a visible scrollbar, instead of running past the card edge.
+   (Not on the card itself: a scrolling card would clip the searchable dropdown menus some cards hold.) */
+.table-scroll { max-width: 100%; overflow-x: auto; }
+.table-scroll > table.bb { margin-bottom: .25rem; }
+/* A form opened under a row of a board that scrolls sideways stays pinned to the visible part of the card and no
+   wider than it (cqi is the card's width), so its fields are not laid out across the whole board. */
+.table-scroll .in-row-form { position: sticky; left: .5rem; max-width: calc(100cqi - 1rem); }
+/* In a narrow card a date-and-time cell may break between the date and the time rather than widen the table. */
+.bb-card { container-type: inline-size; }
+@container (max-width: 760px) { table.bb td.nowrap { white-space: normal; } }
 /* Secondary line inside a cell, so related facts share one column. */
 .sub { display: block; font-size: .78rem; color: var(--bb-muted); }
 
@@ -286,6 +332,12 @@ table.bb tr.row-actions:not(:has(.btn, .badge, .muted)) { display: none; }
 .btn-ghost { background: transparent; color: var(--bb-accent); padding: .3rem .5rem; }
 .btn-danger { background: #fff; border-color: #e7b9c1; color: var(--bb-primary); }
 .btn-danger:hover:not(:disabled) { background: #fdf2f4; }
+/* Bootstrap's .btn:hover and :active set their own text color (white for secondary), which outranks the variants above:
+   keep each variant's text color while hovered, pressed, or focused. */
+.btn-primary:hover, .btn-primary:active, .btn-primary:focus-visible { color: #fff; }
+.btn-secondary:hover, .btn-secondary:active, .btn-secondary:focus-visible { color: var(--bb-ink); border-color: var(--bb-border); }
+.btn-ghost:hover, .btn-ghost:active, .btn-ghost:focus-visible { color: var(--bb-accent); }
+.btn-danger:hover, .btn-danger:active, .btn-danger:focus-visible { color: var(--bb-primary); border-color: #e7b9c1; }
 .btn-sm { padding: .3rem .6rem; font-size: .8rem; }
 
 /* Badges */
@@ -312,6 +364,12 @@ table.bb tr.row-actions:not(:has(.btn, .badge, .muted)) { display: none; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .gap { gap: .75rem; }
 .stack > * + * { margin-top: .6rem; }
+/* Special transfusion requirements on the chart Overview: one short block each, so a narrow card never scrolls sideways. */
+.sr-list { display: flex; flex-direction: column; }
+.sr-item { padding: .5rem 0; border-bottom: 1px solid var(--bb-border); min-width: 0; overflow-wrap: anywhere; }
+.sr-item:last-child { border-bottom: 0; }
+.sr-item-head { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; }
+.sr-item .btn { margin-top: .3rem; }
 .pre { white-space: pre-wrap; word-break: break-word; background: #0f141b; color: #d7e1ee; padding: .9rem; border-radius: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .8rem; max-height: 360px; overflow: auto; }
 
 /* Login */
@@ -379,8 +437,20 @@ tr.row-muted td { opacity: .75; }
 .bb-help-missing-figure { font-style: italic; }
 
 /* Printed reports: page content only. */
+/* MTP pack report: a sheet that travels with the container. Blank cells are for the receiving clinicians. */
+.mtp-report h1 { font-size: 1.25rem; margin-bottom: .1rem; }
+.mtp-report h2 { font-size: 1rem; margin: 1rem 0 .35rem; }
+.mtp-report-sub { color: var(--bb-muted); margin: 0 0 .75rem; }
+.mtp-report table { width: 100%; border-collapse: collapse; }
+.mtp-report th, .mtp-report td { border: 1px solid var(--bb-border); padding: .3rem .4rem; text-align: left; vertical-align: top; font-size: .88rem; }
+.mtp-report-facts th, .mtp-report-sign th { width: 14%; background: var(--bb-surface-2, transparent); }
+.mtp-report .mtp-blank { min-width: 9rem; height: 1.9rem; }
+.mtp-report .mtp-blank-narrow { min-width: 4rem; }
+.mtp-report-disclaimers { padding-left: 1.1rem; font-size: .85rem; }
+
 @media print {
     .bb-sidebar, .no-print, details.bb-help { display: none !important; }
+    .mtp-report th, .mtp-report td { border-color: #000; color: #000; }
     .bb-main { margin: 0 !important; padding: 0 !important; }
     .bb-card { box-shadow: none; break-inside: avoid; }
 }
@@ -395,3 +465,111 @@ tr.row-muted td { opacity: .75; }
 .temp-trend .pt-out { fill: var(--bb-stop); stroke: var(--bb-surface); stroke-width: 2; }
 .temp-trend .hit { fill: transparent; }
 .temp-trend text { fill: var(--bb-muted); font-size: 11px; }
+
+/* Top-bar scan-anything lookup */
+.bb-lookup { position: relative; }
+.bb-lookup-input {
+    width: 26rem;
+    max-width: 40vw;
+    padding: .35rem .6rem;
+    border: 1px solid var(--bb-border);
+    border-radius: 6px;
+    font-size: .88rem;
+    background: var(--bb-bg);
+    color: var(--bb-ink);
+}
+.bb-lookup-input:focus { outline: 2px solid var(--bb-accent); background: var(--bb-surface); }
+.bb-lookup-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    width: 34rem;
+    max-width: 90vw;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--bb-surface);
+    border: 1px solid var(--bb-border);
+    border-radius: 8px;
+    box-shadow: var(--bb-shadow);
+    z-index: 20;
+    padding: .35rem;
+}
+.bb-lookup-note { padding: .4rem .5rem; color: var(--bb-muted); font-size: .82rem; }
+.bb-lookup-error { color: var(--bb-stop); }
+.bb-lookup-hit {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: .15rem .5rem;
+    align-items: center;
+    padding: .45rem .5rem;
+    border-radius: 6px;
+    color: var(--bb-ink);
+}
+.bb-lookup-hit:hover, .bb-lookup-hit.active { background: var(--bb-bg); text-decoration: none; }
+.bb-lookup-id { font-family: Consolas, "Courier New", monospace; font-weight: 600; }
+.bb-lookup-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-lookup-detail { grid-column: 2 / -1; color: var(--bb-muted); font-size: .8rem; }
+@media (max-width: 760px) { .bb-lookup-input { width: 12rem; } }
+
+/* Patient timeline */
+.bb-timeline { list-style: none; margin: 0; padding: 0; }
+.bb-timeline-day {
+    font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--bb-muted); margin: 1rem 0 .35rem; padding-bottom: .2rem; border-bottom: 1px solid var(--bb-border);
+}
+.bb-timeline-day:first-child { margin-top: 0; }
+.bb-timeline-event {
+    display: grid; grid-template-columns: 3.2rem 6.5rem 1fr; gap: .5rem; align-items: start;
+    padding: .4rem .5rem; border-left: 3px solid transparent;
+}
+.bb-timeline-event.sev-warning { border-left-color: var(--bb-warn); }
+.bb-timeline-event.sev-critical { border-left-color: var(--bb-stop); background: rgba(179, 18, 44, .04); }
+.bb-timeline-time { font-family: Consolas, "Courier New", monospace; color: var(--bb-muted); font-size: .85rem; padding-top: .1rem; }
+.bb-timeline-event .badge { justify-self: start; }
+.bb-timeline-title { font-weight: 500; }
+.bb-timeline-title .badge { margin-right: .35rem; }
+.bb-timeline-detail { color: var(--bb-muted); font-size: .84rem; }
+.bb-timeline-toggle { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem; color: var(--bb-muted); margin-left: .5rem; }
+@media (max-width: 640px) { .bb-timeline-event { grid-template-columns: 3rem 1fr; } .bb-timeline-event > .badge { display: none; } }
+.bb-specimen-history { padding: .5rem .25rem; }
+
+/* Role-focused home */
+.bb-start-here {
+    display: grid; grid-template-columns: auto 1fr auto; gap: .2rem 1rem; align-items: center;
+    padding: .85rem 1.1rem; margin-bottom: 1rem; border-radius: 10px;
+    background: var(--bb-surface); border: 1px solid var(--bb-border); border-left: 5px solid var(--bb-accent);
+    box-shadow: var(--bb-shadow); color: var(--bb-ink);
+}
+.bb-start-here.urgent { border-left-color: var(--bb-stop); }
+.bb-start-here:hover { text-decoration: none; border-color: var(--bb-accent); }
+.bb-start-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--bb-muted); }
+.bb-start-title { font-weight: 600; font-size: 1.05rem; }
+.bb-start-note { grid-column: 2; color: var(--bb-stop); font-size: .85rem; }
+.bb-start-go { grid-row: 1; grid-column: 3; color: var(--bb-accent); font-weight: 600; }
+.bb-home-section { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--bb-muted); margin: 1rem 0 .5rem; }
+.stat.attention { border-left: 4px solid var(--bb-stop); }
+.bb-home-clear { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: 1rem; }
+.bb-chip {
+    display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .8rem;
+    border: 1px solid var(--bb-border); background: var(--bb-surface); color: var(--bb-ink);
+}
+.bb-chip:hover { text-decoration: none; border-color: var(--bb-accent); }
+
+/* Live identifier match hint (OCD-039) */
+.bb-id-hint { font-size: .8rem; margin-top: .2rem; }
+.bb-id-hint.ok { color: var(--bb-ok); }
+.bb-id-hint.stop { color: var(--bb-stop); font-weight: 600; }
+
+/* Enter-to-next-step completion cue and shortcut panel */
+[data-enter-flow].bb-enter-done { outline: 2px solid var(--bb-ok); outline-offset: 2px; }
+[data-enter-flow]:focus { outline: none; }
+[data-enter-flow].bb-enter-done:focus { outline: 2px solid var(--bb-ok); }
+.bb-shortcuts kbd {
+    font-family: Consolas, "Courier New", monospace; font-size: .8rem; padding: .05rem .35rem;
+    border: 1px solid var(--bb-border); border-radius: 4px; background: var(--bb-bg); white-space: nowrap;
+}
+
+/* Inspection answer (OCD-040) */
+.bb-inspection { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin: .35rem 0; }
+.bb-inspection-label { min-width: 9rem; font-weight: 500; }
+.bb-inspection-pending { color: var(--bb-warn); font-size: .82rem; }

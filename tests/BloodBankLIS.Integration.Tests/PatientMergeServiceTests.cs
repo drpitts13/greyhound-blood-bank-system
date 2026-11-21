@@ -46,6 +46,40 @@ public class PatientMergeServiceTests : IClassFixture<SqliteContextFactory>
             && i.Value == duplicate.MedicalRecordNumber));
     }
 
+    // TEST-BB-570: merging two charts that share an enterprise id leaves one copy on the survivor, whichever way round,
+    // and unmerge restores both charts' identifiers.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Merge_OfChartsSharingAnExternalId_KeepsOneCopyOnTheSurvivor(bool survivorHoldsTheMarkedCopy)
+    {
+        await using var c = _factory.Create();
+        var (survivor, duplicate) = await SeedPairAsync(c, survivorHoldsTheMarkedCopy ? "MAN-EXT-B" : "MAN-EXT-A");
+        var value = $"EPI-{survivor.Id}-{duplicate.Id}";
+        var original = survivorHoldsTheMarkedCopy ? duplicate : survivor;
+        var marked = survivorHoldsTheMarkedCopy ? survivor : duplicate;
+        c.PatientIdentifiers.AddRange(
+            new PatientIdentifier { PatientId = original.Id, IdentifierType = IdentityTokenType.Other, Value = value, AssigningAuthority = "EPI PI" },
+            new PatientIdentifier
+            {
+                PatientId = marked.Id,
+                IdentifierType = IdentityTokenType.Other,
+                Value = value,
+                AssigningAuthority = ExternalIdentifierAuthority.AlsoOn("EPI PI", original.MedicalRecordNumber)
+            });
+        await c.SaveChangesAsync();
+
+        var result = await Merge(c).MergeAsync(survivor.Id, duplicate.Id, "Same person; shared enterprise id.");
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Single(c.PatientIdentifiers.Where(i => i.PatientId == survivor.Id && i.Value == value));
+        Assert.Single(c.PatientIdentifiers.Where(i => i.PatientId == duplicate.Id && i.Value == value));
+
+        var undone = await Merge(c).UnmergeAsync(duplicate.Id, "Not the same person after all.");
+        Assert.True(undone.Succeeded, undone.Error);
+        Assert.Single(c.PatientIdentifiers.Where(i => i.PatientId == survivor.Id && i.Value == value));
+        Assert.Single(c.PatientIdentifiers.Where(i => i.PatientId == duplicate.Id && i.Value == value));
+    }
+
     [Fact]
     public async Task Merge_DiscordantAbo_IsHardStopped()
     {

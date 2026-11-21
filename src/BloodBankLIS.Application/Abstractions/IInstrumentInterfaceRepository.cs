@@ -12,7 +12,7 @@ public interface IInstrumentInterfaceRepository : IRepository<InstrumentInterfac
         InstrumentInterface entity,
         InstrumentConnection connection,
         IReadOnlyList<InstrumentFieldMapping> fieldMappings,
-        IReadOnlyList<InstrumentTestMapping> testMappings,
+        IReadOnlyList<InstrumentValueTranslation> translations,
         IReadOnlyList<InstrumentInterfaceRule> rules,
         CancellationToken cancellationToken = default);
 }

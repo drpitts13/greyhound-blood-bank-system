@@ -26,4 +26,7 @@ public class InterfaceErrorQueueItem : BaseEntity
     public string? ResolvedBy { get; set; }
 
     public DateTime? ResolvedUtc { get; set; }
+
+    /// <summary>Why the row was closed: the reason given by hand, or the replay or resend that delivered the message.</summary>
+    public string? ResolutionNote { get; set; }
 }

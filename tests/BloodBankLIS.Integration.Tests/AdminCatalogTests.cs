@@ -42,7 +42,9 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
             _factory.Clock,
             _factory.CurrentUser,
             audit,
-            history);
+            history,
+            tests: new EfRepository<TestDefinition>(context),
+            requirements: new EfRepository<SpecialRequirementDefinition>(context));
     }
 
     private SpecimenTypeAdminService CreateSpecimenTypeService(BloodBankDbContext context)
@@ -542,16 +544,29 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
             && a.EntityId == created.Value!.Id
             && a.EventType == AuditEventType.Configure));
 
-        var updated = await svc.UpdateAsync(created.Value!.Id, new SaveExceptionDefinitionRequest(
+        // TEST-BB-381: changing an exception needs a reason, which is kept with the change.
+        var noReason = await svc.UpdateAsync(created.Value!.Id, new SaveExceptionDefinitionRequest(
             code, "Result-audit exception", "Raised security level", 3, false));
+        Assert.False(noReason.Succeeded);
+        Assert.Contains(noReason.Evaluation!.HardStops, h => h.Code == ExceptionCatalogChangeReasonRule.Code);
+        Assert.Equal(2, (await c.ExceptionDefinitions.AsNoTracking().SingleAsync(e => e.Id == created.Value.Id)).MinSecurityLevel);
+
+        var updated = await svc.UpdateAsync(created.Value!.Id, new SaveExceptionDefinitionRequest(
+            code, "Result-audit exception", "Raised security level", 3, false, "Medical director asked for supervisor sign-off"));
         Assert.True(updated.Succeeded);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ExceptionDefinition) && a.EntityId == created.Value.Id
+            && a.Reason == "Medical director asked for supervisor sign-off"));
 
         var configure = await c.AuditEvents
             .Where(a => a.EntityType == nameof(ExceptionDefinition) && a.EntityId == created.Value.Id)
             .ToListAsync();
         Assert.Equal(2, configure.Count(a => a.EventType == AuditEventType.Configure));
 
-        var deactivated = await svc.SetActiveAsync(created.Value.Id, false);
+        Assert.False((await svc.SetActiveAsync(created.Value.Id, false, reason: "short")).Succeeded);
+        Assert.True((await c.ExceptionDefinitions.AsNoTracking().SingleAsync(e => e.Id == created.Value.Id)).IsActive);
+
+        var deactivated = await svc.SetActiveAsync(created.Value.Id, false, reason: "Retired with the old override workflow");
         Assert.True(deactivated.Succeeded);
         Assert.True(await c.AuditEvents.AnyAsync(a =>
             a.EntityType == nameof(ExceptionDefinition)
@@ -589,5 +604,52 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
             a.EntityType == nameof(PhaseDefinition)
             && a.EntityId == created.Value.Id
             && a.EventType == AuditEventType.Activate));
+    }
+
+    // TEST-BB-1405 (end-user testing loop 2 tick 26): retiring a specimen type still preferred by an active test succeeds
+    // and names the test.
+    [Fact]
+    public async Task SpecimenType_Deactivate_NamesTestsPreferringIt()
+    {
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        await using var c = _factory.Create();
+        var svc = CreateSpecimenTypeService(c);
+        var created = await svc.CreateAsync(new SaveSpecimenTypeDefinitionRequest($"ST{key}", "Retiring", "3D", SpecimenExpirationMode.ExactTime, [], 9, null));
+        Assert.True(created.Succeeded, created.Error);
+        await svc.ActivateAsync(created.Value!.Id, "Initial");
+        c.TestDefinitions.Add(new TestDefinition { Code = $"TQ{key}", Name = "Prefers it", IsActive = true, RequiredSpecimenType = $"ST{key}" });
+        await c.SaveChangesAsync();
+
+        var retired = await svc.DeactivateAsync(created.Value.Id, "Replaced");
+
+        Assert.True(retired.Succeeded);
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"ST{key} is still the preferred specimen type") && w.Message.Contains($"TQ{key}"));
+    }
+
+    // TEST-BB-1406 (end-user testing loop 2 tick 27): retiring a blood attribute still in an active typing test's scope
+    // and an active special requirement succeeds and names both; a different-case code is not counted (C is not c).
+    [Fact]
+    public async Task BloodAttribute_Deactivate_NamesTestsAndRequirementsUsingIt()
+    {
+        var key = Guid.NewGuid().ToString("N")[..5].ToUpperInvariant();
+        await using var c = _factory.Create();
+        var svc = CreateBloodAttributeService(c);
+        var created = await svc.CreateAsync(new SaveBloodAttributeDefinitionRequest($"Q{key}", "Retiring antigen", $"anti-Q{key}", true, 1, null));
+        Assert.True(created.Succeeded, created.Error);
+        await svc.ActivateAsync(created.Value!.Id, "Initial");
+        c.TestDefinitions.Add(new TestDefinition { Code = $"TA{key}", Name = "Typing", IsActive = true, ResultValueType = ResultValueType.BloodAttribute,
+            BloodAttributeScopeJson = $"[{{\"code\":\"Q{key}\"}}]" });
+        c.TestDefinitions.Add(new TestDefinition { Code = $"TB{key}", Name = "Other case", IsActive = true, ResultValueType = ResultValueType.BloodAttribute,
+            BloodAttributeScopeJson = $"[{{\"code\":\"q{key.ToLowerInvariant()}\"}}]" });
+        c.SpecialRequirementDefinitions.Add(new SpecialRequirementDefinition { Code = $"SR{key}", Name = "Antigen negative", IsActive = true, AntigenCode = $"Q{key}" });
+        await c.SaveChangesAsync();
+
+        var retired = await svc.DeactivateAsync(created.Value.Id, "Replaced");
+
+        Assert.True(retired.Succeeded);
+        var typing = Assert.Single(retired.Warnings, w => w.Message.Contains("is still typed by"));
+        Assert.Contains($"TA{key}", typing.Message);
+        Assert.DoesNotContain($"TB{key}", typing.Message);
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"SR{key}") && w.Message.Contains("special requirement"));
     }
 }
