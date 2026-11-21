@@ -1417,5 +1417,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1406 | I | `AdminCatalogTests.BloodAttribute_Deactivate_NamesTestsAndRequirementsUsingIt` | URS-BB-1146 / FRS-BB-1264 |
 | TEST-BB-1407 | U | `OptionWordingSourceTests.PageMarkup_DoesNotPrintEnumFieldsRaw` | URS-BB-1147 / FRS-BB-1265 |
 | TEST-BB-1408 | U | `AdminHomeGroupsTests.Cards_AreGroupedLikeTheMenu` | URS-BB-1148 / FRS-BB-1266 |
+| TEST-BB-1409 | U | `TestGrouperMemberPickerTests.MemberPicker_NamesTests_AndTogglesAsButtons` | URS-BB-1149 / FRS-BB-1267 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

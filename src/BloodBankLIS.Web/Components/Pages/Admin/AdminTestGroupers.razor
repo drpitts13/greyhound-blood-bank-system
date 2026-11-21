@@ -86,13 +86,15 @@
                 @foreach (var test in _availableTests)
                 {
                     var member = _editing.Members.FirstOrDefault(m => string.Equals(m.TestCode, test.Code, StringComparison.OrdinalIgnoreCase));
-                    <span class="badge @(member is not null ? "badge-green" : "badge-gray")" style="cursor:pointer;" @onclick="() => ToggleMember(test.Code)">
-                        @test.Code
+                    @* Loop 2 tick 33: a button (reachable by keyboard) naming the test, and saying whether it is in the grouper. *@
+                    <button type="button" class="badge @(member is not null ? "badge-green" : "badge-gray")" style="cursor:pointer;border:none;"
+                            aria-pressed="@(member is not null ? "true" : "false")" @onclick="() => ToggleMember(test.Code)" data-grouper-member="@test.Code">
+                        <span class="mono">@test.Code</span>@(string.IsNullOrWhiteSpace(test.Name) ? "" : $" · {test.Name}")
                         @if (member is not null)
                         {
                             <span class="mono muted" style="margin-left:.3rem;">#@member.SortOrder</span>
                         }
-                    </span>
+                    </button>
                 }
             </div>
         </div>

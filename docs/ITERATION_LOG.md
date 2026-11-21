@@ -29369,3 +29369,17 @@ Opened Admin › Phases and its new-phase form (item 6). Nothing was saved.
 - It links to Subtests and Tests.
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1100 — End-user testing loop 2, tick 33: grouper member picker (2026-11-21)
+
+### How it was tested
+
+Opened Admin › Test Groupers and its new-grouper form (item 6). Nothing was saved.
+
+### Found and fixed
+
+1. **The member picker showed bare codes and could not be used by keyboard.** Members were clickable labels reading only *CXM*, *UAGTYPE* or *TSNEO*, where the reflex rule picker shows *CXM — Complex Crossmatch*. They are now buttons reading code and name (*ABSC · Antibody Screen*) that say whether the test is in the grouper.
+
+### Tests
+
+- TEST-BB-1409. Full suite passed. Clean-tick count reset to 0 of 5.
