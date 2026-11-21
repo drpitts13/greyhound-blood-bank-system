@@ -29184,3 +29184,19 @@ Followed the freeze and deglycerolize types (tick 3) to where Modify products re
 ### Tests
 
 - TEST-BB-1401. Full suite passed. Clean-tick count stays at 0 of 5.
+
+## Iteration 1088 — End-user testing loop 2, tick 21: order and test rule validation reviewed, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Followed tick 20's reflex typo question to Admin › Order & Test Rules (items 3 and 6): can a rule be saved that silently never works?
+
+### Findings
+
+Saving a rule already guards against this (`RuleDefinitionValidator`):
+- A condition or action that does not parse is refused.
+- An attribute the rule's level cannot supply is refused.
+- A test both added and cancelled is refused.
+- A test code not in the catalog is warned about. It is not refused, so a rule can be written before its test exists.
+
+No change. Clean tick 1 of 5.
