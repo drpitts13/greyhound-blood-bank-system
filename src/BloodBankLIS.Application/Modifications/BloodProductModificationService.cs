@@ -126,7 +126,8 @@ public sealed class BloodProductModificationService
                         code.RelativeTo, now, new[] { collection }, out var anchor, out _))
                 {
                     available = true;
-                    preview = ModificationExpirationRule.ComputeNewExpiresUtc(anchor, code.ToOffset(), unit.ExpiresUtc);
+                    preview = ModificationExpirationRule.ComputeNewExpiresUtc(anchor, code.ToOffset(), unit.ExpiresUtc,
+                        ModificationExpirationRule.CapsAtSourceExpiration(r.ModificationType));
                 }
                 return new EligibleModificationDto(
                     r.Id, r.ModificationCode, r.ModificationType, r.TargetProductTypeId,
@@ -975,7 +976,8 @@ public sealed class BloodProductModificationService
         }
 
         var originalExpiresUtc = ModificationExpirationRule.EarliestExpiration(sources.Select(s => s.ExpiresUtc));
-        var resultExpiresUtc = ModificationExpirationRule.ComputeNewExpiresUtc(anchorUtc, expCode.ToOffset(), originalExpiresUtc);
+        var resultExpiresUtc = ModificationExpirationRule.ComputeNewExpiresUtc(anchorUtc, expCode.ToOffset(), originalExpiresUtc,
+            ModificationExpirationRule.CapsAtSourceExpiration(rule.ModificationType));
 
         var primarySource = sources[0];
         var singleSource = sources.Count == 1;

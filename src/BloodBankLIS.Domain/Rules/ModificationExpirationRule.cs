@@ -17,11 +17,18 @@ public static class ModificationExpirationRule
     public static DateTime ComputeNewExpiresUtc(
         DateTime anchorUtc,
         ExpirationOffsetCode offset,
-        DateTime originalExpiresUtc)
+        DateTime originalExpiresUtc,
+        bool capAtOriginal = true)
     {
         var candidate = anchorUtc + offset.ToTimeSpan();
-        return candidate < originalExpiresUtc ? candidate : originalExpiresUtc;
+        return !capAtOriginal || candidate < originalExpiresUtc ? candidate : originalExpiresUtc;
     }
+
+    /// <summary>
+    /// Loop 2 tick 3/10: freezing glycerolized red cells gives them their frozen storage dating (years), not the liquid
+    /// unit's; every other modification can only shorten dating, so it stays capped at the source's expiration.
+    /// </summary>
+    public static bool CapsAtSourceExpiration(ModificationType type) => type != ModificationType.Freeze;
 
     /// <summary>The expiration ceiling for a set of source units: the earliest of their expirations.</summary>
     public static DateTime EarliestExpiration(IEnumerable<DateTime> sourceExpiresUtc) => sourceExpiresUtc.Min();

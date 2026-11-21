@@ -28955,3 +28955,21 @@ Reviewed the builder workflow (items 3, 4, 7): how a new test, product or modifi
 ### Tests
 
 - TEST-BB-1391. Full suite passed.
+
+## Iteration 1075 — End-user testing loop 2, tick 10: frozen dating not capped at liquid dating (2026-11-20)
+
+### How it was tested
+
+Reviewed how a modification's result is dated (item 7), against the freeze type added in tick 3.
+
+### Found and fixed
+
+1. **A frozen unit would have expired with its liquid dating.** Every modification's new expiration is capped at the source unit's, which is right for irradiation, washing, thawing and the rest; but glycerolized red cells are frozen for years, so a freeze rule with 3650D would still have expired the frozen unit on the liquid unit's 42-day date. A freeze now takes its expiration code's dating; every other type stays capped.
+
+### Retested
+
+- Not exercised live (it would modify a dev unit); covered by TEST-BB-1392.
+
+### Tests
+
+- TEST-BB-1392. Full suite passed.

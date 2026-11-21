@@ -1137,3 +1137,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1129 | The audit trail and reaction list show event types, issue types and crossmatch status in words. | P3 | FRS-BB-1247 |
 | URS-BB-1130 | Dropdown choices written into pages read as words. | P3 | FRS-BB-1248 |
 | URS-BB-1131 | A product or modification rule can be copied as the start of a new one. | P2 | FRS-BB-1249 |
+| URS-BB-1132 | Frozen red cells take their frozen storage dating, not the liquid unit's. | P1 | FRS-BB-1250 |

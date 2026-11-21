@@ -58,6 +58,22 @@ public class ModificationExpirationRuleTests
     }
 
     [Fact]
+    public void Freeze_IsNotCappedAtTheLiquidExpiration_OthersAre()
+    {
+        // TEST-BB-1392 (end-user testing loop 2 tick 10): frozen red cells take their frozen dating (here 10 years from
+        // freezing), not the liquid unit's 42 days; any other modification stays capped at the source's expiration.
+        var frozenAt = new DateTime(2026, 11, 1, 8, 0, 0, DateTimeKind.Utc);
+        var liquidExpires = frozenAt.AddDays(35);
+        var tenYears = new ExpirationOffsetCode(3650, ExpirationOffsetUnit.Days);
+        Assert.False(ModificationExpirationRule.CapsAtSourceExpiration(ModificationType.Freeze));
+        Assert.Equal(frozenAt.AddDays(3650), ModificationExpirationRule.ComputeNewExpiresUtc(frozenAt, tenYears, liquidExpires,
+            ModificationExpirationRule.CapsAtSourceExpiration(ModificationType.Freeze)));
+        Assert.True(ModificationExpirationRule.CapsAtSourceExpiration(ModificationType.Deglycerolize));
+        Assert.True(ModificationExpirationRule.CapsAtSourceExpiration(ModificationType.Irradiate));
+        Assert.Equal(liquidExpires, ModificationExpirationRule.ComputeNewExpiresUtc(frozenAt, tenYears, liquidExpires));
+    }
+
+    [Fact]
     public void ComputeNewExpiresUtc_PoolUsesEarliestSourceAsCeiling()
     {
         var modificationUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

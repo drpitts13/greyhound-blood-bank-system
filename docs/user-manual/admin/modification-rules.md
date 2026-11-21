@@ -14,4 +14,4 @@ routes:
 
 Resulting units start in quarantine. Build the release into the procedure. A rule that produces an unknown ISBT code will fail at the moment of modification, not when you save the rule. Confirm the code exists in the ISBT catalog first.
 
-Expiration changes come from the expiration-modification codes. If irradiation should shorten dating, the rule and the expiration code have to agree. A rule that keeps the original frozen expiration on a thawed product will offer an unsafe date at issue. Check a training modification and read the child unit's expiration before you activate the rule.
+Expiration changes come from the expiration-modification codes. A modified unit never outlives its source, except a **freeze**: glycerolized frozen red cells take the dating of their expiration code (for example 3650D from freezing), not the liquid unit's. If irradiation should shorten dating, the rule and the expiration code have to agree. A rule that keeps the original frozen expiration on a thawed product will offer an unsafe date at issue. Check a training modification and read the child unit's expiration before you activate the rule.
