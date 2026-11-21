@@ -29355,3 +29355,17 @@ Compared Admin Home with the Administration menu regrouped in tick 4 (item 1).
 ### Tests
 
 - TEST-BB-1408. Full suite passed. Clean-tick count reset to 0 of 5.
+
+## Iteration 1099 — End-user testing loop 2, tick 32: Phases builder reviewed, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Opened Admin › Phases and its new-phase form (item 6). Nothing was saved.
+
+### Findings
+
+- The list shows code, name, order, whether the phase counts in interpretation, and check cell. The check cell links to its AHG phase (*Yes → AHG*).
+- The form asks for those fields and a change reason.
+- It links to Subtests and Tests.
+
+No change. Clean tick 1 of 5.
