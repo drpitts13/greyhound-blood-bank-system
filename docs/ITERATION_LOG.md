@@ -29137,3 +29137,17 @@ Listed the header links on the twelve test and product builder pages (items 1, 6
 ### Tests
 
 - TEST-BB-1399. Full suite passed.
+
+## Iteration 1085 — End-user testing loop 2, tick 18: help coverage and the test form reviewed, nothing to fix (2026-11-21)
+
+### How it was tested
+
+- Checked every page route (admin and bench) against the help topics' route lists, so every page's *Help for this page* opens its own topic.
+- Opened the DAT definition on Admin › Tests to judge the form's clutter.
+
+### Findings
+
+- Every route has a help topic.
+- The test form shows 18 fields for a coded test. Numeric ranges, titer, blood-attribute and panel sections appear only for the value types that use them. No change.
+
+Clean tick 1 of 5. Mixed-ABO pooling phases 2 and 3 still await the product owner.
