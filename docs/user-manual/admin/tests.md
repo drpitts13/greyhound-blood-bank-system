@@ -10,7 +10,23 @@ routes:
 
 ![Test definitions](figures/admin-tests.png)
 
-**Test Definitions** is the catalog the order entry and the worklist use. A test that is not here cannot be ordered. Each definition says how the result is recorded (a choice list, a graded reaction, free text), which panel subtests it includes, and how an interpretation is derived. The list keeps the test code. When the name is blank, the list says Test and the id. That wording is not saved, and the edit form still shows the stored name.
+**Test Definitions** is the catalog the order entry and the worklist use. A test that is not here cannot be ordered. Each definition says how the result is recorded (its **result value type**, below), which panel subtests it includes, and how an interpretation is derived. The list keeps the test code. When the name is blank, the list says Test and the id. That wording is not saved, and the edit form still shows the stored name.
+
+## Result value types
+
+Choose the value type that matches how the bench records the test:
+
+| Value type | Use it for | Examples |
+|---|---|---|
+| **Coded** | One answer from a list you define (*Allowed result values*, one per line) | DAT (Negative/Positive), weak D |
+| **Numeric** | A number with units, decimals and optional ranges | Fetal bleed quantitation (%) |
+| **Free text** | A narrative result | Antibody identification conclusion |
+| **ABO/Rh** | Forward and reverse grouping read per reagent, interpreted to a type by logic rows | ABO/Rh type, neonatal type, retypes |
+| **Subtest** | A panel of subtests (cells, reagents) read at phases, interpreted by logic rows | Antibody screen, DAT with IgG and C3, elution, weak D panel |
+| **Blood attribute** | Antigens typed on the patient or a unit, from the blood attribute catalog | Antigen typing, unit antigen typing, Rh/Kell phenotype |
+| **Crossmatch** | A serologic or electronic crossmatch read per cell and phase | Crossmatch, electronic crossmatch |
+| **Complex crossmatch** | A crossmatch with more phases or cells than the routine one | Complex crossmatch |
+| **Titer** | A doubling dilution series read to an endpoint, with an optional score | Antibody titer, ABO titer |
 
 ## Specimen types
 

@@ -29429,3 +29429,19 @@ Swept pages and help for other lists of modification types after tick 35.
 ### Tests
 
 - TEST-BB-1412. Full suite passed. Clean-tick count stays at 0 of 5.
+
+## Iteration 1104 — End-user testing loop 2, tick 37: value types explained in the Tests help (2026-11-21)
+
+### How it was tested
+
+Read the Tests help against the builder (item 6).
+
+### Found and fixed
+
+1. **The help named three of nine value types.** It said a result is recorded as *a choice list, a graded reaction, free text*. It did not mention numeric, ABO/Rh, subtest panels, blood attribute typing, crossmatch, complex crossmatch or titer. Without them, a builder has no way to tell which type fits a new test.
+
+   The help now has a table of the nine value types: what each is for, with blood bank examples (DAT, fetal bleed quantitation, antibody screen, antigen typing, crossmatch, titers). A test fails when a value type is missing from it.
+
+### Tests
+
+- TEST-BB-1413. Full suite passed. Clean-tick count stays at 0 of 5.
