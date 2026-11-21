@@ -187,6 +187,15 @@ public static class Ui
         _ => "badge badge-gray"
     };
 
+    /// <summary>
+    /// Before pooling (mixed-ABO pooling phase 3): when the units differ in ABO/Rh, what the pool will be; null when they
+    /// share one group.
+    /// </summary>
+    public static string? PoolMixNote(IReadOnlyList<PoolComponent> parts) =>
+        parts.Count < 2 || !PoolComponents.IsMixed(parts)
+            ? null
+            : $"Mixed pool: {PoolComponents.Summary(parts, BloodType)}. It is made only when the product allows mixed-ABO pools (cryoprecipitate); it will be labelled {BloodType(PoolComponents.ResultAbo(parts), PoolComponents.ResultRh(parts))} and checked against each of these units at selection and issue.";
+
     public static string BloodType(AboGroup abo, RhType rh)
     {
         // A mixed-ABO pool reads "Mixed ABO" so it is never taken for one group (pool components are on the unit page).

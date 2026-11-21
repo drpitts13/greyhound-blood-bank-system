@@ -127,3 +127,22 @@ public partial class EnumTextTests
         throw new InvalidOperationException("Could not find the repository root.");
     }
 }
+
+/// <summary>Modify products says before pooling when the units differ in ABO/Rh (mixed-ABO pooling phase 3).</summary>
+public class PoolMixNoteTests
+{
+    // TEST-BB-1417: units of one group get no note; A and O units are named, with the Mixed ABO label and Rh positive
+    // when any unit is, and the rule that only a product allowing mixed pools (cryoprecipitate) makes one.
+    [Fact]
+    public void PoolMixNote_NamesTheMixAndTheResult()
+    {
+        var oPos = new BloodBankLIS.Domain.Rules.PoolComponent(AboGroup.O, RhType.Positive);
+        var aNeg = new BloodBankLIS.Domain.Rules.PoolComponent(AboGroup.A, RhType.Negative);
+        Assert.Null(Ui.PoolMixNote([oPos, oPos]));
+        var note = Ui.PoolMixNote([aNeg, oPos, oPos]);
+        Assert.NotNull(note);
+        Assert.StartsWith("Mixed pool: 3 units: A−, O+ ×2.", note);
+        Assert.Contains("allows mixed-ABO pools (cryoprecipitate)", note);
+        Assert.Contains("labelled Mixed ABO +", note);
+    }
+}

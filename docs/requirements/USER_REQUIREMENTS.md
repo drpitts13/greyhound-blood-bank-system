@@ -1162,3 +1162,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1154 | Test groupers are called the same everywhere, so pages and messages point to the page by its menu name. | P3 | FRS-BB-1272 |
 | URS-BB-1155 | A cryoprecipitate product may allow mixed-ABO pools, labelled Mixed ABO. | P1 | FRS-BB-1273 |
 | URS-BB-1156 | A mixed-ABO pool is offered and issued only when every unit in it suits the patient; one without recorded components is refused. | P1 | FRS-BB-1274 |
+| URS-BB-1157 | Before pooling, Modify products says when the units differ in ABO/Rh and how the pool will be labelled. | P2 | FRS-BB-1275 |

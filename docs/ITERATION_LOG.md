@@ -29545,3 +29545,20 @@ Looked over the places a mixed-ABO pool could surface after phases 2 and 3 (item
 - **Retype:** it does not apply to cryoprecipitate.
 
 No change. Clean tick 3 of 5 (ticks 40 and 41 were clean; the pooling build came at the user's request in between).
+
+## Iteration 1111 — End-user testing loop 2, tick 43: mixed-pool note before pooling (2026-11-21)
+
+### How it was tested
+
+Checked the mixed-ABO pooling design against what was built (item 7).
+
+### Found and fixed
+
+1. **The design's confirmation was missing.** The design says Modify products tells the technologist, before pooling, that the units differ and what the pool becomes. The pool section showed each unit's group but said nothing more. It now shows *Mixed pool: 3 units: A−, O+ ×2.*, followed by:
+   - that only a product allowing mixed-ABO pools (cryoprecipitate) makes one;
+   - the label the pool will carry (*Mixed ABO +*);
+   - that it is checked against each unit at selection and issue.
+
+### Tests
+
+- TEST-BB-1417. Full suite passed. Clean-tick count reset to 0 of 5.

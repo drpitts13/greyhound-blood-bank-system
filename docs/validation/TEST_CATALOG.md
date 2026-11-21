@@ -1425,5 +1425,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1414 | I | `ReactionWorkupServiceTests.Attach_RefusesTheWrongTube_AnUnchosenGroup_AndAClosedCase` | URS-BB-1154 / FRS-BB-1272 |
 | TEST-BB-1415 | I | `BloodProductModificationServiceTests.Pool_MixedAbo_AllowedOnlyWhenTheCryoTargetAllowsIt` | URS-BB-1155 / FRS-BB-1273 |
 | TEST-BB-1416 | U | `MixedAboPoolCompatibilityTests.MixedPool_IsCheckedAgainstEachComponent_AndFailsClosedWithoutThem`, `MixedAboPoolCompatibilityTests.PoolGroup_AndEligibility_FollowTheSetting`, `MixedAboPoolCompatibilityTests.Mixed_IsNotATypingChoice`, `IssueGateTests.MixedPool_IsCheckedByComponent_AndFailsClosedEvenInAnEmergency`, `AboCheckRoutingSourceTests.UnitChecks_UseEvaluateUnit` | URS-BB-1156 / FRS-BB-1274 |
+| TEST-BB-1417 | U | `PoolMixNoteTests.PoolMixNote_NamesTheMixAndTheResult` | URS-BB-1157 / FRS-BB-1275 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

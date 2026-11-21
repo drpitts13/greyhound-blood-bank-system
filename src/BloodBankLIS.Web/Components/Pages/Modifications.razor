@@ -181,6 +181,11 @@
                 </tbody>
             </table>
             </div>
+            @if (PoolMixNote is { } poolMix)
+            {
+                @* Mixed-ABO pooling phase 3: say before pooling that the units differ in ABO/Rh and what follows. *@
+                <div class="alert alert-warning" data-pool-mixed-note>@poolMix</div>
+            }
             @if (PoolLocationGap)
             {
                 <div class="muted">These units are not in the same storage location. Transfer them to one location before pooling.</div>
@@ -433,6 +438,20 @@
         _unit is null
             ? Array.Empty<long?>()
             : new[] { _unit.CurrentLocationId }.Concat(_poolUnits.Select(unit => unit.CurrentLocationId)).ToList();
+
+    /// <summary>When the pooled units differ in ABO/Rh, what a mixed pool means (mixed-ABO pooling phase 3, OCD-094).</summary>
+    private string? PoolMixNote
+    {
+        get
+        {
+            if (_unit is null || _poolUnits.Count == 0)
+            {
+                return null;
+            }
+
+            return Ui.PoolMixNote(new[] { _unit }.Concat(_poolUnits).Select(u => new PoolComponent(u.Abo, u.RhD)).ToList());
+        }
+    }
 
     private bool PoolLocationGap =>
         UnitModificationEligibilityRule.EvaluatePoolLocations(PoolLocationIds).IsHardStopped;
