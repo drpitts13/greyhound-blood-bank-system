@@ -1243,6 +1243,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1127 / FRS-BB-1245 | End-user testing loop 2 tick 5: product list in words with ISBT code | `AdminProducts.razor` | TEST-BB-1387 | U | |
 | URS-BB-1128 / FRS-BB-1246 | End-user testing loop 2 tick 6: builder pages in words | `Ui.cs`, `AdminCompatibilityRules.razor`, `AdminIsbtProductCodes.razor`, `AdminProductBilling.razor`, `AdminTestServiceBilling.razor`, `AdminActionBilling.razor`, `AdminActions.razor` | TEST-BB-1388 | U | |
 | URS-BB-1129 / FRS-BB-1247 | End-user testing loop 2 tick 7: audit and reaction list in words | `Audit.razor`, `Reactions.razor` | TEST-BB-1389 | U | |
+| URS-BB-1130 / FRS-BB-1248 | End-user testing loop 2 tick 8: dropdown choices in words | `AdminProductBilling.razor`, `AdminTestServiceBilling.razor`, `AdminActionBilling.razor`, `AdminCompatibilityRules.razor` | TEST-BB-1390 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

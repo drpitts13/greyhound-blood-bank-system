@@ -28923,3 +28923,17 @@ Swept 37 bench pages (inventory, transfusion, quality, reports, testing, interfa
 ### Tests
 
 - TEST-BB-1389. Full suite passed.
+
+## Iteration 1073 — End-user testing loop 2, tick 8: dropdown choices in words (2026-11-20)
+
+### How it was tested
+
+Opened the new-item form on 36 builder and bench pages (none saved) and read every dropdown choice.
+
+### Found and fixed
+
+1. **Five choices were code names.** Product Billing offered *UnitIssued* and *UnitTransfused*, Test/Service Billing *TestVerified*, Action Billing *ActionCompleted*, and Compatibility Tables' severity *HardStop*. They now read in words, and a source test refuses any page that writes a choice as a run-together code name.
+
+### Tests
+
+- TEST-BB-1390. Full suite passed.

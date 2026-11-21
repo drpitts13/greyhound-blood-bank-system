@@ -1398,5 +1398,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1387 | U | `AdminProductsListTests.ProductList_ReadsInWords` | URS-BB-1127 / FRS-BB-1245 |
 | TEST-BB-1388 | U | `EnumTextTests.EnumText_ReadsAsWords` | URS-BB-1128 / FRS-BB-1246 |
 | TEST-BB-1389 | U | `EnumTextTests.EnumText_ReadsAsWords` | URS-BB-1129 / FRS-BB-1247 |
+| TEST-BB-1390 | U | `OptionWordingSourceTests.PageOptions_AreNotCodeNames` | URS-BB-1130 / FRS-BB-1248 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

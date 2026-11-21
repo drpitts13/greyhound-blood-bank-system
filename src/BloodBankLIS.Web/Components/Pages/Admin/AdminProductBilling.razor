@@ -98,8 +98,8 @@
             <div class="field"><label>ISBT product code</label><input class="mono" maxlength="5" @bind="_draft.IsbtProductCode" placeholder="E0336" /></div>
             <div class="field"><label>Trigger</label>
                 <select @bind="_draft.Trigger">
-                    <option value="@BillingTriggerType.UnitIssued">UnitIssued</option>
-                    <option value="@BillingTriggerType.UnitTransfused">UnitTransfused</option>
+                    <option value="@BillingTriggerType.UnitIssued">Unit issued</option>
+                    <option value="@BillingTriggerType.UnitTransfused">Unit transfused</option>
                 </select>
             </div>
             <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
