@@ -29411,3 +29411,21 @@ Opened Admin › Actions and its new-action form (item 7). Nothing was saved.
 ### Tests
 
 - TEST-BB-1411. Full suite passed. Clean-tick count stays at 0 of 5.
+
+## Iteration 1103 — End-user testing loop 2, tick 36: Modify products wording (2026-11-21)
+
+### How it was tested
+
+Swept pages and help for other lists of modification types after tick 35.
+
+### Found and fixed
+
+1. **Two more stale lists.**
+   - Modify products' introduction named eight of the twelve types.
+   - The help said batch apply was for irradiate, thaw, volume reduction, leukoreduction and wash, but it covers every one-to-one type, the four added in tick 3 included.
+
+   Both now read correctly. A test fails when a modification type is missing from the introduction.
+
+### Tests
+
+- TEST-BB-1412. Full suite passed. Clean-tick count stays at 0 of 5.

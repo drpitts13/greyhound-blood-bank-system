@@ -1157,3 +1157,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1149 | The test grouper member picker names each test and can be used by keyboard. | P3 | FRS-BB-1267 |
 | URS-BB-1150 | The product attribute picker names each attribute and can be used by keyboard; every clickable control is a button or link. | P3 | FRS-BB-1268 |
 | URS-BB-1151 | Admin › Actions and the help name every modification a product order can request. | P3 | FRS-BB-1269 |
+| URS-BB-1152 | Modify products and its help name every modification type and which can be applied to a batch. | P3 | FRS-BB-1270 |

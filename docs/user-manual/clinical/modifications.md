@@ -41,7 +41,7 @@ If the indicator does not show irradiated, the unit is not recorded as irradiate
 
 ## Batch
 
-For irradiate, thaw, volume reduction, leukoreduction, and wash, you can apply the selected rule and the same reason to the unit on the form plus the unit numbers you list. If any unit is ineligible, none of them are modified.
+For any modification that makes one unit from one (every type except divide, pool and aliquot), you can apply the selected rule and the same reason to the unit on the form plus the unit numbers you list. If any unit is ineligible, none of them are modified.
 
 ## Orders that asked for the modification
 
