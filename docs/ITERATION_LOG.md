@@ -29601,3 +29601,22 @@ The product owner decided the three items tick 44 listed as not built are not ne
 - no entry per pooled unit in interface messages.
 
 The design and OCD-094 record the decision. No code change.
+
+## Iteration 1115 — End-user testing loop 2, tick 46: the mixed-pool stop cannot be overridden, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Checked blocking (item 5) for the new `ISS-ABO-MIXED-POOL` hard stop: could Admin › Exceptions make it overridable?
+
+### Findings
+
+- Exception definitions unlock only the stops the code looks up by name:
+  - antigen-negative;
+  - antibody history crossmatch;
+  - ABO/Rh history discrepancy;
+  - specimen expiration.
+- The issue gate's ABO stops, the mixed-pool stop included, are never looked up, so no definition, even one an administrator creates, can unlock them.
+- `ExceptionOverridePolicy` also refuses when no definition exists.
+- Under emergency release the stop is not softened (phase 2).
+
+No change. Clean tick 1 of 5.
