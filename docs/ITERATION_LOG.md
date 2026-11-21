@@ -29079,3 +29079,29 @@ Tick 15 found pooling across ABO/Rh blocked, and kept the block because a pool t
 - Ship in four phases.
 
 The clinical choices are OCD-094. No code changed.
+
+## Iteration 1082 — Mixed-ABO pooling, phase 1: pool components recorded (2026-11-21)
+
+### Decisions
+
+OCD-094 decided by the product owner:
+1. Cryoprecipitate only.
+2. A cryo pool may mix Rh(D).
+3. For cryo, a mixed pool ranks the same as single-group compatible units.
+4. No ABO/Rh type is sent on HL7 for a mixed pool.
+
+The design document records them.
+
+### Built
+
+- Every pool now records the ABO/Rh of each source unit, in a new nullable column `BloodProducts.PoolComponentsJson` (migration `20270222000000_PoolComponents` and the dev bootstrap column).
+- The unit page shows it as **Pooled from**.
+- Nothing else reads it yet, and pooling across ABO/Rh is still refused.
+
+### Retested live
+
+- The dev database gained the column on start, and unit pages load with no server errors. No pool was made.
+
+### Tests
+
+- TEST-BB-1397. Full suite passed.

@@ -108,6 +108,11 @@ else
                 <div class="field"><label>Product code</label><div class="mono">@ProductCode(_unit)</div></div>
                 <div class="field"><label>Product</label><div>@ProductName(_unit.ProductTypeId)</div></div>
                 <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
+                @if (_unit.PoolComponents.Count > 0)
+                {
+                    @* Mixed-ABO pooling phase 1: the ABO/Rh of each source unit in the pool. *@
+                    <div class="field" data-unit-pool-components><label>Pooled from</label><div>@PoolComponents.Summary(_unit.PoolComponents, (abo, rh) => Ui.BloodType(abo, rh))</div></div>
+                }
                 <div class="field"><label>Expires</label><div class="nowrap">@_unit.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div>
                 <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.StatusLabel(_unit.Status)</span></div></div>
                 <div class="field"><label>Location</label><div data-unit-location>@StorageLocationLabel.WithStatus(_unit.Status, LocationName(_unit.CurrentLocationId))</div></div>

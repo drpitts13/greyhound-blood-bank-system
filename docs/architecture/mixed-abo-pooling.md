@@ -1,6 +1,6 @@
 # Design: mixed-ABO pooling
 
-Status: proposed (2026-11-20). Not implemented. Clinical choices are recorded as OCD-094 for the medical director.
+Status: phase 1 built (2026-11-21). OCD-094 decided 2026-11-21: cryoprecipitate only; Rh(D) may mix; for cryo a mixed pool ranks the same as single-group compatible units; no ABO/Rh type is sent on HL7 for a mixed pool.
 
 ## Problem
 
@@ -76,7 +76,14 @@ Each phase has its own tests. Phases 2 and 3 need integration tests for these ca
 - Pooling red cells across ABO. It stays blocked: a product whose ABO table makes cross-group red cells incompatible would be refused per component anyway, and the setting should not be offered for red-cell products.
 - Choosing a pool's "representative" group. The design deliberately has none.
 
-## Decisions needed (OCD-094)
+## Decisions (OCD-094, decided 2026-11-21)
+
+1. Cryoprecipitate only: the per-product setting is offered only for cryoprecipitate products.
+2. Yes: a cryo pool may mix Rh(D), labelled Rh positive if any source is, checked per component.
+3. For cryo, a mixed pool ranks the same as single-group compatible units (no penalty in `ProductSelectionOrder`).
+4. No ABO/Rh type is sent on HL7 (BPX-11 empty) for a mixed pool.
+
+## Questions as raised
 
 1. Which products may be pooled across ABO (expected: cryoprecipitate, possibly pooled platelets). The setting is per product and off by default.
 2. Whether a mixed pool may also mix Rh(D). The design labels it Rh positive if any source is positive and checks it per component.

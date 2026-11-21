@@ -77,6 +77,9 @@ public sealed record BloodUnitDto(
     /// <summary>Made by a thaw modification (pass 333: so the inventory list can say one is recorded in a freezer).</summary>
     public bool Thawed { get; init; }
 
+    /// <summary>For a pool, the ABO/Rh of each source unit (mixed-ABO pooling phase 1); empty otherwise.</summary>
+    public IReadOnlyList<BloodBankLIS.Domain.Rules.PoolComponent> PoolComponents { get; init; } = [];
+
     public long? BloodSupplierId { get; init; }
 
     /// <summary>
@@ -126,7 +129,10 @@ public sealed record BloodUnitDto(
         u.Volume, u.DivisionCode, u.CollectionTypeCode,
         u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId,
         u.ShippedToFacility, u.ShippedUtc, u.OutboundShipmentReference,
-        u.ShipContainer, u.ShipPackingTemperatureC, u.ShipPackedBy, u.ShipReceivingContact, u.TransfusionReportedUtc);
+        u.ShipContainer, u.ShipPackingTemperatureC, u.ShipPackedBy, u.ShipReceivingContact, u.TransfusionReportedUtc)
+    {
+        PoolComponents = BloodBankLIS.Domain.Rules.PoolComponents.Parse(u.PoolComponentsJson)
+    };
 }
 
 public sealed record ExpectedInboundWorkItemDto(

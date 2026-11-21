@@ -711,6 +711,15 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.Equal(3, links.Count); // 2 sources + 1 result
         Assert.Equal(2, links.Count(l => l.Role == ModificationUnitRole.Source));
         Assert.Single(links, l => l.Role == ModificationUnitRole.Result);
+
+        // TEST-BB-1397 (mixed-ABO pooling phase 1): the pool records each source's ABO/Rh; a single-unit result does not.
+        var pooled = await verify.BloodUnits.FindAsync(resultUnit.Id);
+        var s1 = await verify.BloodUnits.FindAsync(source1);
+        var components = PoolComponents.Parse(pooled!.PoolComponentsJson);
+        Assert.Equal(2, components.Count);
+        Assert.All(components, c => Assert.Equal(new PoolComponent(s1!.Abo, s1.RhD), c));
+        Assert.False(PoolComponents.IsMixed(components));
+        Assert.Null((await verify.BloodUnits.FindAsync(source1))!.PoolComponentsJson);
     }
 
     [Fact]

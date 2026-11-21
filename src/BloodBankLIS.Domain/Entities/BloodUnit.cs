@@ -49,6 +49,12 @@ public class BloodUnit : BaseEntity
 
     // --- Product quadrant ---
     public string? ProductCodeData { get; set; }
+
+    /// <summary>
+    /// For a pool: the ABO/Rh of each source unit, as JSON (<see cref="Rules.PoolComponents"/>). Null for any other unit and
+    /// for pools made before mixed-ABO pooling phase 1. Written once when the pool is made.
+    /// </summary>
+    public string? PoolComponentsJson { get; set; }
     public string? ProductDescriptionCode { get; set; }
     public string? CollectionTypeCode { get; set; }
     public string? DivisionCode { get; set; }

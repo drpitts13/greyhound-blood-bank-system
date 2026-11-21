@@ -14,6 +14,9 @@ routes:
 
 ## What happens to the units
 
+A pool records the ABO/Rh of each unit it was made from; the pool's unit page shows them under **Pooled from** (for example *4 units: O Pos ×3, O Neg*). Pools made before this was added show nothing there. Pooling units of different ABO/Rh is still refused.
+
+
 The source unit is consumed or reduced according to the rule. Resulting units are new stock. They start in quarantine until they are released, so a just-irradiated or just-pooled unit is not immediately available for issue. Release them from Inventory or the unit chart when the modification has been checked. Scan the unit number printed on the new label. The scan has to match that result. A blank or different number is a hard stop. A quarantine release that is not a modification result does not ask for this scan.
 
 Thaw of a plasma product that your facility marked for auto-thaw can also happen at allocation. Those units expire after the thawed shelf life set for their product code (Admin › Auto thaw products), or at the frozen expiration if that is sooner. If the bag was entered, tick **Thawed in an open system** in the thaw prompt: the code's open-system shelf life applies, and a pooled unit uses its pooled shelf life (the shorter if both). The prompt's expiration sentence follows the box: it states the time that will apply, and says when the unit is a pool. When the time that applies is not set, the prompt says so in red and **Yes** stays unavailable; ask whoever edits configuration to enter it (Admin › Auto thaw products), or clear the box if the bag was not entered. The product row shows the new expiration. Do not issue on the old frozen expiration.

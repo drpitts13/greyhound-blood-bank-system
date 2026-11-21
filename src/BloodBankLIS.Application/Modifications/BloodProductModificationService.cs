@@ -1116,6 +1116,10 @@ public sealed class BloodProductModificationService
                 DivisionCode = division,
                 Abo = primarySource.Abo,
                 RhD = primarySource.RhD,
+                // Mixed-ABO pooling phase 1: a pool records every source's ABO/Rh (pooling across ABO/Rh is still refused).
+                PoolComponentsJson = rule.ModificationType == ModificationType.Pool
+                    ? PoolComponents.ToJson(sources.Select(s => new PoolComponent(s.Abo, s.RhD)))
+                    : null,
                 DonationRestriction = restriction.Restriction,
                 ReservedPatientId = restriction.ReservedPatientId,
                 ExpiresUtc = resultExpiresUtc,
