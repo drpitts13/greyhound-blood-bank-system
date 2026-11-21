@@ -86,3 +86,56 @@ public class AdminCopyTests : BunitContext
         Assert.Contains(page.FindAll("input"), i => i.GetAttribute("value") == "IRR-RBC-LR-COPY");
     }
 }
+
+/// <summary>The product attribute picker names each attribute and works by keyboard (end-user testing loop 2 tick 34).</summary>
+public class ProductAttributePickerTests : BunitContext
+{
+    // TEST-BB-1410: each attribute toggle is a button reading code and name; choosing it marks it pressed and offers
+    // "required" beside it.
+    [Fact]
+    public void AttributePicker_NamesAttributes_AndTogglesAsButtons()
+    {
+        CannedApi.Register(this, new Dictionary<string, object>
+        {
+            ["/api/admin/products"] = new List<ProductDefinitionDto>(),
+            ["/api/admin/products/attributes"] = new List<ProductAttributeDto> { new(4, "IRRAD", "Irradiated", null, true) }
+        });
+        var page = Render<AdminProducts>();
+        page.WaitForAssertion(() => Assert.Contains("New product", page.Markup));
+        page.FindAll("button").First(b => b.TextContent.Trim() == "New product").Click();
+
+        var toggle = page.Find("[data-product-attr-toggle='IRRAD']");
+        Assert.Equal("BUTTON", toggle.TagName);
+        Assert.Contains("IRRAD · Irradiated", toggle.TextContent);
+        Assert.Equal("false", toggle.GetAttribute("aria-pressed"));
+        toggle.Click();
+        Assert.Equal("true", page.Find("[data-product-attr-toggle='IRRAD']").GetAttribute("aria-pressed"));
+        Assert.Contains("required", page.Find("[data-product-attr='IRRAD']").TextContent);
+    }
+}
+
+/// <summary>Clickable elements are buttons or links, so they can be reached by keyboard (end-user testing loop 2 tick 34).</summary>
+public partial class ClickableElementSourceTests
+{
+    // TEST-BB-1410: no page puts @onclick on a span, div, td, li or tr (other than a dialog backdrop), which a keyboard
+    // cannot reach; the grouper and product attribute pickers did.
+    [Fact]
+    public void ClickHandlers_AreOnButtonsOrLinks()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var offenders = Directory.GetFiles(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components"), "*.razor", SearchOption.AllDirectories)
+            .SelectMany(f => ClickableNonButton().Matches(File.ReadAllText(f))
+                .Where(m => !m.Value.Contains("bb-dialog-backdrop"))
+                .Select(m => $"{Path.GetFileName(f)}: {m.Value}"))
+            .ToList();
+        Assert.Empty(offenders);
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"<(?:span|div|td|li|tr)\b[^>]*@onclick=")]
+    private static partial System.Text.RegularExpressions.Regex ClickableNonButton();
+}

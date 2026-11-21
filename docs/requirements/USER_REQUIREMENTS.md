@@ -1155,3 +1155,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1147 | Crossmatch Settings and Transfusion Criteria show test value types and component classes in words. | P3 | FRS-BB-1265 |
 | URS-BB-1148 | Admin Home groups its cards by the same tasks as the Administration menu. | P3 | FRS-BB-1266 |
 | URS-BB-1149 | The test grouper member picker names each test and can be used by keyboard. | P3 | FRS-BB-1267 |
+| URS-BB-1150 | The product attribute picker names each attribute and can be used by keyboard; every clickable control is a button or link. | P3 | FRS-BB-1268 |

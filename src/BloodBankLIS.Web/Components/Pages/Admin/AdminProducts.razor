@@ -227,12 +227,16 @@
                 @foreach (var attr in _attributes)
                 {
                     var sel = _editing.Attributes.FirstOrDefault(a => a.AttributeId == attr.Id);
-                    <span class="badge @(sel is not null ? "badge-green" : "badge-gray")" style="cursor:pointer;" @onclick="() => ToggleAttr(attr.Id)">
-                        @attr.Code
+                    @* Loop 2 tick 34: the toggle is a button (reachable by keyboard) naming the attribute; "required" sits beside it. *@
+                    <span class="badge @(sel is not null ? "badge-green" : "badge-gray")" data-product-attr="@attr.Code">
+                        <button type="button" style="background:none;border:none;padding:0;cursor:pointer;color:inherit;font:inherit;"
+                                aria-pressed="@(sel is not null ? "true" : "false")" @onclick="() => ToggleAttr(attr.Id)" data-product-attr-toggle="@attr.Code">
+                            <span class="mono">@attr.Code</span>@(string.IsNullOrWhiteSpace(attr.Name) ? "" : $" · {attr.Name}")
+                        </button>
                         @if (sel is not null)
                         {
-                            <label class="flex" style="gap:.2rem;margin-left:.4rem;" @onclick:stopPropagation="true">
-                                <input type="checkbox" checked="@sel.IsRequired" @onchange="e => SetRequired(attr.Id, (bool)e.Value!)" /> req
+                            <label class="flex" style="gap:.2rem;margin-left:.4rem;">
+                                <input type="checkbox" checked="@sel.IsRequired" @onchange="e => SetRequired(attr.Id, (bool)e.Value!)" /> required
                             </label>
                         }
                     </span>

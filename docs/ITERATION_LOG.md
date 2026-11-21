@@ -29383,3 +29383,17 @@ Opened Admin › Test Groupers and its new-grouper form (item 6). Nothing was sa
 ### Tests
 
 - TEST-BB-1409. Full suite passed. Clean-tick count reset to 0 of 5.
+
+## Iteration 1101 — End-user testing loop 2, tick 34: product attribute picker and clickable controls (2026-11-21)
+
+### How it was tested
+
+Searched every page for clickable elements that are not buttons or links (items 1 and 4), following tick 33's grouper picker.
+
+### Found and fixed
+
+1. **The product attribute picker had the same problem.** Attributes were clickable labels reading only *IRRAD*, *LR*, *CMVNEG* that the keyboard could not reach, with a *req* box inside. Each is now a button reading code and name (*IRRAD · Irradiated*) that says whether it is chosen, with *required* beside it. A source test refuses a click handler on a span, div, table cell, list item or row (dialog backdrops aside), so no new one appears.
+
+### Tests
+
+- TEST-BB-1410. Full suite passed. Clean-tick count stays at 0 of 5.
