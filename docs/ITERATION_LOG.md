@@ -29304,3 +29304,21 @@ Opened the new-item form on Admin › MTP Packs and Admin › Special Requiremen
 - **Special requirements:** requirements are grouped by kind (unit typings, modifications, informational, issue procedures), and the form changes with the kind. A unit typing takes a category, a test (ABO group, RhD negative, antigen negative or unit test negative) and the allowed groups.
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1096 — End-user testing loop 2, tick 29: enum fields in words on two more builders (2026-11-21)
+
+### How it was tested
+
+Reviewed Admin › Crossmatch Settings and Compatibility Tables (items 3 and 5).
+
+### Found and fixed
+
+1. **Two builders still printed enum values raw.** The earlier sweeps read table cells and literal options, so they missed choices built in code:
+   - Crossmatch Settings' test choices read *Complex Crossmatch (CXM) — ComplexCrossmatch*.
+   - Transfusion Criteria rows read *RedBloodCells*.
+
+   Both now read in words. A source test refuses any page that prints a value type, modification type, component class, event type or issue type straight into markup.
+
+### Tests
+
+- TEST-BB-1407. Full suite passed. Clean-tick count reset to 0 of 5.

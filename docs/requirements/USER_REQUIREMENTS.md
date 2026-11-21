@@ -1152,3 +1152,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1144 | Retiring a subtest or phase names the active tests whose panels still use it. | P2 | FRS-BB-1262 |
 | URS-BB-1145 | Retiring a specimen type names the active tests that still prefer it. | P3 | FRS-BB-1263 |
 | URS-BB-1146 | Retiring a blood attribute names the typing tests and special requirements that still use it. | P2 | FRS-BB-1264 |
+| URS-BB-1147 | Crossmatch Settings and Transfusion Criteria show test value types and component classes in words. | P3 | FRS-BB-1265 |

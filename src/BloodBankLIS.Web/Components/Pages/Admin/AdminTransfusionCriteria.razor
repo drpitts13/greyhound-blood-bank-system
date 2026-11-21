@@ -33,7 +33,7 @@
                 @foreach (var c in _items)
                 {
                     <tr>
-                        <td>@c.ComponentClass</td>
+                        <td>@Ui.EnumText(c.ComponentClass)</td>
                         <td class="mono">@c.Code</td>
                         <td>@c.Name</td>
                         <td>@(c.LabTestCode is null ? "Selected by the orderer" : $"{c.LabTestCode} {TransfusionIndicationRule.Symbol(c.Comparison ?? IndicationComparison.LessThan)} {c.Threshold:0.###} {c.Unit}")</td>

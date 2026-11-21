@@ -1260,6 +1260,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1144 / FRS-BB-1262 | End-user testing loop 2 tick 24: retiring a subtest or phase names its panels | `PanelPartRetirementImpactRule.cs`, `SubtestDefinitionAdminService.cs`, `PhaseDefinitionAdminService.cs` | TEST-BB-1404 | U, I | |
 | URS-BB-1145 / FRS-BB-1263 | End-user testing loop 2 tick 26: retiring a specimen type names its tests | `SpecimenTypeAdminService.cs` | TEST-BB-1405 | I | |
 | URS-BB-1146 / FRS-BB-1264 | End-user testing loop 2 tick 27: retiring a blood attribute names its uses | `BloodAttributeAdminService.cs` | TEST-BB-1406 | I | |
+| URS-BB-1147 / FRS-BB-1265 | End-user testing loop 2 tick 29: enum fields in words on two more builders | `AdminCrossmatchSettings.razor`, `AdminTransfusionCriteria.razor` | TEST-BB-1407 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

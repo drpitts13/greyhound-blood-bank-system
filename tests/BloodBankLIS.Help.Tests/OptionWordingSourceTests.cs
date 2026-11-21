@@ -17,6 +17,21 @@ public partial class OptionWordingSourceTests
         Assert.Empty(offenders);
     }
 
+    // TEST-BB-1407 (end-user testing loop 2 tick 29): an enum field is not printed raw into markup (Crossmatch Settings
+    // read "Complex Crossmatch (CXM) — ComplexCrossmatch", Transfusion Criteria "RedBloodCells"); it goes through Ui.EnumText.
+    [Fact]
+    public void PageMarkup_DoesNotPrintEnumFieldsRaw()
+    {
+        var root = RepoRoot();
+        var offenders = Directory.GetFiles(Path.Combine(root, "src", "BloodBankLIS.Web", "Components"), "*.razor", SearchOption.AllDirectories)
+            .SelectMany(f => RawEnumField().Matches(File.ReadAllText(f)).Select(m => $"{Path.GetFileName(f)}: {m.Value.Trim()}"))
+            .ToList();
+        Assert.Empty(offenders);
+    }
+
+    [GeneratedRegex(@"(?:^|[^\w(])@[A-Za-z_]+\.(?:ResultValueType|ModificationType|ComponentClass|EventType|IssueType)\s*(?:<|&| —| ·)", System.Text.RegularExpressions.RegexOptions.Multiline)]
+    private static partial Regex RawEnumField();
+
     [GeneratedRegex(@">\s*([A-Z][a-z]+(?:[A-Z][a-z0-9]+)+)\s*</option>")]
     private static partial Regex CodeNameOption();
 
