@@ -234,6 +234,14 @@
         {
             <p class="muted" data-thaw-location-note>A thawed unit cannot stay in a freezer: choose the refrigerator it goes to.</p>
         }
+        else if (_selectedRule.ModificationType == ModificationType.Deglycerolize)
+        {
+            <p class="muted" data-thaw-location-note>A deglycerolized unit cannot stay in a freezer: choose the refrigerator it goes to.</p>
+        }
+        else if (_selectedRule.ModificationType == ModificationType.Freeze)
+        {
+            <p class="muted" data-thaw-location-note>A frozen unit must be stored in a freezer: choose the freezer it goes to.</p>
+        }
         @if (_selectedRule.ModificationType is not ModificationType.Divide and not ModificationType.Pool and not ModificationType.Aliquot)
         {
             var irradiate = _selectedRule.ModificationType == ModificationType.Irradiate;

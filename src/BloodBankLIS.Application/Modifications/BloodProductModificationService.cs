@@ -866,15 +866,18 @@ public sealed class BloodProductModificationService
                 return (null, $"{location.Code} {location.Name} does not take {target.Name}. Choose another result location.");
             }
 
-            return rule.ModificationType == ModificationType.Thaw && location.LocationType == LocationType.Freezer
-                ? (null, $"A thawed unit cannot go to {location.Code} {location.Name}, a freezer. Choose a refrigerator.")
+            // Loop 2 tick 19: thawed and deglycerolized results leave the freezer; a frozen result goes into one.
+            return ModificationResultStorageRule.Problem(rule.ModificationType, location.LocationType, $"{location.Code} {location.Name}", chosen: true) is { } chosenProblem
+                ? (null, chosenProblem)
                 : (chosen, null);
         }
 
-        if (rule.ModificationType == ModificationType.Thaw && sourceLocationId is long sourceId
-            && await _locations.GetByIdAsync(sourceId, ct) is { LocationType: LocationType.Freezer } freezer)
+        if (sourceLocationId is long sourceId
+            && (ModificationResultStorageRule.LeavesFreezer(rule.ModificationType) || ModificationResultStorageRule.GoesToFreezer(rule.ModificationType))
+            && await _locations.GetByIdAsync(sourceId, ct) is { } source
+            && ModificationResultStorageRule.Problem(rule.ModificationType, source.LocationType, $"{source.Code} {source.Name}", chosen: false) is { } stayProblem)
         {
-            return (null, $"A thawed unit cannot stay in {freezer.Code} {freezer.Name}, a freezer. Choose the result location (a refrigerator).");
+            return (null, stayProblem);
         }
 
         return (sourceLocationId, null);

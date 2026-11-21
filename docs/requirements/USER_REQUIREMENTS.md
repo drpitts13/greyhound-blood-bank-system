@@ -1145,3 +1145,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1137 | A pool records the ABO/Rh of each unit it was made from, shown on the unit page. | P2 | FRS-BB-1255 |
 | URS-BB-1138 | The expiration code and modification rule builders describe freeze dating correctly. | P3 | FRS-BB-1256 |
 | URS-BB-1139 | Builder pages link to the pages they are built from. | P3 | FRS-BB-1257 |
+| URS-BB-1140 | A frozen unit is recorded in a freezer, and a deglycerolized unit is not. | P2 | FRS-BB-1258 |

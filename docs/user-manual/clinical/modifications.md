@@ -16,6 +16,8 @@ routes:
 
 A pool records the ABO/Rh of each unit it was made from; the pool's unit page shows them under **Pooled from** (for example *4 units: O Pos ×3, O Neg*). Pools made before this was added show nothing there. Pooling units of different ABO/Rh is still refused.
 
+The result goes where the unit can be stored: a thawed or deglycerolized unit cannot be recorded in a freezer (choose the refrigerator), and a frozen unit must be recorded in a freezer (choose the freezer). If the result location is left blank and the source's location does not suit, the modification asks you to choose one.
+
 
 The source unit is consumed or reduced according to the rule. Resulting units are new stock. They start in quarantine until they are released, so a just-irradiated or just-pooled unit is not immediately available for issue. Release them from Inventory or the unit chart when the modification has been checked. Scan the unit number printed on the new label. The scan has to match that result. A blank or different number is a hard stop. A quarantine release that is not a modification result does not ask for this scan.
 

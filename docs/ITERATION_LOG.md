@@ -29151,3 +29151,21 @@ Listed the header links on the twelve test and product builder pages (items 1, 6
 - The test form shows 18 fields for a coded test. Numeric ranges, titer, blood-attribute and panel sections appear only for the value types that use them. No change.
 
 Clean tick 1 of 5. Mixed-ABO pooling phases 2 and 3 still await the product owner.
+
+## Iteration 1086 — End-user testing loop 2, tick 19: freeze and deglycerolize result storage (2026-11-21)
+
+### How it was tested
+
+Followed the freeze and deglycerolize types (tick 3) to where Modify products records the result (item 7).
+
+### Found and fixed
+
+1. **Only a thaw checked where its result was stored.** A thawed unit could not be recorded in a freezer, but a deglycerolized unit could stay in one, and a frozen unit stayed in its source refrigerator. Deglycerolized results now follow the thaw rule, and a frozen result must be recorded in a freezer; when no location is chosen and the source's does not suit, the modification asks for one. Modify products says so for each type.
+
+### Retested
+
+- Not run live (it would modify a dev unit); the 104 modification and thaw tests pass with TEST-BB-1400.
+
+### Tests
+
+- TEST-BB-1400. Full suite passed. Clean-tick count reset to 0 of 5.
