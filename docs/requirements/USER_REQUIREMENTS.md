@@ -1141,3 +1141,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1133 | The reflex rule builder suggests the trigger test's results and warns about a value it never produces. | P2 | FRS-BB-1251 |
 | URS-BB-1134 | The standard reaction grades include mixed field. | P2 | FRS-BB-1252 |
 | URS-BB-1135 | Graded subtests lacking a standard grade say so and can add it without losing their own choices. | P2 | FRS-BB-1253 |
+| URS-BB-1136 | One licensed ISBT product code can be added without building an extract. | P2 | FRS-BB-1254 |

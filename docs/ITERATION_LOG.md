@@ -29027,3 +29027,21 @@ Followed tick 12 to the subtests already saved: their stored choices predate mix
 ### Tests
 
 - TEST-BB-1395. Full suite passed.
+
+## Iteration 1079 — End-user testing loop 2, tick 14: add one licensed product code (2026-11-20)
+
+### How it was tested
+
+Reviewed product code loading (item 8) from the administrator's side: a supplier ships a product whose code is not in the catalog.
+
+### Found and fixed
+
+1. **A single code needed a whole extract.** Receive tells the user to have an administrator import or add the code, but the only way in was a licensed extract (drop folder, upload or pasted JSON). The import dialog now has **Add one product code** (code, description, class), saved as licensed through the same import, with the same license acknowledgment, version and reason.
+
+### Retested live
+
+- The dialog shows the form with Add disabled until a code and description are entered. Nothing was imported.
+
+### Tests
+
+- TEST-BB-1396. Full suite passed.

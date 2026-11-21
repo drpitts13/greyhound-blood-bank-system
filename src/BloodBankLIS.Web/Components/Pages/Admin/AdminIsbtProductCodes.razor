@@ -86,6 +86,23 @@
             I confirm this payload is from a current ICCBBA license held by the facility.
         </label>
 
+        @* Loop 2 tick 14: one code from the facility's licensed lookup, without building an extract. *@
+        <h4 style="margin-top:1rem;">Add one product code</h4>
+        <p class="muted">For a single code looked up in your licensed ICCBBA database, such as a product a supplier has started shipping. It is saved as licensed under the version above, with the same acknowledgment and reason.</p>
+        <div class="form-row">
+            <div class="field"><label>Product description code</label><input class="mono" maxlength="5" @bind="_oneCode" @bind:event="oninput" placeholder="E0000" data-isbt-one-code /></div>
+            <div class="field" style="flex:2;"><label>Description</label><input @bind="_oneDescription" @bind:event="oninput" placeholder="As in the ICCBBA database" data-isbt-one-description /></div>
+            <div class="field"><label>Class</label>
+                <select @bind="_oneClass" data-isbt-one-class>
+                    @foreach (var cls in Enum.GetValues<ComponentClass>())
+                    {
+                        <option value="@cls">@Ui.EnumText(cls)</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_oneCode) || string.IsNullOrWhiteSpace(_oneDescription))" @onclick="AddOneCodeAsync" data-isbt-one-add>Add code</button>
+
         <h4 style="margin-top:1rem;">Drop-folder extracts</h4>
         @if (_extracts.Count == 0)
         {
@@ -365,6 +382,30 @@
         ApplyImportResult(r);
         if (r.Succeeded)
             await LoadAsync();
+    }
+
+    private string _oneCode = string.Empty;
+    private string _oneDescription = string.Empty;
+    private ComponentClass _oneClass = ComponentClass.RedBloodCells;
+
+    /// <summary>Imports one licensed product code through the same import as an extract (loop 2 tick 14).</summary>
+    private async Task AddOneCodeAsync()
+    {
+        _busy = true;
+        var req = new LicensedIsbtCatalogImportRequest(
+            _importVersion,
+            _importAck,
+            string.IsNullOrWhiteSpace(_importReason) ? null : _importReason,
+            [new LicensedIsbtProductCodeRow(_oneCode.Trim().ToUpperInvariant(), _oneDescription.Trim(), _oneClass.ToString())]);
+        var r = await Api.ImportLicensedIsbtCatalogAsync(req);
+        _busy = false;
+        ApplyImportResult(r);
+        if (r.Succeeded)
+        {
+            _oneCode = string.Empty;
+            _oneDescription = string.Empty;
+            await LoadAsync();
+        }
     }
 
     private void ApplyImportResult(ApiResult<LicensedIsbtCatalogImportResult> r)
