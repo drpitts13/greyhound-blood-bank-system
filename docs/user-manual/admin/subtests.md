@@ -16,4 +16,4 @@ Create a subtest once and attach it to the tests that need it. Editing the meani
 
 Phases assigned to panel subtests are maintained on [Phases](phases). The subtest says what is being read. The phase says when it was read.
 
-The standard grades are 0, 1+ to 4+, H (hemolysis), w+, +/-, mf (mixed field) and NT; mf and +/- are neutral, so a panel reading them goes to review rather than being interpreted for you. Load standard grades again on an existing subtest to add mf.
+The standard grades are 0, 1+ to 4+, H (hemolysis), w+, +/-, mf (mixed field) and NT; mf and +/- are neutral, so a panel reading them goes to review rather than being interpreted for you. A graded subtest saved before a standard grade was added shows *Missing standard: mf* under its choice count; open it and choose **Add missing standard grades**, which keeps its own choices and adds only what it lacks (**Load standard grades** replaces the whole list).

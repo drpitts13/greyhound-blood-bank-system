@@ -1248,6 +1248,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1132 / FRS-BB-1250 | End-user testing loop 2 tick 10: frozen dating not capped at liquid dating | `ModificationExpirationRule.cs`, `BloodProductModificationService.cs` | TEST-BB-1392 | U | |
 | URS-BB-1133 / FRS-BB-1251 | End-user testing loop 2 tick 11: reflex trigger value suggestions and warning | `ReflexTriggerValues.cs`, `AdminReflexRules.razor` | TEST-BB-1393 | U | |
 | URS-BB-1134 / FRS-BB-1252 | End-user testing loop 2 tick 12: mixed field grade | `SubtestChoiceDefinition.cs` | TEST-BB-1394 | U | |
+| URS-BB-1135 / FRS-BB-1253 | End-user testing loop 2 tick 13: subtests missing standard grades | `SubtestChoiceDefinition.cs`, `AdminSubtests.razor` | TEST-BB-1395 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

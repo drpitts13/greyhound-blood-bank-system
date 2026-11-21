@@ -1403,5 +1403,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1392 | U | `ModificationExpirationRuleTests.Freeze_IsNotCappedAtTheLiquidExpiration_OthersAre` | URS-BB-1132 / FRS-BB-1250 |
 | TEST-BB-1393 | U | `ReflexTriggerValuesTests.Known_AndWarning` | URS-BB-1133 / FRS-BB-1251 |
 | TEST-BB-1394 | U | `StandardGradesTests.StandardGrades_IncludeMixedField` | URS-BB-1134 / FRS-BB-1252 |
+| TEST-BB-1395 | U | `MissingStandardGradesTests.MissingStandardGrades_NamesOnlyWhatIsLacking`, `SubtestMissingGradesTests.List_NamesMissingStandardGrades_AndAddKeepsExistingChoices` | URS-BB-1135 / FRS-BB-1253 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

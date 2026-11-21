@@ -29009,3 +29009,21 @@ Reviewed the subtest builder (item 6): result types (graded, free text, pick lis
 ### Tests
 
 - TEST-BB-1394. Full suite passed.
+
+## Iteration 1078 — End-user testing loop 2, tick 13: subtests missing standard grades (2026-11-20)
+
+### How it was tested
+
+Followed tick 12 to the subtests already saved: their stored choices predate mixed field.
+
+### Found and fixed
+
+1. **Existing subtests silently lacked mf, and the only fix replaced their choices.** Each graded subtest stores its own choice list, so the 20 dev subtests did not offer the new grade and nothing said so; *Load standard grades* would have replaced any facility-added choice. Admin › Subtests now shows *Missing standard: mf* under each such subtest, and the edit form offers **Add missing standard grades**, which keeps the subtest's own choices and adds only what it lacks. Definitions are not rewritten on their own; the change goes through the normal versioned save.
+
+### Retested live
+
+- All 20 dev graded subtests show *Missing standard: mf*. None was saved.
+
+### Tests
+
+- TEST-BB-1395. Full suite passed.

@@ -48,6 +48,16 @@ public static class SubtestChoiceDefinitions
         }
     }
 
+    /// <summary>
+    /// The standard grades a graded subtest's choices lack, by code ignoring case (loop 2 tick 13: subtests saved before
+    /// mixed field was added did not offer it).
+    /// </summary>
+    public static IReadOnlyList<SubtestChoiceDefinition> MissingStandardGrades(IEnumerable<string> choiceCodes)
+    {
+        var have = choiceCodes.Select(c => c.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return DefaultGradedReaction().Where(g => !have.Contains(g.Code)).ToList();
+    }
+
     /// <summary>Standard graded-reaction choices mapped from <see cref="CellReactionGradeValue"/>.</summary>
     public static IReadOnlyList<SubtestChoiceDefinition> DefaultGradedReaction() =>
     [

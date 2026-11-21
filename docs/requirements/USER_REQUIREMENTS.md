@@ -1140,3 +1140,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1132 | Frozen red cells take their frozen storage dating, not the liquid unit's. | P1 | FRS-BB-1250 |
 | URS-BB-1133 | The reflex rule builder suggests the trigger test's results and warns about a value it never produces. | P2 | FRS-BB-1251 |
 | URS-BB-1134 | The standard reaction grades include mixed field. | P2 | FRS-BB-1252 |
+| URS-BB-1135 | Graded subtests lacking a standard grade say so and can add it without losing their own choices. | P2 | FRS-BB-1253 |
