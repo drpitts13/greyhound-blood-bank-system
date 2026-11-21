@@ -70,7 +70,7 @@
                     @foreach (var e in _eligible)
                     {
                         <option value="@e.RuleId" disabled="@(!e.IsAvailable)">
-                            @e.ModificationCode — @Ui.EnumText(e.ModificationType) &rarr; @e.TargetProductCode (@e.ExpirationOffsetCode from @RelativeLabel(e.ExpirationRelativeTo))@(e.IsAvailable ? "" : " — collection date required")
+                            @e.ModificationCode — @Ui.EnumText(e.ModificationType) &rarr; @e.TargetProductCode@(TargetName(e.TargetProductTypeId)) (@e.ExpirationOffsetCode from @RelativeLabel(e.ExpirationRelativeTo))@(e.IsAvailable ? "" : " — collection date required")
                         </option>
                     }
                 </select>
@@ -554,6 +554,10 @@
             _searchFb = r.ToFeedback();
         }
     }
+
+    // End-user testing loop 2 tick 51: a choice read "Irradiate → E0332"; it now names the product it makes.
+    private string TargetName(long productTypeId) =>
+        _productTypes.FirstOrDefault(p => p.Id == productTypeId)?.Name is { Length: > 0 } name ? $" {name}" : string.Empty;
 
     private static string RelativeLabel(ExpirationRelativeTo relativeTo) =>
         relativeTo == ExpirationRelativeTo.CollectionDateTime ? "collection" : "modification";

@@ -29689,3 +29689,20 @@ No change. Clean tick 1 of 5.
 
 Clean count reset to 0.
 
+## Iteration 1120 — End-user testing loop 2, tick 51: modify choices name the product they make (2026-11-21)
+
+### How it was tested
+
+- On Modify products, selected an available red cell unit (W0001230009201, seeded) and read the rule choices. Nothing was saved.
+
+### Findings
+
+- The choices read "IRR-RBC-LR — Irradiate → E0332 (28D from modification)". The technologist had to know E0332 and E5169 by heart.
+
+### Change
+
+- Each choice names the target product after its code, for example "→ E0332 Red Blood Cells, Irradiated".
+- TEST-BB-1421, URS-BB-1161, FRS-BB-1279.
+
+Clean count stays at 0.
+

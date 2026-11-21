@@ -155,3 +155,22 @@ public class ComboBoxNoMatchSourceTests
     }
 }
 
+/// <summary>Modify products names the product each rule makes (end-user testing loop 2 tick 51).</summary>
+public class ModifyChoiceSourceTests
+{
+    // TEST-BB-1421: each modification choice on Modify products names the target product after its code
+    // ("Irradiate → E0332 Red Blood Cells, Irradiated"), not the code alone.
+    [Fact]
+    public void ModificationChoice_NamesTheTargetProduct()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var page = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "Modifications.razor"));
+        Assert.Contains("@e.TargetProductCode@(TargetName(e.TargetProductTypeId))", page);
+    }
+}
+
