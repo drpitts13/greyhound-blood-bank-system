@@ -4,6 +4,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.Rules.Config;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -14,6 +15,8 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
     private readonly IRepository<PhaseDefinition> _repo;
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
+    private readonly IRepository<TestDefinition>? _tests;
+
     public PhaseDefinitionAdminService(
         IRepository<PhaseDefinition> repo,
         IUnitOfWork unitOfWork,
@@ -21,9 +24,11 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         ICurrentUser currentUser,
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IRepository<TestDefinition>? tests = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
+        _tests = tests;
         _repo = repo;
         _permissionEvaluator = permissionEvaluator;
     }
@@ -177,7 +182,13 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
             oldValue: null, newValue: Map(entity), reason: reason);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        return OperationResult<PhaseDefinitionDto>.Ok(Map(entity));
+        // Loop 2 tick 24: name the active tests whose panels still use it.
+        var panelTests = _tests is null
+            ? []
+            : (await _tests.ListAsync(t => t.IsActive, ct))
+                .Select(t => new PanelPartRetirementImpactRule.PanelTest(t.Code, PanelSubtestAssignments.Parse(t.PanelSubtestsJson)))
+                .ToList();
+        return OperationResult<PhaseDefinitionDto>.Ok(Map(entity), PanelPartRetirementImpactRule.PhaseWarnings(entity.Code, panelTests));
     }
 
     private async Task<bool> HasActiveDuplicateAsync(string code, long selfId, CancellationToken ct)

@@ -15,6 +15,8 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
     private readonly IRepository<SubtestDefinition> _repo;
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
+    private readonly IRepository<TestDefinition>? _tests;
+
     public SubtestDefinitionAdminService(
         IRepository<SubtestDefinition> repo,
         IUnitOfWork unitOfWork,
@@ -22,9 +24,11 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
         ICurrentUser currentUser,
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IRepository<TestDefinition>? tests = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
+        _tests = tests;
         _repo = repo;
         _permissionEvaluator = permissionEvaluator;
     }
@@ -178,7 +182,13 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
             oldValue: null, newValue: Map(entity), reason: reason);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        return OperationResult<SubtestDefinitionDto>.Ok(Map(entity));
+        // Loop 2 tick 24: name the active tests whose panels still use it.
+        var panelTests = _tests is null
+            ? []
+            : (await _tests.ListAsync(t => t.IsActive, ct))
+                .Select(t => new PanelPartRetirementImpactRule.PanelTest(t.Code, PanelSubtestAssignments.Parse(t.PanelSubtestsJson)))
+                .ToList();
+        return OperationResult<SubtestDefinitionDto>.Ok(Map(entity), PanelPartRetirementImpactRule.SubtestWarnings(entity.Code, panelTests));
     }
 
     private async Task<bool> HasActiveDuplicateAsync(string code, long selfId, CancellationToken ct)

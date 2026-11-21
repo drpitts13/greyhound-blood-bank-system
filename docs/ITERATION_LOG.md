@@ -29228,3 +29228,17 @@ Followed tick 22 from tests to products (item 7): what still depends on a produc
 ### Tests
 
 - TEST-BB-1403. Full suite passed. Clean-tick count stays at 0 of 5.
+
+## Iteration 1091 — End-user testing loop 2, tick 24: retiring a subtest or phase names its panels (2026-11-21)
+
+### How it was tested
+
+Followed ticks 22 and 23 to the remaining building blocks (items 3, 6 and 7): subtests, phases and expiration codes.
+
+### Found and fixed
+
+1. **Retiring a subtest or phase said nothing about the panels using it.** A subtest could be deactivated while still in an active test's panel (for example a screening cell in the antibody screen), and a phase while still assigned to a panel subtest. Deactivating still goes ahead, but the confirmation now names the tests whose panels use it. Expiration codes already check for active modification rules.
+
+### Tests
+
+- TEST-BB-1404. Full suite passed. Clean-tick count stays at 0 of 5.

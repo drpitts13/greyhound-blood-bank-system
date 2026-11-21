@@ -1149,3 +1149,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1141 | Reflex trigger suggestions for ABO/Rh tests are written the way results are matched. | P2 | FRS-BB-1259 |
 | URS-BB-1142 | Retiring a test names the groupers, reflex rules and products that still use it. | P2 | FRS-BB-1260 |
 | URS-BB-1143 | Retiring a product names the modification rules, stock and minimum levels that still use it. | P2 | FRS-BB-1261 |
+| URS-BB-1144 | Retiring a subtest or phase names the active tests whose panels still use it. | P2 | FRS-BB-1262 |
