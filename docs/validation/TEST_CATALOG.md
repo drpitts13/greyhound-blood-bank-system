@@ -1413,5 +1413,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1402 | U, I | `TestRetirementImpactRuleTests.Warnings_NameEachUse`, `AdminConfigTests.Deactivate_NamesWhatStillUsesTheTest` | URS-BB-1142 / FRS-BB-1260 |
 | TEST-BB-1403 | U, I | `ProductRetirementImpactRuleTests.Warnings_NameEachUse`, `ProductCatalogAuthorizationTests.Deactivate_NamesWhatStillUsesTheProduct` | URS-BB-1143 / FRS-BB-1261 |
 | TEST-BB-1404 | U, I | `PanelPartRetirementImpactRuleTests.Warnings_NameThePanelsUsingIt`, `SubtestAndGrouperAdminTests.Subtest_Deactivate_NamesThePanelsUsingIt` | URS-BB-1144 / FRS-BB-1262 |
+| TEST-BB-1405 | I | `AdminCatalogTests.SpecimenType_Deactivate_NamesTestsPreferringIt` | URS-BB-1145 / FRS-BB-1263 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

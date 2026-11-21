@@ -603,4 +603,24 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
             && a.EntityId == created.Value.Id
             && a.EventType == AuditEventType.Activate));
     }
+
+    // TEST-BB-1405 (end-user testing loop 2 tick 26): retiring a specimen type still preferred by an active test succeeds
+    // and names the test.
+    [Fact]
+    public async Task SpecimenType_Deactivate_NamesTestsPreferringIt()
+    {
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        await using var c = _factory.Create();
+        var svc = CreateSpecimenTypeService(c);
+        var created = await svc.CreateAsync(new SaveSpecimenTypeDefinitionRequest($"ST{key}", "Retiring", "3D", SpecimenExpirationMode.ExactTime, [], 9, null));
+        Assert.True(created.Succeeded, created.Error);
+        await svc.ActivateAsync(created.Value!.Id, "Initial");
+        c.TestDefinitions.Add(new TestDefinition { Code = $"TQ{key}", Name = "Prefers it", IsActive = true, RequiredSpecimenType = $"ST{key}" });
+        await c.SaveChangesAsync();
+
+        var retired = await svc.DeactivateAsync(created.Value.Id, "Replaced");
+
+        Assert.True(retired.Succeeded);
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"ST{key} is still the preferred specimen type") && w.Message.Contains($"TQ{key}"));
+    }
 }

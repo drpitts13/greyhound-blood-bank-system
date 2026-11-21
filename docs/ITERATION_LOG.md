@@ -29260,3 +29260,17 @@ The retirement warnings reach the user:
 The expiration code builder still refuses to retire a code an active modification rule uses. That stays, because a retired code would leave the rule unusable at the bench.
 
 No change. Clean tick 1 of 5.
+
+## Iteration 1093 — End-user testing loop 2, tick 26: retiring a specimen type names its tests (2026-11-21)
+
+### How it was tested
+
+Reviewed the specimen type builder (item 6): code, description, expiration amount, unit and timing, and the tests that cannot run on the type.
+
+### Found and fixed
+
+1. **Retiring a specimen type said nothing about the tests preferring it.** As with tests, products, subtests and phases (ticks 22 to 24), a specimen type could be deactivated while active tests still named it as their preferred specimen. Deactivating still goes ahead, but the confirmation now names those tests.
+
+### Tests
+
+- TEST-BB-1405. Full suite passed. Clean-tick count reset to 0 of 5.
