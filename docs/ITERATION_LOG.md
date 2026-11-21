@@ -29472,3 +29472,19 @@ Opened Admin › Reaction Workup (items 1 and 3).
 ### Tests
 
 - The reaction workup test asserting the unchosen-specimen message now expects *Test Grouper*. Full suite passed. Clean-tick count reset to 0 of 5.
+
+## Iteration 1107 — End-user testing loop 2, tick 40: menu labels against page headings, nothing to fix (2026-11-21)
+
+### How it was tested
+
+Compared each Administration menu label with the heading of the page it opens (item 1), after tick 39's naming fix.
+
+### Findings
+
+Every pair names the same thing. Where they differ, the heading is the label's longer form:
+- *Tests* / *Test Definitions*
+- *Expiration Codes* / *Expiration Modification Codes*
+- *Config History* / *Configuration History*
+- *Admin Home* / *Administration*
+
+No change. Clean tick 1 of 5.
