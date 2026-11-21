@@ -29592,3 +29592,12 @@ Re-read the mixed-pool help against the screens after tick 44.
 1. **The help's example did not match the screen.** It showed *Pooled from* as *4 units: O Pos ×3, O Neg*, but the unit page writes blood types as *O+* and *O−* (*4 units: O+ ×3, O−*). The example now matches. The products help and OCD-094 already read correctly.
 
 Docs only. Clean-tick count stays at 0 of 5 (a finding).
+
+## Iteration 1114 — Mixed-ABO pooling: remaining display items decided against (2026-11-21)
+
+The product owner decided the three items tick 44 listed as not built are not needed:
+- no groups printed beneath *Mixed ABO* on cryoprecipitate labels;
+- no minimum stock level for mixed pools;
+- no entry per pooled unit in interface messages.
+
+The design and OCD-094 record the decision. No code change.

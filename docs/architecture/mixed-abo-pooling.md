@@ -58,10 +58,10 @@ Migration: one nullable column plus the dev bootstrap column. `AboGroup` is stor
 - **Reports:** Antibodies and Special requirements are unaffected. Inventory and utilization reports show the type as *Mixed ABO*.
 - **Lookback and recall:** these already trace pools to every source unit.
 
-**Not built, if wanted later:**
-- the groups printed beneath *Mixed ABO* on labels and pick lists;
-- a separate *Mixed ABO* minimum stock row;
-- FHIR component entries.
+**Decided not to build (product owner, 2026-11-21):**
+- the groups printed beneath *Mixed ABO* on cryoprecipitate labels and pick lists;
+- a minimum stock level for mixed pools;
+- an entry for each unit of the pool in interface messages.
 
 ## Phases
 
