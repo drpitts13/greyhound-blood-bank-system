@@ -30,6 +30,14 @@ public partial class EnumTextTests
         Assert.Equal("ORD-1", Ui.EnumText("ORD-1"));
         Assert.Equal("42", Ui.EnumText(42));
         Assert.Equal(string.Empty, Ui.EnumText(null));
+        // TEST-BB-1388 (end-user testing loop 2 tick 6): billing triggers, rule severities and catalog component classes
+        // read in words on the builder pages.
+        Assert.Equal("Unit issued", Ui.EnumText(BillingTriggerType.UnitIssued));
+        Assert.Equal("Test verified", Ui.EnumText(BillingTriggerType.TestVerified));
+        Assert.Equal("Hard stop", Ui.CodeNameText("HardStop"));
+        Assert.Equal(BloodBankLIS.Domain.Rules.ComponentClassLabels.Label(ComponentClass.WholeBlood), Ui.ComponentClassText("WholeBlood"));
+        Assert.Equal("Something new", Ui.ComponentClassText("SomethingNew"));
+        Assert.Equal(string.Empty, Ui.ComponentClassText(null));
     }
 
     [Theory]

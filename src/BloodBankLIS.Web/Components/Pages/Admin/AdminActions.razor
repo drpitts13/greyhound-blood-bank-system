@@ -45,7 +45,7 @@
                         <td class="mono">@row.Code</td>
                         <td>@row.Name</td>
                         <td>@Ui.EnumText(row.Category)</td>
-                        <td>@(row.ModificationType?.ToString() ?? "—")</td>
+                        <td>@(row.ModificationType is { } actionType ? Ui.EnumText(actionType) : "—")</td>
                         <td>@(row.Description ?? "—")</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>
                         <td class="right nowrap">

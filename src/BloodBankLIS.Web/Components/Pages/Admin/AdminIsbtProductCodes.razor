@@ -167,7 +167,7 @@
                     <tr>
                         <td class="mono">@c.ProductDescriptionCode</td>
                         <td>@c.Description</td>
-                        <td>@c.ComponentClass</td>
+                        <td data-isbt-class>@Ui.ComponentClassText(c.ComponentClass)</td>
                         <td>@(c.RequiresExtendedDivision ? "Yes" : "No")</td>
                         <td>
                             @if (c.IsRetired)

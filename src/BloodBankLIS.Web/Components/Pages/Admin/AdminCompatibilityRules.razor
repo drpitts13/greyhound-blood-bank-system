@@ -146,8 +146,9 @@
                     {
                         <tr>
                             <td class="mono">@r.RuleCode</td>
-                            <td>@r.ComponentClass</td>
-                            <td>@Ui.EnumText(r.Severity)</td>
+                            @* Loop 2 tick 6: component and severity in words. *@
+                            <td data-compat-class>@Ui.EnumText(r.ComponentClass)</td>
+                            <td data-compat-severity>@Ui.CodeNameText(r.Severity)</td>
                             <td>
                                 @if (r.AtIssue == CompatibilityTablePolicy.AtIssueRaises)
                                 {

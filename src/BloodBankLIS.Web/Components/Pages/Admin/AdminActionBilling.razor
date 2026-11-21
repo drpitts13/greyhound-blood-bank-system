@@ -54,7 +54,7 @@
                                 <span class="muted"> — @row.ChargeCodeDescription</span>
                             }
                         </td>
-                        <td>@row.Trigger</td>
+                        <td data-billing-trigger>@Ui.EnumText(row.Trigger)</td>
                         <td class="right">@(row.ChargeCodeAmount?.ToString("C") ?? "—")</td>
                         <td>@(row.Description ?? "—")</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>

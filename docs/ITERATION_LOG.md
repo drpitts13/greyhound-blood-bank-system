@@ -28887,3 +28887,21 @@ Reviewed screen clutter (item 2) on Admin › Products.
 ### Tests
 
 - TEST-BB-1387. Full suite passed.
+
+## Iteration 1071 — End-user testing loop 2, tick 6: builder pages in words (2026-11-20)
+
+### How it was tested
+
+Swept the tables of all 44 admin builder pages (item 3) for values shown as code names.
+
+### Found and fixed
+
+1. **Six builder pages showed code names.** Compatibility Tables read *RedBloodCells*, *WholeBlood* and *HardStop*; ISBT Product Codes read *RedBloodCells*; Product, Test/Service and Action Billing read triggers *UnitIssued*, *UnitTransfused*, *TestVerified*, *ActionCompleted*; Actions read *VolumeReduction*. Each now reads in words (*RBC*, *Hard stop*, *Unit issued*, *Volume reduction*). A role named ReadOnly is data and is left as entered.
+
+### Retested live
+
+- The six pages show no code names in their tables.
+
+### Tests
+
+- TEST-BB-1388. Full suite passed.

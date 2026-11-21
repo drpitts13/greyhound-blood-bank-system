@@ -38,6 +38,15 @@ public static class Ui
         _ => value.ToString() ?? string.Empty
     };
 
+    /// <summary>
+    /// A component class stored as text (the ISBT catalog keeps it as a string) as its label, or in words when it is not
+    /// a known class (loop 2 tick 6: the catalog read RedBloodCells, WholeBlood).
+    /// </summary>
+    public static string ComponentClassText(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? string.Empty
+        : Enum.TryParse<ComponentClass>(value, ignoreCase: true, out var parsed) ? EnumText(parsed)
+        : CodeNameText(value);
+
     private static readonly Dictionary<string, string> Acronyms = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Abo"] = "ABO", ["Ahg"] = "AHG", ["Astm"] = "ASTM", ["Cmv"] = "CMV", ["Csv"] = "CSV", ["Dat"] = "DAT", ["Ehr"] = "EHR",
