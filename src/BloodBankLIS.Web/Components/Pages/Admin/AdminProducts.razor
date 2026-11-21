@@ -79,6 +79,11 @@
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(p.Id)">Edit</button>
+                            @if (CanManage)
+                            {
+                                @* Loop 2 tick 9: start a new product from this one. *@
+                                <button class="btn btn-ghost btn-sm" @onclick="() => CopyAsync(p.Id)" data-product-copy="@p.ProductCode">Copy</button>
+                            }
                             @if (Session.Has(PermissionCodes.AdminAuditReview))
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(p.Id)">History</button>
@@ -96,6 +101,10 @@
 {
     <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New product" : $"Edit: {_editing.ProductCode}")</h2>
+        @if (_editId is null && _copiedFrom is not null)
+        {
+            <p class="muted" data-product-copied-from>Copied from @_copiedFrom: change the code, name and ISBT code, then save to create a new draft.</p>
+        }
         <div class="form-row">
             <div class="field"><label>Product code</label><input @bind="_editing.ProductCode" disabled="@(_editId is not null)" /></div>
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
@@ -282,6 +291,7 @@
     private bool _currentIsActive;
     private string? _changeReason;
     private bool _aboRhDirty;
+    private string? _copiedFrom;
 
     private static readonly (RhType Patient, RhType Unit, string Label)[] RhRows =
     [
@@ -327,7 +337,7 @@
 
     private void NewDraft()
     {
-        _editId = null; _currentIsActive = false; _changeReason = null; _aboRhDirty = false;
+        _editId = null; _currentIsActive = false; _changeReason = null; _aboRhDirty = false; _copiedFrom = null;
         _editing = new EditModel();
         _editing.LoadPolicy(StandardProductAboRhPolicy.For(ComponentClass.RedBloodCells));
         _feedback = null;
@@ -370,8 +380,23 @@
         _aboRhDirty = true;
     }
 
+    /// <summary>A new, unsaved product filled from an existing one, with its attributes and ABO/Rh tables (loop 2 tick 9).</summary>
+    private async Task CopyAsync(long id)
+    {
+        var r = await Api.GetAdminProductAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = null; _currentIsActive = false; _changeReason = null; _feedback = null;
+        _editing = EditModel.From(r.Value);
+        _editing.ProductCode = r.Value.ProductCode + "-COPY";
+        _editing.Isbt128ProductCode = null;
+        // The copied ABO/Rh tables are saved with the new product, not reset to the class default.
+        _aboRhDirty = true;
+        _copiedFrom = r.Value.ProductCode;
+    }
+
     private async Task EditAsync(long id)
     {
+        _copiedFrom = null;
         var r = await Api.GetAdminProductAsync(id);
         if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
         _editId = r.Value.Id; _currentIsActive = r.Value.IsActive; _changeReason = null; _aboRhDirty = false;

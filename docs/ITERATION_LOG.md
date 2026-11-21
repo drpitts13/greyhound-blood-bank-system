@@ -28937,3 +28937,21 @@ Opened the new-item form on 36 builder and bench pages (none saved) and read eve
 ### Tests
 
 - TEST-BB-1390. Full suite passed.
+
+## Iteration 1074 — End-user testing loop 2, tick 9: copy a product or modification rule (2026-11-20)
+
+### How it was tested
+
+Reviewed the builder workflow (items 3, 4, 7): how a new test, product or modification rule is started.
+
+### Found and fixed
+
+1. **Products and modification rules had to be built from blank.** Tests have *Clone*, but a product variant (say, a washed or irradiated version) or the same modification for another product meant retyping every field, attribute and ABO/Rh table. Products and modification rules now have **Copy**: a new, unsaved form filled from the row, its code ending *-COPY* (a product's ISBT code left blank), with a note saying where it came from. Saving creates a draft as before.
+
+### Retested live
+
+- Copy on IRR-RBC-LR opened a new rule with E0336 → Irradiate → E0332 filled in; it was not saved.
+
+### Tests
+
+- TEST-BB-1391. Full suite passed.
