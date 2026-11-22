@@ -1,4 +1,4 @@
-using BloodBankLIS.Api.Auth;
+﻿using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Reference;
@@ -17,10 +17,38 @@ namespace BloodBankLIS.Api.Endpoints;
 /// </summary>
 public static class ReferenceEndpoints
 {
-    /// <summary>Yes/no facility policies that bench pages may read to show the right prompts. Each defaults to true.</summary>
+    /// <summary>Yes/no facility policies that bench pages may read to show the right prompts, each with its catalog default.</summary>
     private static readonly HashSet<string> ReadablePolicyKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        FacilityPolicyKeys.RequireSecondAboForCellularIssue
+        FacilityPolicyKeys.RequireSecondAboForCellularIssue,
+        // Pass 330: a chart's Document transfusion link opens ward receipt first when receipt is required.
+        FacilityPolicyKeys.RequireWardReceipt,
+        // Pass 335: the home page says tubes due for discard are not tracked while retention is not set (OCD-070).
+        FacilityPolicyKeys.SpecimenRetentionDays,
+        // The chart offers Extend on an expired tube only while the medical director may extend expiration.
+        FacilityPolicyKeys.SpecimenAllowExpirationExtension,
+        FacilityPolicyKeys.SpecimenAutoDiscard,
+        // The deviation form checks closing against the facility's FDA reportability setting (OCD-090).
+        FacilityPolicyKeys.DeviationFdaReportabilityToClose,
+        // Record crossmatch does not offer Electronic while the facility has it off (end-user testing pass 174).
+        FacilityPolicyKeys.AllowElectronicCrossmatch,
+        // Modify products marks the reason optional when the facility does not require one (loop 2 tick 54).
+        FacilityPolicyKeys.RequireModificationReason,
+        FacilityPolicyKeys.PrefillPatientIdentifiers,
+        FacilityPolicyKeys.RequireSpecimenReceiptByScan,
+        FacilityPolicyKeys.InspectionDefaultAcceptable,
+        // The transfusion form marks consent confirmation required (end-user testing pass 115).
+        FacilityPolicyKeys.RequireTransfusionConsent,
+        FacilityPolicyKeys.BlockAboSelfVerify,
+        // The test worklist shows the reagent QC result block before anything is keyed.
+        FacilityPolicyKeys.BlockResultsWhenReagentQcOpen,
+        // The chart's accession form marks the collector required to accept (OCD-064).
+        FacilityPolicyKeys.RequireSpecimenCollector,
+        // Antibody identification says before Accept that the interpreting technologist cannot review their own workup.
+        FacilityPolicyKeys.AntibodyIdRequireSupervisorReview,
+        FacilityPolicyKeys.AntibodyIdBlockSelfReview,
+        // Discard expired says before the first scan whether a second verifier is required (end-user testing pass 54).
+        FacilityPolicyKeys.RequireDiscardVerifier
     };
 
     public static void MapReferenceEndpoints(this WebApplication app)
@@ -34,7 +62,18 @@ public static class ReferenceEndpoints
             Results.Ok(new ReceivePolicyDto(
                 await policy.GetRequireReceiveVerifierAsync(ct),
                 await policy.GetRequireReceiveTemperatureAsync(ct),
-                await policy.GetRequireReceiveVisualInspectionAsync(ct))));
+                await policy.GetRequireReceiveVisualInspectionAsync(ct))
+            {
+                TemperatureMinC = (await policy.GetReceiveTemperatureRangeAsync(ct)).Min,
+                TemperatureMaxC = (await policy.GetReceiveTemperatureRangeAsync(ct)).Max
+            }));
+
+        // The blood bank's name and phone for documents a patient carries elsewhere (pass 80).
+        group.MapGet("/facility", (IConfiguration configuration) =>
+        {
+            static string? Value(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+            return Results.Ok(new FacilityIdentityDto(Value(configuration["Facility:Name"]), Value(configuration["Facility:Phone"])));
+        });
 
         // Bench pages need an exception's minimum override level to tell the user up front whether
         // they may override; the admin endpoint requires configuration access they do not have.
@@ -51,7 +90,14 @@ public static class ReferenceEndpoints
                 return Results.NotFound(new { error = "Unknown or restricted facility policy." });
             }
 
-            return Results.Ok(new FacilityPolicyValueDto(key, await policy.GetBoolAsync(key, defaultValue: true, ct)));
+            // An unset policy reads as its catalog default, so a default-off policy is never reported on.
+            if (FacilityPolicyCatalog.Find(key) is { Kind: FacilityPolicyValueKind.Integer })
+            {
+                var value = await policy.GetIntAsync(key, FacilityPolicyCatalog.IntDefault(key), ct);
+                return Results.Ok(new FacilityPolicyValueDto(key, value != 0) { Value = value });
+            }
+
+            return Results.Ok(new FacilityPolicyValueDto(key, await policy.GetBoolAsync(key, FacilityPolicyCatalog.BoolDefault(key), ct)));
         });
 
         group.MapGet("/product-types", async (BloodBankDbContext context, CancellationToken ct) =>
@@ -88,13 +134,16 @@ public static class ReferenceEndpoints
             return Results.Ok(locations.Select(OrderingLocationRefDto.From));
         });
 
-        group.MapGet("/ordering-providers", async (BloodBankDbContext context, CancellationToken ct) =>
+        // Outside providers (OCD-055) are listed only when asked for, by the override authorizer field; they are not ordering providers.
+        group.MapGet("/ordering-providers", async (BloodBankDbContext context, bool? includeOutside, CancellationToken ct) =>
         {
             var providers = await context.OrderingProviders.AsNoTracking()
                 .Where(p => p.IsActive)
                 .OrderBy(p => p.Name)
                 .ToListAsync(ct);
-            return Results.Ok(providers.Select(OrderingProviderRefDto.From));
+            return Results.Ok(providers
+                .Where(p => includeOutside == true || !OutsideProviderRule.IsOutside(p.SourceSystem))
+                .Select(OrderingProviderRefDto.From));
         });
 
         group.MapGet("/users", async (BloodBankDbContext context, CancellationToken ct) =>
@@ -138,6 +187,26 @@ public static class ReferenceEndpoints
                 .ThenBy(r => r.Code)
                 .ToListAsync(ct);
             return Results.Ok(items.Select(r => new OrderCancellationReasonRefDto(r.Code, r.Text, r.SortOrder)));
+        });
+
+        // OCD-057: the active reaction and treatment lists the provider chooses from when concluding an investigation.
+        group.MapGet("/reaction-catalog", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var items = await context.ReactionCatalogEntries.AsNoTracking()
+                .Where(e => e.IsActive)
+                .OrderBy(e => e.Kind).ThenBy(e => e.SortOrder).ThenBy(e => e.Code)
+                .ToListAsync(ct);
+            return Results.Ok(items.Select(ReactionCatalogEntryDto.From));
+        });
+
+        group.MapGet("/specimen-rejection-reasons", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var items = await context.SpecimenRejectionReasons.AsNoTracking()
+                .Where(r => r.IsActive)
+                .OrderBy(r => r.SortOrder)
+                .ThenBy(r => r.Code)
+                .ToListAsync(ct);
+            return Results.Ok(items.Select(r => new SpecimenRejectionReasonRefDto(r.Code, r.Text, r.RequiresComment, r.SortOrder)));
         });
 
         group.MapGet("/discard-reasons", async (BloodBankDbContext context, CancellationToken ct) =>
@@ -238,7 +307,7 @@ public static class ReferenceEndpoints
                 phases);
 
             var interpretationOptions = InterpretationLogicDefinitions.Parse(def.InterpretationLogicJson)
-                .Select(r => new InterpretationOptionDto(r.InterpretationKey, r.Label))
+                .Select(r => new InterpretationOptionDto(r.InterpretationKey, r.Label, r.SubtestExpectations, r.MatchMode))
                 .ToList();
 
             var bloodAttrScope = BloodAttributeScope.Parse(def.BloodAttributeScopeJson);
@@ -270,12 +339,16 @@ public static class ReferenceEndpoints
                         .Select(p => new ResolvedPanelPhaseDto(
                             p.PhaseCode, p.Label, p.Required, p.IncludeInInterpretation,
                             p.IsCheckCell, p.ValidatesPhaseCode, p.SortOrder))
-                        .ToList())).ToList(),
+                        .ToList(),
+                    CrossmatchReactionRule.CountsInInterpretation(s.SubtestCode, phases))).ToList(),
                 interpretationOptions,
                 scopedBloodAttrs,
                 def.BloodAttributeScopeKind,
                 def.ContributesToUnitBloodAttributes,
-                def.ContributesToAntibodyHistory));
+                def.ContributesToAntibodyHistory,
+                def.ResultUnits,
+                def.ResultValueType == ResultValueType.Numeric ? NumericLimits.From(def) : null,
+                def.ResultValueType == ResultValueType.Titer ? TiterSettings.From(def) : null));
         });
     }
 

@@ -3,11 +3,11 @@ slug: about-this-guide
 title: About this guide
 order: 10
 chapter: Getting started
-summary: What Greyhound Blood Bank LIS is, who this guide is for, and what the software does not claim.
+summary: What HemoCore is, who this guide is for, and what the software does not claim.
 routes:
 ---
 
-Greyhound Blood Bank LIS is a hospital transfusion-service laboratory information system. It supports patients, specimens, immunohematology, compatibility, inventory, issue, transfusion documentation, lookback, reactions, and quality deviations.
+HemoCore is a hospital transfusion-service laboratory information system. It supports patients, specimens, immunohematology, compatibility, inventory, issue, transfusion documentation, lookback, reactions, and quality deviations.
 
 This Clinical User Guide is for people who do that work: technologists, supervisors, and staff who review billing, interfaces, or the audit trail. Configuration of catalogs, rules, users, and interfaces is in the Administrator Guide.
 

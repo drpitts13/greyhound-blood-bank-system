@@ -23,14 +23,26 @@ public static class ReagentQcReviewRule
     }
 }
 
-public readonly record struct ReagentQcLotFact(long LotId, string LotNumber, ReagentLotState State, DateTime ExpiresUtc);
+public readonly record struct ReagentQcLotFact(
+    long LotId,
+    string LotNumber,
+    ReagentLotState State,
+    DateTime ExpiresUtc,
+    long ReagentId = 0,
+    string? ReagentCode = null,
+    // Pass 93: the reagent's QC controls; each needs its reading for the day.
+    IReadOnlyList<string>? Controls = null);
 
 public readonly record struct ReagentQcFact(
     long Id,
     long LotId,
     DateTime QcDateUtc,
     bool Passed,
-    string? ReviewedBy);
+    string? ReviewedBy,
+    string? Control = null,
+    // Pass 133: what was expected and read, so a worklist row says what is being reviewed.
+    string? Expected = null,
+    string? Observed = null);
 
 public readonly record struct ReagentQcWorkItem(string Kind, long LotId, long? QcId, string Message);
 
@@ -39,13 +51,30 @@ public static class ReagentQcWorklistRule
     public const string Overdue = "Overdue";
     public const string Failed = "Failed";
     public const string Unreviewed = "Unreviewed";
+    public const string Expired = "Expired";
+    public const string Replace = "Replace";
+
+    /// <summary>A lot whose QC failed and later passed, with results tested in the failed period not yet reviewed.</summary>
+    public const string ReviewResults = "ReviewResults";
+
+    /// <summary>
+    /// The kind in words for a title ("overdue", "results to review"). End-user testing pass 64: the alert read
+    /// "Reagent QC reviewresults: lot AD-24092".
+    /// </summary>
+    public static string KindText(string kind) => kind switch
+    {
+        ReviewResults => "results to review",
+        _ => kind.ToLowerInvariant()
+    };
 
     public static IReadOnlyList<ReagentQcWorkItem> Evaluate(
         IReadOnlyList<ReagentQcLotFact> lots,
         IReadOnlyList<ReagentQcFact> qcRows,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        DateTime? facilityToday = null)
     {
-        var today = nowUtc.Date;
+        // The bench's day (the facility's calendar) when given; QC rows carry their day the same way.
+        var today = facilityToday?.Date ?? nowUtc.Date;
         var items = new List<ReagentQcWorkItem>();
         foreach (var lot in lots)
         {
@@ -54,32 +83,103 @@ public static class ReagentQcWorklistRule
                 continue;
             }
 
-            var testedToday = qcRows.Any(row => row.LotId == lot.LotId && row.QcDateUtc.Date == today);
-            if (!testedToday)
+            // An expired lot is closed and replaced, not given daily QC.
+            if (lot.ExpiresUtc <= nowUtc)
+            {
+                items.Add(new ReagentQcWorkItem(
+                    Expired,
+                    lot.LotId,
+                    null,
+                    $"Lot {lot.LotNumber} expired {lot.ExpiresUtc:yyyy-MM-dd}: close it and open a new lot. Results do not record an expired lot."));
+                continue;
+            }
+
+            // An open lot near its expiry with no later lot of the reagent on hand: receive the next lot before it runs out.
+            if (lot.State == ReagentLotState.Opened
+                && ReagentLotRule.ExpiringSoon(lot.ExpiresUtc, nowUtc)
+                && !lots.Any(other => other.LotId != lot.LotId
+                                      && other.ReagentId == lot.ReagentId
+                                      && other.State != ReagentLotState.Closed
+                                      && other.ExpiresUtc > lot.ExpiresUtc))
+            {
+                var reagent = string.IsNullOrWhiteSpace(lot.ReagentCode) ? "this reagent" : lot.ReagentCode;
+                items.Add(new ReagentQcWorkItem(
+                    Replace,
+                    lot.LotId,
+                    null,
+                    $"Lot {lot.LotNumber} {ReagentLotRule.ExpiryText(lot.ExpiresUtc, nowUtc)} (expires {lot.ExpiresUtc:yyyy-MM-dd}) and no later lot of {reagent} is received: receive the next lot."));
+            }
+
+            var todays = qcRows.Where(row => row.LotId == lot.LotId && row.QcDateUtc.Date == today).ToList();
+            // Pass 133: an overdue row says when the lot last had QC, so days without QC show.
+            var lastQc = qcRows.Where(row => row.LotId == lot.LotId && row.QcDateUtc.Date < today)
+                .Select(row => (DateTime?)row.QcDateUtc.Date).DefaultIfEmpty().Max();
+            var lastText = lastQc is DateTime last ? $" Last QC {last:yyyy-MM-dd}." : " No QC recorded yet.";
+            if (lot.Controls is { Count: > 0 } controls)
+            {
+                // Pass 93: every control of the reagent needs its reading for the day.
+                var missing = controls
+                    .Where(c => !todays.Any(row => string.Equals(row.Control?.Trim(), c, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                if (missing.Count > 0)
+                {
+                    items.Add(new ReagentQcWorkItem(
+                        Overdue,
+                        lot.LotId,
+                        null,
+                        missing.Count == controls.Count
+                            ? $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd}.{lastText}"
+                            : $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd} with {string.Join(", ", missing)}."));
+                }
+            }
+            else if (todays.Count == 0)
             {
                 items.Add(new ReagentQcWorkItem(
                     Overdue,
                     lot.LotId,
                     null,
-                    $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd}."));
+                    $"Lot {lot.LotNumber} has no QC for {today:yyyy-MM-dd}.{lastText}"));
             }
         }
 
+        // A failure stands while it is the lot's latest QC and the lot is in use; a later pass or closing the lot ends it.
+        var openLots = lots.Where(l => l.State != ReagentLotState.Closed).Select(l => l.LotId).ToHashSet();
+        // Pass 93: the latest reading of each control stands for that control.
+        var latest = qcRows
+            .GroupBy(row => (row.LotId, Control: (row.Control ?? string.Empty).Trim().ToUpperInvariant()))
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.QcDateUtc).ThenByDescending(r => r.Id).First().Id);
         foreach (var row in qcRows)
         {
-            if (!row.Passed)
+            if (!row.Passed && openLots.Contains(row.LotId) && latest[(row.LotId, (row.Control ?? string.Empty).Trim().ToUpperInvariant())] == row.Id)
             {
-                items.Add(new ReagentQcWorkItem(Failed, row.LotId, row.Id, "QC failed."));
+                items.Add(new ReagentQcWorkItem(Failed, row.LotId, row.Id,
+                    string.IsNullOrWhiteSpace(row.Control) ? "QC failed." : $"QC failed with {row.Control.Trim()}."));
             }
 
             if (string.IsNullOrWhiteSpace(row.ReviewedBy))
             {
-                items.Add(new ReagentQcWorkItem(Unreviewed, row.LotId, row.Id, "QC has not been reviewed."));
+                items.Add(new ReagentQcWorkItem(Unreviewed, row.LotId, row.Id, UnreviewedText(row)));
             }
         }
 
         return items;
     }
+
+    /// <summary>
+    /// The unreviewed row's detail (end-user testing pass 133: every row read "QC has not been reviewed.", so a failed
+    /// anti-D reading from three days earlier looked the same as a passing one, and Review signed off on a row that did
+    /// not say what it was): "QC of 2026-11-12 not reviewed: expected 3+, read 0 (failed)."
+    /// </summary>
+    public static string UnreviewedText(ReagentQcFact row)
+    {
+        var control = string.IsNullOrWhiteSpace(row.Control) ? string.Empty : $" with {row.Control.Trim()}";
+        var reading = string.IsNullOrWhiteSpace(row.Expected) && string.IsNullOrWhiteSpace(row.Observed)
+            ? string.Empty
+            : $": expected {Shown(row.Expected)}, read {Shown(row.Observed)}";
+        return $"QC{control} of {row.QcDateUtc:yyyy-MM-dd} not reviewed{reading} ({(row.Passed ? "passed" : "failed")}).";
+    }
+
+    private static string Shown(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
 }
 
 public static class ReagentQcResultGate

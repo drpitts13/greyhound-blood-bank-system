@@ -13,6 +13,13 @@ public static class EmergencyUncrossmatchedAboRule
     public const string AboCode = "ISS-EMERG-ABO";
     public const string RhCode = "ISS-EMERG-RH";
 
+    /// <summary>
+    /// Emergency ABO decision (product owner, 2026-11-01): red cells that conflict with an established patient ABO
+    /// group are a hard stop even at emergency or MTP issue. Group O red cells never conflict, so emergency
+    /// transfusion is never blocked by this rule.
+    /// </summary>
+    public const string EstablishedConflictCode = "ISS-EMERG-ABO-CONFLICT";
+
     public static IReadOnlyList<RuleResult> Evaluate(
         bool isEmergencyRelease,
         ComponentClass componentClass,
@@ -59,6 +66,37 @@ public static class EmergencyUncrossmatchedAboRule
 
         return results;
     }
+
+    /// <summary>
+    /// Red-cell direction only: a donor A or B antigen the recipient lacks. Whole blood is judged on its red cells,
+    /// so a plasma-direction mismatch (for example group O whole blood for a group A recipient) stays an overridable
+    /// warning from the ABO compatibility rule. Non-emergency issue is unaffected; the ordinary ABO hard stop applies.
+    /// </summary>
+    public static RuleResult EvaluateEstablishedConflict(
+        bool isEmergencyRelease,
+        ComponentClass componentClass,
+        AboRh unit,
+        AboRh patient,
+        bool patientTypeEstablished)
+    {
+        var cellular = componentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+        if (!isEmergencyRelease || !cellular || !patientTypeEstablished
+            || patient.Abo == AboGroup.Unknown || unit.Abo == AboGroup.Unknown)
+        {
+            return RuleResult.Pass(EstablishedConflictCode);
+        }
+
+        var conflict = (HasA(unit.Abo) && !HasA(patient.Abo)) || (HasB(unit.Abo) && !HasB(patient.Abo));
+        return conflict
+            ? RuleResult.HardStop(
+                EstablishedConflictCode,
+                $"The patient is group {patient.Abo}. Group {unit.Abo} red cells are ABO-incompatible and cannot be issued, even for emergency release. Choose group O or another ABO-compatible unit.")
+            : RuleResult.Pass(EstablishedConflictCode);
+    }
+
+    private static bool HasA(AboGroup g) => g is AboGroup.A or AboGroup.AB;
+
+    private static bool HasB(AboGroup g) => g is AboGroup.B or AboGroup.AB;
 
     public static bool IsChildbearingPotential(Sex sex, int? ageYears, int childbearingAgeYears)
     {

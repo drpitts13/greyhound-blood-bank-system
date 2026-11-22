@@ -1,0 +1,154 @@
+@page "/admin/specimen-rejection-reasons"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Specimen Rejection Reasons &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Specimen rejection reasons</h1>
+    @if (CanEdit)
+    {
+        <button type="button" class="btn btn-primary" @onclick="NewDraft">New reason</button>
+    }
+</div>
+<p class="muted">Codes used when a specimen is rejected. Rejection requires one of these reasons, so rejections can be counted by cause (for example by ward or collector). The starter list is an example to edit, not a regulatory list.</p>
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty">No rejection reasons.</div>
+    }
+    else
+    {
+        <div class="table-scroll">
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Text</th><th>Comment</th><th>Sort</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var reason in _items)
+                {
+                    <tr>
+                        <td class="mono">@reason.Code</td>
+                        <td>@reason.Text</td>
+                        <td>@(reason.RequiresComment ? "Required" : "Optional")</td>
+                        <td>@reason.SortOrder</td>
+                        <td>
+                            @if (reason.IsActive) { <span class="badge badge-green">Active</span> }
+                            else { <span class="badge badge-gray">Inactive</span> }
+                        </td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Edit(reason)">Edit</button>
+                            }
+                            @if (CanActivate)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(reason)">@(reason.IsActive ? "Deactivate" : "Activate")</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+</div>
+
+@if (_editing)
+{
+    @* Keyed by the item, so New and each Edit bring the editor into view. *@
+    <div @key="_editId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        <h2>@(_editId is null ? "New rejection reason" : "Edit rejection reason")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_code" maxlength="20" /></div>
+            <div class="field" style="flex:2;"><label>Text</label><input @bind="_text" maxlength="500" /></div>
+            <div class="field"><label>Sort</label><input type="number" @bind="_sortOrder" /></div>
+            <div class="field"><label>Comment required</label><input type="checkbox" @bind="_requiresComment" /></div>
+        </div>
+        <div class="flex gap">
+            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="CloseEditor">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _feedback;
+    private List<SpecimenRejectionReasonDto> _items = [];
+    private bool _editing;
+    private long? _editId;
+    private string _code = string.Empty;
+    private string _text = string.Empty;
+    private int _sortOrder;
+    private bool _requiresComment;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var result = await Api.GetAdminSpecimenRejectionReasonsAsync();
+        _items = result.Value ?? [];
+        if (!result.Succeeded) _feedback = result.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _code = string.Empty;
+        _text = string.Empty;
+        _sortOrder = (_items.Count + 1) * 10;
+        _requiresComment = false;
+        _editing = true;
+    }
+
+    private void Edit(SpecimenRejectionReasonDto reason)
+    {
+        _editId = reason.Id;
+        _code = reason.Code;
+        _text = reason.Text;
+        _sortOrder = reason.SortOrder;
+        _requiresComment = reason.RequiresComment;
+        _editing = true;
+    }
+
+    private void CloseEditor() => _editing = false;
+
+    private async Task SaveAsync()
+    {
+        var request = new SaveSpecimenRejectionReasonRequest(_code, _text, _sortOrder, _requiresComment);
+        _busy = true;
+        var result = _editId is long id
+            ? await Api.UpdateAdminSpecimenRejectionReasonAsync(id, request)
+            : await Api.CreateAdminSpecimenRejectionReasonAsync(request);
+        _busy = false;
+        _feedback = result.ToFeedback(_editId is null ? "Rejection reason added." : "Rejection reason updated.");
+        if (result.Succeeded)
+        {
+            _editing = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task SetActiveAsync(SpecimenRejectionReasonDto reason)
+    {
+        _busy = true;
+        var result = await Api.SetAdminSpecimenRejectionReasonActiveAsync(reason.Id, !reason.IsActive);
+        _busy = false;
+        _feedback = result.ToFeedback(reason.IsActive ? "Rejection reason deactivated." : "Rejection reason activated.");
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
+    }
+}

@@ -15,4 +15,6 @@ public sealed record InventorySearchCriteria(
     long? LocationId = null,
     DateTime? ExpiringBeforeUtc = null,
     IReadOnlyList<UnitStatus>? Statuses = null,
-    bool ExcludeIssuedAndTransfused = false);
+    bool ExcludeIssuedAndTransfused = false,
+    // Pass 92: units typed negative for every one of these antigen codes (for a patient with antibodies).
+    IReadOnlyList<string>? AntigenNegative = null);

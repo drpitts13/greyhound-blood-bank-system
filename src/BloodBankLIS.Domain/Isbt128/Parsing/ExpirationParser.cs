@@ -64,11 +64,12 @@ public static class ExpirationParser
         int? hour = hasTime ? int.Parse(payload[6..8]) : null;
         int? minute = hasTime ? int.Parse(payload[8..10]) : null;
 
-        if (century is not ('0' or '1' or '2'))
+        // OCD-092 (decided 2026-11-16 against the ICCBBA standard): century digit 0 is the 2000s, 9 the 1900s.
+        if (century is not ('0' or '9'))
         {
             return ParseOutcome<ExpirationParseResult>.Fail(
                 IsbtErrorCodes.InvalidExpiration,
-                "Century indicator must be 0, 1, or 2. ICCBBA_VALIDATION_REQUIRED.");
+                $"Century digit {century} is not used: 0 is the 2000s and 9 the 1900s (ICCBBA). Check the eye-readable expiration on the label.");
         }
 
         var year = ResolveYear(century, yy, policy.CenturyBaseYear);
@@ -118,7 +119,8 @@ public static class ExpirationParser
         policy ??= DefaultPolicy;
         var year = expirationLocal.Year;
         var ordinal = expirationLocal.DayOfYear;
-        var century = year >= 2000 ? '2' : year >= 1900 ? '1' : '0';
+        // OCD-092: 0 for the 2000s, 9 for the 1900s (ICCBBA).
+        var century = year >= 2000 ? '0' : '9';
         var yy = year % 100;
         var encoded = hasExplicitTime
             ? $"{century}{yy:D2}{ordinal:D3}{expirationLocal.Hour:D2}{expirationLocal.Minute:D2}"
@@ -142,14 +144,33 @@ public static class ExpirationParser
             FromScanner: false));
     }
 
+    /// <summary>
+    /// OCD-092 (decided 2026-11-16): a stored expiration code written before the decision, by the old encoder (century 2
+    /// for the 2000s) or by the demo seeder (a stray '=' and no century), in the ICCBBA form (century 0); null when it
+    /// needs no change. Scan verification compares the stored code with the label's exactly.
+    /// </summary>
+    public static string? RepairStoredEncoding(string? stored)
+    {
+        if (string.IsNullOrEmpty(stored))
+        {
+            return null;
+        }
+
+        if (stored.Length is 6 or 10 && stored[0] == '2' && stored.All(char.IsDigit))
+        {
+            return "0" + stored[1..];
+        }
+
+        return stored.Length == 6 && stored[0] == '=' && stored[1..].All(char.IsDigit) ? "0" + stored[1..] : null;
+    }
+
     private static int ResolveYear(char century, int yy, int centuryBaseYear)
     {
-        // ICCBBA_VALIDATION_REQUIRED: confirm century mapping against current standard.
+        // OCD-092 (decided 2026-11-16, ICCBBA): 0 = 2000s, 9 = 1900s.
         return century switch
         {
-            '0' => 1900 + yy,
-            '1' => 1900 + yy,
-            '2' => 2000 + yy,
+            '0' => 2000 + yy,
+            '9' => 1900 + yy,
             _ => centuryBaseYear + yy
         };
     }

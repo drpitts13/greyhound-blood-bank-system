@@ -75,7 +75,28 @@ public sealed record CreateAntibodyPanelLotRequest(
     string PanelName,
     DateOnly ExpiresOn,
     bool IsSelectedCellLot,
-    IReadOnlyList<CreateAntibodyPanelLotCellRequest> Cells);
+    IReadOnlyList<CreateAntibodyPanelLotCellRequest> Cells,
+    // The antigram file the cells were imported from, if any; recorded in the lot's audit entry.
+    string? ImportedFrom = null);
+
+// A panel lot to replace soon, or a kind of lot with none current (Cycle 707). NeedsAction is what the home card counts.
+public sealed record AntibodyPanelLotSupplyItemDto(
+    string Kind,
+    bool IsSelectedCellLot,
+    long? LotId,
+    string? LotNumber,
+    string? PanelName,
+    DateOnly? ExpiresOn,
+    int? DaysLeft,
+    string? ReplacementLotNumber,
+    bool NeedsAction,
+    string Message);
+
+// Correct a lot's antigram before any workup uses it: the cells are replaced (the old ones superseded, not deleted).
+public sealed record CorrectAntibodyPanelLotAntigramRequest(
+    IReadOnlyList<CreateAntibodyPanelLotCellRequest> Cells,
+    string? Reason,
+    string? ImportedFrom = null);
 
 public sealed record AntibodyPanelLotAntigenDetailDto(
     long BloodAttributeDefinitionId,
@@ -155,7 +176,9 @@ public sealed record AntibodyIdOpenWorklistSummaryDto(
     int NotReadySpecimenCount = 0,
     int WithdrawnJudgmentCount = 0,
     int PendingTypeCorrectionCount = 0,
-    int ReservedOrIssuedUnitCount = 0);
+    int ReservedOrIssuedUnitCount = 0,
+    int LotAttentionCount = 0,
+    int SpecimenAttentionCount = 0);
 
 public sealed record AntibodyIdCellDto(
     long CellId,

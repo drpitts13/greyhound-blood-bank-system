@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -200,6 +200,60 @@ public sealed class AntibodyScreenCompatLoader
         return screens.Any(r =>
             specimens.TryGetValue(r.SpecimenId, out var specimen)
             && IsCurrentSpecimen(specimen, utcNow));
+    }
+
+    /// <summary>
+    /// True when the specimen is accepted and unexpired and carries a verified antibody screen, none of them positive:
+    /// the current negative screen an electronic crossmatch needs on the specimen it is recorded against.
+    /// </summary>
+    public async Task<bool> HasVerifiedNegativeScreenOnSpecimenAsync(
+        long specimenId,
+        DateTime utcNow,
+        CancellationToken ct = default)
+    {
+        if (_specimens is not null)
+        {
+            var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+            if (specimen is null || !IsAcceptedCurrent(specimen, utcNow))
+            {
+                return false;
+            }
+        }
+
+        var screenCodes = await ListScreenCodesAsync(ct);
+        var screens = (await _results.ListAsync(
+                r => r.SpecimenId == specimenId
+                     && r.Status == ResultStatus.Verified
+                     && r.SupersededByResultId == null
+                     && r.Value != null,
+                ct))
+            .Where(r => screenCodes.Contains(r.TestCode))
+            .ToList();
+        return screens.Count > 0 && !screens.Any(r => IsPositiveScreen(r.Value, r.Interpretation));
+    }
+
+    /// <summary>True when some accepted, unexpired specimen of the patient has a verified negative antibody screen.</summary>
+    public async Task<bool> HasCurrentVerifiedNegativeScreenAsync(
+        long patientId,
+        DateTime utcNow,
+        CancellationToken ct = default)
+    {
+        if (_specimens is null)
+        {
+            return (await ListVerifiedScreenResultsAsync(patientId, ct)).Any(r => !IsPositiveScreen(r.Value, r.Interpretation));
+        }
+
+        var specimens = await _specimens.ListAsync(
+            s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
+        foreach (var specimen in specimens.Where(s => IsAcceptedCurrent(s, utcNow)))
+        {
+            if (await HasVerifiedNegativeScreenOnSpecimenAsync(specimen.Id, utcNow, ct))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

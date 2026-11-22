@@ -12,7 +12,7 @@ The **Temperature history report** reviews the storage temperature log over a pe
 
 ## Run the report
 
-Choose a device or **All devices**, a From and To date, and whether to list all readings or excursions only, then select **Run**. Preset buttons set the dates and run in one click. Dates are UTC. The period runs from the start of the From date to the end of the To date and covers at most 366 days. Deactivated devices are listed and marked Inactive, so the history of a retired device stays available.
+Choose a device or **All devices**, a From and To date, and whether to list all readings or excursions only, then select **Run**. Preset buttons set the dates and run in one click. Dates are local days, as are the reading times. The period runs from the start of the From date to the end of the To date and covers at most 366 days. Deactivated devices are listed and marked Inactive, so the history of a retired device stays available.
 
 ## What it shows
 

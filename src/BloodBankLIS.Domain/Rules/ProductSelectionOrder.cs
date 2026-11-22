@@ -18,6 +18,9 @@ public static class ProductSelectionOrder
     public const string IdenticalCue = "ABO/Rh identical";
     public const string SubstituteCue = "Compatible substitute";
 
+    /// <summary>Pass 155: a unit offered to a patient with no ABO/Rh on file (group O red cells, AB or A plasma).</summary>
+    public const string UntypedPatientCue = "Suits any recipient (patient not typed)";
+
     public readonly record struct Placement(int Band, int AntigenBand, string Cue);
 
     public static bool TryPlace(

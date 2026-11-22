@@ -32,4 +32,13 @@ public class AutoThawRequest : BaseEntity
     public DateTime? CompletedUtc { get; set; }
 
     public string? CompletedBy { get; set; }
+
+    /// <summary>OCD-068: the thaw was in an open system, as the person thawing recorded.</summary>
+    public bool OpenSystem { get; set; }
+
+    /// <summary>OCD-068: the unit was a pool (the result of a pooling modification).</summary>
+    public bool Pooled { get; set; }
+
+    /// <summary>The shelf life applied, in hours, from the code's closed, open-system or pooled setting.</summary>
+    public int? ShelfLifeHoursApplied { get; set; }
 }

@@ -36,6 +36,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Charge code</th><th>ISBT PDC</th><th>Trigger</th><th class="right">Amount</th><th>Description</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -50,7 +51,7 @@
                             }
                         </td>
                         <td class="mono">@row.IsbtProductCode</td>
-                        <td>@row.Trigger</td>
+                        <td data-billing-trigger>@Ui.EnumText(row.Trigger)</td>
                         <td class="right">@(row.ChargeCodeAmount?.ToString("C") ?? "—")</td>
                         <td>@(row.Description ?? "—")</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>
@@ -75,6 +76,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -93,11 +95,24 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>ISBT product code</label><input class="mono" maxlength="5" @bind="_draft.IsbtProductCode" placeholder="E0336" /></div>
+            <div class="field"><label>ISBT product code</label>
+                @* Loop 2 tick 65: suggested from the loaded ISBT catalog, as on Products (tick 62). *@
+                <input class="mono" maxlength="5" @bind="_draft.IsbtProductCode" @bind:event="oninput" placeholder="E0336" list="billing-isbt-catalog" autocomplete="off" />
+                <datalist id="billing-isbt-catalog">
+                    @foreach (var c in _isbtCatalog.Where(c => !c.IsRetired))
+                    {
+                        <option value="@c.ProductDescriptionCode">@c.Description</option>
+                    }
+                </datalist>
+                @if (IsbtNote is { } isbtNote)
+                {
+                    <div class="muted" data-billing-isbt-note>@isbtNote</div>
+                }
+            </div>
             <div class="field"><label>Trigger</label>
                 <select @bind="_draft.Trigger">
-                    <option value="@BillingTriggerType.UnitIssued">UnitIssued</option>
-                    <option value="@BillingTriggerType.UnitTransfused">UnitTransfused</option>
+                    <option value="@BillingTriggerType.UnitIssued">Unit issued</option>
+                    <option value="@BillingTriggerType.UnitTransfused">Unit transfused</option>
                 </select>
             </div>
             <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
@@ -138,8 +153,29 @@
         await LoadAsync();
     }
 
+    private List<IsbtProductCodeDto> _isbtCatalog = new();
+
+    private string? IsbtNote
+    {
+        get
+        {
+            var code = _draft?.IsbtProductCode?.Trim();
+            if (string.IsNullOrEmpty(code) || _isbtCatalog.Count == 0)
+            {
+                return null;
+            }
+
+            var match = _isbtCatalog.FirstOrDefault(c => string.Equals(c.ProductDescriptionCode, code, StringComparison.OrdinalIgnoreCase));
+            return match is null
+                ? $"{code} is not in the loaded ISBT catalog, so no unit may carry it. Check the code, or add it on ISBT Product Codes."
+                : $"{match.Description}{(match.IsRetired ? " (retired)" : "")}";
+        }
+    }
+
     private async Task LoadCatalogsAsync()
     {
+        var isbt = await Api.GetAdminIsbtProductCodesAsync();
+        _isbtCatalog = isbt.Value ?? new();
         var codes = await Api.GetAdminChargeCodesAsync(includeInactive: true);
         _chargeCodes = (codes.Succeeded ? codes.Value ?? new() : new())
             .OrderBy(c => c.Code)

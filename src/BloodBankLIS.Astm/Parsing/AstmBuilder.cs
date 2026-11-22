@@ -29,8 +29,13 @@ public static class AstmBuilder
             ? $"O|{sequence}|{specimenId}||^^^ {assay}|R||||||||||{specimenDescriptor}".Replace("^^^ ", "^^^")
             : $"O|{sequence}|{specimenId}||^^^ {assay}|R||||||{action}||||{specimenDescriptor}".Replace("^^^ ", "^^^");
 
+    /// <summary>
+    /// An ASTM E1394 result record: status in R.9, completion date/time in R.13, instrument ID in R.14 (R.10 to R.12 empty).
+    /// End-user testing pass 29: the simulator put the time in R.12 and the instrument in R.13, so the parse read the
+    /// instrument ID as the result date.
+    /// </summary>
     public static string Result(int sequence, string analyte, string value, string status, string? completed, string? instrument) =>
-        $"R|{sequence}|^^^{analyte}|{value}|||||{status}|||{completed}|{instrument}";
+        $"R|{sequence}|^^^{analyte}|{value}|||||{status}||||{completed}|{instrument}";
 
     public static string Query(int sequence, string accession) =>
         $"Q|{sequence}|{accession}||ALL";

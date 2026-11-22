@@ -10,7 +10,9 @@ routes:
 
 ![Printing](figures/printing.png)
 
-**Printing** produces specimen labels, component labels, and compatibility tags (P-tags). You can also open it from a specimen, a unit, or an issue, with that record already selected.
+**Printing** produces specimen labels, component labels, and compatibility tags (P-tags). You can also open it from a specimen, a unit, or an issue, with that record already selected. For a specimen label, choose the **Label design** (the default tube design is chosen for you; designs are made under Administration › [Specimen labels](specimen-label)). Choose an aliquot design and enter how many aliquots to print one "Aliquot n of N" label for each; each is its own print job, and each aliquot's barcode is the parent specimen ID.
+
+Times on labels and tags (collection, unit expiration, issue) print in the facility's local time with its offset from UTC, for example *Unit expires: 2026-12-06 09:49 (UTC-05:00)*, so they read against the ward's clock. The facility's time zone is the server's unless set (configuration `Facility:TimeZone`). A reprint uses the time zone of the original print; labels printed before this change show UTC.
 
 ## What you are printing
 
@@ -18,8 +20,14 @@ Confirm the identifiers on the preview before you send the job. The preview is a
 
 A compatibility tag printed at issue carries the patient, the unit, and the crossmatch information the layout includes. When facility policy requires the P-tag id before issue, scan that id on the issue form. Printing the tag and not scanning it does not satisfy the check.
 
+## Component labels for units not in use
+
+A component label is not printed, or reprinted, for a unit that has expired or is no longer in stock to use (expired, discarded, transfused, modified into another unit, shipped, returned to the supplier, transferred, or missing): the print is refused naming the unit and why. A quarantined or held unit can still be labelled, since labelling often comes before release.
+
 ## Reprint
 
 Reprint requires a reason and the reprint permission. The reason is audited. Reprint when the label is damaged or lost. Do not reprint onto a different specimen or unit. If the identifiers on the label are wrong, fix the record first, then print again, or reject the specimen and start over.
 
 Jobs stay in the queue on this screen so you can see what was sent and open the preview again.
+
+**Print jobs** lists the newest first: when it was printed, the kind of label, template, format, what it was **for** (the specimen's accession, the unit number, or for a compatibility tag the unit and the patient it was issued to), status, and who printed it.

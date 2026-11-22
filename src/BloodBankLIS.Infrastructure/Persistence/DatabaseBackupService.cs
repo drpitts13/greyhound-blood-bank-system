@@ -161,7 +161,7 @@ public sealed class DatabaseBackupService
                 $"BACKUP-FAILED:{record.Id}",
                 AlertSeverity.Critical,
                 "Database backup failed",
-                $"The {trigger.ToLowerInvariant()} backup at {started:yyyy-MM-dd HH:mm} UTC did not complete or verify: {record.Error ?? record.VerifyDetail}",
+                $"The {trigger.ToLowerInvariant()} backup at {BloodBankLIS.Domain.Rules.ClinicalTimeText.Local(started)} did not complete or verify: {record.Error ?? record.VerifyDetail}",
                 "/admin/backups"), ct);
         }
 
@@ -188,7 +188,7 @@ public sealed class DatabaseBackupService
                     AlertSeverity.Critical,
                     "No verified database backup",
                     last is DateTime when
-                        ? $"The last verified backup was {when:yyyy-MM-dd HH:mm} UTC, more than {_options.OverdueHours} hours ago."
+                        ? $"The last verified backup was {BloodBankLIS.Domain.Rules.ClinicalTimeText.Local(when)}, more than {_options.OverdueHours} hours ago."
                         : "There is no verified database backup yet.",
                     "/admin/backups")
             ]

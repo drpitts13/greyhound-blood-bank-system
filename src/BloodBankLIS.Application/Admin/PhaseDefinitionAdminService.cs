@@ -4,6 +4,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.Rules.Config;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -14,6 +15,8 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
     private readonly IRepository<PhaseDefinition> _repo;
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
+    private readonly IRepository<TestDefinition>? _tests;
+
     public PhaseDefinitionAdminService(
         IRepository<PhaseDefinition> repo,
         IUnitOfWork unitOfWork,
@@ -21,9 +24,11 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         ICurrentUser currentUser,
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IRepository<TestDefinition>? tests = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
+        _tests = tests;
         _repo = repo;
         _permissionEvaluator = permissionEvaluator;
     }
@@ -57,7 +62,7 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         Apply(entity, req);
 
         var duplicate = await HasActiveDuplicateAsync(entity.Code, 0, ct);
-        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate);
+        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate, await ValidatesKnownPhaseAsync(entity, ct));
         if (evaluation.IsHardStopped)
         {
             return EvaluationResult<PhaseDefinitionDto>.Blocked(evaluation);
@@ -103,7 +108,7 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         }
 
         var duplicate = await HasActiveDuplicateAsync(entity.Code, entity.Id, ct);
-        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate);
+        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate, await ValidatesKnownPhaseAsync(entity, ct));
         if (evaluation.IsHardStopped)
         {
             return EvaluationResult<PhaseDefinitionDto>.Blocked(evaluation);
@@ -133,7 +138,7 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         }
 
         var duplicate = await HasActiveDuplicateAsync(entity.Code, entity.Id, ct);
-        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate);
+        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate, await ValidatesKnownPhaseAsync(entity, ct));
         if (evaluation.IsHardStopped)
         {
             return EvaluationResult<PhaseDefinitionDto>.Blocked(evaluation);
@@ -177,7 +182,25 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
             oldValue: null, newValue: Map(entity), reason: reason);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        return OperationResult<PhaseDefinitionDto>.Ok(Map(entity));
+        // Loop 2 tick 24: name the active tests whose panels still use it.
+        var panelTests = _tests is null
+            ? []
+            : (await _tests.ListAsync(t => t.IsActive, ct))
+                .Select(t => new PanelPartRetirementImpactRule.PanelTest(t.Code, PanelSubtestAssignments.Parse(t.PanelSubtestsJson)))
+                .ToList();
+        return OperationResult<PhaseDefinitionDto>.Ok(Map(entity), PanelPartRetirementImpactRule.PhaseWarnings(entity.Code, panelTests));
+    }
+
+    // End-user testing loop 2 tick 59: a check cell's validated phase must be an active reading phase.
+    private async Task<bool?> ValidatesKnownPhaseAsync(PhaseDefinition entity, CancellationToken ct)
+    {
+        if (!entity.IsCheckCell || string.IsNullOrWhiteSpace(entity.ValidatesPhaseCode))
+        {
+            return null;
+        }
+
+        var code = entity.ValidatesPhaseCode.Trim();
+        return await _repo.AnyAsync(s => s.IsActive && !s.IsCheckCell && s.Id != entity.Id && s.Code == code, ct);
     }
 
     private async Task<bool> HasActiveDuplicateAsync(string code, long selfId, CancellationToken ct)

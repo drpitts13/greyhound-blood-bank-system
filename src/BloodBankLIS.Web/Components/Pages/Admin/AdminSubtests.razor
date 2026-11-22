@@ -28,6 +28,21 @@
 
 <Outcome Value="_feedback" />
 
+@if (!_loading && MissingSummary is { } summary)
+{
+    @* Loop 2 tick 58: one summary instead of the same "Missing standard: mf" note on every graded row. *@
+    <div class="alert alert-warning" style="margin-top:1rem;" data-subtests-missing-summary>
+        <div>@summary</div>
+        @if (CanManage)
+        {
+            <div class="form-row" style="margin-top:.5rem; align-items:flex-end;">
+                <div class="field" style="flex:1;"><label>Change reason (optional)</label><input @bind="_bulkReason" @bind:event="oninput" placeholder="Why is this change being made?" /></div>
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="AddMissingGradesToAllAsync" data-subtests-add-missing-all>Add to all</button>
+            </div>
+        }
+    </div>
+}
+
 <div class="bb-card" style="margin-top:1rem;">
     <div class="flex gap" style="margin-bottom:.6rem;">
         <input style="flex:1;" placeholder="Filter by code or name" @bind="_filter" @bind:event="oninput" />
@@ -44,6 +59,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Code</th><th>Name</th><th>Result type</th><th>Choices</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -52,8 +68,14 @@
                     <tr>
                         <td class="mono">@s.Code</td>
                         <td>@s.NameLabel</td>
-                        <td>@s.ResultType</td>
-                        <td>@s.Choices.Count</td>
+                        <td>@Ui.EnumText(s.ResultType)</td>
+                        <td>@s.Choices.Count
+                            @if (MissingGrades(s) is { Count: > 0 } missing)
+                            {
+                                @* Loop 2 tick 13, shortened in tick 58: the summary above says what * means. *@
+                                <span class="muted" title="Missing standard: @string.Join(", ", missing)" data-subtest-missing-grades="@s.Code">*</span>
+                            }
+                        </td>
                         <td>@s.Version</td>
                         <td>@StatusBadge(s)</td>
                         <td class="right nowrap">
@@ -67,6 +89,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -79,7 +102,7 @@
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field"><label>Result type</label>
                 <select @bind="_editing.ResultType" @bind:after="OnResultTypeChanged">
-                    @foreach (var t in Enum.GetValues<SubtestResultType>()) { <option value="@t">@t</option> }
+                    @foreach (var t in Enum.GetValues<SubtestResultType>()) { <option value="@t">@Ui.EnumText(t)</option> }
                 </select>
             </div>
         </div>
@@ -93,10 +116,16 @@
                         @if (_editing.ResultType == SubtestResultType.GradedReaction)
                         {
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultGradedChoices">Load standard grades</button>
+                            @if (SubtestChoiceDefinitions.MissingStandardGrades(_editing.Choices.Select(c => c.Code)).Count > 0 && _editing.Choices.Any(c => !string.IsNullOrWhiteSpace(c.Code)))
+                            {
+                                @* Keeps the subtest's own choices and adds only the standard grades it lacks. *@
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="AddMissingStandardGrades" data-subtest-add-missing>Add missing standard grades</button>
+                            }
                         }
                         <button type="button" class="btn btn-ghost btn-sm" @onclick="AddChoice">Add choice</button>
                     </div>
                 </div>
+                <div class="table-scroll">
                 <table class="bb">
                     <thead>
                         <tr>
@@ -117,7 +146,7 @@
                                 {
                                     <td>
                                         <select @bind="row.Polarity">
-                                            @foreach (var p in Enum.GetValues<ReactionPolarity>()) { <option value="@p">@p</option> }
+                                            @foreach (var p in Enum.GetValues<ReactionPolarity>()) { <option value="@p">@Ui.EnumText(p)</option> }
                                         </select>
                                     </td>
                                 }
@@ -126,6 +155,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             </div>
         }
 
@@ -172,6 +202,30 @@
     private long? _editId;
     private bool _currentIsActive;
     private string? _changeReason;
+    private string? _bulkReason;
+
+    private List<SubtestDefinitionDto> MissingAny => _items.Where(s => MissingGrades(s).Count > 0).ToList();
+
+    private string? MissingSummary
+    {
+        get
+        {
+            var missing = MissingAny;
+            if (missing.Count == 0)
+            {
+                return null;
+            }
+
+            var grades = string.Join(", ", missing.SelectMany(MissingGrades).Distinct());
+            var graded = _items.Count(s => s.ResultType == SubtestResultType.GradedReaction && s.Choices.Count > 0);
+            var which = missing.Count == graded && graded > 1
+                ? $"All {graded} graded subtests lack"
+                : missing.Count == 1
+                    ? $"1 graded subtest ({missing[0].Code}) lacks"
+                    : $"{missing.Count} graded subtests ({string.Join(", ", missing.Select(s => s.Code))}) lack";
+            return $"{which} the standard grade{(grades.Contains(',') ? "s" : "")} {grades}, marked * in Choices. Add them here or with Add missing standard grades on each subtest.";
+        }
+    }
 
     private List<ConfigHistoryDto>? _history;
     private string _historyTitle = string.Empty;
@@ -298,6 +352,60 @@
     {
         if (_editing is null || index < 0 || index >= _editing.Choices.Count) return;
         _editing.Choices.RemoveAt(index);
+    }
+
+    private static List<string> MissingGrades(SubtestDefinitionDto s) =>
+        s.ResultType != SubtestResultType.GradedReaction || s.Choices.Count == 0
+            ? []
+            : SubtestChoiceDefinitions.MissingStandardGrades(s.Choices.Select(c => c.Code)).Select(g => g.Code).ToList();
+
+    // Adds the missing standard grades to every graded subtest through the same save the editor uses.
+    private async Task AddMissingGradesToAllAsync()
+    {
+        _busy = true;
+        var done = new List<string>();
+        var failed = new List<string>();
+        foreach (var s in MissingAny)
+        {
+            var current = await Api.GetAdminSubtestAsync(s.Id);
+            if (!current.Succeeded || current.Value is null)
+            {
+                failed.Add($"{s.Code}: {current.ToFeedback().Error ?? "could not be read"}");
+                continue;
+            }
+
+            var model = EditModel.From(current.Value);
+            foreach (var g in SubtestChoiceDefinitions.MissingStandardGrades(model.Choices.Select(c => c.Code)))
+            {
+                model.Choices.Add(new ChoiceRow { Code = g.Code, Label = g.Label, Polarity = g.Polarity ?? ReactionPolarity.Neutral });
+            }
+
+            var saved = await Api.UpdateAdminSubtestAsync(s.Id, model.ToRequest(_bulkReason));
+            if (saved.Succeeded)
+            {
+                done.Add(s.Code);
+            }
+            else
+            {
+                failed.Add($"{s.Code}: {saved.ToFeedback().Error ?? "not saved"}");
+            }
+        }
+
+        _busy = false;
+        _feedback = failed.Count == 0
+            ? Feedback.Succeed($"Added the missing standard grades to {done.Count} subtest{(done.Count == 1 ? "" : "s")}.")
+            : Feedback.Fail($"Updated {done.Count}; not updated: {string.Join("; ", failed)}");
+        _bulkReason = null;
+        await LoadAsync();
+    }
+
+    private void AddMissingStandardGrades()
+    {
+        if (_editing is null) return;
+        foreach (var g in SubtestChoiceDefinitions.MissingStandardGrades(_editing.Choices.Select(c => c.Code)))
+        {
+            _editing.Choices.Add(new ChoiceRow { Code = g.Code, Label = g.Label, Polarity = g.Polarity ?? ReactionPolarity.Neutral });
+        }
     }
 
     private void LoadDefaultGradedChoices()

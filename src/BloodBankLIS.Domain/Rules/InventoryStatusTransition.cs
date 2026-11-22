@@ -24,16 +24,19 @@ public static class InventoryStatusTransition
             [
                 UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded,
                 UnitStatus.Expired, UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing,
-                UnitStatus.ReturnedToSupplier
+                UnitStatus.ReturnedToSupplier, UnitStatus.ShippedOut
             ],
+            // Received: an unretyped unit goes back to the retype worklist (RetypeStockStatus). A unit still reserved for a
+            // patient goes back to its reserved status (end-user testing pass 28: it read Available while reserved).
             [UnitStatus.Quarantine] =
             [
-                UnitStatus.Available, UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Recalled,
-                UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier
+                UnitStatus.Available, UnitStatus.Received, UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Recalled,
+                UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier,
+                UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Allocated, UnitStatus.Crossmatched
             ],
             [UnitStatus.OnHold] =
             [
-                UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.Discarded, UnitStatus.Expired,
+                UnitStatus.Available, UnitStatus.Received, UnitStatus.Quarantine, UnitStatus.Discarded, UnitStatus.Expired,
                 UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.Available] =
@@ -41,7 +44,7 @@ public static class InventoryStatusTransition
                 UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Allocated, UnitStatus.Crossmatched,
                 UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded, UnitStatus.Expired,
                 UnitStatus.Recalled, UnitStatus.Transferred, UnitStatus.Missing, UnitStatus.Damaged,
-                UnitStatus.Modified, UnitStatus.ReturnedToSupplier
+                UnitStatus.Modified, UnitStatus.ReturnedToSupplier, UnitStatus.ShippedOut
             ],
             [UnitStatus.Selected] =
             [
@@ -91,7 +94,7 @@ public static class InventoryStatusTransition
             ],
             [UnitStatus.Returned] =
             [
-                UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded,
+                UnitStatus.Available, UnitStatus.Received, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded,
                 UnitStatus.Expired, UnitStatus.Missing, UnitStatus.Damaged
             ],
             [UnitStatus.Transferred] =
@@ -119,6 +122,7 @@ public static class InventoryStatusTransition
             [UnitStatus.Transfused] = Array.Empty<UnitStatus>(),
             [UnitStatus.Discarded] = Array.Empty<UnitStatus>(),
             [UnitStatus.ReturnedToSupplier] = Array.Empty<UnitStatus>(),
+            [UnitStatus.ShippedOut] = Array.Empty<UnitStatus>(),
             [UnitStatus.Expired] = [UnitStatus.Discarded, UnitStatus.Quarantine],
             [UnitStatus.Modified] = Array.Empty<UnitStatus>()
         };

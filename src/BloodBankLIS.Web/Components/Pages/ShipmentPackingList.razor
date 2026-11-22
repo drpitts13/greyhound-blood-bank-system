@@ -1,0 +1,101 @@
+@page "/inventory/ship-out/packing-list"
+@inject BloodBankApiClient Api
+
+<PageTitle>Packing list &middot; HemoCore</PageTitle>
+
+@* The sheet that travels in the container: the shipment, its units, and blanks for the receiving blood bank. *@
+<div class="flex-between no-print">
+    <a class="btn btn-ghost" href="/inventory/ship-out">Ship units</a>
+    @if (_shipment is not null)
+    {
+        <button type="button" class="btn btn-primary" onclick="window.print()" data-packing-print>Print</button>
+    }
+</div>
+<Outcome Value="_feedback" />
+
+@if (_loaded && _shipment is null && _feedback is null)
+{
+    <div class="empty" data-packing-not-found>No shipment matching this packing list was found in the past year.</div>
+}
+
+@if (_shipment is { } s)
+{
+    <div class="mtp-report" data-packing-list>
+        <h1>Blood product packing list</h1>
+        <p class="mtp-report-sub">@s.Units.Count unit@(s.Units.Count == 1 ? "" : "s") &middot; Times are local to the shipping facility</p>
+
+        @if (s.Container is null)
+        {
+            <div class="alert alert-warning" data-packing-not-recorded>Packing details were not recorded for this shipment. Write the container, temperature and receiving contact by hand.</div>
+        }
+
+        <table class="mtp-report-facts">
+            <tbody>
+                <tr><th>Shipped to</th><td data-packing-facility>@s.Facility</td><th>Shipment reference</th><td class="mono">@(s.Reference ?? "—")</td></tr>
+                <tr><th>Shipped</th><td>@s.FirstShippedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td><th>Packed by</th><td>@(s.PackedBy ?? "")</td></tr>
+                <tr><th>Container</th><td>@(s.Container ?? "")</td><th>Temperature at packing</th><td>@(s.PackingTemperatureC is decimal t ? $"{t:0.0} °C" : "")</td></tr>
+                <tr><th>Receiving contact</th><td colspan="3" data-packing-contact>@(s.ReceivingContact ?? "")</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Units (@s.Units.Count)</h2>
+        <table class="mtp-report-units" data-packing-units>
+            <thead>
+                <tr><th>#</th><th>Unit number</th><th>Product code</th><th>ABO/Rh</th><th>Expires</th><th>Received intact (initials)</th></tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < s.Units.Count; i++)
+                {
+                    var u = s.Units[i];
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td class="mono">@u.UnitNumber</td>
+                        <td class="mono">@(u.Isbt128ProductCode ?? u.ProductCodeData ?? "—")</td>
+                        <td>@u.BloodType</td>
+                        <td class="nowrap">@u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="mtp-blank"></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h2>Received</h2>
+        <table class="mtp-report-sign">
+            <tbody>
+                <tr><th>Received by (print name)</th><td class="mtp-blank"></td><th>Date/time</th><td class="mtp-blank"></td></tr>
+                <tr><th>Temperature on arrival (°C)</th><td class="mtp-blank"></td><th>Signature</th><td class="mtp-blank"></td></tr>
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    // The shipment's key (ShipOutRule.ShipmentKey): facility and reference, or facility and day without a reference.
+    [SupplyParameterFromQuery(Name = "key")] public string? Key { get; set; }
+
+    private OutboundShipmentDto? _shipment;
+    private Feedback? _feedback;
+    private bool _loaded;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Key))
+        {
+            _feedback = Feedback.Fail("Open a packing list from Ship units: no shipment was named.");
+            _loaded = true;
+            return;
+        }
+
+        var shipments = await Api.GetShipmentsAsync(366);
+        if (!shipments.Succeeded)
+        {
+            _feedback = shipments.ToFeedback();
+        }
+        else
+        {
+            _shipment = shipments.Value?.FirstOrDefault(s => ShipOutRule.ShipmentKey(s.Facility, s.Reference, s.FirstShippedUtc) == Key);
+        }
+
+        _loaded = true;
+    }
+}

@@ -36,6 +36,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Action</th><th>Charge code</th><th>Trigger</th><th class="right">Amount</th><th>Description</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -53,7 +54,7 @@
                                 <span class="muted"> — @row.ChargeCodeDescription</span>
                             }
                         </td>
-                        <td>@row.Trigger</td>
+                        <td data-billing-trigger>@Ui.EnumText(row.Trigger)</td>
                         <td class="right">@(row.ChargeCodeAmount?.ToString("C") ?? "—")</td>
                         <td>@(row.Description ?? "—")</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>
@@ -78,6 +79,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -108,7 +110,7 @@
             </div>
             <div class="field"><label>Trigger</label>
                 <select @bind="_draft.Trigger">
-                    <option value="@BillingTriggerType.ActionCompleted">ActionCompleted</option>
+                    <option value="@BillingTriggerType.ActionCompleted">Action completed</option>
                 </select>
             </div>
             <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>

@@ -4,7 +4,7 @@
 @inject ReportDownloadCache Downloads
 @inject IJSRuntime Js
 
-<PageTitle>Run report · Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Run report · HemoCore</PageTitle>
 
 @if (_report is null)
 {
@@ -88,7 +88,7 @@ else
                     <table class="table">
                         <thead>
                             <tr>
-                                @foreach (var column in _result.Columns)
+                                @foreach (var column in _result.ColumnLabels.Count == _result.Columns.Count ? _result.ColumnLabels : _result.Columns)
                                 {
                                     <th>@column</th>
                                 }
@@ -195,7 +195,7 @@ else
     // Fills a date range without running, since a report may have other filters to set first.
     private static IEnumerable<(string Label, string From, string To)> DatePresets()
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date; // local days (end-user testing pass 50)
         var monthStart = new DateTime(today.Year, today.Month, 1);
         static string D(DateTime d) => d.ToString("yyyy-MM-dd");
         yield return ("Today", D(today), D(today));

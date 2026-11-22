@@ -1,0 +1,2 @@
+# Binary documents: never convert line endings (a converted PDF is corrupt).
+*.pdf binary

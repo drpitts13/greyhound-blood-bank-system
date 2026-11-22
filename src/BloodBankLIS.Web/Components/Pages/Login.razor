@@ -5,11 +5,11 @@
 @inject NavigationManager Nav
 @inject DesktopHostLifetime DesktopHost
 
-<PageTitle>Sign in &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Sign in &middot; HemoCore</PageTitle>
 
 <div class="bb-login">
     <div class="bb-login-card">
-        <h1><span class="dot" style="width:14px;height:14px;border-radius:50%;background:var(--bb-primary);display:inline-block;"></span> Greyhound Blood Bank LIS</h1>
+        <h1><span class="dot" style="width:14px;height:14px;border-radius:50%;background:var(--bb-primary);display:inline-block;"></span> HemoCore</h1>
         <p class="muted">Sign in with your operator identity. Authorization is enforced by the API.</p>
 
         <div class="field">
@@ -96,8 +96,24 @@
     private ElementReference _userInput;
     private ElementReference _passwordInput;
 
+    private bool _focusCode;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusCode && _codeInput.Context is not null)
+        {
+            _focusCode = false;
+            try
+            {
+                await _codeInput.FocusAsync();
+            }
+            catch (JSException)
+            {
+            }
+
+            return;
+        }
+
         if (!firstRender) return;
         try
         {
@@ -169,8 +185,8 @@
             _error = _challenge.Kind == "EnrollmentRequired"
                 ? null
                 : "Enter the 6-digit code from your authenticator app.";
-            StateHasChanged();
-            await _codeInput.FocusAsync();
+            // The code field appears with this render; it takes the focus once it is on the page (Cycle 628).
+            _focusCode = true;
             return;
         }
 

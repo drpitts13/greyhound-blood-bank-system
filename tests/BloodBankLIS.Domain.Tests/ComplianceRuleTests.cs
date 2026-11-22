@@ -363,7 +363,7 @@ public class SecondAboDeterminationRuleTests
         Assert.Null(SecondAboDeterminationRule.MissingCellularIssueNotice(required: true, matched));
         Assert.Null(SecondAboDeterminationRule.MissingCellularIssueNotice(required: true, []));
         Assert.Equal(
-            "Red cell and whole-blood issue needs a second concordant ABO/Rh.",
+            "Red cell and whole-blood issue needs a second concordant ABO/Rh from a separate specimen.",
             SecondAboDeterminationRule.MissingCellularIssueNotice(required: true, onlyCurrent));
     }
 

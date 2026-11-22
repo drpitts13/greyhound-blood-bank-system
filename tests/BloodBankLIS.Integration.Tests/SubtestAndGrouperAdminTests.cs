@@ -19,7 +19,8 @@ public class SubtestAndGrouperAdminTests : IClassFixture<SqliteContextFactory>
     {
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", false));
         var history = new ConfigurationHistoryWriter(context, _factory.Clock, _factory.CurrentUser, new StaticEnvironmentInfo("Development", false));
-        return new SubtestDefinitionAdminService(new EfRepository<SubtestDefinition>(context), context, _factory.Clock, _factory.CurrentUser, audit, history);
+        return new SubtestDefinitionAdminService(new EfRepository<SubtestDefinition>(context), context, _factory.Clock, _factory.CurrentUser, audit, history,
+            tests: new EfRepository<TestDefinition>(context));
     }
 
     private TestGrouperAdminService CreateGrouperService(BloodBankDbContext context)
@@ -122,5 +123,26 @@ public class SubtestAndGrouperAdminTests : IClassFixture<SqliteContextFactory>
             .Where(a => a.EntityType == nameof(TestGrouper) && a.EntityId == created.Value.Id)
             .ToListAsync();
         Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.TestChange));
+    }
+
+    // TEST-BB-1404 (end-user testing loop 2 tick 24): retiring a subtest still in an active test's panel succeeds and names
+    // the test.
+    [Fact]
+    public async Task Subtest_Deactivate_NamesThePanelsUsingIt()
+    {
+        var key = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateSubtestService(context);
+        var created = await service.CreateAsync(new SaveSubtestDefinitionRequest($"SB{key}", "Retiring", SubtestResultType.GradedReaction,
+            SubtestChoiceDefinitions.DefaultGradedReaction().Select(c => new SubtestChoiceDto(c.Code, c.Label, c.Polarity)).ToList(), null));
+        await service.ActivateAsync(created.Value!.Id, "seed");
+        context.TestDefinitions.Add(new TestDefinition { Code = $"TP{key}", Name = "Panel", IsActive = true, ResultValueType = ResultValueType.Subtest,
+            PanelSubtestsJson = PanelSubtestAssignments.ToJson([new PanelSubtestAssignment($"SB{key}", true)]) });
+        await context.SaveChangesAsync();
+
+        var retired = await service.DeactivateAsync(created.Value.Id, "Replaced");
+
+        Assert.True(retired.Succeeded);
+        Assert.Contains(retired.Warnings, w => w.Message.Contains($"subtest SB{key}") && w.Message.Contains($"TP{key}"));
     }
 }

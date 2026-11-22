@@ -51,7 +51,7 @@ public static class AboRhdParser
                 $"Unrecognized ABO/RhD code '{code}'. INSTITUTIONAL_POLICY_REVIEW: historical-code policy.");
         }
 
-        var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = asOf ?? DateOnly.FromDateTime(DateTime.Now);
         if (row.RetiredDate is not null && row.RetiredDate < today && !allowHistoricalRetired)
         {
             return ParseOutcome<AboRhdParseResult>.Fail(

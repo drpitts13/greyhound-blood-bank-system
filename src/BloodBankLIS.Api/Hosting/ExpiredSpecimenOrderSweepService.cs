@@ -4,7 +4,8 @@ namespace BloodBankLIS.Api.Hosting;
 
 /// <summary>
 /// Unlinks expired specimens from pending crossmatch orders and cancels other
-/// open orders that still use an expired specimen. Interval is
+/// open orders that still use an expired specimen, then, when the facility has automatic tube discard on, records tubes
+/// whose storage days have ended as discarded. Interval is
 /// <c>Specimens:ExpirationSweepSeconds</c> (default 30; set 0 to disable).
 /// </summary>
 public sealed class ExpiredSpecimenOrderSweepService : BackgroundService
@@ -53,6 +54,13 @@ public sealed class ExpiredSpecimenOrderSweepService : BackgroundService
                         result.CrossmatchOrdersUnlinked,
                         result.OrdersCancelled,
                         result.OrdersLeftOpen);
+                }
+
+                // Facility policy Discard tubes automatically when storage ends (off by default).
+                var discarded = await scope.ServiceProvider.GetRequiredService<SpecimenStorageService>().AutoDiscardDueAsync(stoppingToken);
+                if (discarded > 0)
+                {
+                    _logger.LogInformation("Automatic tube discard recorded {Count} tube(s) as discarded: storage days ended.", discarded);
                 }
             }
             catch (OperationCanceledException)

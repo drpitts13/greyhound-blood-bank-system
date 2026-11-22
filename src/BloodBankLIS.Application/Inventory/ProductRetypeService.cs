@@ -29,6 +29,11 @@ public sealed class ProductRetypeService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    // Pass 150: who a waiting unit is reserved for.
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<Patient>? _patients;
+    // Pass 217: open lookback notifications, to flag a unit from an implicated donation.
+    private readonly IRepository<LookbackNotification>? _lookbacks;
 
     public ProductRetypeService(
         IInventoryRepository inventory,
@@ -38,8 +43,14 @@ public sealed class ProductRetypeService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<Patient>? patients = null,
+        IRepository<LookbackNotification>? lookbacks = null)
     {
+        _lookbacks = lookbacks;
+        _allocations = allocations;
+        _patients = patients;
         _inventory = inventory;
         _results = results;
         _tests = tests;
@@ -66,13 +77,25 @@ public sealed class ProductRetypeService
                 g => g.Key,
                 g => g.OrderByDescending(r => r.EnteredUtc).ThenByDescending(r => r.Id).First());
 
-        var testIds = latestByUnit.Values.Select(r => r.TestDefinitionId).Distinct().ToList();
+        // End-user testing pass 285: a unit with no retype row yet showed "—" in the Test column although Enter opens it
+        // with the product's Rh+ / Rh− retype test (or the catalog ABO/Rh retype). The board names that test, marked as
+        // not started, the same way the entry resolves it.
+        var assignedByUnit = units
+            .Where(u => !latestByUnit.ContainsKey(u.Id) && u.ProductType is not null)
+            .Select(u => (u.Id, TestId: ProductRetypeAssignment.ResolveTestId(u.ProductType!, u.RhD)))
+            .Where(x => x.TestId is not null)
+            .ToDictionary(x => x.Id, x => x.TestId!.Value);
+        var testIds = latestByUnit.Values.Select(r => r.TestDefinitionId).Concat(assignedByUnit.Values).Distinct().ToList();
         var tests = testIds.Count == 0
             ? new Dictionary<long, TestDefinition>()
             : (await _tests.ListAsync(t => testIds.Contains(t.Id), ct)).ToDictionary(t => t.Id);
+        var fallback = units.Any(u => !latestByUnit.ContainsKey(u.Id))
+            ? await _tests.FirstOrDefaultAsync(t => t.Code == AboRhRetypeRule.TestCode && t.IsActive, ct)
+            : null;
 
         var now = _clock.UtcNow;
-        return units.Select(unit =>
+        // Pass 132: soonest-expiring first, outdated units last.
+        var items = units.Select(unit =>
         {
             latestByUnit.TryGetValue(unit.Id, out var latest);
             string? testName = null;
@@ -81,8 +104,68 @@ public sealed class ProductRetypeService
                 testName = test.Name;
             }
 
+            if (latest is null)
+            {
+                var assigned = assignedByUnit.TryGetValue(unit.Id, out var assignedId)
+                    && tests.TryGetValue(assignedId, out var byProduct) && byProduct.IsActive
+                    ? byProduct
+                    : fallback;
+                return ProductRetypeWorkItemDto.From(unit, null, null, now) with
+                {
+                    TestCode = assigned?.Code,
+                    TestName = assigned?.Name,
+                    TestNotStarted = assigned is not null
+                };
+            }
+
             return ProductRetypeWorkItemDto.From(unit, latest, testName, now);
-        }).ToList();
+        });
+        var sorted = RetypeQueueOrder.Sort(items, i => i.ExpiresUtc, i => i.ReceivedUtc, now);
+
+        // Pass 150: a unit reserved for a patient says for whom and is retyped first (OrderBy keeps the expiry order).
+        var reserved = await ReservedForAsync(unitIds, ct);
+        // Pass 217: a unit whose donation has a lookback notification still open says so.
+        var dins = units.Where(u => !string.IsNullOrWhiteSpace(u.Din)).Select(u => u.Din!.Trim()).Distinct().ToList();
+        var openLookbackDins = _lookbacks is null || dins.Count == 0
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : (await _lookbacks.ListAsync(n => dins.Contains(n.Din)
+                    && (n.Status == LookbackNotificationStatus.Pending || n.Status == LookbackNotificationStatus.Attempted), ct))
+                .Select(n => n.Din.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dinByUnit = units.ToDictionary(u => u.Id, u => u.Din?.Trim());
+        return sorted
+            .Select(i => reserved.TryGetValue(i.UnitId, out var who) ? i with { ReservedPatientId = who.Id, ReservedFor = who.Label } : i)
+            .Select(i => dinByUnit.GetValueOrDefault(i.UnitId) is { } din && openLookbackDins.Contains(din) ? i with { LookbackDin = din } : i)
+            .OrderBy(i => i.ReservedFor is null ? 1 : 0)
+            .ToList();
+    }
+
+    private async Task<Dictionary<long, (long Id, string Label)>> ReservedForAsync(IReadOnlyList<long> unitIds, CancellationToken ct)
+    {
+        var result = new Dictionary<long, (long Id, string Label)>();
+        if (_allocations is null || unitIds.Count == 0)
+        {
+            return result;
+        }
+
+        var reserved = await _allocations.ListAsync(a => unitIds.Contains(a.BloodProductId) && a.Status == AllocationStatus.Reserved, ct);
+        var patientIds = reserved.Select(a => a.PatientId).Distinct().ToList();
+        var patients = _patients is null || patientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        foreach (var allocation in reserved.OrderByDescending(a => a.AllocatedUtc))
+        {
+            if (result.ContainsKey(allocation.BloodProductId))
+            {
+                continue;
+            }
+
+            var label = patients.TryGetValue(allocation.PatientId, out var patient)
+                ? $"{patient.LastName}, {patient.FirstName} ({patient.MedicalRecordNumber})"
+                : $"patient {allocation.PatientId}";
+            result[allocation.BloodProductId] = (allocation.PatientId, label);
+        }
+
+        return result;
     }
 
     /// <summary>

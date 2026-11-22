@@ -42,6 +42,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Code</th><th>Name</th><th>Order</th><th>Interpretation</th><th>Check cell</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -66,6 +67,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -89,7 +91,15 @@
         @if (_editing.IsCheckCell)
         {
             <div class="field" style="margin-top:.6rem;"><label>Validates phase</label>
-                <input class="mono" @bind="_editing.ValidatesPhaseCode" placeholder="AHG" />
+                @* Loop 2 tick 59: chosen from the reading phases (it was typed, so a slip validated nothing). *@
+                <select @bind="_editing.ValidatesPhaseCode" data-validates-phase>
+                    <option value="">— choose —</option>
+                    @foreach (var phaseCode in ValidatesChoices)
+                    {
+                        var phase = _items.FirstOrDefault(p => p.Code == phaseCode && p.IsActive && !p.IsCheckCell);
+                        <option value="@phaseCode">@(phaseCode + (phase is null ? " (not an active reading phase)" : $" — {phase.Name}"))</option>
+                    }
+                </select>
             </div>
         }
 
@@ -126,6 +136,23 @@
 
 @code {
     private List<PhaseDefinitionDto> _items = new();
+
+    // Active phases that are read (not check cells), plus a saved code that is no longer one, so it is not lost.
+    private IEnumerable<string> ValidatesChoices
+    {
+        get
+        {
+            var codes = _items.Where(p => p.IsActive && !p.IsCheckCell && p.Id != _editId)
+                .OrderBy(p => p.SortOrder).Select(p => p.Code).ToList();
+            var saved = _editing?.ValidatesPhaseCode?.Trim();
+            if (!string.IsNullOrEmpty(saved) && !codes.Contains(saved))
+            {
+                codes.Add(saved);
+            }
+
+            return codes;
+        }
+    }
     private bool _loading = true;
     private bool _includeInactive = true;
     private string _filter = string.Empty;

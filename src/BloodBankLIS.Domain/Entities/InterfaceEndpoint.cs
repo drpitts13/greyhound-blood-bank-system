@@ -65,6 +65,12 @@ public class InterfaceEndpoint : BaseEntity
     /// <summary>Whether replay of stored messages is permitted for this endpoint. On unless an administrator turns it off.</summary>
     public bool ReplayAllowed { get; set; } = true;
 
+    /// <summary>
+    /// How this interface's times without an offset are read, and how its times are sent (OCD-088). A new interface is
+    /// facility local; interfaces that existed before the decision keep UTC, what they were validated with.
+    /// </summary>
+    public Hl7TimestampConvention TimestampConvention { get; set; } = Hl7TimestampConvention.FacilityLocal;
+
     /// <summary>Monotonic config version; bumped on significant admin edits (snapshot history).</summary>
     public int Version { get; set; } = 1;
 }

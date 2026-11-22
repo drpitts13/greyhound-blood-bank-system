@@ -1,0 +1,40 @@
+namespace BloodBankLIS.Domain.Rules;
+
+/// <summary>
+/// The time an order is needed by (a surgery start, a scheduled transfusion): optional; not before the order was placed.
+/// The worklists prepare by it and say when it has passed. It changes no priority or check.
+/// </summary>
+public static class OrderNeededByRule
+{
+    public const string Code = "ORD-NEEDED-BY";
+
+    public static RuleResult Evaluate(DateTime orderedUtc, DateTime? neededByUtc) =>
+        neededByUtc is DateTime needed && needed < orderedUtc.AddMinutes(-1)
+            ? RuleResult.HardStop(Code, "The needed-by time is before the order was placed; check the date and time.")
+            : RuleResult.Pass(Code);
+
+    public static bool Passed(DateTime? neededByUtc, DateTime nowUtc) => neededByUtc is DateTime needed && needed <= nowUtc;
+
+    /// <summary>
+    /// Needed soon: the time is still ahead and no more than the facility's warning window away (OCD-075). A window of 0
+    /// or less is off; a time already passed is <see cref="Passed"/>, not soon.
+    /// </summary>
+    public static bool DueSoon(DateTime? neededByUtc, DateTime nowUtc, int warnMinutes) =>
+        warnMinutes > 0 && neededByUtc is DateTime needed && needed > nowUtc && needed <= nowUtc.AddMinutes(warnMinutes);
+
+    /// <summary>
+    /// The specimen (or the crossmatch on it) stops being valid before the order is needed, so units prepared on it now
+    /// cannot be issued at the surgery or transfusion time: a new specimen is needed. Only while the needed-by time is
+    /// still ahead (once it has passed, that is what is shown); false when either time is unknown.
+    /// </summary>
+    public static bool ExpiresBeforeNeeded(DateTime? validUntilUtc, DateTime? neededByUtc, DateTime nowUtc) =>
+        validUntilUtc is DateTime until && neededByUtc is DateTime needed && needed > nowUtc && until < needed;
+
+    /// <summary>The earlier of two validity ends (crossmatch, specimen); null when neither is known.</summary>
+    public static DateTime? EarliestEnd(DateTime? first, DateTime? second) =>
+        first is DateTime a && second is DateTime b ? (a <= b ? a : b) : first ?? second;
+
+    /// <summary>Whole minutes until the needed-by time, rounded up ("in 1 min" until it passes); null without a time.</summary>
+    public static int? MinutesUntil(DateTime? neededByUtc, DateTime nowUtc) =>
+        neededByUtc is DateTime needed ? (int)Math.Ceiling((needed - nowUtc).TotalMinutes) : null;
+}

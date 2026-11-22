@@ -45,7 +45,9 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             _factory.Clock,
             user ?? _factory.CurrentUser,
             new AuditWriter(context, _factory.Clock, user ?? _factory.CurrentUser),
-            permissions: permissions);
+            permissions: permissions,
+            allocations: new EfRepository<Allocation>(context),
+            patients: new EfRepository<Patient>(context));
 
     private static RecordProductRetypeRequest MatchOPos() => new(
         AboGroup.O,
@@ -111,9 +113,27 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             unitNumber, type.Id, abo, rh, _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: "E0206",
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(receive.Succeeded, receive.Error);
         return (type.Id, receive.Unit!.Id);
+    }
+
+    // TEST-BB-1007: a scanned ISBT 128 DIN ("=" + 13 characters + 2 flags) is received under its 13-character DIN, so the
+    // issue desk and bedside find it; a scan that is not a DIN is refused (end-user testing, 2026-11-12: it was stored
+    // with the "=" and the flags).
+    [Fact]
+    public async Task Receive_ScannedDin_IsStoredAsTheDin()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("=W00002612345600", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        Assert.Equal("W000026123456", (await context.BloodUnits.FindAsync(unitId))!.UnitNumber);
+
+        var type = await context.ProductTypes.FirstAsync();
+        var refused = await Inventory(context).ReceiveUnitAsync(new ReceiveUnitRequest(
+            "=<E0336V00", type.Id, AboGroup.O, RhType.Positive, _factory.Clock.UtcNow.AddDays(30),
+            Isbt128ProductCode: "E0206", SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
+        Assert.False(refused.Succeeded);
+        Assert.Contains("could not be read as an ISBT 128 DIN", refused.Error);
     }
 
     [Fact]
@@ -164,6 +184,29 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
                 .Where(a => a.EventType == AuditEventType.ProductStatus && a.EntityType == nameof(BloodUnit) && a.EntityId == unitId)
                 .ToListAsync(),
             a => a.Reason != null && a.Reason.Contains("retype", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // TEST-BB-1172: a unit waiting for its retype that is reserved for a patient says for whom and is listed before units
+    // not reserved, whatever their expiry (end-user testing pass 150).
+    [Fact]
+    public async Task PendingRetype_ReservedUnit_SaysForWhom_AndComesFirst()
+    {
+        var (_, freeId) = await SeedReceivedUnitAsync("RT-FREE", AboGroup.O, RhType.Positive);
+        var (_, reservedId) = await SeedReceivedUnitAsync("RT-RES", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        (await context.BloodUnits.SingleAsync(u => u.Id == freeId)).ExpiresUtc = _factory.Clock.UtcNow.AddDays(2);
+        (await context.BloodUnits.SingleAsync(u => u.Id == reservedId)).ExpiresUtc = _factory.Clock.UtcNow.AddDays(30);
+        var patient = new Patient { MedicalRecordNumber = $"MRN-RT-{Guid.NewGuid():N}"[..14], LastName = "Waiting", FirstName = "Pat", DateOfBirth = new DateOnly(1970, 1, 1) };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+        context.Allocations.Add(new Allocation { BloodProductId = reservedId, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow, AllocatedBy = "tech" });
+        await context.SaveChangesAsync();
+
+        var pending = (await Retype(context).ListPendingAsync()).ToList();
+        var reserved = Assert.Single(pending, p => p.UnitId == reservedId);
+        Assert.Equal(($"Waiting, Pat ({patient.MedicalRecordNumber})", patient.Id), (reserved.ReservedFor, reserved.ReservedPatientId));
+        Assert.Null(Assert.Single(pending, p => p.UnitId == freeId).ReservedFor);
+        Assert.True(pending.FindIndex(p => p.UnitId == reservedId) < pending.FindIndex(p => p.UnitId == freeId));
     }
 
     [Fact]
@@ -255,6 +298,26 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("discrepancy", unit.QuarantineReason, StringComparison.OrdinalIgnoreCase);
     }
 
+    // TEST-BB-1311 (end-user testing pass 285): a unit waiting for its retype with no retype row yet names the test Enter
+    // will use (the product's retype test for its labelled Rh), marked not started, instead of "—".
+    [Fact]
+    public async Task PendingList_UnitWithNoRetypeRow_NamesTheTestToUse()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("RT-NOROW", AboGroup.B, RhType.Negative);
+        await using var context = _factory.Create();
+        context.ProductRetypeResults.RemoveRange(await context.ProductRetypeResults.Where(r => r.BloodProductId == unitId).ToListAsync());
+        await context.SaveChangesAsync();
+
+        var row = Assert.Single(await Retype(context).ListPendingAsync(), p => p.UnitId == unitId);
+        Assert.Equal(AboRhRetypeRule.TestCode, row.TestCode);
+        Assert.Equal("ABO/Rh Retype", row.TestName);
+        Assert.True(row.TestNotStarted);
+        Assert.Null(row.ResultStatus);
+
+        var (_, startedId) = await SeedReceivedUnitAsync("RT-STARTED", AboGroup.O, RhType.Positive);
+        Assert.False(Assert.Single(await Retype(context).ListPendingAsync(), p => p.UnitId == startedId).TestNotStarted);
+    }
+
     [Fact]
     public async Task PendingList_IncludesOnlyReceivedRetypeUnits()
     {
@@ -342,7 +405,7 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             ProductTypeId: type.Id,
             ReleaseToAvailable: true,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);

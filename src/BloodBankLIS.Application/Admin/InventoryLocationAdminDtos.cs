@@ -56,4 +56,11 @@ public sealed record SaveInventoryLocationRequest(
     int? DefaultInTransitHours = null,
     string? Notes = null,
     bool ApplyTypeDefaults = false,
-    bool? TimeOutGoverned = null);
+    bool? TimeOutGoverned = null,
+    /// <summary>Why the location is being changed; required when editing an existing location.</summary>
+    string? Reason = null);
+
+public sealed record InventoryLocationActiveRequest(string? Reason);
+
+/// <summary>Activating or deactivating a validated configuration entry (transport container, MTP pack) says why.</summary>
+public sealed record ConfigActiveRequest(string? Reason);

@@ -8,6 +8,7 @@ using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
@@ -16,6 +17,38 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
     private readonly SqliteContextFactory _factory;
 
     public CompetitorGapWorkflowTests(SqliteContextFactory factory) => _factory = factory;
+
+    // TEST-BB-1107 (end-user testing pass 93): a reagent with QC controls needs a reading for each control every day; a
+    // reading must name one of them; the lot stays due naming the control still missing, and a failure names its control.
+    [Fact]
+    public async Task ReagentQc_WithControls_NeedsEachControlEachDay()
+    {
+        await using var context = _factory.Create();
+        var service = Qc(context, _factory.CurrentUser);
+        var code = $"AA{Guid.NewGuid():N}"[..10].ToUpperInvariant();
+        var reagent = (await service.SaveReagentAsync(new SaveReagentRequest(code, "Anti-A (controls test)"))).Value!;
+        var set = await service.SetReagentTestsAsync(reagent.Id, new SetReagentTestsRequest(null, " A1 cells (positive); B cells (negative) "));
+        Assert.True(set.Succeeded, set.Error);
+        Assert.Equal("A1 cells (positive), B cells (negative)", set.Value!.QcControls);
+        var lotNumber = $"L{Guid.NewGuid():N}"[..10];
+        var lot = (await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Id, lotNumber, _factory.Clock.UtcNow.AddDays(30)))).Value!;
+        await service.OpenLotAsync(lot.Id);
+
+        var unnamed = await service.RecordQcAsync(new RecordReagentQcRequest(lot.Id, "4+", "4+", true));
+        Assert.False(unnamed.Succeeded);
+        Assert.Contains("Choose which control", unnamed.Error);
+
+        var positive = await service.RecordQcAsync(new RecordReagentQcRequest(lot.Id, "4+", "4+", true, "a1 cells (positive)"));
+        Assert.True(positive.Succeeded, positive.Error);
+        Assert.Equal("A1 cells (positive)", positive.Value!.Control);
+        var due = Assert.Single(await service.ListWorkAsync(), w => w.LotId == lot.Id && w.Kind == ReagentQcWorklistRule.Overdue);
+        Assert.EndsWith("with B cells (negative).", due.Message);
+
+        Assert.True((await service.RecordQcAsync(new RecordReagentQcRequest(lot.Id, "0", "1+", false, "B cells (negative)"))).Succeeded);
+        var work = await service.ListWorkAsync();
+        Assert.DoesNotContain(work, w => w.LotId == lot.Id && w.Kind == ReagentQcWorklistRule.Overdue);
+        Assert.Equal("QC failed with B cells (negative).", Assert.Single(work, w => w.LotId == lot.Id && w.Kind == ReagentQcWorklistRule.Failed).Message);
+    }
 
     [Fact]
     public async Task ReagentQc_ReviewerMustDiffer_AndWorklistClearsAfterReview()
@@ -32,12 +65,80 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.True(qc.Succeeded, qc.Error);
         var self = await service.ReviewAsync(qc.Value!.Id);
         Assert.False(self.Succeeded);
+        // TEST-BB-1235 (end-user testing pass 213): the Unreviewed item names who performed the QC, so the page offers
+        // Review only to someone else.
+        Assert.Equal(_factory.CurrentUser.UserName,
+            Assert.Single(await service.ListWorkAsync(), w => w.QcId == qc.Value.Id && w.Kind == ReagentQcWorklistRule.Unreviewed).PerformedBy);
 
         var reviewed = await Qc(context, new TestCurrentUser("lead-test", "WORKSTATION-1")).ReviewAsync(qc.Value.Id);
         Assert.True(reviewed.Succeeded, reviewed.Error);
         var work = await service.ListWorkAsync();
         Assert.DoesNotContain(work, row => row.QcId == qc.Value.Id);
         Assert.DoesNotContain(work, row => row.LotId == lot.Value.Id && row.Kind == ReagentQcWorklistRule.Overdue);
+    }
+
+    [Fact]
+    public async Task ReagentLot_Lifecycle_RefusesExpiredAndDuplicateLots_AndAuditsOpenAndClose()
+    {
+        // TEST-BB-559
+        await using var context = _factory.Create();
+        var service = Qc(context, _factory.CurrentUser);
+        var reagent = await service.SaveReagentAsync(new SaveReagentRequest("ANTI-D-LC", "Anti-D lifecycle"));
+        var now = _factory.Clock.UtcNow;
+
+        var expired = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value!.Id, "LC-OLD", now.AddDays(-1)));
+        Assert.False(expired.Succeeded);
+        Assert.Contains("expired", expired.Error);
+
+        var lot = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value.Id, "LC-1", now.AddDays(20)));
+        Assert.True(lot.Succeeded, lot.Error);
+        var duplicate = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value.Id, " lc-1 ", now.AddDays(25)));
+        Assert.False(duplicate.Succeeded);
+        Assert.Contains("already has", duplicate.Error);
+
+        Assert.True((await service.OpenLotAsync(lot.Value!.Id)).Succeeded);
+        Assert.True((await service.CloseLotAsync(lot.Value.Id)).Succeeded);
+        Assert.False((await service.CloseLotAsync(lot.Value.Id)).Succeeded);
+        Assert.False((await service.OpenLotAsync(lot.Value.Id)).Succeeded);
+        var messages = await context.AuditEvents
+            .Where(a => a.EntityType == nameof(ReagentLot) && a.EntityId == lot.Value.Id)
+            .Select(a => a.Reason)
+            .ToListAsync();
+        Assert.Contains("Reagent lot opened.", messages);
+        Assert.Contains("Reagent lot closed.", messages);
+
+        // Once closed, the number may be received again.
+        var again = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value.Id, "LC-1", now.AddDays(25)));
+        Assert.True(again.Succeeded, again.Error);
+
+        // A lot that has since expired can be neither opened nor tested.
+        var stale = await context.ReagentLots.SingleAsync(l => l.Id == again.Value!.Id);
+        stale.ExpiresUtc = now.AddHours(-1);
+        await context.SaveChangesAsync();
+        var open = await service.OpenLotAsync(stale.Id);
+        Assert.False(open.Succeeded);
+        Assert.Contains("close it and open a new lot", open.Error);
+        var qc = await service.RecordQcAsync(new RecordReagentQcRequest(stale.Id, "Positive", "Positive", true));
+        Assert.False(qc.Succeeded);
+        Assert.Contains("close it rather than testing it", qc.Error);
+    }
+
+    [Fact]
+    public async Task ReagentLot_NearExpiryWithNoNextLot_AsksToReceiveOne_UntilANextLotIsReceived()
+    {
+        // TEST-BB-560
+        await using var context = _factory.Create();
+        var service = Qc(context, _factory.CurrentUser);
+        var reagent = await service.SaveReagentAsync(new SaveReagentRequest("ANTI-K-RP", "Anti-K replace"));
+        var now = _factory.Clock.UtcNow;
+        var lot = await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value!.Id, "RP-1", now.AddDays(4)));
+        Assert.True((await service.OpenLotAsync(lot.Value!.Id)).Succeeded);
+
+        var replace = Assert.Single(await service.ListWorkAsync(), w => w.LotId == lot.Value.Id && w.Kind == ReagentQcWorklistRule.Replace);
+        Assert.Contains("no later lot of ANTI-K-RP is received", replace.Message);
+
+        await service.ReceiveLotAsync(new ReceiveReagentLotRequest(reagent.Value.Id, "RP-2", now.AddDays(90)));
+        Assert.DoesNotContain(await service.ListWorkAsync(), w => w.LotId == lot.Value.Id && w.Kind == ReagentQcWorklistRule.Replace);
     }
 
     [Fact]
@@ -133,16 +234,40 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.Empty(await board.ListAsync());
     }
 
+    // TEST-BB-1365 (end-user testing pass 326): an issued unit recorded missing has its outcome recorded, so it leaves the
+    // overdue final-disposition board.
     [Fact]
-    public async Task StockPar_ShowsOnHandAgainstTheMinimum()
+    public async Task OverdueDisposition_LeavesOutAUnitRecordedMissing()
     {
         await using var context = _factory.Create();
-        var product = new ProductType { ProductCode = "PLT-PAR", Name = "Platelets" };
+        var patient = new Patient { MedicalRecordNumber = "MRN-LOST", LastName = "Lost", FirstName = "Pat", DateOfBirth = new DateOnly(1971, 4, 1) };
+        var product = new ProductType { ProductCode = "RBC-LOST", Name = "Red cells" };
+        context.Patients.Add(patient);
+        context.ProductTypes.Add(product);
+        await context.SaveChangesAsync();
+        var unit = new BloodUnit { UnitNumber = "U-LOST-1", ProductTypeId = product.Id, Status = UnitStatus.Issued, ExpiresUtc = _factory.Clock.UtcNow.AddDays(20), Abo = AboGroup.O, RhD = RhType.Negative };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+        context.Issues.Add(new Issue { BloodProductId = unit.Id, PatientId = patient.Id, IssuedUtc = _factory.Clock.UtcNow.AddHours(-30), IssuedBy = "tech-test", Status = IssueStatus.Issued });
+        await context.SaveChangesAsync();
+
+        Assert.Contains(await Board(context).ListAsync(), r => r.UnitId == unit.Id);
+        unit.Status = UnitStatus.Missing;
+        await context.SaveChangesAsync();
+        Assert.DoesNotContain(await Board(context).ListAsync(), r => r.UnitId == unit.Id);
+        Assert.True(InventoryStatusTransition.IsAllowed(UnitStatus.Issued, UnitStatus.Missing));
+    }
+
+    [Fact]
+    public async Task MinimumStock_ShowsOnHandAgainstTheMinimum()
+    {
+        await using var context = _factory.Create();
+        var product = new ProductType { ProductCode = "PLT-MIN", Name = "Platelets" };
         context.ProductTypes.Add(product);
         await context.SaveChangesAsync();
         context.BloodUnits.Add(new BloodUnit
         {
-            UnitNumber = "U-PAR-1",
+            UnitNumber = "U-MIN-1",
             ProductTypeId = product.Id,
             Status = UnitStatus.Available,
             Abo = AboGroup.A,
@@ -150,12 +275,12 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
             ExpiresUtc = _factory.Clock.UtcNow.AddDays(5)
         });
         await context.SaveChangesAsync();
-        var service = new StockParService(
-            new EfRepository<StockParLevel>(context),
+        var service = new MinimumStockService(
+            new EfRepository<MinimumStockLevel>(context),
             new EfRepository<ProductType>(context),
             new InventoryRepository(context),
             context);
-        var saved = await service.SaveAsync(new SaveStockParRequest(product.Id, AboGroup.A, 3));
+        var saved = await service.SaveAsync(new SaveMinimumStockRequest(product.Id, AboGroup.A, 3));
         Assert.True(saved.Succeeded, saved.Error);
         Assert.Equal(1, saved.Value!.OnHand);
         Assert.Equal(2, saved.Value.Shortfall);

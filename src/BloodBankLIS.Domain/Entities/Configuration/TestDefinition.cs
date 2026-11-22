@@ -70,4 +70,50 @@ public class TestDefinition : VersionedConfigEntity
 
     /// <summary>When true, verified results update unit blood attribute records.</summary>
     public bool ContributesToUnitBloodAttributes { get; set; }
+
+    // Numeric results (ResultValueType.Numeric). Every limit is the facility's; none is assumed.
+
+    /// <summary>Units reported with the value (for example %), defaulted onto each result.</summary>
+    public string? ResultUnits { get; set; }
+
+    /// <summary>Most decimal places a value may be entered with; null allows any.</summary>
+    public int? DecimalPlaces { get; set; }
+
+    /// <summary>Range the method can report; a value outside it is refused (dilute and repeat, or report as above/below).</summary>
+    public decimal? ReportableLow { get; set; }
+
+    public decimal? ReportableHigh { get; set; }
+
+    /// <summary>Reference range: a value outside it is flagged L or H.</summary>
+    public decimal? ReferenceLow { get; set; }
+
+    public decimal? ReferenceHigh { get; set; }
+
+    /// <summary>Critical limits: a value beyond them is flagged LL or HH and warns at entry.</summary>
+    public decimal? CriticalLow { get; set; }
+
+    public decimal? CriticalHigh { get; set; }
+
+    // Titers (ResultValueType.Titer): a doubling dilution series read at one phase (OCD-065).
+
+    /// <summary>First dilution tested, as the n of 1:n (for example 1).</summary>
+    public int? TiterStartDilution { get; set; }
+
+    /// <summary>Last dilution tested, the start times a power of two (for example 2048).</summary>
+    public int? TiterEndDilution { get; set; }
+
+    /// <summary>Phase the dilutions are read at (a phase catalog code, for example AHG).</summary>
+    public string? TiterPhaseCode { get; set; }
+
+    /// <summary>Weakest grade that still counts toward the endpoint (for example 1+).</summary>
+    public string? TiterEndpointMinGrade { get; set; }
+
+    /// <summary>When true, the titer score is calculated from the grades.</summary>
+    public bool TiterScored { get; set; }
+
+    /// <summary>
+    /// LOINC code the EHR receives with this test's results (OBX-3 alternate identifier), for example 882-1. Chosen by
+    /// the interface team; none is assumed.
+    /// </summary>
+    public string? LoincCode { get; set; }
 }

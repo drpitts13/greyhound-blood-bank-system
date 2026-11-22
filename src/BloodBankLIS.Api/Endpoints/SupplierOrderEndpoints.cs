@@ -18,7 +18,7 @@ public static class SupplierOrderEndpoints
             await service.GetAsync(id, ct) is { } dto ? Results.Ok(dto) : Results.NotFound(new { error = "Order not found." }));
 
         group.MapPost("/", async (CreateSupplierOrderRequest request, SupplierOrderService service, CancellationToken ct) =>
-            ToResult(await service.CreateFromParAsync(request, ct)))
+            ToResult(await service.CreateFromShortfallAsync(request, ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
         group.MapPut("/{id:long}", async (long id, UpdateSupplierOrderRequest request, SupplierOrderService service, CancellationToken ct) =>
@@ -31,6 +31,10 @@ public static class SupplierOrderEndpoints
 
         group.MapPost("/{id:long}/receive", async (long id, ReceiveSupplierOrderRequest request, SupplierOrderService service, CancellationToken ct) =>
             ToResult(await service.ReceiveAsync(id, request, ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
+        group.MapPost("/{id:long}/follow-up", async (long id, SupplierOrderFollowUpRequest request, SupplierOrderService service, CancellationToken ct) =>
+            ToResult(await service.RecordFollowUpAsync(id, request, ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
         group.MapPost("/{id:long}/cancel", async (long id, CancelSupplierOrderRequest request, SupplierOrderService service, CancellationToken ct) =>

@@ -22,6 +22,12 @@ public class Patient : BaseEntity
 
     public Sex Sex { get; set; } = Sex.Unknown;
 
+    /// <summary>Local race code (<see cref="Rules.PatientDemographicCodes.Races"/>), from registration or the ADT feed.</summary>
+    public string? Race { get; set; }
+
+    /// <summary>Local ethnicity code (<see cref="Rules.PatientDemographicCodes.Ethnicities"/>).</summary>
+    public string? Ethnicity { get; set; }
+
     public bool Deceased { get; set; }
 
     public DateTime? DeceasedUtc { get; set; }
@@ -34,8 +40,23 @@ public class Patient : BaseEntity
     /// <summary>Documented pregnancy (or pregnancy in lookback) used for specimen validity.</summary>
     public DateTime? RecentPregnancyUtc { get; set; }
 
+    /// <summary>
+    /// A weak D or partial D recorded for the patient (a trait, kept across new typings). OCD-069 (decided 2026-11-10,
+    /// option B): treated as Rh negative for RhIG. Recorded with a reason and audited.
+    /// </summary>
+    public RhDVariant RhDVariant { get; set; } = RhDVariant.None;
+
     /// <summary>Free-text patient comment. Coded comments from the Patient catalog may be inserted.</summary>
     public string? Comment { get; set; }
+
+    /// <summary>
+    /// Registered without identification for emergency care (temporary UNK- MRN, estimated age); merged into the
+    /// identified patient's chart once known (UnidentifiedPatientRule).
+    /// </summary>
+    public bool Unidentified { get; set; }
+
+    /// <summary>The mother's chart, for an infant (MotherInfantLinkRule); information only.</summary>
+    public long? MotherPatientId { get; set; }
 
     public ICollection<Specimen> Specimens { get; set; } = new List<Specimen>();
 

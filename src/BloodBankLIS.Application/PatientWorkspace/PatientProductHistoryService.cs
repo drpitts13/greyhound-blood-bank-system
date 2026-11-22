@@ -24,6 +24,7 @@ public sealed class PatientProductHistoryService
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
     private readonly IRepository<Override> _overrides;
     private readonly IRepository<InventoryLocation>? _locations;
+    private readonly IRepository<MtpActivation>? _mtpActivations;
 
     public PatientProductHistoryService(
         IRepository<Allocation> allocations,
@@ -38,7 +39,8 @@ public sealed class PatientProductHistoryService
         IRepository<Specimen> specimens,
         IRepository<PatientBloodTypeHistory> bloodTypes,
         IRepository<Override> overrides,
-        IRepository<InventoryLocation>? locations = null)
+        IRepository<InventoryLocation>? locations = null,
+        IRepository<MtpActivation>? mtpActivations = null)
     {
         _allocations = allocations;
         _crossmatches = crossmatches;
@@ -53,6 +55,7 @@ public sealed class PatientProductHistoryService
         _bloodTypes = bloodTypes;
         _overrides = overrides;
         _locations = locations;
+        _mtpActivations = mtpActivations;
     }
 
     public async Task<IReadOnlyList<PatientProductHistoryRowDto>> ListByPatientAsync(
@@ -139,7 +142,8 @@ public sealed class PatientProductHistoryService
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, LinkedSpecimenAccession(i, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(i.IssuedBy), IssueDestinationCue.Format(i.IssuedToLocation, issuePlaces),
                 null, null, null, null, i.Status.ToString(), false, missing, isOpen,
-                UnitId: unit?.Id, IssueId: i.Id, UnitExpiresUtc: unit?.ExpiresUtc, IssuedTo: Person(i.IssuedTo), CoolerId: Person(i.CoolerId), IssueType: i.IssueType.ToString(), EmergencyReleaseReason: Person(i.EmergencyReleaseDetails), SecondVerifier: Person(i.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(i, authorizers), IssueAppearance: i.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(i), PtagCode: Person(i.PtagCode), IssueCrossmatchStatus: i.CrossmatchStatus.ToString()));
+                UnitId: unit?.Id, IssueId: i.Id, UnitExpiresUtc: unit?.ExpiresUtc, IssuedTo: Person(i.IssuedTo), CoolerId: Person(i.CoolerId), IssueType: i.IssueType.ToString(), EmergencyReleaseReason: Person(i.EmergencyReleaseDetails), SecondVerifier: Person(i.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(i, authorizers), IssueAppearance: i.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(i), PtagCode: Person(i.PtagCode), IssueCrossmatchStatus: i.CrossmatchStatus.ToString(), ReactionInvestigationOpenAtIssueId: i.ReactionInvestigationOpenAtIssueId,
+                EntryNotes: IssueEntryNotes.For(i.LateEntryReason, i.DowntimeBackEntry, i.OutsideOutageReason, i.NeonatalNoCrossmatch)));
         }
 
         foreach (var r in await _returns.ListAsync(ct))
@@ -163,7 +167,7 @@ public sealed class PatientProductHistoryService
                 patientBloodType, visit, orderNum, LinkedSpecimenAccession(issue, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(r.ReturnedBy), null, r.ReturnedBy,
                 null, null, null, null, false, missing, false,
                 UnitId: unit?.Id, IssueId: r.IssueId, UnitExpiresUtc: unit?.ExpiresUtc,
-                ReturnReason: Person(r.Reason), ReissueEligible: r.ReissueEligible, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString()));
+                ReturnReason: Person(r.Reason), ReissueEligible: r.ReissueEligible, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString(), ReactionInvestigationOpenAtIssueId: issue.ReactionInvestigationOpenAtIssueId));
         }
 
         foreach (var t in await _transfusions.ListAsync(x => x.PatientId == patientId, ct))
@@ -181,18 +185,23 @@ public sealed class PatientProductHistoryService
 
             var unit = units.GetValueOrDefault(t.BloodProductId);
             var (visit, orderNum, missing) = ResolveContext(issue.EncounterId, issue.OrderId, encounters, orders);
-            var eventType = t.FinalDisposition == TransfusionDisposition.Stopped
-                ? PatientProductHistoryEventType.PartiallyTransfused
-                : PatientProductHistoryEventType.Transfused;
+            // A record with no stop on an issue still Issued is running; its disposition field is only a default.
+            var inProgress = t.StopUtc is null && issue.Status == IssueStatus.Issued;
+            var eventType = inProgress
+                ? PatientProductHistoryEventType.TransfusionStarted
+                : t.FinalDisposition == TransfusionDisposition.Stopped
+                    ? PatientProductHistoryEventType.PartiallyTransfused
+                    : PatientProductHistoryEventType.Transfused;
 
             rows.Add(new PatientProductHistoryRowDto(
                 t.Id, nameof(TransfusionEvent), eventType, t.StartUtc ?? t.CreatedUtc,
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, LinkedSpecimenAccession(issue, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(t.DocumentedBy),
                 IssueDestinationCue.Format(t.Location ?? issue.IssuedToLocation, issuePlaces),
-                null, t.StartUtc, t.StopUtc, t.VolumeTransfused, t.FinalDisposition.ToString(),
-                t.ReactionSuspected, missing, false, t.PatientIdentificationMethod,
-                t.Transfusionist, unit?.Id, t.IssueId, unit?.ExpiresUtc, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString()));
+                null, t.StartUtc, t.StopUtc, t.VolumeTransfused, inProgress ? "In progress" : t.FinalDisposition.ToString(),
+                t.ReactionSuspected, missing, inProgress, t.PatientIdentificationMethod,
+                t.Transfusionist, unit?.Id, t.IssueId, unit?.ExpiresUtc, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString(), ReactionInvestigationOpenAtIssueId: issue.ReactionInvestigationOpenAtIssueId,
+                EntryNotes: TransfusionReportNote.For(t.UnitStatusAtReport, t.ReportReviewedBy, t.ReportReviewNote) is string reportNote ? [reportNote] : null));
         }
 
         return rows.OrderByDescending(r => r.EventUtc).ToList();
@@ -272,18 +281,25 @@ public sealed class PatientProductHistoryService
         IReadOnlyList<Issue> issues,
         CancellationToken ct)
     {
+        // Keyed by issue id. Pass 250: an MTP issue with no override names the physician who called the protocol.
         var overrideIds = issues.Where(i => i.OverrideId is long).Select(i => i.OverrideId!.Value).Distinct().ToList();
-        if (overrideIds.Count == 0)
-        {
-            return [];
-        }
-
-        var overrides = await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct);
-        return overrides.ToDictionary(o => o.Id, o => Person(o.AuthorizedBy));
+        var overrides = overrideIds.Count == 0
+            ? new Dictionary<long, string?>()
+            : (await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct)).ToDictionary(o => o.Id, o => Person(o.AuthorizedBy));
+        var mtpIds = issues.Where(i => i.MtpActivationId is long).Select(i => i.MtpActivationId!.Value).Distinct().ToList();
+        var callers = mtpIds.Count == 0 || _mtpActivations is null
+            ? new Dictionary<long, string>()
+            : (await _mtpActivations.ListAsync(a => mtpIds.Contains(a.Id), ct)).ToDictionary(a => a.Id, a => a.RequestedBy);
+        return issues.DistinctBy(i => i.Id).ToDictionary(
+            i => i.Id,
+            i => IssueAuthorizerText.For(
+                i.OverrideId is long oid ? overrides.GetValueOrDefault(oid) : null,
+                i.MtpActivationId,
+                i.MtpActivationId is long mid ? callers.GetValueOrDefault(mid) : null));
     }
 
     private static string? Authorizer(Issue issue, IReadOnlyDictionary<long, string?> authorizers) =>
-        issue.OverrideId is long id && authorizers.TryGetValue(id, out var name) ? name : null;
+        authorizers.TryGetValue(issue.Id, out var name) ? name : null;
 
     private static string? WardReceiptAppearance(Issue issue) =>
         issue.WardReceivedUtc is null ? null : issue.WardAppearance.ToString();

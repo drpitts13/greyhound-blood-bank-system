@@ -1,4 +1,4 @@
-# Blood Bank LIS
+# HemoCore
 
 An original, safety-critical Blood Bank Laboratory Information System built on C# / .NET, SQL Server, and EF Core, using a layered, API-first architecture. Accuracy, traceability, auditability, and workflow controls are prioritized over development speed.
 
@@ -55,6 +55,14 @@ tests/
 ```bash
 dotnet build
 dotnet test
+```
+
+### Vulnerable packages
+
+`scripts/check-vulnerable-packages.sh` fails when any project uses a NuGet package with a known security advisory, directly or through another package. CI runs it on every push to `main`, every pull request, and weekly, so advisories published later are caught too (`.github/workflows/vulnerable-packages.yml`). Run it locally:
+
+```bash
+bash scripts/check-vulnerable-packages.sh
 ```
 
 ## Run the API

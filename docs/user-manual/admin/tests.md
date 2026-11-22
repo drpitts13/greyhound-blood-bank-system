@@ -10,7 +10,51 @@ routes:
 
 ![Test definitions](figures/admin-tests.png)
 
-**Test Definitions** is the catalog the order entry and the worklist use. A test that is not here cannot be ordered. Each definition says how the result is recorded (a choice list, a graded reaction, free text), which panel subtests it includes, and how an interpretation is derived. The list keeps the test code. When the name is blank, the list says Test and the id. That wording is not saved, and the edit form still shows the stored name.
+**Test Definitions** is the catalog the order entry and the worklist use. A test that is not here cannot be ordered. Each definition says how the result is recorded (its **result value type**, below), which panel subtests it includes, and how an interpretation is derived. The list keeps the test code. When the name is blank, the list says Test and the id. That wording is not saved, and the edit form still shows the stored name.
+
+## Result value types
+
+Choose the value type that matches how the bench records the test:
+
+| Value type | Use it for | Examples |
+|---|---|---|
+| **Coded** | One answer from a list you define (*Allowed result values*, one per line) | DAT (Negative/Positive), weak D |
+| **Numeric** | A number with units, decimals and optional ranges | Fetal bleed quantitation (%) |
+| **Free text** | A narrative result | Antibody identification conclusion |
+| **ABO/Rh** | Forward and reverse grouping read per reagent, interpreted to a type by logic rows | ABO/Rh type, neonatal type, retypes |
+| **Subtest** | A panel of subtests (cells, reagents) read at phases, interpreted by logic rows | Antibody screen, DAT with IgG and C3, elution, weak D panel |
+| **Blood attribute** | Antigens typed on the patient or a unit, from the blood attribute catalog | Antigen typing, unit antigen typing, Rh/Kell phenotype |
+| **Crossmatch** | A serologic or electronic crossmatch read per cell and phase | Crossmatch, electronic crossmatch |
+| **Complex crossmatch** | A crossmatch with more phases or cells than the routine one | Complex crossmatch |
+| **Titer** | A doubling dilution series read to an endpoint, with an optional score | Antibody titer, ABO titer |
+
+## Specimen types
+
+**Preferred specimen type** prefills the specimen type when the test is accessioned. **Also accepted** lists the other types the test may be performed on (for example EDTA preferred, clotted also accepted). Result entry is blocked only when the specimen is none of these; order entry warns before that. When you order with **Accession now**, the chart names the types the selected tests accept, marks the types that suit them all, prefills one of those, and says when no single tube does (collect a tube for each). Leave the preferred type empty to accept any type. A specimen type's own **excluded tests** still apply. Which types each test accepts is your laboratory's decision.
+
+## Numeric results
+
+For a **Numeric** test, set the **Units** (for example %), **Decimal places**, and any of three ranges. Each is optional and your facility's own:
+
+- **Reportable**: what the method can report. A value outside it is refused at entry (dilute and repeat, or report it as above or below the range).
+- **Reference**: a value outside it is flagged **L** or **H**.
+- **Critical**: a value beyond it is flagged **LL** or **HH** and warns when saved.
+
+The reference range must lie inside the reportable range, and the critical limits outside the reference range. The flag is stored with the result and sent to the EHR, with the units and the reference range.
+
+## Titers
+
+For a **Titer** test, set the **First** and **Last dilution** (the last must be the first doubled, for example 1 to 2048), the **phase** the tubes are read at, the **weakest grade that counts** toward the endpoint, and whether a **score** is calculated. The form lists the dilutions. Which grade is the endpoint, how the score is counted, and what change matters are decisions for your medical director (OCD-065).
+
+## LOINC code
+
+**LOINC code** (optional) is the standard code the EHR receives with each result of the test, beside your local test code (for example 882-1). The check digit is checked when you save. Your interface team chooses the code; none is filled in for you.
+
+## Example tests
+
+The catalog includes example tests as **inactive drafts**: antibody and ABO titers, fetal bleed quantitation, a DAT with IgG and C3, an elution, a weak D panel, and an Rh/Kell phenotype. Review each with your medical director, adjust it, and activate only the ones your laboratory performs.
+
+**ABO/Rh history** on an ABO/Rh test (result type ABO/Rh) means a verified result of that test becomes the patient's current type, as ABO/Rh (ABORH) does, with the same check against the type on file, the same *Discrepancy* flag on the Test Worklist, and the same block on verifying your own result when the facility blocks ABO/Rh self-verification. The neonatal type and screen (TSNEO) has it set, so a newborn typed by it has a type on the chart; an ABO/Rh test without it (for example a reference typing) is recorded as a result only.
 
 ## History
 
@@ -23,3 +67,5 @@ Panel interpretation uses the subtests and the logic table on the definition. Ch
 Inactivating a test stops new orders. It does not remove historical results. Prefer inactive over deleting a code that already appears on patient records.
 
 Billing for a verified test is mapped on [Test and service billing](test-service-billing), not on this page.
+
+**Deactivating a test** still goes ahead, but the confirmation names what still uses it: active test groupers that order it, reflex rules that trigger on it or add it, and products that retype with it. Update each so orders, reflexes and retypes do not point at a retired test.

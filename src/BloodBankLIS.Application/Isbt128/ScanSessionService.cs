@@ -321,6 +321,9 @@ public sealed class ScanSessionService
                     var parsed = ExpirationParser.Parse(segment.Value);
                     if (!parsed.Success)
                         return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
+                    // Pass 161: an expiration a century off (the century digit, OCD-092) is refused with what to check.
+                    if (ExpirationPlausibilityRule.Evaluate(parsed.Value!.Year, _clock.UtcNow) is { Severity: RuleSeverity.HardStop } implausible)
+                        return (false, new[] { $"{implausible.Code}: {implausible.Message}" });
                     if (draft.Expiration is not null && draft.Expiration.ExpirationEncoded != parsed.Value!.ExpirationEncoded)
                         return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting expiration." });
                     draft.Expiration = parsed.Value;

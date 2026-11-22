@@ -4,12 +4,12 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Modify Products &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Modify Products &middot; HemoCore</PageTitle>
 
 <InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Modify" />
 <h1>Modify Blood Products</h1>
 <p class="muted">
-    Divide, pool, irradiate, thaw, volume-reduce, leukoreduce, wash, or aliquot a unit under an
+    Divide, pool, aliquot, irradiate, thaw, wash, volume-reduce, leukoreduce, freeze, deglycerolize, plasma-reduce or rejuvenate a unit under an
     admin-configured modification rule. Divide, pool, and the other modifications retire the source.
     An aliquot leaves the parent available and reduces its volume.
 </p>
@@ -24,10 +24,12 @@
     <div class="bb-card-title"><h3>1. Find the source unit</h3></div>
     <div class="field">
         <label>Unit number</label>
+        @* Opened without a unit, the scanner's first unit lands here. *@
         <UnitPickerComboBox Scope="UnitPickerScope.Available"
             Value="_sourceUnitId"
             ValueChanged="OnSourceIdChanged"
-            SelectedItemChanged="OnSourceSelectedAsync" />
+            SelectedItemChanged="OnSourceSelectedAsync"
+            Autofocus="UnitId is null" />
     </div>
     <Outcome Value="_searchFb" />
 </div>
@@ -38,12 +40,14 @@
         <div class="bb-card-title"><h3>2. Selected unit</h3></div>
         <div class="form-row">
             <div class="field"><label>Unit number</label><div class="mono">@_unit.UnitNumber</div></div>
-            <div class="field"><label>Product code</label><div class="mono">@(SourceProductCode ?? "—")</div></div>
+            @* Pass 307: the product by name; the ISBT code alone read "—" for a unit received without one. *@
+            <div class="field"><label>Product</label><div data-source-product>@(UnitProductText.For(_productTypes, _unit.ProductTypeId) ?? "—")</div></div>
+            <div class="field"><label>ISBT product code</label><div class="mono">@(SourceProductCode ?? "—")</div></div>
             <div class="field"><label>Volume</label><div>@FormatVolume(_unit.Volume)</div></div>
             <div class="field"><label>Location</label><div>@FormatUnitLocation(_unit.CurrentLocationId)</div></div>
             <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
-            <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@_unit.Status</span></div></div>
-            <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+            <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.EnumText(_unit.Status)</span></div></div>
+            <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div>
         </div>
 
         @if (_retiredOfferClosed)
@@ -66,7 +70,7 @@
                     @foreach (var e in _eligible)
                     {
                         <option value="@e.RuleId" disabled="@(!e.IsAvailable)">
-                            @e.ModificationCode — @e.ModificationType &rarr; @e.TargetProductCode (@e.ExpirationOffsetCode from @RelativeLabel(e.ExpirationRelativeTo))@(e.IsAvailable ? "" : " — collection date required")
+                            @e.ModificationCode — @Ui.EnumText(e.ModificationType) &rarr; @e.TargetProductCode@(TargetName(e.TargetProductTypeId)) (@e.ExpirationOffsetCode from @RelativeLabel(e.ExpirationRelativeTo))@(e.IsAvailable ? "" : " — collection date required")
                         </option>
                     }
                 </select>
@@ -90,9 +94,9 @@
         <div class="bb-card-title"><h3>3. Modification details</h3></div>
         <div class="form-row">
             <div class="field"><label>Modification code</label><div class="mono">@_selectedRule.ModificationCode</div></div>
-            <div class="field"><label>New product</label><div class="mono">@_selectedRule.TargetProductCode</div></div>
+            <div class="field"><label>New product</label><div data-new-product><span class="mono">@_selectedRule.TargetProductCode</span>@TargetName(_selectedRule.TargetProductTypeId)</div></div>
             <div class="field"><label>New expiration</label>
-                <div>@(_selectedRule.PreviewExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</div>
+                <div>@(_selectedRule.PreviewExpiresUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</div>
                 <div class="muted">@_selectedRule.ExpirationOffsetCode from @RelativeLabel(_selectedRule.ExpirationRelativeTo), capped at source expiration</div>
             </div>
         </div>
@@ -106,6 +110,7 @@
             </div>
             @if (_children.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>#</th><th>Generated product code</th><th>Volume (mL, required)</th></tr></thead>
                     <tbody>
@@ -120,6 +125,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
                 @if (_unit.Volume is decimal sourceVolume)
                 {
                     <div class="muted">
@@ -151,6 +157,7 @@
                     SelectedItemChanged="OnPoolUnitSelected"
                     ExcludeIds="PoolExcludeIds" />
             </div>
+            <div class="table-scroll">
             <table class="bb" style="margin-top:.6rem;">
                 <thead><tr><th>Unit #</th><th>ABO/Rh</th><th>Location</th><th class="right">Volume</th><th></th></tr></thead>
                 <tbody>
@@ -173,6 +180,12 @@
                     }
                 </tbody>
             </table>
+            </div>
+            @if (PoolMixNote is { } poolMix)
+            {
+                @* Mixed-ABO pooling phase 3: say before pooling that the units differ in ABO/Rh and what follows. *@
+                <div class="alert alert-warning" data-pool-mixed-note>@poolMix</div>
+            }
             @if (PoolLocationGap)
             {
                 <div class="muted">These units are not in the same storage location. Transfer them to one location before pooling.</div>
@@ -211,7 +224,74 @@
             <div class="field"><label>Supply lot (optional)</label><input @bind="_supplyLot" /></div>
         </div>
         <p class="muted">Leave the lot blank unless facility policy requires it. That policy is off unless an administrator turns it on.</p>
-        <div class="field" style="margin-top:.6rem;"><label>Reason (required)</label>
+        <div class="form-row" style="margin-top:.6rem;" data-modification-result-location>
+            <div class="field"><label>Result location</label>
+                <select @bind="_resultLocationId">
+                    <option value="">Same as the source</option>
+                    @foreach (var l in _activeLocations)
+                    {
+                        <option value="@l.Id">@l.Label</option>
+                    }
+                </select>
+            </div>
+        </div>
+        @if (_selectedRule.ModificationType == ModificationType.Thaw)
+        {
+            <p class="muted" data-thaw-location-note>A thawed unit cannot stay in a freezer: choose the refrigerator it goes to.</p>
+        }
+        else if (_selectedRule.ModificationType == ModificationType.Deglycerolize)
+        {
+            <p class="muted" data-thaw-location-note>A deglycerolized unit cannot stay in a freezer: choose the refrigerator it goes to.</p>
+        }
+        else if (_selectedRule.ModificationType == ModificationType.Freeze)
+        {
+            <p class="muted" data-thaw-location-note>A frozen unit must be stored in a freezer: choose the freezer it goes to.</p>
+        }
+        @if (_selectedRule.ModificationType is not ModificationType.Divide and not ModificationType.Pool and not ModificationType.Aliquot)
+        {
+            var irradiate = _selectedRule.ModificationType == ModificationType.Irradiate;
+            <div class="form-row" style="margin-top:.6rem;" data-modification-device>
+                <div class="field"><label>@(irradiate ? "Irradiator" : "Device (optional)")</label>
+                    <input @bind="_deviceId" @bind:event="oninput" placeholder="@(irradiate ? "Scan or type the irradiator" : "Cell washer, thawer, or other device")" autocomplete="off" list="modification-equipment" />
+                    @* Registered equipment in service (Cycle 709); equipment out of service is refused when saved. *@
+                    <datalist id="modification-equipment" data-modification-equipment>
+                        @foreach (var e in DeviceChoices(irradiate))
+                        {
+                            <option value="@e.Code">@e.Name (@e.Kind)</option>
+                        }
+                    </datalist>
+                </div>
+                @if (irradiate)
+                {
+                    <div class="field"><label>Dose indicator</label>
+                        <select @bind="_indicator" data-irradiation-indicator>
+                            <option value="">Not checked</option>
+                            <option value="yes">Shows irradiated</option>
+                            <option value="no">Does not show irradiated</option>
+                        </select>
+                    </div>
+                }
+            </div>
+            @if (irradiate && !DeviceChoices(true).Any())
+            {
+                <p class="muted" data-no-irradiator-note>No irradiator is registered in Equipment, so none is suggested. Type the irradiator's ID, or register it on <a href="/equipment">Equipment</a> with the kind Irradiator.</p>
+            }
+            @if (EquipmentTestNotice.ForDevice(_equipmentInService, _deviceId) is { } deviceDue)
+            {
+                <div class="alert alert-warning" style="margin-top:.4rem;" data-modification-device-due>
+                    @_deviceId?.Trim().ToUpperInvariant(): @deviceDue. Follow your equipment procedure before using it.
+                </div>
+            }
+            @if (irradiate && _indicator == "no")
+            {
+                <div class="alert alert-danger" style="margin-top:.4rem;">The unit will not be recorded as irradiated. Follow the irradiation SOP for this unit.</div>
+            }
+            else if (irradiate)
+            {
+                <p class="muted">Check the indicator on each unit after irradiation. Your facility may require the irradiator and a confirmed indicator (an administrator setting).</p>
+            }
+        }
+        <div class="field" style="margin-top:.6rem;"><label data-modification-reason-label>Reason @(_reasonRequired ? "(required)" : "(optional)")</label>
             <input @bind="_reason" @bind:event="oninput" placeholder="Why is this modification being performed?" style="width:100%;" />
         </div>
         @if (_selectedRule.ModificationType is not ModificationType.Divide and not ModificationType.Pool and not ModificationType.Aliquot)
@@ -221,7 +301,7 @@
                 <textarea @bind="_batchUnitNumbers" @bind:event="oninput" rows="3" style="width:100%;" placeholder="One additional unit number per line. The selected unit is included."></textarea>
                 <div class="muted">One rule and one reason. If any unit is ineligible, none are modified.</div>
             </div>
-            <button class="btn btn-secondary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason) || string.IsNullOrWhiteSpace(_batchUnitNumbers))" @onclick="SubmitBatchAsync">
+            <button class="btn btn-secondary" style="margin-top:.6rem;" disabled="@(_busy || ReasonMissing || string.IsNullOrWhiteSpace(_batchUnitNumbers))" @onclick="SubmitBatchAsync">
                 Apply to batch
             </button>
         }
@@ -230,8 +310,8 @@
         {
             <div class="alert alert-warning" style="margin-top:.6rem;">Performing a modification requires the inventory modify permission.</div>
         }
-        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason) || !Session.Has(PermissionCodes.InventoryModify))" @onclick="SubmitAsync">
-            Perform @_selectedRule.ModificationType
+        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@(_busy || ReasonMissing || !Session.Has(PermissionCodes.InventoryModify))" @onclick="SubmitAsync">
+            Perform @Ui.EnumText(_selectedRule.ModificationType).ToLowerInvariant()
         </button>
     </div>
 }
@@ -248,6 +328,7 @@
         {
             <p>@RetiredSourceCue</p>
         }
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Location</th><th>Expires</th><th></th></tr></thead>
             <tbody>
@@ -262,14 +343,14 @@
                         <td>@FormatVolume(u.Volume)</td>
                         <td>@Ui.BloodType(u.Abo, u.RhD)</td>
                         <td>
-                            <span class="@Ui.Badge(u.Status)">@u.Status</span>
+                            <span class="@Ui.Badge(u.Status)">@Ui.EnumText(u.Status)</span>
                             @if (releaseCue is not null)
                             {
                                 <div class="muted">@releaseCue</div>
                             }
                         </td>
                         <td>@location</td>
-                        <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@u.ExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="right nowrap">
                             <a class="btn btn-secondary btn-sm" href="@InventoryUrls.Unit(u.Id)">Open unit</a>
                             @if (releaseHref is not null)
@@ -289,6 +370,7 @@
                 }
             </tbody>
         </table>
+        </div>
     </div>
 }
 
@@ -297,28 +379,31 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Modification history for this unit</h3></div>
         <p class="muted">The patient is named when a product order points at the modification, including the medical record number when it is recorded. No product order says so. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one.</p>
+        <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Supply</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+            <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Supply</th><th>Device</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
             <tbody>
                 @foreach (var h in _history)
                 {
                     <tr>
-                        <td>@h.ModificationType</td>
+                        <td>@Ui.EnumText(h.ModificationType)</td>
                         <td>@h.PatientLabel</td>
                         <td class="mono">@h.SourceProductCode</td>
                         <td class="mono">@h.TargetProductCode</td>
                         <td class="mono">@FormatHistoryResults(h)</td>
                         <td>@FormatHistoryLocations(h)</td>
                         <td>@FormatSupply(h)</td>
+                        <td>@(ModificationDeviceRule.Describe(h.DeviceId, h.IndicatorConfirmed) ?? "—")</td>
                         <td class="mono">@h.ExpirationOffsetCodeApplied</td>
-                        <td class="nowrap">@h.ResultExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@h.ResultExpiresUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@h.Reason</td>
                         <td>@h.PerformedBy</td>
-                        <td class="nowrap">@h.PerformedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@h.PerformedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                     </tr>
                 }
             </tbody>
         </table>
+        </div>
     </div>
 }
 
@@ -358,6 +443,20 @@
             ? Array.Empty<long?>()
             : new[] { _unit.CurrentLocationId }.Concat(_poolUnits.Select(unit => unit.CurrentLocationId)).ToList();
 
+    /// <summary>When the pooled units differ in ABO/Rh, what a mixed pool means (mixed-ABO pooling phase 3, OCD-094).</summary>
+    private string? PoolMixNote
+    {
+        get
+        {
+            if (_unit is null || _poolUnits.Count == 0)
+            {
+                return null;
+            }
+
+            return Ui.PoolMixNote(new[] { _unit }.Concat(_poolUnits).Select(u => new PoolComponent(u.Abo, u.RhD)).ToList());
+        }
+    }
+
     private bool PoolLocationGap =>
         UnitModificationEligibilityRule.EvaluatePoolLocations(PoolLocationIds).IsHardStopped;
 
@@ -370,8 +469,26 @@
             : PoolVolumes.Sum(volume => volume!.Value);
 
     private string _reason = string.Empty;
+
+    // End-user testing loop 2 tick 54: the reason follows Modification.RequireReason (on unless the facility turns it
+    // off; unreadable reads as on). The service decides either way.
+    private bool _reasonRequired = true;
+    private bool ReasonMissing => _reasonRequired && string.IsNullOrWhiteSpace(_reason);
     private string? _supplyDescription;
     private string? _supplyLot;
+    private string? _deviceId;
+    private long? _resultLocationId;
+    private readonly List<(long Id, string Label)> _activeLocations = new();
+    // "", "yes", or "no" from the dose indicator list; irradiation only.
+    private string _indicator = string.Empty;
+
+    private bool? IndicatorConfirmed =>
+        _selectedRule?.ModificationType != ModificationType.Irradiate ? null : _indicator switch
+        {
+            "yes" => true,
+            "no" => false,
+            _ => null
+        };
     private string _batchUnitNumbers = string.Empty;
     private Feedback? _actionFb;
     private ModificationResultVm? _lastResult;
@@ -399,14 +516,34 @@
 
     private bool _unitQueryApplied;
 
+    private List<EquipmentDto> _equipmentInService = new();
+
+    // End-user testing loop 2 tick 53: the Irradiator field suggested the centrifuge and cell washer. Irradiation
+    // suggests only equipment of the kind Irradiator; other modifications suggest any device in service.
+    private IEnumerable<EquipmentDto> DeviceChoices(bool irradiate) => irradiate
+        ? _equipmentInService.Where(e => string.Equals(e.Kind?.Trim(), "Irradiator", StringComparison.OrdinalIgnoreCase))
+        : _equipmentInService;
+
     protected override async Task OnInitializedAsync()
     {
+        var productTypes = await Api.GetProductTypesAsync();
+        _productTypes = productTypes.Value ?? [];
+
+        var reasonPolicy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireModificationReason);
+        _reasonRequired = reasonPolicy.Value?.Enabled ?? true;
+
+        var equipment = await Api.GetEquipmentAsync();
+        _equipmentInService = (equipment.Value ?? new()).Where(e => e.InService).OrderBy(e => e.Code).ToList();
+
         var locations = await Api.GetLocationsAsync();
         if (!locations.Succeeded || locations.Value is null)
         {
             return;
         }
 
+        _activeLocations.AddRange(locations.Value.Where(l => l.IsActive)
+            .OrderBy(l => l.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(l => (l.Id, $"{l.Code} — {l.Name}".Trim(' ', '—'))));
         foreach (var location in locations.Value)
         {
             if (!string.IsNullOrWhiteSpace(location.Name))
@@ -436,8 +573,14 @@
         }
     }
 
+    // End-user testing loop 2 tick 51: a choice read "Irradiate → E0332"; it now names the product it makes.
+    private string TargetName(long productTypeId) =>
+        _productTypes.FirstOrDefault(p => p.Id == productTypeId)?.Name is { Length: > 0 } name ? $" {name}" : string.Empty;
+
     private static string RelativeLabel(ExpirationRelativeTo relativeTo) =>
         relativeTo == ExpirationRelativeTo.CollectionDateTime ? "collection" : "modification";
+
+    private List<ProductTypeDto> _productTypes = [];
 
     private string? SourceProductCode =>
         _unit is null
@@ -503,7 +646,7 @@
         }
 
         var now = StorageLocationLabel.Format(unit.CurrentLocationId, unit.CurrentLocationName);
-        var when = unit.LocationLeftUtc?.ToString("yyyy-MM-dd HH:mm");
+        var when = unit.LocationLeftUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
         var why = string.IsNullOrWhiteSpace(unit.LocationLeftReason) ? null : unit.LocationLeftReason.Trim();
         var who = string.IsNullOrWhiteSpace(unit.LocationLeftBy) ? null : $"by {unit.LocationLeftBy.Trim()}";
         var details = new[] { when, why, who }.Where(part => part is not null).Cast<string>().ToList();
@@ -571,6 +714,8 @@
         _children.Clear();
         _childCount = 2;
         _reason = string.Empty;
+        // The indicator is read per unit; the irradiator stays for the next unit.
+        _indicator = string.Empty;
 
         var eligible = await Api.GetEligibleModificationsAsync(u.Id);
         _eligible = eligible.Value ?? new();
@@ -675,7 +820,7 @@
 
     private async Task SubmitAsync()
     {
-        if (_unit is null || _selectedRule is null || string.IsNullOrWhiteSpace(_reason)) return;
+        if (_unit is null || _selectedRule is null || ReasonMissing) return;
 
         _busy = true;
         ApiResult<ModificationResultVm> r;
@@ -756,7 +901,7 @@
 
             r = await Api.ApplyModificationAsync(
                 _unit.Id,
-                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId, _supplyDescription, _supplyLot));
+                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId, _supplyDescription, _supplyLot, _deviceId, IndicatorConfirmed, _resultLocationId));
         }
 
         _busy = false;
@@ -768,6 +913,7 @@
             _aliquotParentConfirmed = false;
             _retiredSources = new();
             _reason = string.Empty;
+            _indicator = string.Empty;
             _singleResultVolume = null;
             var retiredSources = new List<(long Id, string? Number)>();
             if (!_lastWasAliquot && _unit is not null)
@@ -841,7 +987,7 @@
 
     private async Task SubmitBatchAsync()
     {
-        if (_unit is null || _selectedRule is null || string.IsNullOrWhiteSpace(_reason))
+        if (_unit is null || _selectedRule is null || ReasonMissing)
         {
             return;
         }
@@ -871,7 +1017,7 @@
 
         _busy = true;
         var result = await Api.ApplyBatchModificationAsync(new PerformBatchModificationRequest(
-            _selectedRule.RuleId, ids, _reason, _supplyDescription, _supplyLot));
+            _selectedRule.RuleId, ids, _reason, _supplyDescription, _supplyLot, _deviceId, IndicatorConfirmed, _resultLocationId));
         _busy = false;
         _actionFb = result.ToFeedback("Batch modification completed.");
         if (result.Succeeded)
@@ -879,6 +1025,8 @@
             _reason = string.Empty;
             _supplyDescription = null;
             _supplyLot = null;
+            _deviceId = null;
+            _indicator = string.Empty;
             _batchUnitNumbers = string.Empty;
             var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
             _history = history.Value ?? new();

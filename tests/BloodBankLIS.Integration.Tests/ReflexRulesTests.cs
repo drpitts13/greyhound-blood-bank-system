@@ -183,7 +183,15 @@ public class ReflexRulesTests : IClassFixture<SqliteContextFactory>
         var pending = await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending);
         Assert.Contains(pending, i => i.TestCode == "ABID" && i.SpecimenId == specimen.Id);
 
+        // TEST-BB-566: the reflex line names the verified result that added it, and the worklist shows it.
         var abidLine = lines.Single(l => l.TestCode == "ABID");
+        Assert.Equal("ABSC", abidLine.ReflexFromTestCode);
+        Assert.Equal("Positive", abidLine.ReflexFromValue);
+        Assert.Equal(save.Value.Id, abidLine.ReflexFromResultId);
+        Assert.Null(lines.Single(l => l.TestCode == "ABSC").ReflexFromTestCode);
+        Assert.Equal("ABSC Positive", pending.Single(i => i.TestCode == "ABID").ReflexFrom);
+        Assert.DoesNotContain(pending, i => i.TestCode == "ABSC" && i.ReflexFrom != null);
+
         var reflexAudit = await c.AuditEvents.SingleAsync(a =>
             a.EventType == AuditEventType.OrderChange
             && a.EntityType == nameof(OrderLine)
@@ -193,6 +201,39 @@ public class ReflexRulesTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("ABID", reflexAudit.NewValueJson);
         Assert.Contains($"\"OrderId\":{order.Id}", reflexAudit.NewValueJson);
         Assert.Contains($"\"LineId\":{abidLine.Id}", reflexAudit.NewValueJson);
+    }
+
+    [Fact]
+    public async Task CorrectingTheTrigger_FlagsTheReflexTest_WithoutCancellingIt()
+    {
+        // TEST-BB-567
+        await using var c = _factory.Create();
+        var (patient, specimen, order, line) = await SeedAbscOrderAsync(c);
+        await SeedAbscPositiveRuleAsync(c);
+        var save = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            specimen.Id, order.Id, line.Id, "ABSC", "Positive", null, null, null, null, null,
+            MarkComplete: true, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(save.Succeeded);
+        var standing = (await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending)).Single(i => i.TestCode == "ABID");
+        Assert.Null(standing.ReflexTriggerNotice);
+
+        var corrected = await Results(c).CorrectResultAsync(save.Value!.Id, "Negative", "Wrong tube read");
+        Assert.True(corrected.Succeeded, corrected.Error);
+        var flagged = (await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending)).Single(i => i.TestCode == "ABID");
+        Assert.Equal("ABSC is being corrected to Negative after this test was added. Check whether ABID is still needed.", flagged.ReflexTriggerNotice);
+        Assert.True(await c.OrderLines.AnyAsync(l => l.OrderId == order.Id && l.TestCode == "ABID" && l.IsActive));
+
+        // Withdrawing the unverified correction restores the Positive result (OCD-016), so the trigger stands again.
+        var withdrawn = await Results(c).InvalidateResultAsync(corrected.Value!.Id, "Correction keyed in error");
+        Assert.True(withdrawn.Succeeded, withdrawn.Error);
+        var restored = (await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending)).Single(i => i.TestCode == "ABID");
+        Assert.Null(restored.ReflexTriggerNotice);
+
+        var invalidated = await Results(c).InvalidateResultAsync(save.Value.Id, "Entered on wrong patient");
+        Assert.True(invalidated.Succeeded, invalidated.Error);
+        var after = (await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending)).Single(i => i.TestCode == "ABID");
+        Assert.Equal("The ABSC result that added this test was invalidated. Check whether ABID is still needed.", after.ReflexTriggerNotice);
     }
 
     [Fact]

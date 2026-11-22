@@ -30,4 +30,7 @@ public class SpecialTransfusionRequirement : BaseEntity
     public string EnteredBy { get; set; } = "system";
 
     public string? DeactivationReason { get; set; }
+
+    /// <summary>The reaction investigation that led to this requirement, when it was added from one.</summary>
+    public long? ReactionInvestigationId { get; set; }
 }

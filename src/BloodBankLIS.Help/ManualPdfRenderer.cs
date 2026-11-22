@@ -37,7 +37,7 @@ public static class ManualPdfRenderer
                 page.Content().Column(column =>
                 {
                     column.Spacing(12);
-                    column.Item().Text("Greyhound Blood Bank LIS").FontSize(14).FontColor(Colors.Red.Darken3);
+                    column.Item().Text("HemoCore").FontSize(14).FontColor(Colors.Red.Darken3);
                     column.Item().PaddingTop(48).Text(title).FontSize(28).Bold();
                     column.Item().Text("Hospital transfusion-service laboratory information system").FontSize(13).Italic();
                     column.Item().PaddingTop(28).Text(Disclaimer).FontSize(10);
@@ -58,7 +58,7 @@ public static class ManualPdfRenderer
                 page.DefaultTextStyle(style => style.FontSize(11).LineHeight(1.25f));
                 page.Header().PaddingBottom(6).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten1).Text(text =>
                 {
-                    text.Span("Greyhound Blood Bank LIS  ·  " + title).FontSize(9).FontColor(Colors.Grey.Darken2);
+                    text.Span("HemoCore  ·  " + title).FontSize(9).FontColor(Colors.Grey.Darken2);
                 });
                 page.Footer().PaddingTop(6).BorderTop(0.5f).BorderColor(Colors.Grey.Lighten1).Row(row =>
                 {

@@ -9,13 +9,12 @@ namespace BloodBankLIS.Application.PatientWorkspace;
 
 /// <summary>
 /// Thaws an allocated frozen product in place: same unit and product code,
-/// expiration becomes 24 hours after the chosen thaw time, and the seeded THAW charge is sent.
+/// expiration becomes the code's thawed shelf life after the chosen thaw time (never past the frozen expiration),
+/// and the seeded THAW charge is sent.
 /// </summary>
 public sealed class AutoThawService
 {
     public const string ThawActionCode = "THAW";
-
-    public static readonly TimeSpan ThawedShelfLife = TimeSpan.FromHours(24);
 
     private readonly IRepository<AutoThawProduct> _products;
     private readonly IRepository<AutoThawRequest> _requests;
@@ -32,6 +31,8 @@ public sealed class AutoThawService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
 
+    private readonly IRepository<UnitModification>? _modifications;
+
     public AutoThawService(
         IRepository<AutoThawProduct> products,
         IRepository<AutoThawRequest> requests,
@@ -46,8 +47,10 @@ public sealed class AutoThawService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<UnitModification>? modifications = null)
     {
+        _modifications = modifications;
         _products = products;
         _requests = requests;
         _allocations = allocations;
@@ -71,7 +74,11 @@ public sealed class AutoThawService
         await _requests.AnyAsync(
             r => r.BloodUnitId == bloodUnitId && r.Status == AutoThawRequestStatus.Completed, ct);
 
-    public async Task<string?> MatchCodeAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default)
+    public async Task<string?> MatchCodeAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default) =>
+        (await MatchAsync(unit, productType, ct))?.ProductCode;
+
+    /// <summary>The active auto-thaw row for the unit's first listed product code, or null.</summary>
+    public async Task<AutoThawProduct?> MatchAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default)
     {
         var codes = ProductCodes(unit, productType);
         if (codes.Count == 0)
@@ -80,8 +87,9 @@ public sealed class AutoThawService
         }
 
         var listed = await _products.ListAsync(p => p.IsActive && codes.Contains(p.ProductCode), ct);
-        var active = listed.Select(p => p.ProductCode).ToHashSet(StringComparer.Ordinal);
-        return codes.FirstOrDefault(active.Contains);
+        return codes
+            .Select(code => listed.FirstOrDefault(p => string.Equals(p.ProductCode, code, StringComparison.Ordinal)))
+            .FirstOrDefault(p => p is not null);
     }
 
     public static List<string> ProductCodes(BloodUnit unit, ProductType? productType)
@@ -191,6 +199,17 @@ public sealed class AutoThawService
         long patientId,
         long allocationId,
         DateTime thawUtc,
+        CancellationToken ct = default) => await ApplyAsync(patientId, allocationId, thawUtc, openSystem: false, ct);
+
+    /// <summary>
+    /// Thaws in place. The shelf life is the code's closed-system time, or (OCD-068) its open-system time when the
+    /// thaw was in an open system and its pooled time when the unit is a pool, the shorter when both apply.
+    /// </summary>
+    public async Task<OperationResult<AutoThawResultDto>> ApplyAsync(
+        long patientId,
+        long allocationId,
+        DateTime thawUtc,
+        bool openSystem,
         CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(ct);
@@ -235,8 +254,9 @@ public sealed class AutoThawService
         }
 
         var product = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
-        var matchedCode = product is null ? null : await MatchCodeAsync(unit, product, ct);
-        if (matchedCode is null)
+        var matched = product is null ? null : await MatchAsync(unit, product, ct);
+        var matchedCode = matched?.ProductCode;
+        if (matched is null)
         {
             return OperationResult<AutoThawResultDto>.Fail("This product code is not in the auto-thaw list.");
         }
@@ -263,8 +283,16 @@ public sealed class AutoThawService
             return OperationResult<AutoThawResultDto>.Fail("Thaw billing is not configured.");
         }
 
+        var pooled = await IsPooledAsync(unit, ct);
+        var (shelfLifeHours, shelfLife) = ThawedExpirationRule.ShelfLifeFor(
+            matched.ProductCode, matched.ThawedShelfLifeHours, matched.OpenSystemShelfLifeHours, matched.PooledShelfLifeHours, openSystem, pooled);
+        if (shelfLifeHours is not int hours)
+        {
+            return OperationResult<AutoThawResultDto>.Fail(shelfLife.Message);
+        }
+
         var previousExpires = unit.ExpiresUtc;
-        var newExpires = DateTime.SpecifyKind(thaw.Add(ThawedShelfLife), DateTimeKind.Utc);
+        var newExpires = ThawedExpirationRule.Compute(thaw, hours, previousExpires);
         var productTypeId = unit.ProductTypeId;
         var unitNumber = unit.UnitNumber;
 
@@ -297,6 +325,9 @@ public sealed class AutoThawService
         offer.NewExpiresUtc = newExpires;
         offer.CompletedUtc = _clock.UtcNow;
         offer.CompletedBy = _currentUser.UserName;
+        offer.OpenSystem = openSystem;
+        offer.Pooled = pooled;
+        offer.ShelfLifeHoursApplied = hours;
         if (offerIsNew)
         {
             await _requests.AddAsync(offer, ct);
@@ -311,7 +342,7 @@ public sealed class AutoThawService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { ExpiresUtc = previousExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber },
-            newValue: new { ExpiresUtc = newExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber, ThawUtc = thaw },
+            newValue: new { ExpiresUtc = newExpires, ProductTypeId = productTypeId, UnitNumber = unitNumber, ThawUtc = thaw, ShelfLifeHours = hours, OpenSystem = openSystem, Pooled = pooled },
             reason: "Auto-thaw");
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -360,4 +391,9 @@ public sealed class AutoThawService
         DateTimeKind.Local => value.ToUniversalTime(),
         _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
     };
+
+    /// <summary>A pool is the result of a pooling modification: inferred, not asked (OCD-068).</summary>
+    public async Task<bool> IsPooledAsync(BloodUnit unit, CancellationToken ct = default) =>
+        unit.DerivedFromModificationId is long modificationId && _modifications is not null
+        && (await _modifications.GetByIdAsync(modificationId, ct))?.ModificationType == ModificationType.Pool;
 }

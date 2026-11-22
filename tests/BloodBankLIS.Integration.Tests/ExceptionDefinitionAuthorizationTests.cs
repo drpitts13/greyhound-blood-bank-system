@@ -64,7 +64,7 @@ public class ExceptionDefinitionAuthorizationTests : IClassFixture<SqliteContext
         Assert.True((await c.ExceptionDefinitions.SingleAsync(e => e.Id == created.Value.Id)).IsActive);
 
         var allowed = await Exceptions(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigActivate))
-            .SetActiveAsync(created.Value.Id, false);
+            .SetActiveAsync(created.Value.Id, false, reason: "No longer used at this site");
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.False(allowed.Value!.IsActive);
     }

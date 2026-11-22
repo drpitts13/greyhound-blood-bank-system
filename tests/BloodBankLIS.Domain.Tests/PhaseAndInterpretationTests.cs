@@ -171,6 +171,21 @@ public class PhaseAndInterpretationTests
         Assert.Contains(result.HardStops, h => h.Code == "TESTDEF.LOGIC.PHASE.CHECKCELL");
     }
 
+    // TEST-BB-1426 (end-user testing loop 2 tick 59): a check cell naming a phase that is not an active reading phase is
+    // warned about (not blocked); a known phase, or no check made, adds no warning.
+    [Fact]
+    public void CheckCell_ValidatingAnUnknownPhase_IsWarned()
+    {
+        var cc = new PhaseDefinition { Code = "CC", Name = "Check cells", IsCheckCell = true, IncludeInInterpretation = false, ValidatesPhaseCode = "AGH" };
+
+        var unknown = PhaseDefinitionValidator.Validate(cc, duplicateActiveCode: false, validatesKnownPhase: false);
+        Assert.False(unknown.IsHardStopped);
+        Assert.Contains(unknown.Warnings, w => w.Code == "PHASE.CHECKCELL.UNKNOWN" && w.Message.Contains("'AGH'"));
+
+        Assert.DoesNotContain(PhaseDefinitionValidator.Validate(cc, false, validatesKnownPhase: true).Warnings, w => w.Code == "PHASE.CHECKCELL.UNKNOWN");
+        Assert.DoesNotContain(PhaseDefinitionValidator.Validate(cc, false).Warnings, w => w.Code == "PHASE.CHECKCELL.UNKNOWN");
+    }
+
     [Fact]
     public void DropUnassignedPhaseExpectations_RemovesPhasesNoLongerOnThePanel()
     {

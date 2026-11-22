@@ -5,6 +5,10 @@ namespace BloodBankLIS.Application.Tests;
 
 public class ReadyToIssueFormCueTests
 {
+    // On-screen notices are local time (end-user testing pass 41), the same as the lists beside them.
+    private static string Local(int y, int m, int d) =>
+        new DateTime(y, m, d, 12, 0, 0, DateTimeKind.Utc).ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
     [Fact]
     public void Notices_RepeatTheReadyToIssueMarks()
     {
@@ -28,11 +32,11 @@ public class ReadyToIssueFormCueTests
         Assert.Contains(ReadyToIssueFormCue.SecondAbo, notices);
         Assert.Contains("Patient autologous", notices);
         Assert.Equal("Red Blood Cells", notices[0]);
-        Assert.Equal("Unit expires 2026-06-19 12:00", notices[1]);
+        Assert.Equal($"Unit expires {Local(2026, 6, 19)}", notices[1]);
         Assert.Equal("Unit type A+", notices[2]);
         Assert.Equal("Stored in Main Blood Bank Refrigerator", notices[3]);
         Assert.Equal("Specimen ACC0001", notices[4]);
-        Assert.Equal("Crossmatch expires 2026-06-21 12:00", notices[5]);
+        Assert.Equal($"Crossmatch expires {Local(2026, 6, 21)}", notices[5]);
         var withResult = Row(
             productName: "Red Blood Cells",
             unitExpiresUtc: new DateTime(2026, 6, 19, 12, 0, 0, DateTimeKind.Utc),
@@ -42,14 +46,14 @@ public class ReadyToIssueFormCueTests
             specimenAccession: "ACC0001",
             latestCrossmatchResult: CrossmatchResult.Compatible);
         Assert.Equal(
-            "Crossmatch compatible · Crossmatch expires 2026-06-21 12:00",
+            $"Crossmatch compatible · Crossmatch expires {Local(2026, 6, 21)}",
             ReadyToIssueFormCue.Notices(withResult)[5]);
         Assert.Equal(
             "Crossmatch incompatible",
             Assert.Single(ReadyToIssueFormCue.Notices(Row(latestCrossmatchResult: CrossmatchResult.Incompatible))));
         Assert.Empty(ReadyToIssueFormCue.Notices(Row(latestCrossmatchResult: CrossmatchResult.NotPerformed)));
         Assert.Equal(
-            "Crossmatch compatible · Crossmatch expires 2026-06-21 12:00",
+            $"Crossmatch compatible · Crossmatch expires {Local(2026, 6, 21)}",
             ReadyToIssueFormCue.CrossmatchWorklistNotice(
                 CrossmatchResult.Compatible,
                 new DateTime(2026, 6, 21, 12, 0, 0, DateTimeKind.Utc)));
@@ -62,6 +66,27 @@ public class ReadyToIssueFormCueTests
         Assert.Null(ReadyToIssueFormCue.StorageLocationNotice(null));
 
         Assert.Empty(ReadyToIssueFormCue.Notices(Row()));
+    }
+
+    // TEST-BB-1307 (end-user testing pass 281): a Ready to issue row lists, in words, the notices behind its badges: the
+    // specimen's reason only when it blocks issue, no repeats, nothing for a row with no notices.
+    [Fact]
+    public void Reasons_ListTheBadgesNotices()
+    {
+        var row = Row(specimenBlockReason: "Specimen expired.", crossmatchNotice: "Crossmatch expired.", antigenNotice: "Crossmatch expired.")
+            with { SpecimenBlocksIssue = true, ReactionNotice = "A transfusion reaction is under investigation." };
+        Assert.Equal(["A transfusion reaction is under investigation.", "Crossmatch expired.", "Specimen expired."], ReadyToIssueFormCue.Reasons(row));
+        Assert.Equal(["Crossmatch expired."], ReadyToIssueFormCue.Reasons(Row(specimenBlockReason: "Specimen expired.", crossmatchNotice: "Crossmatch expired.")));
+        Assert.Empty(ReadyToIssueFormCue.Reasons(Row()));
+    }
+
+    // TEST-BB-1364 (end-user testing pass 325): a second ABO/Rh still due is among the row's reasons, also when the
+    // specimen badge is the one shown.
+    [Fact]
+    public void Reasons_IncludeASecondAboStillDue()
+    {
+        var row = Row(specimenBlockReason: "No current specimen exists for this patient.", needsSecondAbo: true) with { SpecimenBlocksIssue = true };
+        Assert.Equal([ReadyToIssueFormCue.SecondAbo, "No current specimen exists for this patient."], ReadyToIssueFormCue.Reasons(row));
     }
 
     private static ReadyToIssueWorkItemDto Row(
@@ -245,8 +270,8 @@ public class CrossmatchStatusNoticeTests
     [Fact]
     public void CrossmatchStatusNotice_NamesTheStatus()
     {
-        Assert.Equal("XM at issue Compatible", ReadyToIssueFormCue.CrossmatchStatusNotice(CrossmatchClinicalStatus.Compatible));
-        Assert.Equal("XM at issue NotCrossmatchedEmergency", ReadyToIssueFormCue.CrossmatchStatusNotice(CrossmatchClinicalStatus.NotCrossmatchedEmergency));
+        Assert.Equal("Crossmatch at issue: Compatible", ReadyToIssueFormCue.CrossmatchStatusNotice(CrossmatchClinicalStatus.Compatible));
+        Assert.Equal("Crossmatch at issue: Not crossmatched (emergency release)", ReadyToIssueFormCue.CrossmatchStatusNotice(CrossmatchClinicalStatus.NotCrossmatchedEmergency));
     }
 }
 
@@ -260,5 +285,22 @@ public class EmergencyReleaseReasonNoticeTests
             ReadyToIssueFormCue.EmergencyReleaseReasonNotice(" Uncrossmatched release for hemorrhage "));
         Assert.Null(ReadyToIssueFormCue.EmergencyReleaseReasonNotice("  "));
         Assert.Null(ReadyToIssueFormCue.EmergencyReleaseReasonNotice(null));
+    }
+}
+
+// TEST-BB-457: ward receipt names the cooler with its latest check before dispatch; an id that already says
+// "Cooler" is not doubled; when the check state is unknown only the cooler is named.
+public class CoolerCheckNoticeTests
+{
+    [Fact]
+    public void CoolerCheckNotice_SaysWhetherTheCoolerWasCheckedBeforeItLeft()
+    {
+        var at = new DateTime(2026, 11, 5, 9, 30, 0);
+        Assert.Equal("Cooler CLR-1: checked 2026-11-05 09:30, all units packed", ReadyToIssueFormCue.CoolerCheckNotice(" CLR-1 ", true, at, true));
+        Assert.Equal("Cooler M2: checked 2026-11-05 09:30 with differences; compare each unit with its issue", ReadyToIssueFormCue.CoolerCheckNotice("Cooler M2", true, at, false));
+        Assert.Equal("Cooler CLR-1: not checked before it left", ReadyToIssueFormCue.CoolerCheckNotice("CLR-1", true, null, null));
+        Assert.Equal("Cooler CLR-1", ReadyToIssueFormCue.CoolerCheckNotice("CLR-1", false, null, null));
+        Assert.Equal("cooler 3", ReadyToIssueFormCue.CoolerNotice("cooler 3"));
+        Assert.Null(ReadyToIssueFormCue.CoolerCheckNotice("  ", true, at, true));
     }
 }

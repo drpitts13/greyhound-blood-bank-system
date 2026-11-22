@@ -1,4 +1,4 @@
-using BloodBankLIS.Domain.Enums;
+﻿using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Domain.Rules;
 
@@ -72,7 +72,7 @@ public static class UnitModificationEligibilityRule
 
         if (unit.ExpiresUtc <= nowUtc)
         {
-            results.Add(RuleResult.HardStop(ExpiredCode, $"Unit expired at {unit.ExpiresUtc:u}."));
+            results.Add(RuleResult.HardStop(ExpiredCode, $"Unit expired at {ClinicalTimeText.Local(unit.ExpiresUtc)}."));
         }
 
         if (unit.ProductTypeId != ruleSourceProductTypeId)
@@ -90,7 +90,7 @@ public static class UnitModificationEligibilityRule
     }
 
     /// <summary>Cross-unit checks for a Pool: at least two sources, identical ABO/Rh across all sources.</summary>
-    public static RuleEvaluation EvaluatePool(IReadOnlyList<SourceUnitSnapshot> sources)
+    public static RuleEvaluation EvaluatePool(IReadOnlyList<SourceUnitSnapshot> sources, bool allowMixedAbo = false)
     {
         var results = new List<RuleResult>();
 
@@ -99,7 +99,9 @@ public static class UnitModificationEligibilityRule
             results.Add(RuleResult.HardStop(PoolMinSourcesCode, "Pooling requires at least two source units."));
         }
 
-        if (sources.Select(s => s.Abo).Distinct().Count() > 1 || sources.Select(s => s.RhD).Distinct().Count() > 1)
+        // Mixed-ABO pooling phase 3 (OCD-094): a product that allows mixed-ABO pools (cryoprecipitate) may pool across
+        // ABO and Rh(D); the pool records each source and is checked against every one at selection and issue.
+        if (!allowMixedAbo && (sources.Select(s => s.Abo).Distinct().Count() > 1 || sources.Select(s => s.RhD).Distinct().Count() > 1))
         {
             results.Add(RuleResult.HardStop(PoolAboMismatchCode, "All pooled source units must share the same ABO/Rh."));
         }

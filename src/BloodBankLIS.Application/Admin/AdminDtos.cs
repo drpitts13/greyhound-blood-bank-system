@@ -120,7 +120,9 @@ public sealed record TestDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason)
+    string? ChangeReason,
+    TestResultShapeDto? ResultShape = null,
+    string? LoincCode = null)
 {
     /// <summary>
     /// Catalog list. A blank name stays the test id.
@@ -150,7 +152,28 @@ public sealed record SaveTestDefinitionRequest(
     IReadOnlyList<string>? BloodAttributeScopeCodes,
     BloodAttributeKind? BloodAttributeScopeKind,
     bool ContributesToUnitBloodAttributes,
-    string? ChangeReason);
+    string? ChangeReason,
+    TestResultShapeDto? ResultShape = null,
+    string? LoincCode = null);
+
+/// <summary>
+/// Numeric settings (units, decimal places, reportable, reference, and critical limits) and titer settings (dilution
+/// series, phase, endpoint grade, scoring). Only the part matching the test's result value type is kept.
+/// </summary>
+public sealed record TestResultShapeDto(
+    string? ResultUnits = null,
+    int? DecimalPlaces = null,
+    decimal? ReportableLow = null,
+    decimal? ReportableHigh = null,
+    decimal? ReferenceLow = null,
+    decimal? ReferenceHigh = null,
+    decimal? CriticalLow = null,
+    decimal? CriticalHigh = null,
+    int? TiterStartDilution = null,
+    int? TiterEndDilution = null,
+    string? TiterPhaseCode = null,
+    string? TiterEndpointMinGrade = null,
+    bool TiterScored = false);
 
 // ---- Test groupers ----
 
@@ -328,6 +351,9 @@ public sealed record ProductDefinitionDto(
     IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
     IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null)
 {
+    /// <summary>Units may be pooled across ABO/Rh (mixed-ABO pooling phase 3; cryoprecipitate only, OCD-094).</summary>
+    public bool AllowMixedAboPool { get; init; }
+
     /// <summary>
     /// Charge-rule choice. The facility product code stays so the trigger key can be selected.
     /// A blank name stays the product id. The ISBT code is not used as the name.
@@ -372,7 +398,8 @@ public sealed record SaveProductDefinitionRequest(
     long? RhPositiveRetypeTestId = null,
     long? RhNegativeRetypeTestId = null,
     IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
-    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null);
+    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null,
+    bool AllowMixedAboPool = false);
 
 public sealed record ProductAttributeSelection(long AttributeId, bool IsRequired);
 
@@ -563,7 +590,8 @@ public sealed record Hl7EndpointDto(
     string? MessageLoggingLevel,
     bool ReplayAllowed,
     int Version,
-    IReadOnlyList<InterfaceFieldMappingDto> FieldMappings);
+    IReadOnlyList<InterfaceFieldMappingDto> FieldMappings,
+    Hl7TimestampConvention TimestampConvention = Hl7TimestampConvention.FacilityLocal);
 
 public sealed record SaveHl7EndpointRequest(
     string Name,
@@ -588,7 +616,8 @@ public sealed record SaveHl7EndpointRequest(
     string? MessageLoggingLevel,
     bool ReplayAllowed,
     IReadOnlyList<InterfaceFieldMappingDto>? FieldMappings,
-    string? ChangeReason);
+    string? ChangeReason,
+    Hl7TimestampConvention TimestampConvention = Hl7TimestampConvention.FacilityLocal);
 
 public sealed record InterfaceValueTranslationDto(
     string InternalValue,
@@ -598,11 +627,60 @@ public sealed record InterfaceValueTranslationDto(
 public sealed record InterfaceTranslationTableDto(
     string DataItemKey,
     string DisplayName,
-    IReadOnlyList<InterfaceValueTranslationDto> Rows);
+    IReadOnlyList<InterfaceValueTranslationDto> Rows,
+    // The scope shown: null for all interfaces, else one interface's override rows.
+    long? EndpointId = null,
+    // The local values this field may translate to; empty when any value is allowed.
+    IReadOnlyList<InterfaceLocalValueDto>? LocalValues = null,
+    // The all-interfaces rows, shown beside an interface's overrides.
+    IReadOnlyList<InterfaceValueTranslationDto>? GlobalRows = null);
 
 public sealed record SaveInterfaceTranslationsRequest(
     IReadOnlyList<InterfaceValueTranslationDto> Rows,
-    string? ChangeReason);
+    string? ChangeReason,
+    long? EndpointId = null);
+
+/// <summary>A local value a field may translate to, with what it is ("Test", "Grouper", "Visit type"…).</summary>
+public sealed record InterfaceLocalValueDto(string Value, string Label, string? Kind = null);
+
+/// <summary>A translatable field for the admin list: its group and how many rows it has (all scopes).</summary>
+public sealed record InterfaceTranslationFieldDto(string Key, string DisplayName, string Description, string Category, int RowCount, bool HasValueList);
+
+/// <summary>The result of trying a value through the translations, as the interface would.</summary>
+public sealed record InterfaceTranslationCheckDto(string Input, string Output, bool Translated, string? FromKey, bool FromInterfaceOverride, string? Note);
+
+public sealed record InterfaceUnmappedValueDto(
+    long Id,
+    long? EndpointId,
+    string? EndpointName,
+    string DataItemKey,
+    string DisplayName,
+    string Value,
+    InterfaceTranslationDirection Direction,
+    DateTime FirstSeenUtc,
+    DateTime LastSeenUtc,
+    int Count,
+    string? LastMessageControlId,
+    DateTime? ResolvedUtc,
+    string? ResolvedBy,
+    string? ResolvedNote,
+    // Set when the value came from an instrument rather than an EHR interface.
+    long? InstrumentInterfaceId = null,
+    string? InstrumentName = null)
+{
+    /// <summary>
+    /// An inbound order code that is now the LIS's own test, grouper or product code, so it is used as it comes and needs
+    /// no translation (end-user testing pass 204: RBC-LR and TNS were listed from messages that had processed,
+    /// recorded before such codes stopped being listed in pass 147).
+    /// </summary>
+    public bool AlreadyLisCode { get; init; }
+
+    /// <summary>
+    /// An open inbound value that a translation saved since now covers: what it translates to (end-user testing pass 241:
+    /// patient class I stayed unmapped after the seeded I → Inpatient row was added). Null otherwise.
+    /// </summary>
+    public string? NowTranslatedTo { get; init; }
+}
 
 // ---- Users & roles ----
 
@@ -626,6 +704,12 @@ public sealed record SaveUserRequest(
     string? ChangeReason);
 
 public sealed record AssignRolesRequest(IReadOnlyList<string> Roles, string? ChangeReason);
+
+/// <summary>A periodic review of who can sign in and with which roles; the note says what was checked and decided.</summary>
+public sealed record RecordAccessReviewRequest(string? Note);
+
+/// <summary>The latest recorded access review: when, by whom, the note, and how many active accounts it covered.</summary>
+public sealed record AccessReviewDto(DateTime ReviewedUtc, string ReviewedBy, string Note, int ActiveAccounts);
 
 public sealed record AdminRoleDto(long Id, string Name, string? Description, int SecurityLevel, IReadOnlyList<string> Permissions);
 

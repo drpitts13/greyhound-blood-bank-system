@@ -124,7 +124,9 @@ public static class PanelResultValue
             return value ?? string.Empty;
         }
 
-        return string.Join(" · ", subtests.Select(kv => $"{kv.Key}:{kv.Value}"));
+        // A phased key reads as cell and phase ("Cell1 AHG:1+"), not its stored form "Cell1|AHG" (end-user testing pass 29).
+        return string.Join(" · ", subtests.Select(kv =>
+            PhaseResultKeys.TrySplit(kv.Key, out var cell, out var phase) ? $"{cell} {phase}:{kv.Value}" : $"{kv.Key}:{kv.Value}"));
     }
 
     private static IReadOnlyDictionary<string, string> FlattenPhased(JsonElement subtestsProp)

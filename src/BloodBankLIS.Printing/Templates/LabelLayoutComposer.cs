@@ -56,7 +56,7 @@ public static class LabelLayoutComposer
             var data = BarcodeData(field.Key, specimen, tag);
             if (!string.IsNullOrWhiteSpace(data))
             {
-                elements.Add(new LabelBarcode(field.X, field.Y, data, height: Math.Max(field.FontHeight, 40)));
+                elements.Add(new LabelBarcode(field.X, field.Y, data, height: Math.Max(field.FontHeight, 40), printInterpretation: field.BarcodeText, moduleWidth: field.ModuleWidth));
             }
 
             return;
@@ -89,8 +89,13 @@ public static class LabelLayoutComposer
                 LabelFields.Mrn => "MRN: " + specimen.MedicalRecordNumber,
                 LabelFields.DateOfBirth => "DOB: " + specimen.DateOfBirth.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 LabelFields.SpecimenType => specimen.SpecimenType,
-                LabelFields.Collected => "Coll: " + specimen.CollectedUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC",
+                LabelFields.Collected => "Coll: " + LabelTime.Format(specimen.CollectedUtc, specimen.TimeZoneId),
                 LabelFields.DrawLocation => specimen.DrawLocation,
+                LabelFields.Collector => string.IsNullOrWhiteSpace(specimen.Collector) ? null : "By: " + specimen.Collector,
+                LabelFields.Sex => specimen.Sex,
+                LabelFields.AliquotNumber => specimen.AliquotNumber is int n
+                    ? specimen.AliquotCount is int of ? $"Aliquot {n} of {of}" : $"Aliquot {n}"
+                    : null,
                 LabelFields.StaticText => field.StaticText,
                 _ => null
             };
@@ -111,8 +116,8 @@ public static class LabelLayoutComposer
             LabelFields.UnitAbo => "Unit ABO/Rh: " + tag.UnitBloodType,
             LabelFields.Product => "Product: " + tag.ProductName,
             LabelFields.Crossmatch => "Crossmatch: " + tag.CrossmatchMethod + " / " + tag.CrossmatchResult,
-            LabelFields.Expires => "Unit expires: " + tag.UnitExpiresUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC",
-            LabelFields.Issued => "Issued: " + tag.IssuedUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC by " + tag.IssuedBy,
+            LabelFields.Expires => "Unit expires: " + LabelTime.Format(tag.UnitExpiresUtc, tag.TimeZoneId),
+            LabelFields.Issued => "Issued: " + LabelTime.Format(tag.IssuedUtc, tag.TimeZoneId) + " by " + tag.IssuedBy,
             LabelFields.EmergencyBanner => tag.IsEmergency ? "*** EMERGENCY / UNCROSSMATCHED RELEASE ***" : null,
             LabelFields.IncompleteBanner => tag.TestsIncomplete ? "*** TESTING INCOMPLETE — 21 CFR 606.151 ***" : null,
             LabelFields.PtagId => string.IsNullOrWhiteSpace(tag.PtagId) ? null : "P-tag ID: " + tag.PtagId,

@@ -18,6 +18,17 @@ public static class InventoryLocationPolicyRule
     public const string ExmEligibilityCode = "ISS-LOC-EXM-ELIGIBLE";
     public const string SecondVerifierCode = "ISS-LOC-VERIFY";
     public const string TempRangeCode = "INV-LOC-TEMP";
+    public const string ThawedToFreezerCode = "INV-LOC-THAWED";
+
+    /// <summary>
+    /// A thawed unit is not refrozen (end-user testing pass 332: thaw refused a freezer as the result location, but a
+    /// transfer could still move a thawed plasma unit into the plasma freezer).
+    /// </summary>
+    public static RuleResult EvaluateThawedDestination(bool thawed, LocationType destinationType, string destinationLabel) =>
+        thawed && destinationType == LocationType.Freezer
+            ? RuleResult.HardStop(ThawedToFreezerCode,
+                $"This unit was thawed; it cannot be moved into {destinationLabel}, a freezer. Store it in a refrigerator.")
+            : RuleResult.Pass(ThawedToFreezerCode);
 
     public static bool AllowsComponent(InventoryLocation location, ComponentClass component)
     {
@@ -48,6 +59,64 @@ public static class InventoryLocationPolicyRule
             ComponentClass.Granulocytes => allowsPlatelets || allowsRbc,
             _ => true
         };
+
+    /// <summary>
+    /// A unit on a shelf that does not take its component, such as platelets in a red-cell refrigerator (end-user
+    /// testing pass 89: nine platelets sat in FRIDGE-1, which does not take platelets, and only a stock count would say so).
+    /// Null when the place takes it, or the unit is not on a shelf.
+    /// </summary>
+    public static string? WrongStorage(
+        UnitStatus status, string locationCode, bool allowsRbc, bool allowsPlasma, bool allowsPlatelets, bool allowsCryo,
+        bool allowsWholeBlood, ComponentClass component, bool thawedInFreezer = false)
+    {
+        if (!(StorageTemperatureRule.StoredStatuses.Contains(status) || status == UnitStatus.Expired))
+        {
+            return null;
+        }
+
+        if (!AllowsComponent(allowsRbc, allowsPlasma, allowsPlatelets, allowsCryo, allowsWholeBlood, component))
+        {
+            return $"{locationCode} does not take {ComponentWords(component)}";
+        }
+
+        // Pass 333: a thawed unit recorded in a freezer (thawed plasma is not refrozen).
+        return thawedInFreezer ? $"{locationCode} is a freezer; this unit was thawed" : null;
+    }
+
+    /// <summary>
+    /// The inventory list's note over units in the wrong storage. Expired ones are to be discarded, not moved (end-user
+    /// testing pass 212: all nine flagged units had expired, and the note said to move them). Null when none.
+    /// </summary>
+    public static string? WrongStorageSummary(int misplaced, int expired)
+    {
+        if (misplaced <= 0)
+        {
+            return null;
+        }
+
+        expired = Math.Clamp(expired, 0, misplaced);
+        var where = $"{misplaced} {(misplaced == 1 ? "unit is" : "units are")} stored where the location does not suit {(misplaced == 1 ? "it" : "them")} (marked below).";
+        if (expired == misplaced)
+        {
+            return $"{where} {(misplaced == 1 ? "It has" : misplaced == 2 ? "Both have" : "All have")} expired: discard {(misplaced == 1 ? "it" : "them")} (Discard expired) rather than moving {(misplaced == 1 ? "it" : "them")}.";
+        }
+
+        var move = "Move them, or correct the location record, following your storage procedure.";
+        return expired == 0
+            ? $"{where} {move}"
+            : $"{where} {expired} of them {(expired == 1 ? "has" : "have")} expired: discard {(expired == 1 ? "it" : "those")} (Discard expired). {move.Replace("Move them", "Move the rest")}";
+    }
+
+    public static string ComponentWords(ComponentClass component) => component switch
+    {
+        ComponentClass.RedBloodCells => "red cells",
+        ComponentClass.WholeBlood => "whole blood",
+        ComponentClass.Plasma => "plasma",
+        ComponentClass.Platelets => "platelets",
+        ComponentClass.Cryoprecipitate => "cryoprecipitate",
+        ComponentClass.Granulocytes => "granulocytes",
+        _ => "this component"
+    };
 
     public static IReadOnlyList<RuleResult> EvaluateTransfer(
         bool destinationKnown,
@@ -176,7 +245,8 @@ public static class InventoryLocationPolicyRule
             case LocationType.Refrigerator:
                 location.AllowsRbc = true;
                 location.AllowsWholeBlood = true;
-                location.AllowsPlasma = false;
+                // Thawed plasma is kept refrigerated (end-user testing, 2026-11-12: a thaw had no refrigerator to go to).
+                location.AllowsPlasma = true;
                 location.AllowsPlatelets = false;
                 location.AllowsCryo = false;
                 location.AllowsIssue = true;

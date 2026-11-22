@@ -29,6 +29,12 @@ public static class AutoThawProductValidator
                 $"Product code '{code}' is retired."));
         }
 
+        var shelfLife = ThawedExpirationRule.EvaluateShelfLife(row.ThawedShelfLifeHours);
+        if (shelfLife.Severity == RuleSeverity.HardStop)
+        {
+            results.Add(shelfLife);
+        }
+
         if (duplicateCode)
         {
             results.Add(RuleResult.HardStop(

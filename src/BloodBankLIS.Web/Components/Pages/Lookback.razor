@@ -3,7 +3,7 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Lookback &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Lookback &middot; HemoCore</PageTitle>
 
 <h1>Lookback &amp; traceback</h1>
 <p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations.</p>
@@ -36,18 +36,51 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>DIN</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
+                <thead><tr><th>DIN</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Opened</th><th>Notify by</th><th>Attempted</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var n in _openNotes)
                     {
                         <tr>
-                            <td class="mono">@n.Din</td>
+                            <td><span class="mono">@n.Din</span>
+                                @if (!string.IsNullOrWhiteSpace(n.Reason))
+                                {
+                                    @* Pass 320: why the lookback was opened, for the call to the physician. *@
+                                    <div class="sub" data-lookback-reason="@n.Id">Why: @n.Reason</div>
+                                }
+                            </td>
                             <td class="mono">@(n.UnitNumber ?? $"#{n.BloodProductId}")</td>
                             <td>@PatientLabel(n)</td>
-                            <td>@n.Status</td>
+                            <td>@Ui.EnumText(n.Status)</td>
                             <td>@(n.PhysicianOfRecord ?? "—")</td>
-                            <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            @* Pass 66: how long it has waited, and the notify-by date when the facility has set one (OCD-089). *@
+                            <td class="nowrap" data-lookback-opened="@n.Id">
+                                @if (n.OpenedUtc is DateTime opened)
+                                {
+                                    @opened.ToLocalTime().ToString("yyyy-MM-dd")
+                                    <div class="sub">open @AlertInboxView.OpenFor(opened, DateTime.UtcNow)</div>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td class="nowrap" data-lookback-notify-by="@n.Id">
+                                @if (n.NotifyByUtc is DateTime notifyBy)
+                                {
+                                    @notifyBy.ToLocalTime().ToString("yyyy-MM-dd")
+                                    @if (n.PastNotifyBy)
+                                    {
+                                        <span class="badge badge-red" data-lookback-past>Past</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="muted" title="Facility Policies › Lookback: notify the physician within (days) is not set (OCD-089).">not set</span>
+                                }
+                            </td>
+                            <td class="nowrap">@(n.AttemptedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                             <td class="right nowrap">
                                 @if (n.PatientId is long openChartId)
                                 {
@@ -60,6 +93,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
         @if (_attemptId is not null && !(_mode == LookbackMode.Din && _report is not null))
         {
@@ -98,17 +132,42 @@ else
 
         @if (_report is not null)
         {
+            @* Cycle 687: components of the recalled donation left as they were, and what to do. *@
+            @if (_report.NotRecalled.Count > 0)
+            {
+                <div class="alert alert-warning" data-not-recalled>
+                    <strong>@_report.NotRecalled.Count component@(_report.NotRecalled.Count == 1 ? " was" : "s were") not recalled:</strong>
+                    <ul style="margin:.25rem 0 0;">
+                        @foreach (var n in _report.NotRecalled)
+                        {
+                            <li><UnitLink Id="n.BloodProductId" Number="@n.UnitNumber" /> @n.Why.</li>
+                        }
+                    </ul>
+                </div>
+            }
             <div class="bb-card">
                 <div class="bb-card-title"><h3>Components for <span class="mono">@_report.Din</span></h3></div>
+                @* Pass 216: components of the donation still on a shelf, not held, so none is missed. *@
+                @if (_report.Units.Where(u => LookbackRecallRule.StillInStock(u.Status)).ToList() is { Count: > 0 } inStock)
+                {
+                    <div class="alert alert-warning" data-lookback-in-stock>
+                        @(inStock.Count == 1 ? "1 component of this donation is" : $"{inStock.Count} components of this donation are") still in stock, not quarantined or recalled:
+                        @string.Join("; ", inStock.Select(u => $"{u.UnitNumber} ({Ui.StatusLabel(u.Status)}{(string.IsNullOrWhiteSpace(u.LocationName) ? "" : $", {u.LocationName}")})")).
+                        @($"Recall all components (with a reason) recalls {(inStock.Count == 1 ? "it" : "them")}, following your lookback procedure.")
+                    </div>
+                }
+                <div class="table-scroll">
                 <table class="bb">
-                    <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Derived</th><th></th></tr></thead>
+                    <thead><tr><th>Unit</th><th>Product</th><th>DIN</th><th>Status</th><th>Location</th><th>Derived</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var u in _report.Units)
                         {
                             <tr>
-                                <td class="mono">@u.UnitNumber (#@u.BloodProductId)</td>
+                                <td class="mono">@u.UnitNumber</td>
+                                <td>@(u.ProductName ?? "—")</td>
                                 <td class="mono">@u.Din</td>
-                                <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                                <td><span class="@Ui.Badge(u.Status)">@Ui.EnumText(u.Status)</span></td>
+                                <td>@LookbackRecallRule.LocationText(u.Status, u.LocationName)</td>
                                 <td>@(u.IsDerivedComponent ? "Yes" : "")</td>
                                 <td class="right nowrap">
                                     <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(u.BloodProductId)">Open Inventory</a>
@@ -117,6 +176,7 @@ else
                         }
                     </tbody>
                 </table>
+                </div>
             </div>
 
             <div class="bb-card">
@@ -127,6 +187,7 @@ else
                 }
                 else
                 {
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>Patient</th><th>MRN</th><th>Unit</th><th>Issue</th><th>Transfusion</th><th>Location</th><th>Issued</th><th></th></tr></thead>
                         <tbody>
@@ -148,7 +209,7 @@ else
                                     <td>@(r.IssueId?.ToString() ?? "—")</td>
                                     <td>@(r.TransfusionEventId?.ToString() ?? "—")</td>
                                     <td>@r.IssuedToLocation</td>
-                                    <td class="nowrap">@(r.IssuedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    <td class="nowrap">@(r.IssuedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                                     <td class="right nowrap">
                                         @if (r.PatientId is long chartPatientId)
                                         {
@@ -164,6 +225,7 @@ else
                             }
                         </tbody>
                     </table>
+                    </div>
                 }
             </div>
 
@@ -175,14 +237,20 @@ else
                 }
                 else
                 {
+                    <div class="table-scroll">
                     <table class="bb">
-                        <thead><tr><th>Id</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
+                        <thead><tr><th>Id</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Notify by</th><th>Attempted</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var n in _report.Notifications)
                             {
                                 <tr>
                                     <td>@n.Id</td>
-                                    <td class="mono">@(n.UnitNumber ?? UnitLabel(n.BloodProductId))</td>
+                                    <td><span class="mono">@(n.UnitNumber ?? UnitLabel(n.BloodProductId))</span>
+                                        @if (!string.IsNullOrWhiteSpace(n.Reason))
+                                        {
+                                            <div class="sub" data-lookback-reason="@n.Id">Why: @n.Reason</div>
+                                        }
+                                    </td>
                                     <td>
                                         @if (n.PatientId is long notePatientId)
                                         {
@@ -193,9 +261,24 @@ else
                                             <span>@PatientLabel(n)</span>
                                         }
                                     </td>
-                                    <td>@n.Status</td>
+                                    <td>@Ui.EnumText(n.Status)</td>
                                     <td>@n.PhysicianOfRecord</td>
-                                    <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    @* One facility setting for every lookback (recipient, consignee, recall): OCD-089, decided 2026-11-13. *@
+                                    <td class="nowrap" data-lookback-report-notify-by="@n.Id">
+                                        @if (n.NotifyByUtc is DateTime reportNotifyBy)
+                                        {
+                                            @reportNotifyBy.ToLocalTime().ToString("yyyy-MM-dd")
+                                            @if (n.PastNotifyBy)
+                                            {
+                                                <span class="badge badge-red">Past</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="muted">—</span>
+                                        }
+                                    </td>
+                                    <td class="nowrap">@(n.AttemptedUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                                     <td class="right nowrap">
                                         @if (n.PatientId is long noteChartId)
                                         {
@@ -214,6 +297,7 @@ else
                             }
                         </tbody>
                     </table>
+                    </div>
                 }
 
                 @if (_attemptId is not null)
@@ -260,13 +344,14 @@ else
                 }
                 else
                 {
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Issue</th><th>Location</th><th>Issued</th><th>Transfusion</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var u in _trace.Units)
                             {
                                 <tr>
-                                    <td class="mono">@u.UnitNumber (#@u.BloodProductId)</td>
+                                    <td class="mono">@u.UnitNumber</td>
                                     <td class="mono">
                                         @if (!string.IsNullOrWhiteSpace(u.Din))
                                         {
@@ -274,13 +359,13 @@ else
                                         }
                                         else
                                         {
-                                            <span>—</span>
+                                            <span class="muted" data-trace-no-din>— no DIN recorded</span>
                                         }
                                     </td>
-                                    <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
-                                    <td>@u.IssueType / @u.IssueStatus</td>
+                                    <td><span class="@Ui.Badge(u.Status)">@Ui.EnumText(u.Status)</span></td>
+                                    <td data-trace-issue>@Ui.EnumText(u.IssueType) / @Ui.EnumText(u.IssueStatus)</td>
                                     <td>@(u.IssuedToLocation ?? "—")</td>
-                                    <td class="nowrap">@u.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="nowrap">@u.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                     <td>
                                         @if (u.TransfusionEventId is null)
                                         {
@@ -288,7 +373,7 @@ else
                                         }
                                         else
                                         {
-                                            <span>@u.TransfusionDisposition@(u.ReactionSuspected ? " (reaction)" : "")</span>
+                                            <span data-trace-transfusion>@(u.TransfusionDisposition is { } disposition ? Ui.EnumText(disposition) : "—")@(u.ReactionSuspected ? " (reaction)" : "")</span>
                                         }
                                     </td>
                                     <td class="right nowrap">
@@ -298,17 +383,27 @@ else
                             }
                         </tbody>
                     </table>
+                    </div>
                 }
             </div>
 
             <div class="bb-card">
                 <div class="bb-card-title"><h3>Other components from the same donations</h3></div>
+                @* End-user testing pass 67: units with no DIN were not searched, yet the card said none share their DINs. *@
+                @if (TraceUnitsWithoutDin.Count > 0)
+                {
+                    <div class="alert alert-warning" data-trace-without-din>
+                        @(TraceUnitsWithoutDin.Count == 1 ? "1 unit has" : $"{TraceUnitsWithoutDin.Count} units have") no DIN recorded (@string.Join(", ", TraceUnitsWithoutDin)), so other components and other recipients of @(TraceUnitsWithoutDin.Count == 1 ? "that donation" : "those donations") cannot be found here.
+                        Read the DIN from the unit label or the supplier's records and search it under DIN lookback.
+                    </div>
+                }
                 @if (_trace.RelatedComponents.Count == 0)
                 {
-                    <div class="empty">No other components share these DINs.</div>
+                    <div class="empty">@(TraceUnitsWithoutDin.Count == _trace.Units.Count && _trace.Units.Count > 0 ? "No DIN to search." : "No other components share the DINs on record.")</div>
                 }
                 else
                 {
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>DIN</th><th>Unit</th><th>Status</th><th></th></tr></thead>
                         <tbody>
@@ -319,7 +414,7 @@ else
                                         <button class="btn btn-ghost btn-sm mono" @onclick="() => SearchDinFromTrace(r.Din)">@r.Din</button>
                                     </td>
                                     <td class="mono">@r.UnitNumber (#@r.BloodProductId)</td>
-                                    <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
+                                    <td><span class="@Ui.Badge(r.Status)">@Ui.EnumText(r.Status)</span></td>
                                     <td class="right nowrap">
                                         <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(r.BloodProductId)">Open Inventory</a>
                                     </td>
@@ -327,6 +422,7 @@ else
                             }
                         </tbody>
                     </table>
+                    </div>
                 }
             </div>
 
@@ -334,10 +430,11 @@ else
                 <div class="bb-card-title"><h3>Other recipients of those donations</h3></div>
                 @if (_trace.CoRecipients.Count == 0)
                 {
-                    <div class="empty">No other recipients identified.</div>
+                    <div class="empty">@(TraceUnitsWithoutDin.Count == _trace.Units.Count && _trace.Units.Count > 0 ? "No DIN to search." : "No other recipients of the DINs on record.")</div>
                 }
                 else
                 {
+                    <div class="table-scroll">
                     <table class="bb">
                         <thead><tr><th>Patient</th><th>MRN</th><th>DIN</th><th>Unit</th><th>Issued</th><th></th></tr></thead>
                         <tbody>
@@ -348,7 +445,7 @@ else
                                     <td class="mono">@r.MedicalRecordNumber</td>
                                     <td class="mono">@r.Din</td>
                                     <td class="mono">@r.UnitNumber</td>
-                                    <td class="nowrap">@r.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="nowrap">@r.IssuedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                     <td class="right nowrap">
                                         <a class="btn btn-ghost btn-sm" href="@($"/patients/{r.PatientId}")">Open chart</a>
                                         <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(r.BloodProductId)">Open Inventory</a>
@@ -358,6 +455,7 @@ else
                             }
                         </tbody>
                     </table>
+                    </div>
                 }
             </div>
         }
@@ -370,6 +468,10 @@ else
     [SupplyParameterFromQuery]
     public string? Mrn { get; set; }
 
+    // Pass 218: opened from a unit page, show that donation's lookback.
+    [SupplyParameterFromQuery]
+    public string? Din { get; set; }
+
     private LookbackMode _mode = LookbackMode.Din;
     private string _din = string.Empty;
     private string _reason = string.Empty;
@@ -381,6 +483,10 @@ else
     private List<LookbackNotificationDto> _openNotes = new();
     private LookbackReportDto? _report;
     private RecipientTraceReportDto? _trace;
+
+    private IReadOnlyList<string> TraceUnitsWithoutDin => _trace is null
+        ? []
+        : _trace.Units.Where(u => string.IsNullOrWhiteSpace(u.Din)).Select(u => u.UnitNumber).Distinct().ToList();
     private long? _attemptId;
     private string? _physician;
     private string? _attemptNotes;
@@ -402,6 +508,15 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!_autoTraced && !string.IsNullOrWhiteSpace(Din) && string.IsNullOrWhiteSpace(Mrn) && Session.Has(PermissionCodes.LookbackManage))
+        {
+            _autoTraced = true;
+            _din = Din.Trim();
+            _mode = LookbackMode.Din;
+            await SearchDinAsync();
+            return;
+        }
+
         if (_autoTraced || string.IsNullOrWhiteSpace(Mrn) || !Session.Has(PermissionCodes.LookbackManage))
         {
             return;
@@ -441,6 +556,14 @@ else
 
     private static string PatientLabel(LookbackNotificationDto note)
     {
+        // Shipped to another facility: no patient here; that facility is the one to notify.
+        if (!string.IsNullOrWhiteSpace(note.ShippedToFacility))
+        {
+            return string.IsNullOrWhiteSpace(note.ShippedReceivingContact)
+                ? $"Shipped to {note.ShippedToFacility}: notify that facility"
+                : $"Shipped to {note.ShippedToFacility}: notify that facility (received by {note.ShippedReceivingContact})";
+        }
+
         if (!string.IsNullOrWhiteSpace(note.PatientName))
         {
             return string.IsNullOrWhiteSpace(note.MedicalRecordNumber)
@@ -455,7 +578,7 @@ else
         <div class="form-row">
             <div class="field"><label>Physician of record</label><input @bind="_physician" @bind:event="oninput" /></div>
             <div class="field"><label>Status</label>
-                <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@s</option> }</select>
+                <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@Ui.EnumText(s)</option> }</select>
             </div>
             <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" @bind:event="oninput" /></div>
         </div>

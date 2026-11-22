@@ -3,7 +3,7 @@
 @inject UserSession Session
 @inject IJSRuntime Js
 
-<PageTitle>Storage temperatures &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Storage temperatures &middot; HemoCore</PageTitle>
 
 <div class="flex-between">
     <h1>Storage temperatures</h1>
@@ -31,35 +31,44 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Open excursions</h3></div>
+        <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Location</th><th>Reading</th><th>Range</th><th>Time (UTC)</th><th>Recorded by</th><th>Deviation</th></tr></thead>
+            <thead><tr><th>Location</th><th>Reading</th><th>Range</th><th>Time</th><th>Recorded by</th><th>Deviation</th></tr></thead>
             <tbody>
                 @foreach (var row in _excursions)
                 {
                     <tr>
                         <td class="mono">@row.LocationCode</td>
-                        <td class="text-error">@row.ReadingC °C (@StatusText(row.Status))</td>
+                        <td class="text-error">@row.ReadingC °C (@StatusText(row.Status))@if (row.BackInRange) { <span class="badge badge-green" style="margin-left:.3rem;" data-back-in-range>Back in range: close the deviation</span> }</td>
                         <td>@RangeText(row.RangeMinC, row.RangeMaxC)</td>
-                        <td>@row.ReadingUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@row.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@row.RecordedBy</td>
                         <td>@if (row.DeviationId is long id) { <a href="@($"/deviations?id={id}")">DEV-@id</a> }</td>
                     </tr>
                 }
             </tbody>
         </table>
+        </div>
     </div>
 }
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>Locations</h3></div>
+    @if (StorageReadingText.IntervalNotSet(_locations) is { } intervalNote)
+    {
+        @* Pass 323: say that readings are not being marked due, rather than leave a week-old reading unremarked. *@
+        <p class="muted" data-reading-interval-not-set>@intervalNote</p>
+    }
     @if (_locations.Count == 0)
     {
-        <div class="muted">No active storage locations.</div>
+        var locationsEmpty = WorklistEmptyText.For(_locationsLoaded, _locationsError, "No active storage locations.");
+        <div class="@(locationsEmpty.IsError ? "text-danger" : "muted")" data-worklist-empty="storage-locations">@locationsEmpty.Text</div>
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
-            <thead><tr><th>Location</th><th>Range</th><th>Last reading</th><th>Time (UTC)</th><th>Units stored</th><th></th></tr></thead>
+            <thead><tr><th>Location</th><th>Range</th><th>Last reading</th><th>Time</th><th>Units stored</th><th></th></tr></thead>
             <tbody>
                 @foreach (var loc in _locations)
                 {
@@ -68,8 +77,20 @@
                         <td>@RangeText(loc.RangeMinC, loc.RangeMaxC)</td>
                         <td class="@(loc.LastStatus is StorageTemperatureStatus s && StorageTemperatureRule.IsExcursion(s) ? "text-error" : null)">
                             @(loc.LastReadingC is decimal c ? $"{c} °C" : "None")
+                            @if (loc.ReadingDue is { } due)
+                            {
+                                <span class="badge badge-amber" data-reading-due title="Facility Policies › Storage temperature reading interval">Reading due: @due</span>
+                            }
+                            @if (StorageReadingText.NoReadingWithUnits(loc.LastReadingUtc, loc.UnitsStored) is { } never)
+                            {
+                                @* Pass 223: units are stored here and nothing shows the temperature they are kept at. *@
+                                <span class="badge badge-amber" data-no-reading>@never</span>
+                            }
                         </td>
-                        <td>@loc.LastReadingUtc?.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@loc.LastReadingUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")@if (StorageReadingText.Age(loc.LastReadingUtc, DateTime.UtcNow) is { } age)
+                            {
+                                <span class="sub" data-reading-age>@age</span>
+                            }</td>
                         <td>@loc.UnitsStored</td>
                         <td class="right nowrap">
                             @if (Session.Has(PermissionCodes.InventoryReceive))
@@ -83,6 +104,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -91,6 +113,11 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Record a reading</h3></div>
         <Outcome Value="_recordFb" />
+        @if (_excursionLocationId is long excursionAt)
+        {
+            @* The units that were in the refrigerator, to review (end-user testing, 2026-11-12: the message said to review them and listed none). *@
+            <p data-excursion-units><a href="@($"/inventory?locationId={excursionAt}")">Review the units stored at this location</a> before they are released or issued.</p>
+        }
         <div class="form-row">
             <div class="field">
                 <label>Location</label>
@@ -120,13 +147,14 @@
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
-                <thead><tr><th>Time (UTC)</th><th>Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Comment</th></tr></thead>
+                <thead><tr><th>Time</th><th>Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Comment</th></tr></thead>
                 <tbody>
                     @foreach (var row in _history)
                     {
                         <tr>
-                            <td>@row.ReadingUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.ReadingUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@row.ReadingC °C</td>
                             <td class="@(StorageTemperatureRule.IsExcursion(row.Status) ? "text-error" : null)">@StatusText(row.Status)</td>
                             <td>@RangeText(row.RangeMinC, row.RangeMaxC)</td>
@@ -136,12 +164,15 @@
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
 
 @code {
     private List<StorageLocationTemperatureDto> _locations = new();
+    private bool _locationsLoaded;
+    private string? _locationsError;
     private List<StorageTemperatureReadingDto> _excursions = new();
     private List<StorageTemperatureReadingDto> _history = new();
     private long? _historyLocationId;
@@ -149,6 +180,7 @@
     private long _locationId;
     private decimal? _reading;
     private Feedback? _recordFb;
+    private long? _excursionLocationId;
 
     // Rounds go fridge by fridge: Record on a row picks the location and puts the cursor in the reading.
     private async Task StartReadingAsync(long locationId)
@@ -175,6 +207,9 @@
     {
         var locations = await Api.GetStorageTemperatureLocationsAsync();
         if (locations.Succeeded) _locations = locations.Value ?? new();
+        // Pass 173: the page said there were no storage locations before reading them, and after a failed read.
+        _locationsError = locations.Succeeded ? null : locations.Error ?? "the server did not answer.";
+        _locationsLoaded = true;
         var excursions = await Api.GetOpenTemperatureExcursionsAsync();
         if (excursions.Succeeded) _excursions = excursions.Value ?? new();
         if (_historyLocationId is long id) await LoadHistoryAsync(id);
@@ -206,7 +241,11 @@
             var excursion = saved.Succeeded && saved.Value is not null && StorageTemperatureRule.IsExcursion(saved.Value.Status);
             _recordFb = saved.ToFeedback(excursion
                 ? $"Excursion recorded. Deviation DEV-{saved.Value!.DeviationId} is open. Review the units at this location."
+                  + (saved.Value.QuarantineAfterMinutes is int after
+                      ? $" If no in-range reading is recorded within {after} minutes, the units stored here are quarantined automatically."
+                      : "")
                 : "Reading recorded.");
+            _excursionLocationId = excursion ? _locationId : null;
             if (saved.Succeeded)
             {
                 _reading = null;

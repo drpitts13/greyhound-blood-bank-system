@@ -1,4 +1,10 @@
 @page "/admin/specimen-label"
+@inject NavigationManager Nav
 
-<PageTitle>Specimen label · Admin</PageTitle>
-<LabelLayoutDesigner Kind="LabelLayoutKind.Specimen" Title="Specimen label" />
+@* The single specimen layout became the first of several specimen label designs (Cycle 657). *@
+<PageTitle>Specimen labels · Admin</PageTitle>
+<p class="muted">Specimen labels moved to <a href="/admin/specimen-labels">Specimen labels</a>.</p>
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("/admin/specimen-labels", replace: true);
+}

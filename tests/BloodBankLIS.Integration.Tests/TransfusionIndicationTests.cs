@@ -161,6 +161,65 @@ public class TransfusionIndicationTests : IDisposable
             OrderPriority.Routine, _factory.Clock.UtcNow, null, source, source == OrderSource.Hl7 ? "EHR" : "Manual", null,
             Indications: indications);
 
+    // TEST-BB-319 (OCD-038): the unverified draft set loads inactive, never overwrites, and never evaluates.
+    [Fact]
+    public async Task LoadDrafts_AddsInactive_WithHistory_AndOrdersStillSeeNoCriteria()
+    {
+        await using var c = _factory.Create();
+        var f = await SeedAsync(c);
+
+        var loaded = await Admin(c).LoadDraftsAsync();
+
+        Assert.Equal(PbmDraftCriteria.All.Count, loaded.Added.Count);
+        Assert.Empty(loaded.Skipped);
+        var rows = await c.TransfusionIndicationCriteria.ToListAsync();
+        Assert.All(rows, r => Assert.False(r.IsActive));
+        Assert.Equal(PbmDraftCriteria.All.Count, await c.ConfigurationChangeHistory.CountAsync(h =>
+            h.EntityType == nameof(TransfusionIndicationCriterion) && h.ChangeReason!.Contains("Unverified draft")));
+
+        await SetAsync(c, FacilityPolicyKeys.PbmEvaluateOrders, true);
+        var result = await Indications(c).EvaluateAsync(f.Patient.Id, [f.RedCells.Id], _factory.Clock.UtcNow, null);
+        Assert.Equal(PbmStatus.NoCriteria, Assert.Single(result).Status);
+    }
+
+    [Fact]
+    public async Task LoadDrafts_Twice_SkipsExisting_AndNeverOverwritesAnEditedRow()
+    {
+        await using var c = _factory.Create();
+        var admin = Admin(c);
+        await admin.LoadDraftsAsync();
+        var hb7 = await c.TransfusionIndicationCriteria.SingleAsync(r => r.Code == "DRAFT-HB7");
+        hb7.Threshold = 6.5m;
+        await c.SaveChangesAsync();
+
+        var again = await admin.LoadDraftsAsync();
+
+        Assert.Empty(again.Added);
+        Assert.Equal(PbmDraftCriteria.All.Count, again.Skipped.Count);
+        Assert.Equal(6.5m, (await c.TransfusionIndicationCriteria.SingleAsync(r => r.Code == "DRAFT-HB7")).Threshold);
+    }
+
+    [Fact]
+    public async Task Draft_CannotBeActivated_UntilRenamed()
+    {
+        await using var c = _factory.Create();
+        var admin = Admin(c);
+        await admin.LoadDraftsAsync();
+        var hb7 = await c.TransfusionIndicationCriteria.SingleAsync(r => r.Code == "DRAFT-HB7");
+
+        var refused = await admin.SetActiveAsync(hb7.Id, true);
+        Assert.False(refused.Succeeded);
+        Assert.Contains(refused.Evaluation!.HardStops, h => h.Code == TransfusionIndicationRule.DraftCode);
+        Assert.False((await c.TransfusionIndicationCriteria.AsNoTracking().SingleAsync(r => r.Id == hb7.Id)).IsActive);
+
+        var renamed = await admin.UpdateAsync(hb7.Id, new SaveTransfusionIndicationCriterionRequest(
+            "HB7", "Hemoglobin below 7 g/dL, hospitalized stable adult", hb7.ComponentClass, "HGB",
+            IndicationComparison.LessThan, 7m, "g/dL", 24, 10));
+        Assert.True(renamed.Succeeded, renamed.Error);
+        var activated = await admin.SetActiveAsync(hb7.Id, true);
+        Assert.True(activated.Succeeded, activated.Error);
+    }
+
     private async Task<Fixture> SeedAsync(BloodBankDbContext c)
     {
         var patient = new Patient { MedicalRecordNumber = "MRN-PBM", LastName = "Blood", FirstName = "Pat", DateOfBirth = new DateOnly(1960, 1, 1), Sex = Sex.Male };

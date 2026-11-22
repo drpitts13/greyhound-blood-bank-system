@@ -38,6 +38,7 @@ public static class AdminEndpoints
         MapInventoryLocations(app);
         MapFacilityPolicies(app);
         MapCrossmatchSettings(app);
+        MapReactionWorkupSettings(app);
         MapChargeCodes(app);
         MapChargeRules(app);
         MapTestServiceBillings(app);
@@ -48,11 +49,14 @@ public static class AdminEndpoints
         MapCodedComments(app);
         MapOrderCancellationReasons(app);
         MapUnitDiscardReasons(app);
+        MapSpecimenRejectionReasons(app);
+        MapReactionCatalog(app);
         MapCompatibilityRules(app);
         MapHl7(app);
         MapInstruments(app);
         MapPrinters(app);
         MapLabelLayouts(app);
+        MapSpecimenLabelDesigns(app);
         MapUsersAndRoles(app);
         MapHistory(app);
     }
@@ -162,6 +166,11 @@ public static class AdminEndpoints
             Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
 
+        // Lots to replace soon (Cycle 707): the bench sees it on the home card too, so immuno.record may read it.
+        group.MapGet("/supply", async (AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListSupplyAsync(ct)))
+            .RequireAnyPermission(PermissionCodes.AdminConfigView, PermissionCodes.ImmunoRecord);
+
         group.MapGet("/{id:long}", async (long id, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
         {
             var lot = await svc.GetAsync(id, ct);
@@ -192,6 +201,11 @@ public static class AdminEndpoints
 
         group.MapPost("", async (CreateAntibodyPanelLotRequest request, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.CreateAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        // Correct a lot's antigram before any workup uses it (Cycle 706).
+        group.MapPost("/{id:long}/antigram", async (long id, CorrectAntibodyPanelLotAntigramRequest request, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CorrectAntigramAsync(id, request, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
         group.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
@@ -506,6 +520,11 @@ public static class AdminEndpoints
             Results.Ok(await svc.ListAsync(ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
 
+        // OCD-004: read-only report of what still relies on placeholder or unknown ISBT codes.
+        group.MapGet("/readiness", async (IsbtReadinessService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
         group.MapGet("/extracts", (IsbtProductCodeAdminService svc) =>
             Results.Ok(svc.ListExtracts()))
             .RequirePermission(PermissionCodes.AdminConfigView);
@@ -562,6 +581,10 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
+        group.MapPost("/outside", async (AddOutsideProviderRequest req, OrderingProviderAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.AddOutsideAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.ProviderOutsideAdd);
+
         group.MapPut("/{id:long}", async (long id, SaveOrderingProviderRequest req, OrderingProviderAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
@@ -603,12 +626,12 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
-        group.MapPost("/{id:long}/activate", async (long id, ExceptionDefinitionAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+        group.MapPost("/{id:long}/activate", async (long id, ExceptionDefinitionActiveRequest? req, ExceptionDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct, req?.Reason), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
-        group.MapPost("/{id:long}/deactivate", async (long id, ExceptionDefinitionAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+        group.MapPost("/{id:long}/deactivate", async (long id, ExceptionDefinitionActiveRequest? req, ExceptionDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct, req?.Reason), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
 
@@ -674,6 +697,66 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         group.MapPost("/{id:long}/deactivate", async (long id, UnitDiscardReasonAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapReactionCatalog(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/reaction-catalog")
+            .WithTags("Admin: Reaction Lists")
+            .RequireAuthenticatedUser();
+
+        group.MapGet("", async (ReactionCatalogAdminService svc, ReactionCatalogKind? kind, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(kind, includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveReactionCatalogEntryRequest req, ReactionCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveReactionCatalogEntryRequest req, ReactionCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, ReactionCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ReactionCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapSpecimenRejectionReasons(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/specimen-rejection-reasons")
+            .WithTags("Admin: Specimen Rejection Reasons")
+            .RequireAuthenticatedUser();
+
+        group.MapGet("", async (SpecimenRejectionReasonAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, SpecimenRejectionReasonAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Rejection reason not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveSpecimenRejectionReasonRequest req, SpecimenRejectionReasonAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveSpecimenRejectionReasonRequest req, SpecimenRejectionReasonAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, SpecimenRejectionReasonAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, SpecimenRejectionReasonAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
@@ -760,12 +843,12 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.UpdateRuleAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
-        rules.MapPost("/{id:long}/activate", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, true, ct), d => d))
+        rules.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, true, ct, req?.Reason), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
-        rules.MapPost("/{id:long}/deactivate", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, false, ct), d => d))
+        rules.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, false, ct, req?.Reason), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
 
@@ -825,6 +908,37 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigView);
         group.MapPut("/ptag", async (LabelLayoutDocument document, LabelLayoutAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SaveAsync(LabelLayoutKind.Ptag, document, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+    }
+
+    private static void MapSpecimenLabelDesigns(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/specimen-label-designs").WithTags("Admin: Specimen label designs").RequireAuthenticatedUser();
+        group.MapGet("", async (SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(ct: ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        group.MapGet("/{id:long}", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            await svc.GetAsync(id, ct) is { } design ? Results.Ok(design) : Results.NotFound(new { error = "Label design not found." }))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        group.MapPost("", async (CreateSpecimenLabelDesignRequest req, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.CreatedEvaluation(await svc.CreateAsync(req, ct), d => ($"/api/admin/specimen-label-designs/{d.Id}", (object)d)))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapPut("/{id:long}", async (long id, SaveSpecimenLabelDesignRequest req, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SaveAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        // A test label of the layout on the designer, saved or not: shown, or sent to a printer (audited).
+        group.MapPost("/{id:long}/test-print", async (long id, BloodBankLIS.Printing.Delivery.SpecimenLabelTestPrintRequest req,
+                BloodBankLIS.Printing.Delivery.SpecimenLabelTestPrintService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.TestPrintAsync(id, req, ct), r => r))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapPost("/{id:long}/default", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.MakeDefaultAsync(id, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapPost("/{id:long}/activate", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapPost("/{id:long}/deactivate", async (long id, SpecimenLabelDesignAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
     }
 
@@ -912,12 +1026,12 @@ public static class AdminEndpoints
             EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
-        group.MapPost("/{id:long}/activate", async (long id, InventoryLocationAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+        group.MapPost("/{id:long}/activate", async (long id, InventoryLocationActiveRequest? req, InventoryLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
-        group.MapPost("/{id:long}/deactivate", async (long id, InventoryLocationAdminService svc, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+        group.MapPost("/{id:long}/deactivate", async (long id, InventoryLocationActiveRequest? req, InventoryLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
 
@@ -943,6 +1057,19 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigView);
 
         group.MapPut("", async (SaveCrossmatchSettingsRequest req, CrossmatchSettingsAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+    }
+
+    private static void MapReactionWorkupSettings(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/reaction-workup-settings").WithTags("Admin: Reaction Workup").RequireAuthenticatedUser();
+
+        group.MapGet("", async (ReactionWorkupSettingsAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPut("", async (SaveReactionWorkupSettingsRequest req, ReactionWorkupSettingsAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.UpdateAsync(req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
     }
@@ -1056,6 +1183,10 @@ public static class AdminEndpoints
 
         group.MapPost("", async (SaveAutoThawProductRequest req, AutoThawProductAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}/shelf-life", async (long id, SetAutoThawShelfLifeRequest req, AutoThawProductAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetShelfLifeAsync(id, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
 
         group.MapPost("/{id:long}/activate", async (long id, AutoThawProductAdminService svc, CancellationToken ct) =>
@@ -1214,13 +1345,28 @@ public static class AdminEndpoints
 
         var translations = app.MapGroup("/api/admin/hl7/translations").WithTags("Admin: HL7").RequireAuthenticatedUser();
 
-        translations.MapGet("", async (string dataItemKey, InterfaceTranslationAdminService svc, CancellationToken ct) =>
+        translations.MapGet("", async (string dataItemKey, long? endpointId, InterfaceTranslationAdminService svc, CancellationToken ct) =>
         {
-            var result = await svc.GetAsync(dataItemKey, ct);
+            var result = await svc.GetAsync(dataItemKey, ct, endpointId);
             return result.Succeeded
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapGet("/fields", async (InterfaceTranslationAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListFieldsAsync(ct))).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapGet("/check", async (string dataItemKey, string? value, bool inbound, long? endpointId, InterfaceTranslationAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.CheckAsync(dataItemKey, value, inbound, endpointId, ct))).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapGet("/unmapped", async (bool? openOnly, InterfaceUnmappedValueService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(openOnly ?? true, ct))).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapPost("/unmapped/{id:long}/dismiss", async (long id, ReasonOnlyRequest? req, InterfaceUnmappedValueService svc, CancellationToken ct) =>
+        {
+            var result = await svc.DismissAsync(id, req?.Reason, ct);
+            return result.Succeeded ? Results.Ok(result.Value) : Results.BadRequest(new { error = result.Error });
+        }).RequireAnyPermission(PermissionCodes.AdminHl7Manage, PermissionCodes.AdminInstrumentsManage);
 
         translations.MapPut("/{dataItemKey}", async (string dataItemKey, SaveInterfaceTranslationsRequest req, InterfaceTranslationAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.ReplaceAsync(dataItemKey, req, ct), d => d))
@@ -1237,6 +1383,16 @@ public static class AdminEndpoints
         meta.MapGet("", async (InstrumentInterfaceAdminService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListAsync(ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapGet("/translation-fields", async (InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.TranslationFieldsAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapGet("/{id:long}/translations/check", async (long id, string key, string? value, string? context, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+        {
+            var result = await svc.CheckAsync(id, key, value, context, ct);
+            return result.Succeeded ? Results.Ok(result.Value) : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.AdminConfigView);
 
         meta.MapGet("/{id:long}", async (long id, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
         {
@@ -1267,6 +1423,14 @@ public static class AdminEndpoints
 
         users.MapGet("", async (UserAdminService svc, bool? includeInactive, CancellationToken ct) =>
             Results.Ok(await svc.ListUsersAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminUsersManage);
+
+        users.MapGet("/access-review", async (UserAdminService svc, CancellationToken ct) =>
+            await svc.GetLastAccessReviewAsync(ct) is { } review ? Results.Ok(review) : Results.NoContent())
+            .RequirePermission(PermissionCodes.AdminUsersManage);
+
+        users.MapPost("/access-review", async (RecordAccessReviewRequest req, UserAdminService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.RecordAccessReviewAsync(req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminUsersManage);
 
         users.MapGet("/{id:long}", async (long id, UserAdminService svc, CancellationToken ct) =>

@@ -1,6 +1,8 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Isbt128.Parsing;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Isbt128;
 
@@ -13,10 +15,14 @@ public sealed class IsbtParsingService
     private readonly IsbtLookupCatalog _lookups;
     private readonly IDinCheckCharacterValidator _dinCheck;
 
-    public IsbtParsingService(IsbtLookupCatalog lookups, IDinCheckCharacterValidator dinCheck)
+    // Pass 161: the time for the expiration plausibility check; without it the check is skipped.
+    private readonly IClock? _clock;
+
+    public IsbtParsingService(IsbtLookupCatalog lookups, IDinCheckCharacterValidator dinCheck, IClock? clock = null)
     {
         _lookups = lookups;
         _dinCheck = dinCheck;
+        _clock = clock;
     }
 
     public async Task<ParseIsbtInputResponse> ParseAsync(string? value, CancellationToken ct = default)
@@ -66,7 +72,13 @@ public sealed class IsbtParsingService
             case IsbtDataStructureKind.ExpirationDateTime:
                 {
                     var result = ExpirationParser.Parse(sanitized.Sanitized);
-                    if (result.Success) parsed = result.Value;
+                    if (result.Success && _clock is not null
+                        && ExpirationPlausibilityRule.Evaluate(result.Value!.Year, _clock.UtcNow) is { Severity: RuleSeverity.HardStop } implausible)
+                    {
+                        errorCodes.Add(implausible.Code);
+                        errorMessages.Add(implausible.Message);
+                    }
+                    else if (result.Success) parsed = result.Value;
                     else Collect(result, errorCodes, errorMessages);
                     break;
                 }

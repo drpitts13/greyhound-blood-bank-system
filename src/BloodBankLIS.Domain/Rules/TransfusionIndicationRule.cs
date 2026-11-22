@@ -38,6 +38,9 @@ public sealed record IndicationOutcome(PbmStatus Status, string Detail, string? 
 public static class TransfusionIndicationRule
 {
     public const string JustificationCode = "PBM-JUSTIFY";
+
+    /// <summary>A criterion still marked DRAFT cannot be active (OCD-038): the committee reviews and renames it first.</summary>
+    public const string DraftCode = "PBM-DRAFT";
     public const int MaxLookbackHours = 720;
 
     public static bool Compare(decimal value, IndicationComparison comparison, decimal threshold) => comparison switch
@@ -91,7 +94,7 @@ public static class TransfusionIndicationRule
                 continue;
             }
 
-            var observed = $"{latest.TestCode} {Format(latest.Value)}{UnitText(latest.Unit ?? criterion.Unit)} at {latest.ResultUtc:yyyy-MM-dd HH:mm} UTC";
+            var observed = $"{latest.TestCode} {Format(latest.Value)}{UnitText(latest.Unit ?? criterion.Unit)} at {ClinicalTimeText.Local(latest.ResultUtc)}";
             if (Compare(latest.Value, criterion.Comparison!.Value, criterion.Threshold!.Value))
             {
                 return new IndicationOutcome(PbmStatus.Met, $"{criterion.Code}: {observed} meets {rule}.", criterion.Code);
@@ -155,6 +158,12 @@ public static class TransfusionIndicationRule
         else if (c.Comparison is not null || c.Threshold is not null)
         {
             results.Add(RuleResult.HardStop("PBM.ATTEST", "A comparison and threshold need a test code."));
+        }
+
+        if (c.IsActive && PbmDraftCriteria.IsDraft(c.Code, c.Name))
+        {
+            results.Add(RuleResult.HardStop(DraftCode,
+                "This criterion is still an unverified draft. Have the transfusion committee review it, map the test code, and rename it (remove DRAFT from the code and name) before activating."));
         }
 
         return new RuleEvaluation(results);

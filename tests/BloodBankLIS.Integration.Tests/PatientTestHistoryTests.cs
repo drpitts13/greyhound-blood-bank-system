@@ -154,4 +154,45 @@ public class PatientTestHistoryTests : IClassFixture<SqliteContextFactory>
             Assert.Equal("Transcription error", row.Reason);
         }
     }
+
+    // TEST-BB-485: rows say who entered the result and how; the revised view keeps every version of a corrected result
+    // together, newest first, and leaves unchanged results out.
+    [Fact]
+    public async Task Rows_NameTheEnterer_AndRevisedOnlyGroupsTheCorrectionChain()
+    {
+        var (patientId, specimenId, _) = await SeedPatientWithSpecimenAsync("REV");
+        long hgbId;
+        await using (var context = _factory.Create())
+        {
+            var hgb = await Results(context).EnterResultAsync(new EnterResultRequest(specimenId, "HGB", "9.0"));
+            var hct = await Results(context).EnterResultAsync(new EnterResultRequest(specimenId, "HCT", "38"));
+            Assert.True(hgb.Succeeded && hct.Succeeded);
+            hgbId = hgb.Value!.Id;
+            Assert.True((await Results(context).VerifyResultAsync(hgbId)).Succeeded);
+            Assert.True((await Results(context).VerifyResultAsync(hct.Value!.Id)).Succeeded);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var corrected = await Results(context).CorrectResultAsync(hgbId, "10.0", "Transcription error");
+            Assert.True(corrected.Succeeded, corrected.Error);
+            var reverified = await Results(context).VerifyResultAsync(corrected.Value!.Id);
+            Assert.True(reverified.Succeeded, reverified.Error);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var rows = await History(context).ListByPatientAsync(patientId);
+            Assert.All(rows, r => Assert.Equal(_factory.CurrentUser.UserName, r.EnteredBy));
+            Assert.All(rows, r => Assert.Equal("Manual", PatientTestHistoryView.SourceLabel(r.Source)));
+            Assert.False(Assert.Single(rows, r => r.TestCode == "HCT").HasRevision);
+
+            var revised = PatientTestHistoryView.RevisedOnly(rows);
+            Assert.Equal(2, revised.Count);
+            Assert.All(revised, r => Assert.Equal("HGB", r.TestCode));
+            Assert.Equal(["10.0", "9.0"], revised.Select(r => r.Value));
+            Assert.True(revised[0].IsCurrent);
+            Assert.False(revised[1].IsCurrent);
+        }
+    }
 }

@@ -4,6 +4,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.Rules.Config;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -14,6 +15,9 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
     private readonly IRepository<BloodAttributeDefinition> _repo;
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
+    private readonly IRepository<TestDefinition>? _tests;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirements;
+
     public BloodAttributeAdminService(
         IRepository<BloodAttributeDefinition> repo,
         IUnitOfWork unitOfWork,
@@ -21,9 +25,13 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
         ICurrentUser currentUser,
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IRepository<TestDefinition>? tests = null,
+        IRepository<SpecialRequirementDefinition>? requirements = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
+        _tests = tests;
+        _requirements = requirements;
         _repo = repo;
         _permissionEvaluator = permissionEvaluator;
     }
@@ -177,7 +185,39 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
             oldValue: null, newValue: BloodAttributeDefinitionDtoMapping.From(entity), reason: reason);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        return OperationResult<BloodAttributeDefinitionDto>.Ok(BloodAttributeDefinitionDtoMapping.From(entity));
+        // Loop 2 tick 27: name the active typing tests and special requirements that still use the attribute. Codes are
+        // case-sensitive (C is not c), so they are compared exactly.
+        return OperationResult<BloodAttributeDefinitionDto>.Ok(BloodAttributeDefinitionDtoMapping.From(entity), await RetirementWarningsAsync(entity.Code, ct));
+    }
+
+    private async Task<IReadOnlyList<RuleResult>> RetirementWarningsAsync(string code, CancellationToken ct)
+    {
+        var warnings = new List<RuleResult>();
+        if (_tests is not null)
+        {
+            var tests = (await _tests.ListAsync(t => t.IsActive && t.BloodAttributeScopeJson != null, ct))
+                .Where(t => BloodAttributeScope.Parse(t.BloodAttributeScopeJson).Any(s => string.Equals(s.Code, code, StringComparison.Ordinal)))
+                .Select(t => t.Code).OrderBy(c => c).ToList();
+            if (tests.Count > 0)
+            {
+                warnings.Add(RuleResult.Warning("ATTRIBUTE-RETIRE-IN-USE",
+                    $"{code} is still typed by {(tests.Count == 1 ? "1 test" : $"{tests.Count} tests")} ({string.Join(", ", tests)}). Update {(tests.Count == 1 ? "its" : "their")} typing scope on Tests."));
+            }
+        }
+
+        if (_requirements is not null)
+        {
+            var requirements = (await _requirements.ListAsync(r => r.IsActive && r.AntigenCode != null, ct))
+                .Where(r => string.Equals(r.AntigenCode!.Trim(), code, StringComparison.Ordinal))
+                .Select(r => r.Code).OrderBy(c => c).ToList();
+            if (requirements.Count > 0)
+            {
+                warnings.Add(RuleResult.Warning("ATTRIBUTE-RETIRE-IN-USE",
+                    $"{code} is still the antigen of {(requirements.Count == 1 ? "1 special requirement" : $"{requirements.Count} special requirements")} ({string.Join(", ", requirements)}). Update {(requirements.Count == 1 ? "it" : "them")} on Special Requirements."));
+            }
+        }
+
+        return warnings;
     }
 
     private async Task<bool> HasActiveDuplicateAsync(string code, long selfId, CancellationToken ct)

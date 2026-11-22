@@ -10,6 +10,42 @@ public class Reagent : BaseEntity
     public string Name { get; set; } = string.Empty;
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// The LIS tests this reagent is used for (comma-separated codes, e.g. "ABORH, ABSC"). A manual result for one of
+    /// these tests records this reagent's open lots, so a lot that later fails QC can be traced to its results.
+    /// </summary>
+    public string? TestCodes { get; set; }
+
+    /// <summary>
+    /// The controls the reagent's daily QC is run with, from the package insert (for example "A1 cells (positive),
+    /// B cells (negative)"), comma-separated; blank means one QC reading a day (end-user testing pass 93).
+    /// </summary>
+    public string? QcControls { get; set; }
+}
+
+/// <summary>
+/// A reagent lot recorded against a result: a lot of a reagent used for the test that was open at the bench when the
+/// result was entered. The reagent code and lot number are kept as they were.
+/// </summary>
+public class TestResultReagentLot : BaseEntity
+{
+    public long TestResultId { get; set; }
+
+    public long ReagentLotId { get; set; }
+
+    public string ReagentCode { get; set; } = string.Empty;
+
+    public string LotNumber { get; set; } = string.Empty;
+
+    public DateTime RecordedUtc { get; set; }
+
+    /// <summary>When someone reviewed this result after the lot failed QC, and what they found or did.</summary>
+    public DateTime? ReviewedUtc { get; set; }
+
+    public string? ReviewedBy { get; set; }
+
+    public string? ReviewNote { get; set; }
 }
 
 public enum ReagentLotState
@@ -51,6 +87,9 @@ public class ReagentDailyQc : BaseEntity
     public string ExpectedResult { get; set; } = string.Empty;
 
     public string ObservedResult { get; set; } = string.Empty;
+
+    /// <summary>Which of the reagent's QC controls this reading is for, when it has any (pass 93).</summary>
+    public string? Control { get; set; }
 
     public bool Passed { get; set; }
 

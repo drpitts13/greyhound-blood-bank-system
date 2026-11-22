@@ -5,9 +5,9 @@ namespace BloodBankLIS.Domain.Tests;
 public class ShiftHandoffRuleTests
 {
     [Fact]
-    public void Permission_WithoutAuditRead_IsHardStop()
+    public void Permission_WithoutShiftHandoff_IsHardStop()
     {
-        var result = ShiftHandoffRule.EvaluatePermission(hasAuditRead: false);
+        var result = ShiftHandoffRule.EvaluatePermission(hasShiftHandoff: false);
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
         Assert.Equal(ShiftHandoffRule.PermissionCode, result.Code);
     }
@@ -43,4 +43,14 @@ public class ShiftHandoffRuleTests
         var result = ShiftHandoffRule.EvaluateAcknowledge("tech1", "tech2", acknowledgedUtc: null);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    // TEST-BB-330
+    [Theory]
+    [InlineData(null, true, false)]
+    [InlineData("  ", false, false)]
+    [InlineData("tech2", true, false)]
+    [InlineData("tech2", false, true)]
+    [InlineData("TECH1", true, true)]
+    public void Recipient_MustBeAnotherActiveUser(string? toUser, bool active, bool stopped) =>
+        Assert.Equal(stopped, ShiftHandoffRule.EvaluateRecipient(toUser, "tech1", active).Severity == RuleSeverity.HardStop);
 }

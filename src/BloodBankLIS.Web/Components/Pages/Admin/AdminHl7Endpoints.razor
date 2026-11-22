@@ -34,10 +34,19 @@
     }
     else if (_items.Count == 0)
     {
-        <div class="empty">No interfaces configured.</div>
+        <div class="empty" data-no-interfaces>
+            No interfaces configured. Inbound messages can still be submitted on the HL7 page; outbound results to the EHR and
+            charges to billing wait until an enabled outbound interface is added.
+            @if (_outboundWaiting > 0)
+            {
+                @* Pass 240: what is waiting on this setup. *@
+                <a href="/hl7" data-outbound-waiting-count>@(_outboundWaiting == 1 ? "1 outbound message is" : $"{_outboundWaiting} outbound messages are") waiting.</a>
+            }
+        </div>
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Name</th><th>Type</th><th>Vendor</th><th>Direction</th><th>Host:Port</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -45,9 +54,9 @@
                 {
                     <tr>
                         <td>@e.Name</td>
-                        <td>@e.InterfaceType</td>
+                        <td>@Ui.EnumText(e.InterfaceType)</td>
                         <td>@(string.IsNullOrWhiteSpace(e.VendorCode) ? "Custom" : e.VendorCode)</td>
-                        <td>@e.Direction</td>
+                        <td>@Ui.EnumText(e.Direction)</td>
                         <td class="mono">@(e.Host is null ? "—" : $"{e.Host}:{e.Port}")</td>
                         <td>
                             @if (e.IsEnabled) { <span class="badge badge-green">Enabled</span> }
@@ -64,6 +73,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -84,14 +94,14 @@
                 <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
                 <div class="field"><label>Interface type</label>
                     <select value="@_editing.InterfaceType" @onchange="OnTypeChanged">
-                        @foreach (var t in Enum.GetValues<InterfaceType>()) { <option value="@t">@t</option> }
+                        @foreach (var t in Enum.GetValues<InterfaceType>()) { <option value="@t">@Ui.EnumText(t)</option> }
                     </select>
                 </div>
                 <div class="field"><label>Direction</label>
-                    <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@d</option> }</select>
+                    <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@Ui.EnumText(d)</option> }</select>
                 </div>
                 <div class="field"><label>Transport</label>
-                    <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@t</option> }</select>
+                    <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@Ui.EnumText(t)</option> }</select>
                 </div>
                 @if (_editing.Transport == InterfaceTransport.Mllp)
                 {
@@ -120,6 +130,14 @@
             </div>
             <div class="flex gap" style="margin:.6rem 0;">
                 <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ReplayAllowed" /> Replay allowed</label>
+            </div>
+            @* OCD-088 (decided, option C): each interface's time convention. *@
+            <div class="field" style="max-width:32rem;"><label>Times without a UTC offset</label>
+                <select @bind="_editing.TimestampConvention" data-endpoint-timestamp>
+                    <option value="@Hl7TimestampConvention.FacilityLocal">Facility local time (read and sent as local, sent with the offset)</option>
+                    <option value="@Hl7TimestampConvention.Utc">UTC (read and sent as UTC)</option>
+                </select>
+                <span class="sub">A time that carries its offset is always read with it. Confirm with the other system's team what it sends.</span>
             </div>
         }
 
@@ -163,6 +181,7 @@
             }
             else
             {
+                <div class="table-scroll">
                 <table class="bb">
                     <thead><tr><th>Data item</th><th>HL7 path</th><th>Required</th></tr></thead>
                     <tbody>
@@ -183,6 +202,7 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
         }
 
@@ -241,6 +261,8 @@
 
     private string TabClass(string tab) => _tab == tab ? "btn-primary" : "btn-secondary";
 
+    private int _outboundWaiting;
+
     protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
@@ -249,6 +271,10 @@
         var r = await Api.GetAdminHl7EndpointsAsync();
         _items = r.Value ?? new();
         if (!r.Succeeded) _feedback = r.ToFeedback();
+        if (_items.Count == 0)
+        {
+            _outboundWaiting = (await Api.GetHl7OutboundWaitingAsync()).Value?.Count ?? 0;
+        }
         _loading = false;
     }
 
@@ -425,6 +451,7 @@
         public int? RetryDelaySeconds { get; set; }
         public string? MessageLoggingLevel { get; set; }
         public bool ReplayAllowed { get; set; } = true;
+        public Hl7TimestampConvention TimestampConvention { get; set; } = Hl7TimestampConvention.FacilityLocal;
         public List<MappingRow> Mappings { get; set; } = new();
 
         public static EditModel From(Hl7EndpointDto e) => new()
@@ -435,7 +462,7 @@
             Environment = e.Environment, SendingApplication = e.SendingApplication, SendingFacility = e.SendingFacility,
             ReceivingApplication = e.ReceivingApplication, ReceivingFacility = e.ReceivingFacility,
             AckTimeoutSeconds = e.AckTimeoutSeconds, MaxRetryCount = e.MaxRetryCount, RetryDelaySeconds = e.RetryDelaySeconds,
-            MessageLoggingLevel = e.MessageLoggingLevel, ReplayAllowed = e.ReplayAllowed,
+            MessageLoggingLevel = e.MessageLoggingLevel, ReplayAllowed = e.ReplayAllowed, TimestampConvention = e.TimestampConvention,
             Mappings = e.FieldMappings.Select(MappingRow.From).ToList()
         };
 
@@ -443,6 +470,6 @@
             Name, InterfaceType, Direction, Transport, Host, Port, Path, MessageTypes, MappingProfile, VendorCode,
             MappingMode, Environment, SendingApplication, SendingFacility, ReceivingApplication, ReceivingFacility,
             AckTimeoutSeconds, MaxRetryCount, RetryDelaySeconds, MessageLoggingLevel, ReplayAllowed,
-            Mappings.Select(m => m.ToDto()).ToList(), reason);
+            Mappings.Select(m => m.ToDto()).ToList(), reason, TimestampConvention);
     }
 }

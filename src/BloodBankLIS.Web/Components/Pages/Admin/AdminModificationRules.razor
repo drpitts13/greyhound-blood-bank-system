@@ -22,7 +22,7 @@
     <summary>How it works</summary>
     <ul>
         <li>The same modification code may be reused on different source or target products.</li>
-        <li>The expiration code's offset is applied from modification or collection date/time and capped at the source unit's original expiration.</li>
+        <li>The expiration code's offset is applied from modification or collection date/time and capped at the source unit's original expiration, except a freeze, which takes the code's dating.</li>
         <li>A product choice keeps its code. A blank name stays Product {id} and is not replaced by the code.</li>
     </ul>
 </details>
@@ -40,6 +40,7 @@
     }
     else
     {
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Modification Code</th><th>Source Product Code</th><th>Type</th><th>Target Product Code</th><th>Offset</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
@@ -47,9 +48,9 @@
                 {
                     <tr>
                         <td class="mono">@r.ModificationCode</td>
-                        <td class="mono">@r.SourceProductCode</td>
-                        <td>@r.ModificationType</td>
-                        <td class="mono">@r.TargetProductCode</td>
+                        <td><span class="mono">@r.SourceProductCode</span><div class="muted" data-rule-product-name>@ProductName(r.SourceProductTypeId)</div></td>
+                        <td>@Ui.EnumText(r.ModificationType)</td>
+                        <td><span class="mono">@r.TargetProductCode</span><div class="muted" data-rule-product-name>@ProductName(r.TargetProductTypeId)</div></td>
                         <td class="mono">@r.ExpirationOffsetCode <span class="muted">(@RelativeLabel(r.ExpirationRelativeTo))</span></td>
                         <td>@r.Version</td>
                         <td>
@@ -58,6 +59,11 @@
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(r.Id)">Edit</button>
+                            @if (CanManage)
+                            {
+                                @* Loop 2 tick 9: start a new rule from this one (another product, the same steps). *@
+                                <button class="btn btn-ghost btn-sm" @onclick="() => CopyAsync(r.Id)" data-rule-copy="@r.ModificationCode">Copy</button>
+                            }
                             @if (Session.Has(PermissionCodes.AdminAuditReview))
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(r.Id)">History</button>
@@ -67,6 +73,7 @@
                 }
             </tbody>
         </table>
+        </div>
     }
 </div>
 
@@ -74,6 +81,10 @@
 {
     <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New modification rule" : $"Edit rule #{_editId}")</h2>
+        @if (_editId is null && _copiedFrom is not null)
+        {
+            <p class="muted" data-rule-copied-from>Copied from @_copiedFrom: change the code and products, then save to create a new draft.</p>
+        }
         <div class="form-row">
             <div class="field"><label>Modification code</label>
                 <input class="mono" @bind="_editing.ModificationCode" placeholder="IRR-RBC-LR" />
@@ -85,7 +96,7 @@
                 </select>
             </div>
             <div class="field"><label>Modification type</label>
-                <select @bind="_editing.ModificationType">@foreach (var t in Enum.GetValues<ModificationType>()) { <option value="@t">@t</option> }</select>
+                <select @bind="_editing.ModificationType">@foreach (var t in Enum.GetValues<ModificationType>()) { <option value="@t">@Ui.EnumText(t)</option> }</select>
             </div>
             <div class="field"><label>Target product</label>
                 <select @bind="_editing.TargetProductTypeId">
@@ -146,6 +157,7 @@
 
     private EditModel? _editing;
     private long? _editId;
+    private string? _copiedFrom;
     private bool _currentIsActive;
     private string? _changeReason;
 
@@ -157,6 +169,10 @@
 
     private IEnumerable<ExpirationModificationCodeDto> ExpirationChoices =>
         _expirationCodes.Where(c => c.IsActive || c.Id == _editing?.ExpirationModificationCodeId);
+
+    // End-user testing loop 2 tick 48: the list named products by code only (E0336 → E0332), while the form's pickers
+    // name them; the list now shows the product name under each code.
+    private string? ProductName(long productTypeId) => _products.FirstOrDefault(p => p.Id == productTypeId)?.Name;
 
     private static string RelativeLabel(ExpirationRelativeTo relativeTo) =>
         relativeTo == ExpirationRelativeTo.CollectionDateTime ? "collection" : "modification";
@@ -181,13 +197,25 @@
 
     private void NewDraft()
     {
-        _editId = null; _currentIsActive = false; _changeReason = null;
+        _editId = null; _currentIsActive = false; _changeReason = null; _copiedFrom = null;
         _editing = new EditModel();
         _feedback = null;
     }
 
+    /// <summary>A new, unsaved rule filled from an existing one (loop 2 tick 9).</summary>
+    private async Task CopyAsync(long id)
+    {
+        var r = await Api.GetAdminModificationRuleAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = null; _currentIsActive = false; _changeReason = null; _feedback = null;
+        _editing = EditModel.From(r.Value);
+        _editing.ModificationCode = r.Value.ModificationCode + "-COPY";
+        _copiedFrom = r.Value.ModificationCode;
+    }
+
     private async Task EditAsync(long id)
     {
+        _copiedFrom = null;
         var r = await Api.GetAdminModificationRuleAsync(id);
         if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
         _editId = r.Value.Id; _currentIsActive = r.Value.IsActive; _changeReason = null;

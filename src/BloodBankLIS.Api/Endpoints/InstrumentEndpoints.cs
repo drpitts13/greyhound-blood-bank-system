@@ -6,6 +6,7 @@ using BloodBankLIS.Astm.Framing;
 using BloodBankLIS.Astm.Messaging;
 using BloodBankLIS.Astm.Simulator;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -22,16 +23,21 @@ public static class InstrumentEndpoints
         group.MapGet("/status", async (
             IInstrumentInterfaceRepository interfaces,
             IInstrumentRuntimeStatus status,
+            IRepository<InstrumentMessageLog> messages,
             CancellationToken ct) =>
         {
             var items = await interfaces.ListWithChildrenAsync(ct);
+            var lastMessage = (await messages.ListAsync(m => m.Direction == Hl7Direction.Inbound, ct))
+                .GroupBy(m => m.InterfaceId)
+                .ToDictionary(g => g.Key, g => g.Max(m => m.ReceivedUtc));
             return Results.Ok(items.Select(i =>
             {
                 var snap = status.Get(i.Id);
                 var conn = i.Connection;
                 return new InstrumentStatusDto(
                     i.Id, i.Name, i.IsEnabled, conn?.IsServer ?? true, conn?.IpAddress, conn?.Port ?? 0,
-                    i.IsEnabled ? snap.State : "Disabled", snap.Detail, snap.LastEventUtc);
+                    i.IsEnabled ? snap.State : "Disabled", snap.Detail, snap.LastEventUtc,
+                    lastMessage.TryGetValue(i.Id, out var last) ? last : null);
             }).ToList());
         });
 
@@ -47,11 +53,28 @@ public static class InstrumentEndpoints
                 .ToList());
         });
 
-        group.MapGet("/messages", async (long? interfaceId, IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
+        // Pass 109: QC samples the instruments reported, for the tech recording reagent QC.
+        group.MapGet("/qc-samples", async (int? hours, IRepository<InstrumentMessageLog> messages, IRepository<InstrumentInterface> interfaces, IClock clock, CancellationToken ct) =>
         {
-            var rows = interfaceId is long id
-                ? await messages.ListAsync(m => m.InterfaceId == id, ct)
-                : await messages.ListAsync(ct);
+            var since = clock.UtcNow.AddHours(-Math.Clamp(hours ?? 24, 1, 168));
+            var rows = await messages.ListAsync(m => m.Status == BloodBankLIS.Domain.Enums.InstrumentMessageStatus.QualityControl && m.ReceivedUtc >= since, ct);
+            var names = (await interfaces.ListAsync(ct)).ToDictionary(i => i.Id, i => i.Name);
+            return Results.Ok(rows
+                .OrderByDescending(m => m.ReceivedUtc)
+                .ThenByDescending(m => m.Id)
+                .Select(m => new InstrumentQcSampleDto(
+                    m.Id,
+                    names.GetValueOrDefault(m.InterfaceId) ?? $"Instrument {m.InterfaceId}",
+                    m.SpecimenId ?? string.Empty,
+                    m.ReceivedUtc,
+                    InstrumentQcSampleSummary.Results(m.RawMessage)))
+                .ToList());
+        });
+
+        group.MapGet("/messages", async (long? interfaceId, string? search, IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
+        {
+            // Pass 97: a specimen or patient id, or anything in the message, finds messages older than the newest 200.
+            var rows = await messages.ListAsync(BloodBankLIS.Domain.Instruments.InstrumentMessageSearch.Filter(interfaceId, search), ct);
             return Results.Ok(rows
                 .OrderByDescending(m => m.ReceivedUtc)
                 .Take(200)
@@ -59,10 +82,19 @@ public static class InstrumentEndpoints
                 .ToList());
         });
 
+        // Failed messages nobody has replayed successfully or resolved yet, oldest first.
+        group.MapGet("/messages/failed", async (IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
+            Results.Ok((await messages.ListAsync(m => m.Status == Domain.Enums.InstrumentMessageStatus.Failed && m.ResolvedUtc == null, ct))
+                .OrderBy(m => m.ReceivedUtc)
+                .Select(ToSummary)
+                .ToList()));
+
         group.MapGet("/messages/{id:long}", async (
             long id,
             IRepository<InstrumentMessageLog> messages,
             IInstrumentInterfaceRepository interfaces,
+            IRepository<Specimen> specimens,
+            IClock clock,
             CancellationToken ct) =>
         {
             var message = await messages.GetByIdAsync(id, ct);
@@ -78,7 +110,11 @@ public static class InstrumentEndpoints
                 view.RawDisplay,
                 view.ParsedFields,
                 view.MappedValues,
-                FormatRuleTrace(message.RuleTraceJson)));
+                FormatRuleTrace(message.RuleTraceJson))
+            {
+                // Pass 284: say when the specimen has expired, so the next step does not send the bench to order and replay.
+                SpecimenExpiredUtc = await SpecimenExpiredAsync(specimens, message.SpecimenId, clock.UtcNow, ct)
+            });
         });
 
         group.MapPost("/messages/{id:long}/replay", async (long id, AstmInboundProcessor processor, CancellationToken ct) =>
@@ -86,7 +122,28 @@ public static class InstrumentEndpoints
             var outcome = await processor.ReplayAsync(id, ct);
             return outcome is null
                 ? Results.NotFound(new { error = $"Message {id} not found." })
-                : Results.Ok(new { accepted = outcome.Accepted, notes = outcome.Notes, logId = outcome.Log.Id });
+                : outcome.Refused
+                    ? Results.UnprocessableEntity(new { error = string.Join(" ", outcome.Notes) })
+                    : Results.Ok(new { accepted = outcome.Accepted, notes = outcome.Notes, logId = outcome.Log.Id });
+        });
+
+        // Posting a flagged result is a review decision: it takes result verification as well as instrument access.
+        group.MapPost("/messages/{id:long}/release", async (long id, ReasonBody body, AstmInboundProcessor processor, CancellationToken ct) =>
+        {
+            var outcome = await processor.ReleaseHeldAsync(id, body.Reason, ct);
+            return outcome is null
+                ? Results.NotFound(new { error = $"Message {id} not found." })
+                : outcome.Refused || !outcome.Accepted
+                    ? Results.UnprocessableEntity(new { error = string.Join(" ", outcome.Notes) })
+                    : Results.Ok(new { accepted = outcome.Accepted, notes = outcome.Notes, logId = outcome.Log.Id });
+        }).RequirePermission(PermissionCodes.ResultVerify);
+
+        group.MapPost("/messages/{id:long}/resolve", async (long id, ReasonBody body, AstmInboundProcessor processor, CancellationToken ct) =>
+        {
+            var (message, error) = await processor.ResolveAsync(id, body.Reason, ct);
+            return message is null
+                ? Results.UnprocessableEntity(new { error })
+                : Results.Ok(ToSummary(message));
         });
 
         group.MapPost("/inbound/{interfaceId:long}", async (
@@ -113,7 +170,9 @@ public static class InstrumentEndpoints
             AstmInboundProcessor processor,
             CancellationToken ct) =>
         {
-            var generated = EchoResultSimulator.Generate(ToSim(req.Preview));
+            var raw = string.IsNullOrWhiteSpace(req.RawMessage)
+                ? EchoResultSimulator.Generate(ToSim(req.Preview)).RawMessage
+                : EchoSimulatorSendRequest.ToWire(req.RawMessage);
             var iface = await interfaces.GetWithChildrenAsync(req.InterfaceId, ct);
             if (iface?.Connection is null)
             {
@@ -124,35 +183,48 @@ public static class InstrumentEndpoints
             {
                 try
                 {
-                    var sent = await AstmSession.SendToAsync("127.0.0.1", iface.Connection.Port, generated.RawMessage, null, ct);
+                    var sent = await AstmSession.SendToAsync("127.0.0.1", iface.Connection.Port, raw, null, ct);
                     return Results.Ok(new EchoSimulatorSendResultDto(
-                        sent.Completed, sent.Error, null, InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
+                        sent.Completed, sent.Error, null, InstrumentMessageViewBuilder.FormatRaw(raw)));
                 }
                 catch (Exception ex)
                 {
-                    var outcome = await processor.ProcessAsync(generated.RawMessage, req.InterfaceId, isReplay: false, ct);
+                    var outcome = await processor.ProcessAsync(raw, req.InterfaceId, isReplay: false, ct);
                     return Results.Ok(new EchoSimulatorSendResultDto(
                         outcome.Accepted,
                         ex.Message + " Processed locally instead.",
                         outcome.Log.Id,
-                        InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
+                        InstrumentMessageViewBuilder.FormatRaw(raw)));
                 }
             }
 
-            var local = await processor.ProcessAsync(generated.RawMessage, req.InterfaceId, isReplay: false, ct);
+            var local = await processor.ProcessAsync(raw, req.InterfaceId, isReplay: false, ct);
             return Results.Ok(new EchoSimulatorSendResultDto(
-                local.Accepted, local.Log.ErrorDetail, local.Log.Id, InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
+                local.Accepted, local.Log.ErrorDetail, local.Log.Id, InstrumentMessageViewBuilder.FormatRaw(raw)));
         });
     }
 
     private static InstrumentMessageSummaryDto ToSummary(InstrumentMessageLog m) =>
-        new(m.Id, m.InterfaceId, m.Direction, m.MessageKind, m.Status, m.ReceivedUtc, m.ProcessedUtc, m.SpecimenId, m.PatientId, m.ErrorDetail);
+        new(m.Id, m.InterfaceId, m.Direction, m.MessageKind, m.Status, m.ReceivedUtc, m.ProcessedUtc, m.SpecimenId, m.PatientId, m.ErrorDetail,
+            m.ResolvedUtc, m.ResolvedBy, m.ResolutionNote);
 
     private static EchoSimulatorRequest ToSim(EchoSimulatorPreviewRequest req) =>
         new(req.Assay, req.SpecimenId, req.PatientId, req.LastName, req.FirstName, req.DateOfBirth, req.Sex, req.Seed);
 
     private static EchoSimulatorPreviewDto ToPreview(EchoSimulatorResult result) =>
         new(result.Assay, InstrumentMessageViewBuilder.FormatRaw(result.RawMessage), result.Records);
+
+    private static async Task<DateTime?> SpecimenExpiredAsync(IRepository<Specimen> specimens, string? accession, DateTime nowUtc, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(accession))
+        {
+            return null;
+        }
+
+        var key = accession.Trim();
+        var specimen = await specimens.FirstOrDefaultAsync(s => s.AccessionNumber == key, ct);
+        return specimen?.ExpiresUtc is DateTime expires && expires <= nowUtc ? expires : null;
+    }
 
     private static string? FormatRuleTrace(string? json)
     {

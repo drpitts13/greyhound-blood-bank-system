@@ -254,6 +254,7 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
         e.RetryDelaySeconds = req.RetryDelaySeconds;
         e.MessageLoggingLevel = req.MessageLoggingLevel?.Trim();
         e.ReplayAllowed = req.ReplayAllowed;
+        e.TimestampConvention = req.TimestampConvention;
     }
 
     private static List<InterfaceFieldMapping> ToEntities(IReadOnlyList<InterfaceFieldMappingDto>? mappings)
@@ -298,7 +299,7 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
             e.MappingProfile, e.VendorCode, e.MappingMode, e.IsEnabled,
             e.Environment, e.SendingApplication, e.SendingFacility, e.ReceivingApplication, e.ReceivingFacility,
             e.AckTimeoutSeconds, e.MaxRetryCount, e.RetryDelaySeconds, e.MessageLoggingLevel, e.ReplayAllowed, e.Version,
-            mapped);
+            mapped, e.TimestampConvention);
     }
 
     private async Task<EvaluationResult<Hl7EndpointDto>?> RejectUnauthorizedAsync(

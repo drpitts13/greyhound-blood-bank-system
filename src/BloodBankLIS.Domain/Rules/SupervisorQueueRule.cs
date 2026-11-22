@@ -11,16 +11,43 @@ public static class SupervisorQueueRule
     public const string KindAntibodyReview = "AntibodyIdReview";
     public const string KindResultVerify = "ResultPendingVerification";
     public const string KindQuarantineRelease = "QuarantineRelease";
+    public const string KindOverrideReview = "OverrideReview";
+    public const string KindDiscrepancy = "InventoryDiscrepancy";
+    /// <summary>
+    /// A unit on operational hold (end-user testing pass 137: a unit held nine days for a packing slip was on no queue or
+    /// home card, so a forgotten hold kept the unit out of stock with nobody reminded). Waits on inventory.release.
+    /// </summary>
+    public const string KindOperationalHold = "OperationalHold";
+    /// <summary>An RhIG evaluation filled in and waiting for a verifier to complete it (Cycle 537).</summary>
+    public const string KindRhigComplete = "RhigComplete";
+    /// <summary>OCD-083: a transfusion the EHR reported for a unit recalled, quarantined, damaged or missing (Cycle 700).</summary>
+    public const string KindTransfusionReported = "TransfusionReported";
+    /// <summary>
+    /// Reagent QC that failed, is not yet reviewed, or left results tested with a failing lot to review (end-user testing
+    /// pass 177: a failed anti-D QC, eight unreviewed QC rows and results to review were on Reagent QC only, never on the supervisor queue).
+    /// Waits on result.verify; overdue QC stays bench work on Reagent QC.
+    /// </summary>
+    public const string KindReagentQc = "ReagentQcReview";
+
+    /// <summary>The reagent QC worklist kinds a supervisor sees: failed, unreviewed, results to review.</summary>
+    public static bool IsSupervisorReagentQc(string worklistKind) =>
+        worklistKind is ReagentQcWorklistRule.Failed or ReagentQcWorklistRule.Unreviewed or ReagentQcWorklistRule.ReviewResults;
+
+    /// <summary>A reported transfusion waits on whoever releases stock or reviews overrides.</summary>
+    public static bool IncludeTransfusionReported(bool hasInventoryRelease, bool hasOverrideApprove) => hasInventoryRelease || hasOverrideApprove;
 
     public static RuleResult EvaluateAccess(
         bool hasImmunoOverride,
         bool hasResultVerify,
-        bool hasInventoryRelease) =>
-        hasImmunoOverride || hasResultVerify || hasInventoryRelease
+        bool hasInventoryRelease,
+        bool hasOverrideApprove = false) =>
+        hasImmunoOverride || hasResultVerify || hasInventoryRelease || hasOverrideApprove
             ? RuleResult.Pass(PermissionCode)
             : RuleResult.HardStop(
                 PermissionCode,
-                "The supervisor queue requires immuno.override, result.verify, or inventory.release.");
+                "The supervisor queue requires immuno.override, result.verify, inventory.release, or override.approve.");
+
+    public static bool IncludeOverrideReview(bool hasOverrideApprove) => hasOverrideApprove;
 
     public static bool IncludeAntibodyReview(bool hasImmunoOverride) => hasImmunoOverride;
 
@@ -28,11 +55,41 @@ public static class SupervisorQueueRule
 
     public static bool IncludeQuarantineRelease(bool hasInventoryRelease) => hasInventoryRelease;
 
+    /// <summary>Missing and damaged units wait on whoever can locate, inspect, or discard them (inventory.release).</summary>
+    public static bool IncludeDiscrepancy(bool hasInventoryRelease) => hasInventoryRelease;
+
+    /// <summary>Units on operational hold wait on whoever can release them (inventory.release).</summary>
+    public static bool IncludeOperationalHold(bool hasInventoryRelease) => hasInventoryRelease;
+
+    public static readonly IReadOnlyList<string> Kinds =
+        [KindAntibodyReview, KindResultVerify, KindReagentQc, KindQuarantineRelease, KindDiscrepancy, KindOperationalHold, KindTransfusionReported, KindOverrideReview];
+
+    /// <summary>The queue kind a link names (<c>?kind=</c>), matched without regard to case; null when it names none.</summary>
+    public static string? KindFromQuery(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : Kinds.FirstOrDefault(k => string.Equals(k, value.Trim(), StringComparison.OrdinalIgnoreCase));
+
     public static int KindSortOrder(string kind) => kind switch
     {
         KindAntibodyReview => 0,
         KindResultVerify => 1,
-        KindQuarantineRelease => 2,
+        KindReagentQc => 2,
+        KindQuarantineRelease => 3,
+        KindDiscrepancy => 4,
+        KindOperationalHold => 5,
+        KindTransfusionReported => 6,
+        KindOverrideReview => 7,
         _ => 99
+    };
+
+    /// <summary>
+    /// The badge on an item marked to deal with first, and its hover text (end-user testing pass 288: every such item read
+    /// "Due before specimen expiry", including failed reagent QC and transfusions the EHR reported, which have no specimen).
+    /// </summary>
+    public static (string Text, string Title) FirstBadge(string kind) => kind switch
+    {
+        KindResultVerify => ("Due before specimen expiry", "Verify before the specimen expires"),
+        KindReagentQc => ("QC failed", "A failed QC reading: review it, and the results tested with the lot, first"),
+        KindTransfusionReported => ("Review first", "A transfusion the EHR reported over the unit's status"),
+        _ => ("First", "Deal with this item first")
     };
 }

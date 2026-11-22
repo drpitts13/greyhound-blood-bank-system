@@ -132,4 +132,41 @@ public class ProductCatalogAuthorizationTests : IClassFixture<SqliteContextFacto
             .ToListAsync();
         Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
     }
+
+    // TEST-BB-1403 (end-user testing loop 2 tick 23): retiring a product still the source of an active modification rule,
+    // with a unit in inventory and a minimum stock level, succeeds and names all three.
+    [Fact]
+    public async Task Deactivate_NamesWhatStillUsesTheProduct()
+    {
+        await using var c = _factory.Create();
+        var env = new StaticEnvironmentInfo("Development", isDevMode: false);
+        var svc = new ProductAdminService(
+            new EfRepository<ProductType>(c), new EfRepository<ProductAttribute>(c), new EfRepository<ProductAttributeAssignment>(c),
+            c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env), new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env),
+            modificationRules: new EfRepository<ModificationRule>(c), units: new EfRepository<BloodUnit>(c),
+            minimumStock: new EfRepository<MinimumStockLevel>(c));
+        var key = $"R{Guid.NewGuid():N}"[..8].ToUpperInvariant();
+        var created = await svc.CreateAsync(Request(key));
+        Assert.True(created.Succeeded, created.Error);
+        var productId = created.Value!.Id;
+        var target = new ProductType { ProductCode = key + "T", Name = "Target", IsActive = true };
+        c.ProductTypes.Add(target);
+        var code = new ExpirationModificationCode { Code = key, OffsetAmount = 24, OffsetUnit = BloodBankLIS.Domain.ValueObjects.ExpirationOffsetUnit.Hours, IsActive = true };
+        c.ExpirationModificationCodes.Add(code);
+        await c.SaveChangesAsync();
+        c.ModificationRules.Add(new ModificationRule { ModificationCode = "IRR-" + key, SourceProductTypeId = productId, TargetProductTypeId = target.Id,
+            ModificationType = ModificationType.Irradiate, ExpirationModificationCodeId = code.Id, IsActive = true });
+        c.BloodUnits.Add(new BloodUnit { UnitNumber = "U-" + key, ProductTypeId = productId, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(5), Status = UnitStatus.Available });
+        c.MinimumStockLevels.Add(new MinimumStockLevel { ProductTypeId = productId, MinimumAvailable = 2 });
+        await c.SaveChangesAsync();
+
+        var retired = await svc.DeactivateAsync(productId, "Replaced");
+
+        Assert.True(retired.Succeeded, retired.Error);
+        Assert.Contains(retired.Warnings, w => w.Message.Contains("IRR-" + key) && w.Message.Contains("source of"));
+        Assert.Contains(retired.Warnings, w => w.Message.Contains("1 unit of") && w.Message.Contains("still in inventory"));
+        Assert.Contains(retired.Warnings, w => w.Message.Contains("1 minimum stock level"));
+    }
 }

@@ -9,11 +9,11 @@ public class AlertRuleTests
     private static readonly DateTime Now = new(2026, 10, 31, 12, 0, 0, DateTimeKind.Utc);
 
     private static AlertCandidate Found(string key) =>
-        new(AlertRule.ParShortage, key, AlertSeverity.Warning, key, "msg");
+        new(AlertRule.MinimumStockShortage, key, AlertSeverity.Warning, key, "msg");
 
     private static Alert Active(string key, bool acknowledged = false) => new()
     {
-        Source = AlertRule.ParShortage,
+        Source = AlertRule.MinimumStockShortage,
         Key = key,
         AcknowledgedUtc = acknowledged ? Now : null
     };
@@ -60,5 +60,46 @@ public class AlertRuleTests
         Assert.True(AlertRule.IsActive(new Alert { AcknowledgedUtc = Now }));
         Assert.False(AlertRule.IsActive(new Alert { ResolvedUtc = Now }));
         Assert.False(AlertRule.IsOpen(new Alert { ResolvedUtc = Now }));
+    }
+
+    // TEST-BB-511: an alert whose condition still holds but reads differently is refreshed with what is true now; an
+    // unchanged one, and one whose condition cleared, are not.
+    [Fact]
+    public void Changed_ListsAlertsThatNowReadDifferently()
+    {
+        var same = Active("PAR:1");
+        same.Severity = AlertSeverity.Warning;
+        same.Title = "PAR:1";
+        same.Message = "msg";
+        var differs = Active("PAR:2", acknowledged: true);
+        differs.Severity = AlertSeverity.Warning;
+        differs.Title = "PAR:2";
+        differs.Message = "old";
+        var now = Found("PAR:2") with { Severity = AlertSeverity.Info };
+
+        var changed = AlertRule.Changed([same, differs, Active("PAR:3")], [Found("PAR:1"), now]);
+
+        var (alert, current) = Assert.Single(changed);
+        Assert.Same(differs, alert);
+        Assert.Equal((AlertSeverity.Info, "msg"), (current.Severity, current.Message));
+    }
+
+    // TEST-BB-512: only an acknowledged alert whose severity rises is raised again; an open one, or a lower or equal
+    // severity, is refreshed in place.
+    [Fact]
+    public void RaisesAgain_OnlyWhenAnAcknowledgedAlertBecomesMoreSevere()
+    {
+        var acknowledged = Active("PAR:1", acknowledged: true);
+        acknowledged.Severity = AlertSeverity.Info;
+        Assert.True(AlertRule.RaisesAgain(acknowledged, Found("PAR:1")));
+        Assert.False(AlertRule.RaisesAgain(acknowledged, Found("PAR:1") with { Severity = AlertSeverity.Info }));
+
+        var open = Active("PAR:2");
+        open.Severity = AlertSeverity.Info;
+        Assert.False(AlertRule.RaisesAgain(open, Found("PAR:2")));
+
+        var warned = Active("PAR:3", acknowledged: true);
+        warned.Severity = AlertSeverity.Warning;
+        Assert.False(AlertRule.RaisesAgain(warned, Found("PAR:3") with { Severity = AlertSeverity.Info }));
     }
 }

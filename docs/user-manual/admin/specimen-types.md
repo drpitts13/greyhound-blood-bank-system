@@ -15,3 +15,5 @@ routes:
 Add a type only when collection and testing rules differ. A duplicate type with a slightly different name splits the worklist and the interface map. If an interface sends a specimen-type code, that code must match a row here or the message fails translation.
 
 Inactivate a type that should no longer be collected. Historical specimens keep the type they were drawn as.
+
+**Deactivating a specimen type** still goes ahead, but the confirmation names the active tests that still prefer it, so another can be chosen on Tests.

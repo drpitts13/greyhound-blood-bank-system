@@ -10,6 +10,7 @@ public static class FacilityPolicyValidator
     public const string BooleanCode = "POLICY.VALUE.BOOLEAN";
     public const string IntegerCode = "POLICY.VALUE.INTEGER";
     public const string RangeCode = "POLICY.VALUE.RANGE";
+    public const string ListCode = "POLICY.VALUE.LIST";
 
     public static RuleEvaluation Validate(SystemSetting setting, string? newValue, string? changeReason, bool isLegalHold)
     {
@@ -41,6 +42,12 @@ public static class FacilityPolicyValidator
                 if (!bool.TryParse(value, out _))
                 {
                     results.Add(RuleResult.HardStop(BooleanCode, $"{definition.DisplayName} must be true or false."));
+                }
+                break;
+            case FacilityPolicyValueKind.Text:
+                if (FacilityPolicyLists.Problem(definition.Key, value) is { } problem)
+                {
+                    results.Add(RuleResult.HardStop(ListCode, $"{definition.DisplayName}: {problem}"));
                 }
                 break;
             case FacilityPolicyValueKind.Integer:

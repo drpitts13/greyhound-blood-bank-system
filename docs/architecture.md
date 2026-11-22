@@ -130,7 +130,7 @@ Contexts communicate through the Application layer and domain events; they do no
 | UI (later) | Blazor web | Shares C# models with the API; defers desktop/web duplication. |
 | HL7 | In-house v2.x | Full control over parsing/validation behavior in a safety-critical context. |
 | Labels | ZPL templates | Industry-standard for thermal label printers; previewable. |
-| Tests | xUnit + deterministic clock | Pure-rule tests run without infrastructure for fast, exhaustive validation. |
+| Tests | xUnit + deterministic clock; bUnit for rendered pages | Pure-rule tests run without infrastructure for fast, exhaustive validation; page tests check the markup a user reads. |
 
 ---
 

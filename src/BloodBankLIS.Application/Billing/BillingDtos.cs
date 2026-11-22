@@ -64,4 +64,18 @@ public sealed record BillingEventDto(
         e.ProcedureCode, e.RevenueCode, e.Modifier, e.Description, e.PerformingLocationCode,
         mrn, displayName, clinicalLabel, dftControlId,
         dftBlocksExport, dftBlockReason);
+
+    /// <summary>
+    /// For an issue charge: when the unit came back to the blood bank without being transfused (end-user testing pass
+    /// 101). Whether a returned unit is still billed is the facility's policy; the charge is flagged for review, not
+    /// cancelled.
+    /// </summary>
+    public DateTime? ReturnedUnusedUtc { get; init; }
+
+    /// <summary>
+    /// Why the charge's DFT has not gone and since when ("Not sent, queued 13 d: No enabled outbound interface …"; end-user
+    /// testing pass 176: the queue showed only the control id, and only after review a tooltip saying the DFT was not
+    /// accepted, so a reviewer could not tell that nothing would leave until an interface was set up).
+    /// </summary>
+    public string? DftWaitingNote { get; init; }
 }

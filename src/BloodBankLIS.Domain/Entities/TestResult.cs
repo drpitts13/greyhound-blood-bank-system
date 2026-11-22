@@ -29,6 +29,9 @@ public class TestResult : BaseEntity
 
     public string? Units { get; set; }
 
+    /// <summary>Numeric results outside the test's ranges: L or H (reference), LL or HH (critical). Null otherwise.</summary>
+    public string? AbnormalFlag { get; set; }
+
     public string? Interpretation { get; set; }
 
     public ResultStatus Status { get; set; } = ResultStatus.Entered;
@@ -40,6 +43,9 @@ public class TestResult : BaseEntity
     public string? EnteredBy { get; set; }
 
     public DateTime? EnteredUtc { get; set; }
+
+    /// <summary>When a hand-entered result was tested, if earlier than entered (pass 85; OCD-091).</summary>
+    public DateTime? TestedUtc { get; set; }
 
     public string? VerifiedBy { get; set; }
 

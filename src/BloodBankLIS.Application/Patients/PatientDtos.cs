@@ -10,7 +10,30 @@ public sealed record CreatePatientRequest(
     string? MiddleName,
     DateOnly DateOfBirth,
     Sex Sex,
-    string? Comment = null);
+    string? Comment = null,
+    // The possible duplicates the registrar reviewed and confirmed are different people (their MRNs).
+    IReadOnlyList<string>? ConfirmedDifferentFromMrns = null);
+
+/// <summary>Two active charts that may be one person (<c>PossibleDuplicatePatientRule</c>), older registration first.</summary>
+public sealed record PossibleDuplicatePairDto(PatientDto First, PatientDto Second, string? Reason = null)
+{
+    /// <summary>
+    /// What each chart holds besides its type: specimens and units issued (end-user testing pass 318: the pair read "O+"
+    /// against "None on file", with nothing to say MRN0022 also held 4 issued units and a reaction under investigation,
+    /// which decides the chart to keep).
+    /// </summary>
+    public ChartActivityDto? FirstActivity { get; init; }
+
+    public ChartActivityDto? SecondActivity { get; init; }
+}
+
+public sealed record ChartActivityDto(int Specimens, int UnitsIssued);
+
+/// <summary>Another chart this patient's may duplicate, with why (pass 47).</summary>
+public sealed record PossibleDuplicateOfDto(PatientDto Other, string? Reason);
+
+/// <summary>Two charts on the Possible duplicates report the reviewer found to be different people.</summary>
+public sealed record DismissPossibleDuplicateRequest(long FirstPatientId, long SecondPatientId, string Reason);
 
 public sealed record UpdatePatientRequest(
     string LastName,
@@ -21,9 +44,52 @@ public sealed record UpdatePatientRequest(
     PatientStatus Status,
     DateTime? RecentPregnancyUtc = null,
     string? Comment = null,
-    string? NameChangeReason = null);
+    string? NameChangeReason = null,
+    // Local race and ethnicity codes: null leaves them as they are, blank clears them.
+    string? Race = null,
+    string? Ethnicity = null);
 
 public sealed record MergePatientsRequest(string DuplicateMrn, string Reason);
+
+/// <summary>An unidentified emergency patient: sex (or Unknown) and an estimated age; a note such as where they arrived.</summary>
+public sealed record CreateUnidentifiedPatientRequest(Sex? Sex, int? EstimatedAgeYears, string? Note = null);
+
+/// <summary>Link this (infant's) chart to the mother's chart by her MRN.</summary>
+public sealed record LinkMotherRequest(string MotherMrn);
+
+/// <summary>Remove the mother link (linked to the wrong chart), with why.</summary>
+public sealed record UnlinkMotherRequest(string Reason);
+
+/// <summary>A linked mother or infant as the other chart shows them: who, and the blood bank facts that matter.</summary>
+public sealed record FamilyMemberDto(
+    long Id,
+    string MedicalRecordNumber,
+    string Name,
+    DateOnly DateOfBirth,
+    Sex Sex,
+    string? CurrentBloodType,
+    IReadOnlyList<string> ActiveAntibodies,
+    // The current type's Rh, for suggesting an infant's Rh on the mother's RhIG evaluation.
+    RhType? CurrentRh = null);
+
+/// <summary>The patient's linked mother (null when none) and the infants linked to this patient.</summary>
+public sealed record PatientFamilyDto(FamilyMemberDto? Mother, IReadOnlyList<FamilyMemberDto> Infants)
+{
+    /// <summary>
+    /// For an infant: the mother's clinically significant antibodies whose antigen-negative requirement the infant does
+    /// not have yet (end-user testing pass 110). Offered to staff to add; nothing is added or enforced by itself.
+    /// </summary>
+    public IReadOnlyList<MaternalAntigenSuggestionDto> MaternalAntigenNegative { get; init; } = [];
+}
+
+/// <summary>An antigen-negative requirement the infant could take from the mother's antibody ("K", "anti-K").</summary>
+public sealed record MaternalAntigenSuggestionDto(string AntigenCode, string AntibodyName);
+
+/// <summary>A unit still out that was issued under an MRN other than the chart's current one.</summary>
+public sealed record IssuedUnderEarlierIdentityDto(long IssueId, long BloodUnitId, string UnitNumber, string IssuedUnder, DateTime IssuedUtc, string? IssuedToLocation);
+
+/// <summary>The unidentified chart is now known to be the patient with this MRN: merge it into theirs.</summary>
+public sealed record IdentifyPatientRequest(string IdentifiedMrn, string Reason);
 
 public sealed record UnmergePatientRequest(string Reason);
 
@@ -31,15 +97,21 @@ public sealed record PatientAliasDto(
     long Id,
     IdentityTokenType IdentifierType,
     string Value,
-    bool IsActive)
+    bool IsActive,
+    string? AssigningAuthority = null)
 {
     public static PatientAliasDto From(PatientIdentifier i) =>
-        new(i.Id, i.IdentifierType, i.Value, i.IsActive);
+        new(i.Id, i.IdentifierType, i.Value, i.IsActive, i.AssigningAuthority);
+
+    /// <summary>For an external identifier also held by another chart: that chart's MRN, to open it.</summary>
+    public string? AlsoOnMrn => BloodBankLIS.Domain.Rules.ExternalIdentifierAuthority.OtherMrn(AssigningAuthority);
 
     public string KindLabel => IdentifierType switch
     {
         IdentityTokenType.PriorFullName => "Prior name",
         IdentityTokenType.PriorMedicalRecordNumber => "Prior MRN",
+        IdentityTokenType.Other => string.IsNullOrWhiteSpace(AssigningAuthority) ? "External ID" : $"External ID ({AssigningAuthority})",
+        IdentityTokenType.AccountNumber => string.IsNullOrWhiteSpace(AssigningAuthority) ? "Account" : $"Account ({AssigningAuthority})",
         _ => IdentifierType.ToString()
     };
 }
@@ -58,12 +130,106 @@ public sealed record PatientDto(
     DateTime? RecentPregnancyUtc = null,
     long? MergedIntoPatientId = null,
     string? Comment = null,
-    IReadOnlyList<PatientAliasDto>? Aliases = null)
+    IReadOnlyList<PatientAliasDto>? Aliases = null,
+    // Blood bank flags for the patient list (filled by ListDtosAsync only): current ABO/Rh, active antibodies,
+    // and special requirements in effect, so the right patient and their risks are visible before opening the chart.
+    string? CurrentBloodType = null,
+    IReadOnlyList<string>? ActiveAntibodies = null,
+    int ActiveSpecialRequirements = 0,
+    // Informational notes in effect: counted apart from the enforced requirements above.
+    int InformationalNotes = 0,
+    // The current open visit (CurrentVisit.For) for the patient list: its number, where the patient is ("Inpatient ·
+    // ICU 4"), and how many other visits are open. Null visit number: no open visit.
+    string? CurrentVisitNumber = null,
+    string? CurrentVisitWhere = null,
+    int OtherOpenVisits = 0,
+    string? Race = null,
+    string? Ethnicity = null,
+    // Registered without identification (temporary MRN, estimated age), until merged into the identified chart.
+    bool Unidentified = false,
+    // Unidentified and open past the facility reminder hours (OCD-077); filled by the unidentified list only.
+    bool UnidentifiedPastReminder = false,
+    // A weak D or partial D recorded for the patient (OCD-069).
+    RhDVariant RhDVariant = RhDVariant.None)
 {
+    /// <summary>The patient's death as recorded (pass 107: from the EHR, PID-29/PID-30).</summary>
+    public bool Deceased { get; init; }
+    public DateTime? DeceasedUtc { get; init; }
+
+    /// <summary>
+    /// A transfusion reaction investigation open or under review for the patient (patient list only; end-user testing
+    /// pass 187: the list's alerts named antibodies and requirements but not a reaction being investigated, which the
+    /// issue desk needs to see before choosing the patient).
+    /// </summary>
+    public bool ReactionUnderInvestigation { get; init; }
+
+    /// <summary>
+    /// True when a massive transfusion protocol is still open for the patient (end-user testing pass 340).
+    /// </summary>
+    public bool MtpActive { get; init; }
+
+    /// <summary>
+    /// For an infant linked to its mother (patient list only): her active antibodies, which may be present in the infant
+    /// (end-user testing pass 209: the list showed nothing for an infant whose mother has anti-K).
+    /// </summary>
+    public IReadOnlyList<string> MaternalAntibodies { get; init; } = [];
+
     public static PatientDto From(Patient p, IReadOnlyList<PatientAliasDto>? aliases = null) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
         p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc, p.MergedIntoPatientId,
-        p.Comment, aliases);
+        p.Comment, aliases, Race: p.Race, Ethnicity: p.Ethnicity, Unidentified: p.Unidentified, RhDVariant: p.RhDVariant)
+    {
+        Deceased = p.Deceased,
+        DeceasedUtc = p.DeceasedUtc
+    };
+
+    /// <summary>
+    /// How a patient reads in a picker (issue, crossmatch, allocation, receipt): name and MRN, where the patient is (the
+    /// current open visit, from the patient list), then ABO/Rh and alerts, so similar names are told apart and risks are
+    /// seen before the patient is chosen. A merged-away record says so.
+    /// </summary>
+    public string PickerLabel
+    {
+        get
+        {
+            var parts = new List<string> { $"{LastName}, {FirstName} ({MedicalRecordNumber})" };
+            if (MergedIntoPatientId is not null || Status == PatientStatus.Merged)
+            {
+                parts.Add("merged into another record");
+                return string.Join(" · ", parts);
+            }
+
+            // Pass 108: a death recorded by the EHR is seen before the patient is chosen.
+            if (Deceased)
+            {
+                parts.Add(DeceasedUtc is DateTime died ? $"DECEASED {died.ToLocalTime():yyyy-MM-dd}" : "DECEASED");
+            }
+
+            if (CurrentVisitNumber is not null)
+            {
+                var where = string.IsNullOrEmpty(CurrentVisitWhere) ? $"visit {CurrentVisitNumber}" : CurrentVisitWhere;
+                parts.Add(OtherOpenVisits > 0 ? $"{where} (+{OtherOpenVisits} more open)" : where);
+            }
+
+            parts.Add(CurrentBloodType ?? "no type on file");
+            if (ActiveAntibodies is { Count: > 0 } antibodies)
+            {
+                parts.Add(string.Join(", ", antibodies));
+            }
+
+            if (ActiveSpecialRequirements > 0)
+            {
+                parts.Add(PatientBloodBankFlags.RequirementsLabel(ActiveSpecialRequirements));
+            }
+
+            if (InformationalNotes > 0)
+            {
+                parts.Add(PatientBloodBankFlags.NotesLabel(InformationalNotes));
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
 
     public bool MatchesSearch(string filter)
     {
@@ -72,15 +238,16 @@ public sealed record PatientDto(
             return true;
         }
 
-        if (MedicalRecordNumber.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || LastName.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || FirstName.Contains(filter, StringComparison.OrdinalIgnoreCase)
-            || (!string.IsNullOrWhiteSpace(MiddleName)
-                && MiddleName.Contains(filter, StringComparison.OrdinalIgnoreCase)))
+        var aliases = Aliases?.Select(a => a.Value).ToList();
+        if (BloodBankLIS.Domain.Rules.PatientSearchMatch.MatchesWord(filter.Trim(), MedicalRecordNumber, LastName, FirstName, MiddleName, DateOfBirth, aliases))
         {
             return true;
         }
 
-        return Aliases?.Any(a => a.Value.Contains(filter, StringComparison.OrdinalIgnoreCase)) == true;
+        // End-user testing pass 99: "Kline, Nora" or "nora 1966-09-03" (name as written on a requisition, or name and date
+        // of birth) found nothing. Every word must match the MRN, a name, an alias or the date of birth.
+        var words = BloodBankLIS.Domain.Rules.PatientSearchMatch.Words(filter);
+        return words.Count > 1
+            && BloodBankLIS.Domain.Rules.PatientSearchMatch.MatchesAll(words, MedicalRecordNumber, LastName, FirstName, MiddleName, DateOfBirth, aliases);
     }
 }

@@ -72,8 +72,8 @@ public class ExpirationProductParserTests
     [Fact]
     public void Expiration_DateOnly_UsesPolicyTime()
     {
-        // c=2, yy=25, jjj=200 → =>225200
-        var result = ExpirationParser.Parse("=>225200");
+        // c=0 (2000s, OCD-092), yy=25, jjj=200 → =>025200
+        var result = ExpirationParser.Parse("=>025200");
         Assert.True(result.Success, string.Join(";", result.Errors.Select(e => e.Message)));
         Assert.False(result.Value!.ExpirationHasExplicitTime);
         Assert.Equal(23, result.Value.ExpirationLocal.Hour);
@@ -83,8 +83,8 @@ public class ExpirationProductParserTests
     [Fact]
     public void Expiration_DateTime_ParsesHourMinute()
     {
-        // c=2, yy=25, jjj=200, hh=14, mm=30 → &>2252001430 (10 digits)
-        var result = ExpirationParser.Parse("&>2252001430");
+        // c=0, yy=25, jjj=200, hh=14, mm=30 → &>0252001430 (10 digits)
+        var result = ExpirationParser.Parse("&>0252001430");
         Assert.True(result.Success, string.Join(";", result.Errors.Select(e => e.Message)));
         Assert.True(result.Value!.ExpirationHasExplicitTime);
         Assert.Equal(14, result.Value.Hour);
@@ -94,7 +94,7 @@ public class ExpirationProductParserTests
     [Fact]
     public void Expiration_InvalidOrdinal_Fails()
     {
-        var result = ExpirationParser.Parse("=>225400");
+        var result = ExpirationParser.Parse("=>025400");
         Assert.False(result.Success);
         Assert.Contains(result.Errors, e => e.Code == IsbtErrorCodes.InvalidExpiration);
     }
@@ -102,9 +102,44 @@ public class ExpirationProductParserTests
     [Fact]
     public void Expiration_LeapYearDay366_Ok()
     {
-        var result = ExpirationParser.Parse("=>224366"); // 2024 leap year
+        var result = ExpirationParser.Parse("=>024366"); // 2024 leap year
         Assert.True(result.Success, string.Join(";", result.Errors.Select(e => e.Message)));
         Assert.Equal(366, result.Value!.OrdinalDay);
+    }
+
+    // TEST-BB-1184: the ICCBBA century digit (OCD-092, decided 2026-11-16): 0 is the 2000s and 9 the 1900s, read and
+    // written; any other digit is refused with what to check.
+    [Fact]
+    public void Expiration_CenturyDigit_ZeroIs2000s_NineIs1900s()
+    {
+        var label = ExpirationParser.Parse("&>0263312359");
+        Assert.True(label.Success, string.Join(";", label.Errors.Select(e => e.Message)));
+        Assert.Equal(new DateTime(2026, 11, 27, 23, 59, 0), label.Value!.ExpirationLocal);
+
+        var old = ExpirationParser.Parse("=>999365");
+        Assert.True(old.Success, string.Join(";", old.Errors.Select(e => e.Message)));
+        Assert.Equal(1999, old.Value!.Year);
+
+        var two = ExpirationParser.Parse("=>226331");
+        Assert.False(two.Success);
+        Assert.Contains("0 is the 2000s and 9 the 1900s", two.Errors.Single().Message);
+
+        var written = ExpirationParser.FromLocalDateTime(new DateTime(2026, 11, 27, 23, 59, 0), hasExplicitTime: true);
+        Assert.Equal("0263312359", written.Value!.ExpirationEncoded);
+        Assert.Equal(new DateTime(2026, 11, 27, 23, 59, 0), ExpirationParser.Parse(written.Value.Sanitized).Value!.ExpirationLocal);
+    }
+
+    // TEST-BB-1184: a stored code written before the decision (century 2, or the demo's '=yyjjj') is rewritten in the
+    // ICCBBA form so a label scan matches it; anything else is left.
+    [Fact]
+    public void RepairStoredEncoding_RewritesCenturyTwoAndTheDemoForm()
+    {
+        Assert.Equal("0263312359", ExpirationParser.RepairStoredEncoding("2263312359"));
+        Assert.Equal("026331", ExpirationParser.RepairStoredEncoding("226331"));
+        Assert.Equal("026345", ExpirationParser.RepairStoredEncoding("=26345"));
+        Assert.Null(ExpirationParser.RepairStoredEncoding("026331"));
+        Assert.Null(ExpirationParser.RepairStoredEncoding("2250200"));
+        Assert.Null(ExpirationParser.RepairStoredEncoding(null));
     }
 
     [Fact]

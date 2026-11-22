@@ -25,10 +25,28 @@ public class PatientBloodTypeHistory : BaseEntity
 
     public long? SourceResultId { get; set; }
 
+    /// <summary>
+    /// The specimen the source result was tested on. Two determinations from the same specimen are not two
+    /// determinations: a mislabeled tube would confirm itself. Null for manual or historical types.
+    /// </summary>
+    public long? SpecimenId { get; set; }
+
     public bool IsCurrent { get; set; }
 
     /// <summary>Required for manual edits (a dangerous action; see docs/safety-rules.md).</summary>
     public string? Reason { get; set; }
+
+    /// <summary>For a manual entry: whether it is documented from a previous blood bank system or an outside source (OCD-048).</summary>
+    public ManualTypeDocumentation? ManualDocumentation { get; set; }
+
+    /// <summary>The record or report a documented manual entry came from.</summary>
+    public string? ManualDocumentationReference { get; set; }
+
+    /// <summary>
+    /// Set when the result this type came from was invalidated. Such a row is never current again and is not
+    /// evidence for the two-determination rule or for a discrepancy.
+    /// </summary>
+    public DateTime? InvalidatedUtc { get; set; }
 
     public AboRh BloodType => new(Abo, RhD);
 }

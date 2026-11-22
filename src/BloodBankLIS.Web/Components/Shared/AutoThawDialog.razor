@@ -1,0 +1,70 @@
+@using BloodBankLIS.Application.PatientWorkspace
+
+@* The auto-thaw prompt on the chart and the unit page (Cycle 685): states the shelf life that will apply for the
+   open-system box as it stands and for a pool, and refuses before Yes when that time is not set (OCD-068). *@
+<div class="bb-dialog-backdrop">
+    <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="auto-thaw-title" @onclick:stopPropagation="true">
+        <h2 id="auto-thaw-title" style="margin:0;">Auto thaw @Code?</h2>
+        <p class="muted" data-auto-thaw-text>
+            @if (Ask)
+            {
+                <text>Thaw this product now? The product code stays @Code. Expiration becomes @Life after the thaw date and time, or the frozen expiration if that is sooner. A thaw billing message is sent and the product ID tag prints.</text>
+            }
+            else
+            {
+                <text>Thaw @Row.UnitNumber in place. The product code stays @Code and expiration becomes @Life after the thaw date and time, or the frozen expiration if that is sooner.</text>
+            }
+        </p>
+        <div class="field">
+            <label>Thaw date/time</label>
+            <input type="datetime-local" value="@ThawLocal.ToString("yyyy-MM-ddTHH:mm")" @onchange="OnThawChangedAsync" />
+        </div>
+        <label class="flex" style="margin-top:.5rem;"><input type="checkbox" checked="@OpenSystem" @onchange="OnOpenChangedAsync" data-auto-thaw-open />&nbsp;Thawed in an open system (the bag was entered)</label>
+        @if (Row.AutoThawPooled)
+        {
+            <p class="muted" style="margin:.25rem 0 0;" data-auto-thaw-pooled>This unit is a pool, so the pooled shelf life applies.</p>
+        }
+        @if (Preview.Refusal is string refusal)
+        {
+            <div class="alert alert-danger" style="margin-top:.5rem;" data-auto-thaw-refusal>@refusal</div>
+        }
+        <div class="flex gap" style="margin-top:.75rem;">
+            <button type="button" class="btn btn-primary" disabled="@(Busy || Preview.Refusal is not null)" @onclick="OnConfirm" data-auto-thaw-yes>@(Ask ? "Yes" : "Auto thaw")</button>
+            <button type="button" class="btn btn-ghost" disabled="@Busy" @onclick="OnDismiss" data-auto-thaw-no>@(Ask ? "No" : "Cancel")</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PatientAllocationRowDto Row { get; set; } = default!;
+    // Asked right after reserving (Yes / No, No declines the thaw); otherwise opened from Auto thaw (Auto thaw / Cancel).
+    [Parameter] public bool Ask { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public DateTime ThawLocal { get; set; }
+    [Parameter] public EventCallback<DateTime> ThawLocalChanged { get; set; }
+    [Parameter] public bool OpenSystem { get; set; }
+    [Parameter] public EventCallback<bool> OpenSystemChanged { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private string Code => string.IsNullOrWhiteSpace(Row.AutoThawProductCode) ? Row.ProductCode : Row.AutoThawProductCode;
+
+    private (int? Hours, string? Refusal) Preview => AutoThawPreview.For(Row, OpenSystem);
+
+    private string Life => Preview.Hours is int hours ? ThawedExpirationRule.Describe(hours) : "not set";
+
+    private async Task OnOpenChangedAsync(ChangeEventArgs e)
+    {
+        OpenSystem = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var parsed) && parsed;
+        await OpenSystemChanged.InvokeAsync(OpenSystem);
+    }
+
+    private async Task OnThawChangedAsync(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var local))
+        {
+            ThawLocal = DateTime.SpecifyKind(local, DateTimeKind.Local);
+            await ThawLocalChanged.InvokeAsync(ThawLocal);
+        }
+    }
+}

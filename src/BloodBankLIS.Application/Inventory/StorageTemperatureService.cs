@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
@@ -18,7 +18,21 @@ public sealed record StorageTemperatureReadingDto(
     decimal? RangeMaxC,
     StorageTemperatureStatus Status,
     long? DeviationId,
-    string? Comment);
+    string? Comment)
+{
+    /// <summary>
+    /// For an excursion: minutes after which, without an in-range reading, the location's units are quarantined
+    /// automatically (OCD-036); null when that is off or the reading is in range (end-user testing pass 24: the user was
+    /// not told, and 30 units were quarantined).
+    /// </summary>
+    public int? QuarantineAfterMinutes { get; init; }
+
+    /// <summary>
+    /// For an open excursion: an in-range reading has been recorded at the location since, so only its deviation is
+    /// left to close (end-user testing pass 40: the dashboard led with two excursions both refrigerators had recovered from).
+    /// </summary>
+    public bool BackInRange { get; init; }
+}
 
 public sealed record StorageLocationTemperatureDto(
     long LocationId,
@@ -29,7 +43,16 @@ public sealed record StorageLocationTemperatureDto(
     decimal? LastReadingC,
     DateTime? LastReadingUtc,
     StorageTemperatureStatus? LastStatus,
-    int UnitsStored);
+    int UnitsStored,
+    // Pass 87: a reading is due under the facility's reading interval ("No reading recorded", "Due since …"), or null.
+    string? ReadingDue = null)
+{
+    /// <summary>
+    /// The facility's reading interval is not set, so no reading is marked due (end-user testing pass 323: FRIDGE-1 held
+    /// 35 units with its last reading 7 days old and nothing on the page said readings were not being tracked).
+    /// </summary>
+    public bool ReadingIntervalNotSet { get; init; }
+}
 
 public sealed record StorageDeviceDto(
     long LocationId,
@@ -164,7 +187,7 @@ public sealed class StorageTemperatureService
             {
                 Title = $"Storage temperature excursion at {location.Code}",
                 Description =
-                    $"{location.Name} read {reading.ReadingC} °C at {readingUtc:u} against a range of {RangeText(location.StorageTempMinC, location.StorageTempMaxC)}. " +
+                    $"{location.Name} read {reading.ReadingC} °C at {ClinicalTimeText.Local(readingUtc)} against a range of {RangeText(location.StorageTempMinC, location.StorageTempMaxC)}. " +
                     $"{stored} unit(s) were stored there. Review the units before release or issue.",
                 Severity = DeviationSeverity.Major,
                 Status = DeviationStatus.Open,
@@ -202,12 +225,18 @@ public sealed class StorageTemperatureService
                 $"TEMP:DEV-{reading.DeviationId}",
                 AlertSeverity.Critical,
                 $"Temperature excursion at {location.Code}",
-                $"{location.Name} read {reading.ReadingC} °C at {readingUtc:yyyy-MM-dd HH:mm} UTC. Deviation DEV-{reading.DeviationId} is open.",
+                $"{location.Name} read {reading.ReadingC} °C at {ClinicalTimeText.Local(readingUtc)}. Deviation DEV-{reading.DeviationId} is open.",
                 "/storage-temps"), ct);
         }
 
         await EnforceLocationAsync(location, ct);
-        return OperationResult<StorageTemperatureReadingDto>.Ok(ToDto(reading, location.Code));
+        var quarantineAfter = StorageTemperatureRule.IsExcursion(status) && _policy is not null
+            ? await _policy.GetExcursionQuarantineMinutesAsync(ct)
+            : 0;
+        return OperationResult<StorageTemperatureReadingDto>.Ok(ToDto(reading, location.Code) with
+        {
+            QuarantineAfterMinutes = quarantineAfter > 0 ? quarantineAfter : null
+        });
     }
 
     /// <summary>
@@ -245,7 +274,7 @@ public sealed class StorageTemperatureService
             return 0;
         }
 
-        var note = $"Storage excursion at {location.Code} since {start:yyyy-MM-dd HH:mm} UTC lasted more than {minutes} minutes.";
+        var note = $"Storage excursion at {location.Code} since {ClinicalTimeText.Local(start)} lasted more than {minutes} minutes.";
         var stored = StorageTemperatureRule.StoredStatuses.ToList();
         var candidates = await _units.ListAsync(
             u => u.CurrentLocationId == location.Id && stored.Contains(u.Status) && u.Status != UnitStatus.Quarantine,
@@ -293,7 +322,7 @@ public sealed class StorageTemperatureService
         var deviationId = runs.First().DeviationId;
         if (deviationId is long id && await _deviations.GetByIdAsync(id, ct) is { } deviation)
         {
-            deviation.Description += $" {now:yyyy-MM-dd HH:mm} UTC: {quarantined.Count} unit(s) quarantined automatically ({string.Join(", ", quarantined)}).";
+            deviation.Description += $" {ClinicalTimeText.Local(now)}: {quarantined.Count} unit(s) quarantined automatically ({string.Join(", ", quarantined)}).";
             _deviations.Update(deviation);
         }
 
@@ -303,7 +332,8 @@ public sealed class StorageTemperatureService
         {
             await _alerts.RaiseAsync(new AlertCandidate(
                 AlertRule.TemperatureExcursion,
-                $"TEMP-QUAR:{location.Id}:{now:yyyyMMddHHmm}",
+                // Pass 127: keyed by the excursion, so a later quarantine run in the same excursion does not raise another.
+                $"TEMP-QUAR:{location.Id}:{start:yyyyMMddHHmm}",
                 AlertSeverity.Critical,
                 $"{quarantined.Count} unit(s) quarantined at {location.Code}",
                 note + $" Deviation DEV-{deviationId}. Review each unit before release.",
@@ -436,10 +466,18 @@ public sealed class StorageTemperatureService
             .Select(d => d.Id)
             .ToHashSet();
         var codes = (await _locations.ListAsync(ct)).ToDictionary(l => l.Id, l => l.Code);
+        var locationIds = excursions.Select(r => r.InventoryLocationId).Distinct().ToList();
+        var inRange = (await _readings.ListAsync(
+                r => locationIds.Contains(r.InventoryLocationId) && r.Status == StorageTemperatureStatus.InRange, ct))
+            .GroupBy(r => r.InventoryLocationId)
+            .ToDictionary(g => g.Key, g => g.Max(r => r.ReadingUtc));
         return excursions
             .Where(r => r.DeviationId is not long id || !closed.Contains(id))
             .OrderByDescending(r => r.ReadingUtc)
-            .Select(r => ToDto(r, codes.GetValueOrDefault(r.InventoryLocationId, string.Empty)))
+            .Select(r => ToDto(r, codes.GetValueOrDefault(r.InventoryLocationId, string.Empty)) with
+            {
+                BackInRange = inRange.TryGetValue(r.InventoryLocationId, out var last) && last > r.ReadingUtc
+            })
             .ToList();
     }
 
@@ -456,6 +494,8 @@ public sealed class StorageTemperatureService
                 ct))
             .GroupBy(u => u.CurrentLocationId!.Value)
             .ToDictionary(g => g.Key, g => g.Count());
+        var interval = _policy is null ? 0 : await _policy.GetTemperatureReadingIntervalHoursAsync(ct);
+        var now = _clock.UtcNow;
 
         return locations
             .OrderBy(l => l.Code)
@@ -465,7 +505,11 @@ public sealed class StorageTemperatureService
                 return new StorageLocationTemperatureDto(
                     l.Id, l.Code, l.Name, l.StorageTempMinC, l.StorageTempMaxC,
                     last?.ReadingC, last?.ReadingUtc, last?.Status,
-                    counts.GetValueOrDefault(l.Id));
+                    counts.GetValueOrDefault(l.Id),
+                    TemperatureReadingDueRule.Text(l.StorageTempMinC is not null || l.StorageTempMaxC is not null, last?.ReadingUtc, interval, now))
+                {
+                    ReadingIntervalNotSet = interval <= 0
+                };
             })
             .ToList();
     }

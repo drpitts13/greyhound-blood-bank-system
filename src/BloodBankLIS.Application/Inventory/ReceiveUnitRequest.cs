@@ -19,7 +19,7 @@ public sealed record ReceiveUnitRequest(
     string? VisualInspectionNotes = null,
     string? ShipmentId = null,
     string? SecondVerifier = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable,
+    UnitAppearance? Appearance = null,
     decimal? ReceiveTemperatureCelsius = null,
     DonationRestriction DonationRestriction = DonationRestriction.Allogeneic,
     long? ReservedPatientId = null,
@@ -30,7 +30,7 @@ public sealed record ReceiveExpectedUnitRequest(
     string? VisualInspectionNotes = null,
     long? LocationId = null,
     string? SecondVerifier = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable,
+    UnitAppearance? Appearance = null,
     decimal? ReceiveTemperatureCelsius = null);
 
 public sealed record CancelExpectedUnitRequest(string Reason);

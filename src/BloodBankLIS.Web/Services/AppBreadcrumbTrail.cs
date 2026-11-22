@@ -46,6 +46,7 @@ public static class AppBreadcrumbTrail
         ["charge-rules"] = "Charge Rules",
         ["compatibility-rules"] = "Compatibility Tables",
         ["crossmatch-settings"] = "Crossmatch Settings",
+        ["reaction-workup"] = "Reaction Workup",
         ["exceptions"] = "Exceptions",
         ["facility-policies"] = "Facility Policy",
         ["modification-rules"] = "Modification Rules",
@@ -71,6 +72,7 @@ public static class AppBreadcrumbTrail
         ["tests"] = "Tests",
         ["test-history"] = "Test History",
         ["dat-elution"] = "DAT / Elution",
+        ["rhig"] = "RhIG",
         ["products"] = "Products",
         ["history"] = "Product History"
     };
@@ -146,6 +148,14 @@ public static class AppBreadcrumbTrail
             {
                 crumbs.Add(new("Modify Products", null));
             }
+            else if (parts.Length >= 2 && parts[1].Equals("move", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Move units", null));
+            }
+            else if (parts.Length >= 2 && parts[1].Equals("count", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Stock count", null));
+            }
             else if (parts.Length >= 2 && parts[1].Equals("units", StringComparison.OrdinalIgnoreCase))
             {
                 crumbs.Add(new("Unit", null));
@@ -167,7 +177,10 @@ public static class AppBreadcrumbTrail
             crumbs.Add(new("Administration", "/admin"));
             for (var i = 1; i < parts.Length; i++)
             {
-                var label = AdminPages.TryGetValue(parts[i], out var mapped) ? mapped : TitleCase(parts[i]);
+                // Pass 226: an id segment (/admin/reports/design/3) reads "#3", not "3".
+                var label = AdminPages.TryGetValue(parts[i], out var mapped) ? mapped
+                    : long.TryParse(parts[i], out _) ? $"#{parts[i]}"
+                    : TitleCase(parts[i]);
                 var href = i < parts.Length - 1 ? "/" + string.Join('/', parts.Take(i + 1)) : null;
                 crumbs.Add(new(label, href));
             }
@@ -188,6 +201,22 @@ public static class AppBreadcrumbTrail
                 && parts.Length >= 2 && parts[1].Equals("simulator", StringComparison.OrdinalIgnoreCase))
             {
                 crumbs.Add(new("Simulator", null));
+                return Finalize(crumbs);
+            }
+
+            if (parts[0].Equals("reactions", StringComparison.OrdinalIgnoreCase)
+                && parts.Length >= 3 && long.TryParse(parts[1], out var reactionId)
+                && parts[2].Equals("report", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new($"Investigation #{reactionId}", $"/reactions?id={reactionId}"));
+                crumbs.Add(new("Report", null));
+                return Finalize(crumbs);
+            }
+
+            if (parts[0].Equals("downtime", StringComparison.OrdinalIgnoreCase)
+                && parts.Length >= 2 && parts[1].Equals("patients", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Patient summary", null));
                 return Finalize(crumbs);
             }
 
@@ -228,6 +257,24 @@ public static class AppBreadcrumbTrail
                 crumbs.Add(new("Investigation", null));
             }
 
+            return Finalize(crumbs);
+        }
+
+        // Pass 226: a page under an id (/reports/17, /mtp/pack-records/5) read "Dashboard / 17".
+        if (parts[0].Equals("reports", StringComparison.OrdinalIgnoreCase))
+        {
+            crumbs.Add(new("Reports", "/reports"));
+            if (parts.Length >= 2)
+            {
+                crumbs.Add(new("Run report", null));
+            }
+
+            return Finalize(crumbs);
+        }
+
+        if (parts.Length >= 2 && long.TryParse(parts[^1], out _))
+        {
+            crumbs.Add(new($"{TitleCase(parts[^2])} #{parts[^1]}", null));
             return Finalize(crumbs);
         }
 

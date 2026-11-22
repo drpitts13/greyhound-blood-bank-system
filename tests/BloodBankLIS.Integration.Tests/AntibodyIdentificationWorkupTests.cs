@@ -1,4 +1,4 @@
-using BloodBankLIS.Application.Abstractions;
+﻿using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
@@ -310,6 +310,9 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
         Assert.Equal(listed.Count(w => w.HasWithdrawnJudgment), summary.WithdrawnJudgmentCount);
         Assert.Equal(listed.Count(w => w.HasPendingTypeCorrection), summary.PendingTypeCorrectionCount);
         Assert.Equal(listed.Count(w => w.HasReservedOrIssuedUnits), summary.ReservedOrIssuedUnitCount);
+        // TEST-BB-796: the home card's lot and specimen attention count each workup once (Cycle 647).
+        Assert.Equal(listed.Count(w => w.HasInactiveLot || w.HasExpiredLot), summary.LotAttentionCount);
+        Assert.Equal(listed.Count(w => w.HasUnusableSpecimen || w.HasExpiredSpecimen), summary.SpecimenAttentionCount);
         Assert.True(summary.RecordReactionsCount >= 1);
         Assert.True(summary.InterpretCount >= 1);
         Assert.True(summary.ReviewCount >= 1);
@@ -995,6 +998,60 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
             e.EntityType == nameof(AntibodyHistory) && e.EventType == AuditEventType.Antibody && e.EntityId == history.Id));
     }
 
+    // TEST-BB-888 (Cycle 678, OCD-073): an outside report of an antibody this laboratory's accepted workup identifies is
+    // confirmed by that workup, naming it, with no second history row; an outside report of another antibody stays
+    // unconfirmed. Audited.
+    [Fact]
+    public async Task CompletedWorkup_ConfirmsTheMatchingOutsideReport()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-OUTSIDE");
+        long workupId;
+        await using (var context = _factory.Create())
+        {
+            context.AntibodyHistory.AddRange(
+                new AntibodyHistory
+                {
+                    PatientId = patientId, BloodAttributeDefinitionId = attrId, AntibodySpecificity = "anti-K", IsActive = true,
+                    ReportingFacility = "St. Mary's Hospital", ReportKind = OutsideReportKind.Copy, ReportDocumentation = "Antibody card"
+                },
+                new AntibodyHistory
+                {
+                    PatientId = patientId, AntibodySpecificity = "anti-Fya", IsActive = true,
+                    ReportingFacility = "St. Mary's Hospital", ReportKind = OutsideReportKind.Copy, ReportDocumentation = "Antibody card"
+                });
+            await context.SaveChangesAsync();
+
+            var created = await Svc(context).CreateWorkupAsync(patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+            Assert.True((await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified.", [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Technologist identification")]))).Succeeded);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Svc(context, new TestCurrentUser("supervisor-abid", "WS-2")).ReviewAsync(workupId, AcceptReview("Agree with anti-K."))).Succeeded);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var completed = await Svc(context).CompleteAsync(workupId, ReviewedWarnings());
+            Assert.True(completed.Succeeded, completed.Error);
+        }
+
+        await using var check = _factory.Create();
+        var rows = await check.AntibodyHistory.AsNoTracking().Where(a => a.PatientId == patientId && a.IsActive).ToListAsync();
+        Assert.Equal(2, rows.Count);
+        var antiK = rows.Single(a => a.AntibodySpecificity == "anti-K");
+        Assert.NotNull(antiK.ConfirmedUtc);
+        Assert.Equal(OutsideAntibodyReportRule.WorkupConfirmationNote(workupId), antiK.ConfirmationNote);
+        Assert.Null(rows.Single(a => a.AntibodySpecificity == "anti-Fya").ConfirmedUtc);
+        Assert.True(await check.AuditEvents.AnyAsync(e => e.EntityType == nameof(AntibodyHistory) && e.EntityId == antiK.Id
+            && e.Reason!.StartsWith("Outside report confirmed here: Identified on antibody-identification workup")));
+    }
+
     [Fact]
     public async Task Complete_WritesAntibodyWithHistoryId()
     {
@@ -1193,6 +1250,99 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
         Assert.True(interpreted.Succeeded, interpreted.Error);
         Assert.Contains(interpreted.Evaluation!.Warnings, w =>
             w.Code == AntibodyIdentificationInterpretationRule.IdentifiedPhenotypeConflictCode);
+    }
+
+    // TEST-BB-1332 (end-user testing pass 305): typing the patient refreshes an open workup's assistance, so a possible
+    // anti-K that read "not typed for K" reads "K-negative, as expected" once the patient is typed K-negative.
+    [Fact]
+    public async Task PatientTyping_RefreshesOpenWorkupAssistance()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-TYPE");
+        long workupId;
+        long kellPosCell;
+        long kellNegCell;
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            kellPosCell = created.Value.Cells.First(c =>
+                c.Role == PanelCellRole.Panel && c.Antigens.Any(a => a.AntigenCode == "K" && a.Expression != AntigenExpression.Absent)).CellId;
+            kellNegCell = created.Value.Cells.First(c =>
+                c.Role == PanelCellRole.Panel && c.Antigens.Any(a => a.AntigenCode == "K" && a.Expression == AntigenExpression.Absent)).CellId;
+        }
+
+        string? KellRationale(BloodBankLIS.Infrastructure.Persistence.BloodBankDbContext c) => c.AntibodyIdentificationFindings
+            .Where(f => f.WorkupId == workupId && f.Source == AntibodyIdSource.Assist && f.Specificity == "anti-K")
+            .OrderByDescending(f => f.Id).Select(f => f.Rationale).FirstOrDefault();
+
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Svc(context).RecordReactionsAsync(workupId,
+            [
+                new RecordAntibodyIdReactionRequest(kellPosCell, "AHG", ReactionGrade.ThreePlus),
+                new RecordAntibodyIdReactionRequest(kellNegCell, "AHG", ReactionGrade.Negative)
+            ])).Succeeded);
+            Assert.True((await Svc(context).RunAssistAsync(workupId)).Succeeded);
+            Assert.Contains("not typed for K", KellRationale(context));
+        }
+
+        await using (var context = _factory.Create())
+        {
+            context.AntigenProfiles.Add(new AntigenProfile { PatientId = patientId, BloodAttributeDefinitionId = attrId, Result = AntigenResult.Negative, Method = "Serologic" });
+            await context.SaveChangesAsync();
+            Assert.Equal(1, await Svc(context).RefreshOpenWorkupsAfterPatientTypingAsync(patientId));
+        }
+
+        await using var check = _factory.Create();
+        Assert.Contains("K-negative, as expected for anti-K", KellRationale(check));
+    }
+
+    // TEST-BB-1333 (end-user testing pass 306): a patient typed after assistance ran (for example by a verified antigen
+    // result, which does not go through the chart) is read when the open workup is opened: the finding is evaluated again.
+    [Fact]
+    public async Task OpeningWorkup_AfterPatientTyped_RefreshesAssistance()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-OPEN");
+        long workupId;
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            var pos = created.Value.Cells.First(c => c.Role == PanelCellRole.Panel && c.Antigens.Any(a => a.AntigenCode == "K" && a.Expression != AntigenExpression.Absent)).CellId;
+            var neg = created.Value.Cells.First(c => c.Role == PanelCellRole.Panel && c.Antigens.Any(a => a.AntigenCode == "K" && a.Expression == AntigenExpression.Absent)).CellId;
+            Assert.True((await Svc(context).RecordReactionsAsync(workupId,
+            [
+                new RecordAntibodyIdReactionRequest(pos, "AHG", ReactionGrade.ThreePlus),
+                new RecordAntibodyIdReactionRequest(neg, "AHG", ReactionGrade.Negative)
+            ])).Succeeded);
+            Assert.True((await Svc(context).RunAssistAsync(workupId)).Succeeded);
+        }
+
+        var started = _factory.Clock.UtcNow;
+        try
+        {
+            _factory.Clock.UtcNow = started.AddMinutes(5);
+            await using (var context = _factory.Create())
+            {
+                context.AntigenProfiles.Add(new AntigenProfile { PatientId = patientId, BloodAttributeDefinitionId = attrId, Result = AntigenResult.Negative, Method = "Serologic" });
+                await context.SaveChangesAsync();
+            }
+
+            await using var check = _factory.Create();
+            var detail = await Svc(check).GetWorkupAsync(workupId);
+            Assert.NotNull(detail);
+            Assert.Contains("K-negative, as expected for anti-K", check.AntibodyIdentificationFindings
+                .Where(f => f.WorkupId == workupId && f.Source == AntibodyIdSource.Assist && f.Specificity == "anti-K")
+                .OrderByDescending(f => f.Id).Select(f => f.Rationale).First());
+        }
+        finally
+        {
+            _factory.Clock.UtcNow = started;
+        }
     }
 
     [Fact]
@@ -1567,6 +1717,60 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
         }
     }
 
+    // TEST-BB-698: saving the panel again with the same grades changes nothing: the interpretation and review stand and
+    // no audit is written. A changed grade is audited with the grade it replaced.
+    [Fact]
+    public async Task UnchangedReactions_KeepTheReview_AndChangesAreAudited()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-SAME");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+            var interpreted = await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified.",
+                [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Pattern reviewed against assistance.")]));
+            Assert.True(interpreted.Succeeded, interpreted.Error);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var reviewed = await Svc(context, new TestCurrentUser("supervisor-abid", "WS-2"))
+                .ReviewAsync(workupId, AcceptReview("Agree."));
+            Assert.True(reviewed.Succeeded, reviewed.Error);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var auditsBefore = await context.AuditEvents.CountAsync(a => a.EntityType == nameof(AntibodyIdentificationWorkup) && a.EntityId == workupId);
+            var detail = await Svc(context).GetWorkupAsync(workupId);
+            var same = await Svc(context).RecordReactionsAsync(workupId, PanelAhg(detail!));
+            Assert.True(same.Succeeded, same.Error);
+            Assert.NotNull(same.Value!.InterpretedUtc);
+            Assert.NotNull(same.Value.ReviewedUtc);
+            Assert.Equal(auditsBefore, await context.AuditEvents.CountAsync(a => a.EntityType == nameof(AntibodyIdentificationWorkup) && a.EntityId == workupId));
+
+            var cell = PanelAhg(detail!).First();
+            var changed = await Svc(context).RecordReactionsAsync(workupId, [cell with { Strength = ReactionGrade.TwoPlus }]);
+            Assert.True(changed.Succeeded, changed.Error);
+            Assert.Null(changed.Value!.ReviewedUtc);
+            var audit = await context.AuditEvents
+                .Where(a => a.EntityType == nameof(AntibodyIdentificationWorkup) && a.EntityId == workupId
+                    && a.Reason != null && a.Reason.StartsWith("Panel reactions recorded"))
+                .OrderByDescending(a => a.Id)
+                .FirstAsync();
+            Assert.Contains("Negative", audit.OldValueJson);
+            Assert.Contains("TwoPlus", audit.NewValueJson);
+            Assert.Contains("interpretation and review were cleared", audit.Reason);
+        }
+    }
+
     [Fact]
     public async Task ReactionsAfterReview_RequireReinterpretation()
     {
@@ -1593,7 +1797,8 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
                 .ReviewAsync(workupId, AcceptReview("Agree."));
             Assert.True(reviewed.Succeeded, reviewed.Error);
             var detail = await Svc(context).GetWorkupAsync(workupId);
-            var recorded = await Svc(context).RecordReactionsAsync(workupId, PanelAhg(detail!));
+            var changed = PanelAhg(detail!).Take(1).Select(r => r with { Strength = ReactionGrade.OnePlus }).ToList();
+            var recorded = await Svc(context).RecordReactionsAsync(workupId, changed);
             Assert.True(recorded.Succeeded, recorded.Error);
             Assert.Null(recorded.Value!.InterpretedUtc);
             Assert.Null(recorded.Value.ReviewedUtc);

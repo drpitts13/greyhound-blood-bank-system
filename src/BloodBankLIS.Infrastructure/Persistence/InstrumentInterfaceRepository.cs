@@ -53,7 +53,7 @@ public sealed class InstrumentInterfaceRepository : IInstrumentInterfaceReposito
         InstrumentInterface entity,
         InstrumentConnection connection,
         IReadOnlyList<InstrumentFieldMapping> fieldMappings,
-        IReadOnlyList<InstrumentTestMapping> testMappings,
+        IReadOnlyList<InstrumentValueTranslation> translations,
         IReadOnlyList<InstrumentInterfaceRule> rules,
         CancellationToken cancellationToken = default)
     {
@@ -63,7 +63,7 @@ public sealed class InstrumentInterfaceRepository : IInstrumentInterfaceReposito
         var existingFields = await _context.InstrumentFieldMappings
             .Where(m => m.InterfaceId == entity.Id)
             .ToListAsync(cancellationToken);
-        var existingTests = await _context.InstrumentTestMappings
+        var existingTranslations = await _context.InstrumentValueTranslations
             .Where(m => m.InterfaceId == entity.Id)
             .ToListAsync(cancellationToken);
         var existingRules = await _context.InstrumentInterfaceRules
@@ -71,7 +71,7 @@ public sealed class InstrumentInterfaceRepository : IInstrumentInterfaceReposito
             .ToListAsync(cancellationToken);
 
         _context.InstrumentFieldMappings.RemoveRange(existingFields);
-        _context.InstrumentTestMappings.RemoveRange(existingTests);
+        _context.InstrumentValueTranslations.RemoveRange(existingTranslations);
         _context.InstrumentInterfaceRules.RemoveRange(existingRules);
 
         var existing = existingConnection.FirstOrDefault();
@@ -94,11 +94,11 @@ public sealed class InstrumentInterfaceRepository : IInstrumentInterfaceReposito
             await _context.InstrumentFieldMappings.AddAsync(row, cancellationToken);
         }
 
-        foreach (var row in testMappings)
+        foreach (var row in translations)
         {
             row.InterfaceId = entity.Id;
             row.Interface = null;
-            await _context.InstrumentTestMappings.AddAsync(row, cancellationToken);
+            await _context.InstrumentValueTranslations.AddAsync(row, cancellationToken);
         }
 
         foreach (var row in rules)
@@ -113,6 +113,6 @@ public sealed class InstrumentInterfaceRepository : IInstrumentInterfaceReposito
         _context.InstrumentInterfaces
             .Include(i => i.Connection)
             .Include(i => i.FieldMappings)
-            .Include(i => i.TestMappings)
+            .Include(i => i.Translations)
             .Include(i => i.Rules);
 }

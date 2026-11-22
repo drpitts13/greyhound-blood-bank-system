@@ -1,6 +1,7 @@
 namespace BloodBankLIS.Application.PatientWorkspace;
 
-public sealed record ApplyAutoThawRequest(DateTime ThawUtc);
+/// <summary>OpenSystem: the person thawing says the unit was entered (opened) during or after the thaw (OCD-068).</summary>
+public sealed record ApplyAutoThawRequest(DateTime ThawUtc, bool OpenSystem = false);
 
 public sealed record AutoThawResultDto(
     long AllocationId,

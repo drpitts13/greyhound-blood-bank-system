@@ -2,7 +2,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<PageTitle>Antibody identification worklist &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Antibody identification worklist &middot; HemoCore</PageTitle>
 
 <h1>Antibody identification</h1>
 <p class="muted">Open workups across patients. Assistance does not identify antibodies.</p>
@@ -22,6 +22,7 @@
 }
 else
 {
+    <PanelLotSupplyNotice Items="_supply" Advice="@(Session.Has(PermissionCodes.AdminConfigView) ? "Order the next lot and enter it on Admin › Antibody panel lots when it arrives." : "Tell whoever orders reagents and enters panel lots, so the next lot is ready in time.")" />
     <div class="bb-card">
         <div class="bb-card-title">
             <h3>Open workups</h3>
@@ -83,67 +84,67 @@ else
                 @if (RecordReactionsCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?action=reactions">
-                        @RecordReactionsCount need reactions.
+                        @RecordReactionsCount @CountVerb.For(RecordReactionsCount, "needs", "need") reactions.
                     </a>
                 }
                 @if (InterpretCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?action=interpret">
-                        @InterpretCount need interpretation.
+                        @InterpretCount @CountVerb.For(InterpretCount, "needs", "need") interpretation.
                     </a>
                 }
                 @if (WithdrawnJudgmentCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?withdrawn=1">
-                        @WithdrawnJudgmentCount have withdrawn judgment.
+                        @WithdrawnJudgmentCount @CountVerb.For(WithdrawnJudgmentCount, "has", "have") withdrawn judgment.
                     </a>
                 }
                 @if (PendingTypeCorrectionCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?typePending=1">
-                        @PendingTypeCorrectionCount have a pending type correction.
+                        @PendingTypeCorrectionCount @CountVerb.For(PendingTypeCorrectionCount, "has", "have") a pending type correction.
                     </a>
                 }
                 @if (ReservedOrIssuedUnitCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?products=1">
-                        @ReservedOrIssuedUnitCount have reserved or issued units.
+                        @ReservedOrIssuedUnitCount @CountVerb.For(ReservedOrIssuedUnitCount, "has", "have") reserved or issued units.
                     </a>
                 }
                 @if (ReviewCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?action=review">
-                        @ReviewCount need supervisor review.
+                        @ReviewCount @CountVerb.For(ReviewCount, "needs", "need") supervisor review.
                     </a>
                 }
                 @if (UnusableSpecimenCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?unusable=1">
-                        @UnusableSpecimenCount have a rejected or cancelled specimen.
+                        @UnusableSpecimenCount @CountVerb.For(UnusableSpecimenCount, "has", "have") a rejected or cancelled specimen.
                     </a>
                 }
                 @if (NotReadySpecimenCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?notready=1">
-                        @NotReadySpecimenCount have a not-yet-received specimen.
+                        @NotReadySpecimenCount @CountVerb.For(NotReadySpecimenCount, "has", "have") a not-yet-received specimen.
                     </a>
                 }
                 @if (ExpiredSpecimenCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?expired=1">
-                        @ExpiredSpecimenCount have an expired specimen.
+                        @ExpiredSpecimenCount @CountVerb.For(ExpiredSpecimenCount, "has", "have") an expired specimen.
                     </a>
                 }
                 @if (UnacceptedSpecimenCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?unaccepted=1">
-                        @UnacceptedSpecimenCount have a not-yet-accepted specimen.
+                        @UnacceptedSpecimenCount @CountVerb.For(UnacceptedSpecimenCount, "has", "have") a not-yet-accepted specimen.
                     </a>
                 }
                 @if (LotAttentionCount > 0)
                 {
                     <a class="btn btn-ghost btn-sm" href="/antibody-id?lotAttention=1">
-                        @LotAttentionCount have a withdrawn or expired lot.
+                        @LotAttentionCount @CountVerb.For(LotAttentionCount, "has", "have") a withdrawn or expired lot.
                     </a>
                 }
             </p>
@@ -162,6 +163,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead>
                     <tr>
@@ -236,7 +238,8 @@ else
                                     <span class="badge badge-amber">Reserved/issued units</span>
                                 }
                             </td>
-                            <td class="nowrap">@w.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            @* Pass 220: how long the workup has been open, as other worklists say. *@
+                            <td class="nowrap">@w.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")<span class="sub" data-workup-open-for>open @AlertInboxView.OpenFor(w.CreatedUtc, DateTime.UtcNow)</span></td>
                             <td class="right nowrap">
                                 <a class="btn btn-ghost btn-sm" href="@($"/patients/{w.PatientId}")">Open Chart</a>
                                 @if (w.SpecimenId is not null)
@@ -249,11 +252,58 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
+
+    @* OCD-073: antibodies reported by another facility, used for selection now, waiting for this laboratory to confirm. *@
+    @if (Session.Has(PermissionCodes.ImmunoRecord))
+    {
+        <div class="bb-card" id="outside-reports" data-outside-to-confirm>
+            <div class="bb-card-title"><h3>Outside reports to confirm@(_outsideLoaded && _outsideError is null ? $" ({_outside.Count})" : "")</h3></div>
+            @if (_outside.Count == 0)
+            {
+                @* Pass 184: the card said none were waiting before it had read them, and after a failed read. *@
+                var outsideEmpty = WorklistEmptyText.For(_outsideLoaded, _outsideError, "No outside antibody report is waiting to be confirmed.");
+                <div class="@(outsideEmpty.IsError ? "empty text-danger" : "empty")" data-worklist-empty="outside-antibodies">@outsideEmpty.Text</div>
+            }
+            else
+            {
+                <p class="muted">Each counts for product selection now. Confirm it on the patient's chart once your own testing confirms it.</p>
+                <div class="table-scroll">
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>Antibody</th><th>Reported by</th><th>Recorded</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var o in _outside)
+                        {
+                            <tr data-outside-antibody="@o.AntibodyId">
+                                <td>@o.PatientName <span class="sub mono">@o.MedicalRecordNumber</span></td>
+                                <td><strong>@o.AntibodySpecificity</strong></td>
+                                <td>
+                                    @o.ReportingFacility@(o.IdentifiedOn is { } on ? $", identified {on:yyyy-MM-dd}" : "")
+                                    @if (!o.Documented)
+                                    {
+                                        <span class="sub">Report not documented</span>
+                                    }
+                                </td>
+                                <td class="nowrap">@o.RecordedUtc.ToLocalTime().ToString("yyyy-MM-dd") <span class="sub">@o.RecordedBy</span></td>
+                                <td class="right"><a class="btn btn-ghost btn-sm" href="@($"/patients/{o.PatientId}")">Open chart</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+            }
+        </div>
+    }
 }
 
 @code {
+    private List<OutsideAntibodyToConfirmDto> _outside = new();
+    private bool _outsideLoaded;
+    private string? _outsideError;
+    private List<AntibodyPanelLotSupplyItemDto> _supply = new();
+
     [SupplyParameterFromQuery]
     public string? Lot { get; set; }
 
@@ -402,6 +452,21 @@ else
         {
             _fb = r.ToFeedback();
         }
+
+        if (Session.Has(PermissionCodes.ImmunoRecord))
+        {
+            var outside = await Api.GetOutsideAntibodiesToConfirmAsync();
+            _outside = outside.Value ?? new();
+            _outsideError = outside.Succeeded ? null : outside.Error ?? "the server did not answer.";
+            _outsideLoaded = true;
+        }
+
+        if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.AdminConfigView))
+        {
+            var supply = await Api.GetAntibodyPanelLotSupplyAsync();
+            _supply = supply.Value ?? new();
+        }
+
         _loading = false;
     }
 

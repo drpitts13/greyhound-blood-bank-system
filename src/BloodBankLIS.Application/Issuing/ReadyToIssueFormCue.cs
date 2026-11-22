@@ -39,14 +39,16 @@ public static class ReadyToIssueFormCue
         return notices;
     }
 
+    // Shown on screen, so in local time like the lists beside it (end-user testing pass 41: 14:49 on the receipt form,
+    // 09:49 in the in-transit list, for one unit).
     public static string? ExpirationNotice(DateTime? expiresUtc) =>
-        expiresUtc is DateTime expires ? $"Unit expires {expires:yyyy-MM-dd HH:mm}" : null;
+        expiresUtc is DateTime expires ? $"Unit expires {ClinicalTimeText.Local(expires)}" : null;
 
     public static string? UnitTypeNotice(string? unitBloodType) =>
         string.IsNullOrWhiteSpace(unitBloodType) ? null : $"Unit type {unitBloodType.Trim()}";
 
     public static string? CrossmatchExpirationNotice(DateTime? expiresUtc) =>
-        expiresUtc is DateTime expires ? $"Crossmatch expires {expires:yyyy-MM-dd HH:mm}" : null;
+        expiresUtc is DateTime expires ? $"Crossmatch expires {ClinicalTimeText.Local(expires)}" : null;
 
     public static string? CrossmatchResultNotice(CrossmatchResult? result) => result switch
     {
@@ -99,7 +101,35 @@ public static class ReadyToIssueFormCue
     }
 
     public static string? CoolerNotice(string? coolerId) =>
-        string.IsNullOrWhiteSpace(coolerId) ? null : $"Cooler {coolerId.Trim()}";
+        string.IsNullOrWhiteSpace(coolerId) ? null : CoolerName(coolerId);
+
+    // "Cooler 3" stays as it is; "CLR-1" reads "Cooler CLR-1".
+    private static string CoolerName(string coolerId) =>
+        coolerId.Trim().StartsWith("cooler", StringComparison.OrdinalIgnoreCase) ? coolerId.Trim() : $"Cooler {coolerId.Trim()}";
+
+    /// <summary>
+    /// The cooler with its latest check before dispatch, for the person receiving it: checked with all units packed,
+    /// checked with differences, or not checked. No cooler, no notice; unknown check state falls back to the cooler id.
+    /// </summary>
+    public static string? CoolerCheckNotice(string? coolerId, bool checkKnown, DateTime? checkedLocal, bool? allPacked)
+    {
+        if (string.IsNullOrWhiteSpace(coolerId))
+        {
+            return null;
+        }
+
+        var cooler = CoolerName(coolerId);
+        if (!checkKnown)
+        {
+            return cooler;
+        }
+
+        return checkedLocal is not DateTime at
+            ? $"{cooler}: not checked before it left"
+            : allPacked == true
+                ? $"{cooler}: checked {at:yyyy-MM-dd HH:mm}, all units packed"
+                : $"{cooler}: checked {at:yyyy-MM-dd HH:mm} with differences; compare each unit with its issue";
+    }
 
     public static string? IssuedByNotice(string? issuedBy) =>
         string.IsNullOrWhiteSpace(issuedBy) ? null : $"Issued by {issuedBy.Trim()}";
@@ -123,7 +153,53 @@ public static class ReadyToIssueFormCue
         string.IsNullOrWhiteSpace(ptagCode) ? null : $"Pickup tag {ptagCode.Trim()}";
 
     public static string CrossmatchStatusNotice(CrossmatchClinicalStatus status) =>
-        $"XM at issue {status}";
+        $"Crossmatch at issue: {CrossmatchStatusLabel(status)}";
+
+    /// <summary>The crossmatch status in words (end-user testing, 2026-11-12: shown as the code NotCrossmatchedEmergency).</summary>
+    public static string CrossmatchStatusLabel(CrossmatchClinicalStatus status) => status switch
+    {
+        CrossmatchClinicalStatus.Compatible => "Compatible",
+        CrossmatchClinicalStatus.Incompatible => "Incompatible",
+        CrossmatchClinicalStatus.NotPerformed => "Not crossmatched",
+        CrossmatchClinicalStatus.NotCrossmatchedEmergency => "Not crossmatched (emergency release)",
+        CrossmatchClinicalStatus.Expired => "Crossmatch expired",
+        _ => status.ToString()
+    };
+
+    /// <summary>
+    /// The Issued units board's words for the return-to-available window (end-user testing pass 258: the board said only
+    /// "Window elapsed" under the issue time, which did not say what window or what it meant for a return).
+    /// </summary>
+    public static string TimeOutBoardText(bool governed, bool acceptable) =>
+        !governed ? "No return time limit (exempt storage)"
+        : acceptable ? "Within the return window"
+        : "Return window passed: not returnable to stock";
+
+    /// <summary>
+    /// Why a Ready to issue row needs attention, in words (end-user testing pass 281: the row showed badges such as
+    /// "Crossmatch", "Specimen", "Retype" and "Reaction" with each reason only in hover text, which a touch screen at the
+    /// issue window never shows). The notices behind the row's badges, without repeats, in the order the badges appear.
+    /// </summary>
+    public static IReadOnlyList<string> Reasons(ReadyToIssueWorkItemDto row) =>
+        new[]
+        {
+            row.OpenAntibodyWorkup ? row.OpenAntibodyWorkupNotice : null,
+            row.ReactionNotice,
+            row.CrossmatchNotice,
+            row.SpecialRequirementNotice,
+            row.AntigenNotice,
+            row.AboRhDiscrepancyNotice,
+            // Pass 325: a second ABO/Rh still due was said only by a badge, and not at all when the specimen badge took
+            // its place (Kline, Nora's units read "crossmatch" and "specimen" and nothing of the second type).
+            row.NeedsSecondAbo ? SecondAbo : null,
+            row.RetypeNotice,
+            row.SpecimenBlocksIssue ? row.SpecimenBlockReason : null,
+            row.UnitOutdated ? row.UnitBlockReason : null
+        }
+        .Where(text => !string.IsNullOrWhiteSpace(text))
+        .Select(text => text!.Trim())
+        .Distinct(StringComparer.Ordinal)
+        .ToList();
 
     public static string TimeOutNotice(bool governed, bool acceptable) =>
         ReturnReissueRule.TimeOutLabel(governed, acceptable) switch

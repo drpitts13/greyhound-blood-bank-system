@@ -23,5 +23,11 @@ public class BloodDelivery : BaseEntity
 
     public DateTime? CompletedUtc { get; set; }
 
+    /// <summary>
+    /// Why the delivery was completed with units short of or over its packing list (end-user testing pass 83); required
+    /// then, null when everything matched.
+    /// </summary>
+    public string? CompletionNote { get; set; }
+
     public ICollection<BloodDeliveryLine> Lines { get; set; } = new List<BloodDeliveryLine>();
 }

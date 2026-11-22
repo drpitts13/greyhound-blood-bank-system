@@ -178,6 +178,68 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         await c.SaveChangesAsync();
     }
 
+    // TEST-BB-1177: a patient with no ABO/Rh on file is offered group O red cells only (not other groups), marked as
+    // suiting any recipient, instead of no list (end-user testing pass 155).
+    [Fact]
+    public async Task ListCompatibleUnits_UntypedPatient_OffersGroupORedCellsOnly()
+    {
+        await using var c = _factory.Create();
+        await SeedCrossmatchCatalogAsync(c);
+        var key = Guid.NewGuid().ToString("N")[..8];
+        var patient = new Patient { MedicalRecordNumber = $"MRN-UNT-{key}", LastName = "Untyped", FirstName = "Baby", DateOfBirth = new DateOnly(2026, 11, 13) };
+        c.Patients.Add(patient);
+        var rbc = new ProductType { ProductCode = $"RBC-{key}", Name = "RBC", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+        BloodUnit Unit(string prefix, AboGroup abo) => new()
+        {
+            UnitNumber = $"{prefix}-{key}", ProductTypeId = rbc.Id, Abo = abo, RhD = RhType.Negative,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Available
+        };
+        c.BloodUnits.AddRange(Unit("U-UNT-O", AboGroup.O), Unit("U-UNT-A", AboGroup.A));
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+
+        Assert.True(result.Succeeded, result.Error);
+        var offered = Assert.Single(result.Value!, u => u.UnitNumber.EndsWith(key, StringComparison.Ordinal));
+        Assert.Equal(($"U-UNT-O-{key}", ProductSelectionOrder.UntypedPatientCue), (offered.UnitNumber, offered.SelectionCue));
+    }
+
+    // TEST-BB-1178: a unit that reads Available but is still reserved for another patient is not offered to this one
+    // (end-user testing pass 156).
+    [Fact]
+    public async Task ListCompatibleUnits_OmitsUnitStillReservedForAnotherPatient()
+    {
+        await using var c = _factory.Create();
+        await SeedCrossmatchCatalogAsync(c);
+        var key = Guid.NewGuid().ToString("N")[..8];
+        var patient = new Patient { MedicalRecordNumber = $"MRN-RFO-{key}", LastName = "Offer", FirstName = "Pat", DateOfBirth = new DateOnly(1980, 1, 1) };
+        var other = new Patient { MedicalRecordNumber = $"MRN-RFX-{key}", LastName = "Holder", FirstName = "Al", DateOfBirth = new DateOnly(1970, 1, 1) };
+        c.Patients.AddRange(patient, other);
+        var rbc = new ProductType { ProductCode = $"RBC-{key}", Name = "RBC", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory { PatientId = patient.Id, Abo = AboGroup.O, RhD = RhType.Positive, Source = BloodTypeSource.TestResult, IsCurrent = true });
+        BloodUnit Unit(string prefix) => new()
+        {
+            UnitNumber = $"{prefix}-{key}", ProductTypeId = rbc.Id, Abo = AboGroup.O, RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10), Status = UnitStatus.Available
+        };
+        var free = Unit("U-RF-FREE");
+        var held = Unit("U-RF-HELD");
+        c.BloodUnits.AddRange(free, held);
+        await c.SaveChangesAsync();
+        c.Allocations.Add(new Allocation { BloodProductId = held.Id, PatientId = other.Id, Status = AllocationStatus.Reserved, AllocatedUtc = _factory.Clock.UtcNow.AddDays(-9), AllocatedBy = "tech" });
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains(result.Value!, u => u.BloodUnitId == free.Id);
+        Assert.DoesNotContain(result.Value!, u => u.BloodUnitId == held.Id);
+    }
+
     [Fact]
     public async Task ListCompatibleUnits_ExcludesAboIncompatible()
     {
@@ -326,6 +388,11 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(unit.ExpiresUtc, list[0].UnitExpiresUtc);
         Assert.Equal("O+", list[0].UnitBloodType);
         Assert.Equal("Main Blood Bank Refrigerator", list[0].StorageLocationName);
+        // TEST-BB-1215 (pass 193): with no specimen linked to its order, the row names the order, so the chart's cue can
+        // open it to link one.
+        Assert.False(list[0].OrderSpecimenLinked);
+        Assert.NotNull(list[0].OrderId);
+        Assert.Equal((await c.Orders.FindAsync(list[0].OrderId!.Value))!.OrderNumber, list[0].OrderNumber);
         Assert.Equal(unit.ExpiresUtc, alloc.Value.Allocation.UnitExpiresUtc);
         Assert.Equal("O+", alloc.Value.Allocation.UnitBloodType);
         Assert.Equal("Main Blood Bank Refrigerator", alloc.Value.Allocation.StorageLocationName);
@@ -433,6 +500,40 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         await c.SaveChangesAsync();
         var blankChoices = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
         Assert.Null(Assert.Single(blankChoices.Value!, u => u.BloodUnitId == openUnit.Id).LatestCrossmatchResult);
+    }
+
+    // TEST-BB-1100 (OCD-091, option B for crossmatches): a crossmatch read on paper is judged, and recorded, at the time it
+    // was performed, so a specimen that has expired since can carry it; without that time it is refused as expired.
+    [Fact]
+    public async Task Crossmatch_PerformedEarlier_OnASinceExpiredSpecimen_IsRecordedAtThatTime()
+    {
+        await using var c = _factory.Create();
+        var (patient, unit) = await SeedAvailableUnitAsync(c, "XM-091");
+        var now = _factory.Clock.UtcNow;
+        var specimen = new Specimen
+        {
+            AccessionNumber = $"ACC-{Guid.NewGuid():N}"[..12],
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = now.AddDays(-4),
+            ReceivedUtc = now.AddDays(-4),
+            ExpiresUtc = now.AddDays(-1),
+            Status = SpecimenStatus.Expired
+        };
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+
+        var refused = await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+            unit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+        Assert.False(refused.Succeeded);
+
+        var performed = now.AddDays(-2);
+        var xm = await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+            unit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible, PerformedUtc: performed));
+        Assert.True(xm.Succeeded, xm.Error ?? string.Join(" ", xm.Evaluation?.HardStops.Select(h => h.Message) ?? []));
+        Assert.Equal(performed, (await c.Crossmatches.AsNoTracking().SingleAsync(x => x.Id == xm.Value!.Id)).PerformedUtc);
+        Assert.False((await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+            unit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible, PerformedUtc: now.AddMinutes(10)))).Succeeded);
     }
 
     [Fact]
@@ -1307,6 +1408,157 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(meets.UnitNumber, listed);
         Assert.DoesNotContain(missing.UnitNumber, listed);
         Assert.Equal(UnitStatus.Available, (await c.BloodUnits.FindAsync(missing.Id))!.Status);
+    }
+
+    // TEST-BB-412: "Group O red cells only" leaves out group A red cells but still offers group A plasma;
+    // after its end date it no longer applies.
+    [Fact]
+    public async Task ListCompatibleUnits_GroupORedCellsOnly_AppliesToRedCellsOnly_UntilItsEndDate()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-GO-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "GroupO",
+            DateOfBirth = new DateOnly(1990, 3, 3)
+        };
+        c.Patients.Add(patient);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        var plasma = new ProductType
+        {
+            ProductCode = $"FFP-{Guid.NewGuid():N}"[..12],
+            Name = "FFP",
+            ComponentClass = ComponentClass.Plasma,
+            RequiresCrossmatch = false
+        };
+        c.ProductTypes.AddRange(rbc, plasma);
+        var definition = new SpecialRequirementDefinition
+        {
+            Code = $"GO{Guid.NewGuid():N}"[..10],
+            Name = "Group O red cells only",
+            Level = SpecialRequirementLevel.Unit,
+            Category = SpecialRequirementCategory.UnitTyping,
+            EnforcementKind = SpecialRequirementEnforcementKind.RequireUnitAbo,
+            ComponentClass = ComponentClass.RedBloodCells,
+            AllowedAboGroups = "O",
+            IsActive = true,
+            Version = 1
+        };
+        c.SpecialRequirementDefinitions.Add(definition);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+        var groupARbc = Unit(rbc.Id, "U-GOA-", AboGroup.A, days: 5);
+        var groupORbc = Unit(rbc.Id, "U-GOO-", AboGroup.O, days: 6);
+        var groupAPlasma = Unit(plasma.Id, "U-GOP-", AboGroup.A, days: 7);
+        c.BloodUnits.AddRange(groupARbc, groupORbc, groupAPlasma);
+        var requirement = new SpecialTransfusionRequirement
+        {
+            PatientId = patient.Id,
+            RequirementDefinitionId = definition.Id,
+            RequirementType = SpecialTransfusionRequirementType.Other,
+            Reason = "Ordered by the transfusion service physician",
+            EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+            IsActive = true,
+            EnteredBy = "tech-test"
+        };
+        c.SpecialTransfusionRequirements.Add(requirement);
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c, includeSpecialRequirements: true).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        var listed = result.Value!.Select(u => u.UnitNumber).ToArray();
+        Assert.Contains(groupORbc.UnitNumber, listed);
+        Assert.Contains(groupAPlasma.UnitNumber, listed);
+        Assert.DoesNotContain(groupARbc.UnitNumber, listed);
+
+        // Ended today: on and after the end date it no longer applies.
+        requirement.ExpiresUtc = _factory.Clock.UtcNow;
+        await c.SaveChangesAsync();
+        var ended = await Allocations(c, includeSpecialRequirements: true).ListCompatibleUnitsAsync(patient.Id);
+        Assert.Contains(groupARbc.UnitNumber, ended.Value!.Select(u => u.UnitNumber));
+    }
+
+    // TEST-BB-414: a unit reserved before a requirement was added says what it lacks on the allocated list;
+    // a reserved unit that meets it says nothing.
+    [Fact]
+    public async Task ListActive_ReservedUnitThatFailsALaterRequirement_SaysWhatItLacks()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-RQ-{Guid.NewGuid():N}",
+            LastName = "Reserved",
+            FirstName = "Later",
+            DateOfBirth = new DateOnly(1985, 6, 6)
+        };
+        c.Patients.Add(patient);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        var definition = new SpecialRequirementDefinition
+        {
+            Code = $"GO{Guid.NewGuid():N}"[..10],
+            Name = "Group O red cells only",
+            Level = SpecialRequirementLevel.Unit,
+            Category = SpecialRequirementCategory.UnitTyping,
+            EnforcementKind = SpecialRequirementEnforcementKind.RequireUnitAbo,
+            ComponentClass = ComponentClass.RedBloodCells,
+            AllowedAboGroups = "O",
+            IsActive = true,
+            Version = 1
+        };
+        c.SpecialRequirementDefinitions.Add(definition);
+        await c.SaveChangesAsync();
+        var groupA = Unit(rbc.Id, "U-RQA-", AboGroup.A, days: 5);
+        var groupO = Unit(rbc.Id, "U-RQO-", AboGroup.O, days: 5);
+        c.BloodUnits.AddRange(groupA, groupO);
+        await c.SaveChangesAsync();
+        var now = _factory.Clock.UtcNow;
+        c.Allocations.AddRange(
+            new Allocation { BloodProductId = groupA.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now.AddHours(-2), AllocatedBy = "tech" },
+            new Allocation { BloodProductId = groupO.Id, PatientId = patient.Id, Status = AllocationStatus.Reserved, AllocatedUtc = now.AddHours(-2), AllocatedBy = "tech" });
+        await c.SaveChangesAsync();
+
+        var before = await Allocations(c, includeSpecialRequirements: true).ListActiveAsync(patient.Id);
+        Assert.All(before, r => Assert.Null(r.SpecialRequirementNotice));
+
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = patient.Id,
+            RequirementDefinitionId = definition.Id,
+            RequirementType = SpecialTransfusionRequirementType.Other,
+            Reason = "Ordered after the units were reserved",
+            EffectiveUtc = now.AddMinutes(-5),
+            IsActive = true,
+            EnteredBy = "tech-test"
+        });
+        await c.SaveChangesAsync();
+
+        var after = await Allocations(c, includeSpecialRequirements: true).ListActiveAsync(patient.Id);
+        Assert.Contains("must be group O", after.Single(r => r.BloodUnitId == groupA.Id).SpecialRequirementNotice);
+        Assert.Null(after.Single(r => r.BloodUnitId == groupO.Id).SpecialRequirementNotice);
+        // Pass 299: the unit that meets it says so on the chart; the one that does not names nothing.
+        Assert.Equal(["Group O red cells only"], after.Single(r => r.BloodUnitId == groupO.Id).SpecialRequirementsMet);
+        Assert.Empty(after.Single(r => r.BloodUnitId == groupA.Id).SpecialRequirementsMet);
     }
 
     [Fact]

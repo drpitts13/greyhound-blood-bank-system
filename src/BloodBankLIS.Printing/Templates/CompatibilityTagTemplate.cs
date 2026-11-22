@@ -47,8 +47,8 @@ public static class CompatibilityTagTemplate
         elements.Add(new LabelBarcode(20, y + 162, model.UnitNumber, height: 70));
         elements.Add(new LabelText(20, y + 250, $"Unit ABO/Rh: {model.UnitBloodType}    Product: {model.ProductName}"));
         elements.Add(new LabelText(20, y + 284, $"Crossmatch: {model.CrossmatchMethod} / {model.CrossmatchResult}"));
-        elements.Add(new LabelText(20, y + 318, $"Unit expires: {model.UnitExpiresUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} UTC"));
-        elements.Add(new LabelText(20, y + 352, $"Issued: {model.IssuedUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} UTC by {model.IssuedBy}"));
+        elements.Add(new LabelText(20, y + 318, $"Unit expires: {LabelTime.Format(model.UnitExpiresUtc, model.TimeZoneId)}"));
+        elements.Add(new LabelText(20, y + 352, $"Issued: {LabelTime.Format(model.IssuedUtc, model.TimeZoneId)} by {model.IssuedBy}"));
 
         return new LabelDocument(812, 609, elements, BuildCheckForm(model));
     }
@@ -76,10 +76,10 @@ public static class CompatibilityTagTemplate
         fields.Add(new LabelCheckField("Crossmatch", $"{model.CrossmatchMethod} / {model.CrossmatchResult}"));
         fields.Add(new LabelCheckField(
             "Unit expires",
-            model.UnitExpiresUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC"));
+            LabelTime.Format(model.UnitExpiresUtc, model.TimeZoneId)));
         fields.Add(new LabelCheckField(
             "Issued",
-            model.IssuedUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC by " + model.IssuedBy));
+            LabelTime.Format(model.IssuedUtc, model.TimeZoneId) + " by " + model.IssuedBy));
 
         return new LabelCheckForm(CheckAttestation, fields);
     }

@@ -43,5 +43,30 @@ public class SupervisorQueueRuleTests
         Assert.True(
             SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindResultVerify)
             < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindQuarantineRelease));
+        Assert.True(
+            SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindQuarantineRelease)
+            < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindDiscrepancy));
+        Assert.True(
+            SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindDiscrepancy)
+            < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOverrideReview));
+        // Pass 137: operational holds after missing or damaged units, before reviews.
+        Assert.True(
+            SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindDiscrepancy)
+            < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOperationalHold));
+        Assert.True(
+            SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOperationalHold)
+            < SupervisorQueueRule.KindSortOrder(SupervisorQueueRule.KindOverrideReview));
+        Assert.Equal(SupervisorQueueRule.KindOperationalHold, SupervisorQueueRule.KindFromQuery("operationalhold"));
+    }
+
+    // TEST-BB-1314 (end-user testing pass 288): an item to deal with first says why for its kind; a failed reagent QC no
+    // longer reads "Due before specimen expiry".
+    [Fact]
+    public void FirstBadge_SaysWhyForTheKind()
+    {
+        Assert.Equal("Due before specimen expiry", SupervisorQueueRule.FirstBadge(SupervisorQueueRule.KindResultVerify).Text);
+        Assert.Equal("QC failed", SupervisorQueueRule.FirstBadge(SupervisorQueueRule.KindReagentQc).Text);
+        Assert.Equal("Review first", SupervisorQueueRule.FirstBadge(SupervisorQueueRule.KindTransfusionReported).Text);
+        Assert.Equal("First", SupervisorQueueRule.FirstBadge("Other").Text);
     }
 }

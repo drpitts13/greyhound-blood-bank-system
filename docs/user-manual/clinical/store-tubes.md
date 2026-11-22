@@ -1,0 +1,35 @@
+---
+slug: store-tubes
+title: Store tubes
+order: 118
+chapter: Patients and orders
+summary: Put tubes away by scan so the chart shows where each one is, with every earlier place kept, and discard them by scan when they are no longer needed.
+routes:
+  - /specimens/store
+---
+
+**Store tubes** (Patients & testing) records where each tube is kept, so it can be found again for a repeat test, an extra crossmatch, or a transfusion reaction workup.
+
+Scan the rack or type the shelf into **Storage place** and press Enter: the page lists every tube recorded there now, so you can check the rack against the system or find a tube in it. Then scan each tube you put there (its accession number or label barcode); each scan stores the tube and waits for the next one. The place field offers the places already in use. A place typed or scanned another way ("rack3" or "RACK-3" for "Rack 3") is the same place and is stored under the spelling already in use, so tubes are not split across misspellings. Add a **Note** such as a position if your racks are not labelled by position. The list under the scanner shows what you stored this session, with where each tube was before.
+
+The patient's **Specimens** tab shows each tube's current place under its status, and the tube's history shows every time it was stored or moved. Scanning a tube into the top-bar lookup also says where it is stored, and a transfusion reaction investigation shows where its pre- and post-transfusion tubes are. A move never erases the earlier place. Storing a tube where it already is, scanning a tube the system does not know, and storing a cancelled tube are refused with the reason. Each store is in the audit trail.
+
+**Discard tubes.** When you throw a tube away, scan it under **Discard tubes** and press Enter. The tube leaves its place (the place stays on its history), the chart shows when it was discarded, and it cannot be stored again. A tube is kept, whatever the reason, while an order on it is not finished or a transfusion reaction investigation on it is still open; the message names the order. Each tube is kept until its expiration plus your facility's **Tube storage days after expiration** (Admin › Facility policy); the place list shows each tube's **Keep until** date and a **Due** badge once it has passed, and **Due for discard** lists every stored tube past that date, oldest first, with its place. The home screen's **Tubes due for discard** card shows how many there are. To discard a tube before its date, or when your facility has not set a retention period, type a **Reason** first; the reason is kept on the tube and in the audit trail.
+
+**Received, not yet stored** lists tubes received in the laboratory that have no storage place recorded and were not discarded, oldest received first (the oldest 50 are shown, with the total). **Received** gives when each came into the laboratory and how long it has waited to be put away (*2026-11-06 09:50 · waiting 10 d*); **Collected** is when it was drawn. Put each one away, or discard it when it is no longer needed; the list shortens as you go. **Store** on a row puts the tube in the **Tube** field: scan its place (or press Enter in Tube if the place is already scanned). **Discard** on a row puts the tube in **Tube to discard**: give a reason if it is early (before its keep-until date, or when no retention period is set), then press Enter there. The same checks apply as when scanning it. A tube that is kept says why under its status, and offers no **Discard**: *Kept: order ORD0024 not finished* (finish or cancel the order first), or *Kept: on a transfusion reaction investigation that is still open*. **Due for discard** marks such a tube the same way. Tubes not yet received and cancelled tubes are not listed. The home screen's **Tubes to store** card and the shift handoff count them.
+
+**Due for discard** lists stored tubes past their keep-until date as a pull list: grouped by place, so you visit each rack or shelf once, starting with the place that holds the oldest tube, oldest first within it. Each place shows how many tubes to pull from it, and each tube says how long it is past its date. A place typed two ways (for example "Rack 3" and "rack-3") is one place. The list shortens as you scan each tube under Discard tubes.
+
+How many days tubes are kept is set by your medical director (OCD-070). Until it is set, nothing is listed as due and each discard needs a reason.
+
+**Automatic discard.** When Facility Policies › *Discard tubes automatically when storage ends* is on, the system records each tube as discarded once its storage days after expiration end (it checks about every 30 seconds). Tubes that are kept are skipped, the same as for a manual discard. **Discarded automatically, last 7 days** lists those tubes grouped by the place each was in. Pull them from the racks and throw them away; there is nothing to scan. The tube's history says *Automatic: storage days after expiration ended*, and the discard is in the audit trail under *system (automatic discard)*. The setting is off by default and does nothing until *Tube storage days after expiration* is set.
+
+> Storing and discarding tubes need the specimen accession permission.
+
+> Demo data. In a development database the reaction demo's pre-transfusion tube ACC0014 is stored in Retention fridge R2, moved there from Bench rack 1.
+
+While *Tube storage days after expiration* is not set, no tube is ever due for discard; the home card **Tubes due for discard** then says *not tracked: tube storage days are not set* rather than reading clear.
+
+A tube that is the specimen of an antibody identification still open (not completed or voided) is kept too: its row says *Kept: an antibody identification on it is still open*, Discard is not offered, and a discard by scan is refused until the workup is completed or voided. The same holds for the tube of a DAT/elution workup still open (*Kept: a DAT/elution workup on it is still open*).
+
+A tube past its keep-until date that is still kept (on an unfinished order, an open reaction investigation, or an open antibody identification or DAT/elution workup) is not listed as due for discard and is not counted on the home card or the handoff; it becomes due once what keeps it is finished.

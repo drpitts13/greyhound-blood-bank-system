@@ -10,6 +10,21 @@ namespace BloodBankLIS.Domain.Rules;
 /// </summary>
 public static class CrossmatchValidityRule
 {
+    /// <summary>The clinical status a recorded result stands for.</summary>
+    public static CrossmatchClinicalStatus ClinicalStatusFor(CrossmatchResult result) => result switch
+    {
+        CrossmatchResult.Compatible => CrossmatchClinicalStatus.Compatible,
+        CrossmatchResult.Incompatible => CrossmatchClinicalStatus.Incompatible,
+        _ => CrossmatchClinicalStatus.NotPerformed
+    };
+
+    /// <summary>
+    /// What a crossmatch row shows: its recorded result when there is one (rows recorded before the clinical status
+    /// was filled in carry only the result), otherwise its clinical status.
+    /// </summary>
+    public static CrossmatchClinicalStatus Shown(CrossmatchResult result, CrossmatchClinicalStatus clinicalStatus) =>
+        result is CrossmatchResult.Compatible or CrossmatchResult.Incompatible ? ClinicalStatusFor(result) : clinicalStatus;
+
     public const string Code = "ISS-XM-REQUIRED";
 
     public static RuleResult Evaluate(

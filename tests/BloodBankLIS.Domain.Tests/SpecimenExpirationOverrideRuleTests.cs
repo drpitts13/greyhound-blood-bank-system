@@ -41,4 +41,21 @@ public class SpecimenExpirationOverrideRuleTests
         Assert.Equal(RuleSeverity.Pass, result.Severity);
         Assert.Contains("authorized override", result.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    // TEST-BB-1429: a later expiration is an extension, approved by the medical director or refused by facility policy; an
+    // unchanged extended expiration needs no new override unless collection changed.
+    [Fact]
+    public void Extension_IsApprovedOrRefused_AndAnUnchangedExpirationNeedsNoNewOverride()
+    {
+        Assert.True(SpecimenExpirationOverrideRule.IsExtension(PolicyExpires, PolicyExpires.AddDays(3)));
+        Assert.False(SpecimenExpirationOverrideRule.IsExtension(PolicyExpires, PolicyExpires.AddHours(-1)));
+        Assert.Equal(RuleSeverity.Warning, SpecimenExpirationOverrideRule.EvaluateExtension(true).Severity);
+        Assert.Equal(RuleSeverity.HardStop, SpecimenExpirationOverrideRule.EvaluateExtension(false).Severity);
+
+        var extended = PolicyExpires.AddDays(3);
+        Assert.True(SpecimenExpirationOverrideRule.NeedsOverride(PolicyExpires, extended, PolicyExpires, collectionChanged: false));
+        Assert.False(SpecimenExpirationOverrideRule.NeedsOverride(PolicyExpires, extended, extended, collectionChanged: false));
+        Assert.True(SpecimenExpirationOverrideRule.NeedsOverride(PolicyExpires, extended, extended, collectionChanged: true));
+        Assert.False(SpecimenExpirationOverrideRule.NeedsOverride(PolicyExpires, PolicyExpires, null, collectionChanged: false));
+    }
 }

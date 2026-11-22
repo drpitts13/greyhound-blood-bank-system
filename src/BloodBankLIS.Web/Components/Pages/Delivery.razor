@@ -7,7 +7,7 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Delivery @Id &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Delivery @Id &middot; HemoCore</PageTitle>
 
 <InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Inventory" />
 
@@ -44,17 +44,17 @@ else
                     </select>
                 }
             </div>
-            <div class="field"><label>Ordered (UTC)</label>
+            <div class="field"><label>Ordered</label>
                 @if (_delivery.Status == DeliveryStatus.Open)
                 {
                     <input type="datetime-local" @bind="_orderedLocal" />
                 }
                 else
                 {
-                    <div>@_delivery.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</div>
+                    <div>@_delivery.OrderedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
                 }
             </div>
-            <div class="field"><label>Received</label><div>@_delivery.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+            <div class="field"><label>Received</label><div>@_delivery.ReceivedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div>
             @if (_order is not null)
             {
                 <div class="field"><label>Supplier order</label><div><a class="mono" href="@($"/inventory/orders?id={_order.Id}")">@_order.OrderNumber</a></div></div>
@@ -69,13 +69,14 @@ else
                     <div class="mono">@(_delivery.PackingListNumber ?? "—")</div>
                 }
             </div>
-            <div class="field"><label>Status</label><div>@_delivery.Status</div></div>
+            <div class="field"><label>Status</label><div>@Ui.EnumText(_delivery.Status)</div></div>
         </div>
     </div>
 
     <div class="bb-card">
         <div class="bb-card-title"><h3>Expected counts</h3></div>
         <p class="muted">Counts are by product, such as RBC or FFP. Received counts come from the units entered on this delivery. More units than expected is allowed and shows as over.</p>
+        <div class="table-scroll">
         <table class="bb">
             <thead><tr><th>Product</th><th>Expected</th><th>Received</th><th>Variance</th><th></th></tr></thead>
             <tbody>
@@ -119,17 +120,32 @@ else
                 }
             </tbody>
         </table>
+        </div>
         @if (_delivery.Status == DeliveryStatus.Open && Session.Has(PermissionCodes.InventoryReceive))
         {
+            @if (_delivery.Differences is { } differences)
+            {
+                @* Pass 83: a delivery that does not match its packing list is completed with a note saying why. *@
+                <div class="field" style="margin-top:.6rem;max-width:40rem;" data-delivery-variance>
+                    <label>Does not match the packing list: @differences. Why? (needed to complete)</label>
+                    <input @bind="_completionNote" @bind:event="oninput" maxlength="@DeliveryCompletionRule.MaxNoteLength" placeholder="e.g. Supplier short 2 RBC, credit requested" data-delivery-completion-note />
+                </div>
+            }
             <div class="flex gap" style="margin-top:.6rem;">
                 <button class="btn btn-secondary" type="button" disabled="@(!CanAddLine)" title="@(CanAddLine ? null : "Every product is already on this delivery.")" @onclick="AddLine">Add product</button>
                 <button class="btn btn-primary" disabled="@_busy" @onclick="SaveDeliveryAsync">Save delivery</button>
-                <button class="btn btn-secondary" disabled="@_busy" @onclick="CompleteAsync">Complete delivery</button>
+                <button class="btn btn-secondary" disabled="@(_busy || (_delivery.Differences is not null && string.IsNullOrWhiteSpace(_completionNote)))" @onclick="CompleteAsync" data-delivery-complete>Complete delivery</button>
             </div>
             @if (IsDirty)
             {
                 <div class="muted" style="margin-top:.4rem;">Unsaved changes. They are saved first when you complete the delivery or enter units.</div>
             }
+        }
+        else if (_delivery.Status == DeliveryStatus.Completed)
+        {
+            <p class="muted" style="margin-top:.6rem;" data-delivery-completed>
+                Completed@(_delivery.CompletedUtc is { } done ? $" {done.ToLocalTime():yyyy-MM-dd HH:mm}" : "")@(_delivery.Differences is { } diff ? $", not matching the packing list ({diff})" : "")@(_delivery.CompletionNote is { } note ? $": {note}" : ".")
+            </p>
         }
     </div>
 
@@ -141,6 +157,7 @@ else
         }
         else
         {
+            <div class="table-scroll">
             <table class="bb">
                 <thead><tr><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Status</th><th></th></tr></thead>
                 <tbody>
@@ -156,6 +173,7 @@ else
                     }
                 </tbody>
             </table>
+            </div>
         }
     </div>
 }
@@ -204,7 +222,7 @@ else
     {
         _delivery = delivery;
         _supplierId = delivery.BloodSupplierId;
-        _orderedLocal = delivery.OrderedUtc;
+        _orderedLocal = LocalEntry.FromUtc(delivery.OrderedUtc);
         _packingList = delivery.PackingListNumber;
         _lines = delivery.Lines.Select(l => new LineDraft
         {
@@ -222,7 +240,7 @@ else
         _delivery is not null
         && _delivery.Status == DeliveryStatus.Open
         && (_supplierId != _delivery.BloodSupplierId
-            || _orderedLocal != _delivery.OrderedUtc
+            || _orderedLocal != LocalEntry.FromUtc(_delivery.OrderedUtc)
             || (string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim()) != _delivery.PackingListNumber
             || _lines.Count != _delivery.Lines.Count
             || _lines.Any(l => !_delivery.Lines.Any(d => d.Id == l.Id && d.ComponentClass == l.ComponentClass && d.ExpectedQuantity == l.ExpectedQuantity)));
@@ -255,7 +273,7 @@ else
         _busy = true;
         var r = await Api.UpdateDeliveryAsync(Id, new UpdateDeliveryRequest(
             _delivery.SupplierLocked ? _delivery.BloodSupplierId : _supplierId,
-            DateTime.SpecifyKind(_orderedLocal, DateTimeKind.Utc),
+            LocalEntry.ToUtc(_orderedLocal),
             string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim(),
             lines));
         _busy = false;
@@ -264,11 +282,13 @@ else
         return r.Succeeded;
     }
 
+    private string? _completionNote;
+
     private async Task CompleteAsync()
     {
         if (IsDirty && !await SaveCoreAsync()) return;
         _busy = true;
-        var r = await Api.CompleteDeliveryAsync(Id);
+        var r = await Api.CompleteDeliveryAsync(Id, _completionNote);
         _busy = false;
         _feedback = r.Succeeded ? r.ToFeedback("Delivery completed.") : r.ToFeedback();
         if (r.Succeeded && r.Value is not null) Apply(r.Value);

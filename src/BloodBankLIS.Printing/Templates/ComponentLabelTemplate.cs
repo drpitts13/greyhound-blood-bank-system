@@ -25,7 +25,7 @@ public static class ComponentLabelTemplate
             new LabelBarcode(16, 110, barcode, height: 70),
             new LabelText(16, 200, $"DIN: {model.Din ?? "—"}    Unit: {model.UnitNumber}"),
             new LabelText(16, 236, $"Product: {model.ProductCodeData ?? model.ProductName}"),
-            new LabelText(16, 272, $"Expires: {model.ExpiresUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} UTC"),
+            new LabelText(16, 272, $"Expires: {LabelTime.Format(model.ExpiresUtc, model.TimeZoneId)}"),
         };
 
         if (!string.IsNullOrWhiteSpace(model.AboRhdCode))

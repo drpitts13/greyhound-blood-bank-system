@@ -1,10 +1,12 @@
-@using BloodBankLIS.Application.Admin
+﻿@using BloodBankLIS.Application.Admin
 @using BloodBankLIS.Application.Reference
+@using BloodBankLIS.Domain.Rules
 @using BloodBankLIS.Domain.ValueObjects
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
-<div class="stack">
+@* in-row-form: opened under a row of a wide board, the form stays in view instead of stretching across the board. *@
+<div class="stack in-row-form">
     <Outcome Value="_fb" />
 
     <div class="muted" style="margin-bottom:.5rem;">
@@ -12,7 +14,7 @@
         · Antibodies @(WorkItem.HasAntibodyHistory ? WorkItem.AntibodySummary : "none")
         @if (WorkItem.SpecimenExpiresUtc is DateTime expires)
         {
-            <span> · Specimen expires <span class="@(WorkItem.SpecimenExpired ? "badge badge-red" : "mono")">@expires.ToString("yyyy-MM-dd HH:mm")</span></span>
+            <span> · Specimen expires <span class="@(WorkItem.SpecimenExpired ? "badge badge-red" : "mono")">@expires.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span></span>
         }
         · eXM @(WorkItem.ElectronicXmEligible ? "eligible" : (WorkItem.ElectronicXmClinicalBlockReason ?? WorkItem.ElectronicXmBlockReason ?? "not eligible"))
         @if (WorkItem.OffersAntibodyIdHandoff)
@@ -32,9 +34,9 @@
     {
         <div class="muted" style="margin-bottom:.5rem;">
             Current result:
-            <span class="@Ui.Badge(WorkItem.CurrentResultStatus ?? ResultStatus.Pending)">@(WorkItem.CurrentResultStatus?.ToString() ?? "—")</span>
+            <span class="@Ui.Badge(WorkItem.CurrentResultStatus ?? ResultStatus.Pending)">@(WorkItem.CurrentResultStatus is { } crs ? Ui.EnumText(crs) : "—")</span>
             · @DisplayValue(WorkItem.TestCode, WorkItem.CurrentResultValue)
-            · Source @(WorkItem.CurrentResultSource?.ToString() ?? "—")
+            · Source @(WorkItem.CurrentResultSource is { } src ? Ui.EnumText(src) : "—")
             @if (!string.IsNullOrWhiteSpace(WorkItem.CurrentResultInterpretation))
             {
                 <span> · @WorkItem.CurrentResultInterpretation</span>
@@ -43,9 +45,9 @@
         @if (CanVerifyPostedResult)
         {
             <div class="flex gap" style="margin-bottom:.75rem;">
-                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyPostedAsync">Verify posted result</button>
+                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyPostedAsync">Verify @(WorkItem.HasPostedInterfaceOrInstrumentValue ? "posted result" : "entered result")</button>
             </div>
-            <p class="muted">The interface or instrument value is already on the order. Verify it without re-keying unless you need to correct it.</p>
+            <p class="muted">@WorkItem.AwaitingValueOrigin is already on the order. Verify it without re-keying unless you need to correct it.</p>
         }
         else if (WorkItem.IsAboSelfVerifyBlocked(Session.UserName))
         {
@@ -53,14 +55,24 @@
         }
     }
 
-    @if (!WorkItem.CanEnterResults)
+    @if (!WorkItem.CanEnterResults && WorkItem.SpecimenExpiredOnly && Session.Has(PermissionCodes.ResultEnter))
+    {
+        @* OCD-091: a result read on paper before the specimen expired can still be entered, with the time tested and why. *@
+        <div class="alert alert-warning" data-expired-backentry-note>
+            @WorkItem.BlockReason Only a result tested before the specimen expired can be entered now: give the time tested
+            and the reason. A patient test must have been tested during a recorded outage; a crossmatch need not (OCD-091).
+            Nothing new can be done on this specimen.
+        </div>
+    }
+
+    @if (!WorkItem.CanEnterResults && !(WorkItem.SpecimenExpiredOnly && Session.Has(PermissionCodes.ResultEnter)))
     {
         <div class="alert alert-warning">
             @WorkItem.BlockReason
             @if (WorkItem.NeedsSpecimenLink)
             {
                 <div style="margin-top:.5rem;">
-                    <a class="btn btn-secondary btn-sm" href="@WorkItem.ChartAccessionHref">Accession and link on Orders</a>
+                    <a class="btn btn-secondary btn-sm" href="@WorkItem.ChartAccessionHref">Accession a tube for this order</a>
                 </div>
             }
         </div>
@@ -91,12 +103,14 @@
                 <div class="form-row" style="margin-top:.5rem;">
                     <div class="field"><label>Interpreted ABO</label>
                         <select @bind="_abo">
-                            @foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }
+                            <option value="">— Select —</option>
+                            @foreach (var a in AboGroups.All) { <option value="@a">@Ui.EnumText(a)</option> }
                         </select>
                     </div>
                     <div class="field"><label>Interpreted Rh(D)</label>
                         <select @bind="_rh">
-                            @foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@rr</option> }
+                            <option value="">— Select —</option>
+                            @foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@Ui.EnumText(rr)</option> }
                         </select>
                     </div>
                 </div>
@@ -104,6 +118,7 @@
 
             @if (ShowsPanelSubtests && _panelSubtests.Count > 0 && HasPhases)
             {
+                <div class="table-scroll">
                 <table class="bb" style="margin-top:.5rem;">
                     <thead>
                         <tr>
@@ -126,9 +141,9 @@
                                         @if (assigned is not null)
                                         {
                                             <select value="@GetSubtestValue(PhaseKey(st.SubtestCode, phase.PhaseCode))" @onchange="e => SetSubtestValue(PhaseKey(st.SubtestCode, phase.PhaseCode), e)">
+                                                <option value="">—</option>
                                                 @if (!assigned.Required)
                                                 {
-                                                    <option value="">—</option>
                                                     <option value="NT">NT</option>
                                                 }
                                                 @foreach (var c in st.Choices)
@@ -147,9 +162,11 @@
                         }
                     </tbody>
                 </table>
+                </div>
             }
             else if (ShowsPanelSubtests && _panelSubtests.Count > 0)
             {
+                <div class="table-scroll">
                 <table class="bb" style="margin-top:.5rem;">
                     <thead><tr><th>@(IsCrossmatchType ? "Cell reaction" : "Subtest")</th><th>Result</th><th></th></tr></thead>
                     <tbody>
@@ -171,6 +188,10 @@
                                             {
                                                 <option value="NT">NT</option>
                                             }
+                                            else
+                                            {
+                                                <option value="">—</option>
+                                            }
                                             @foreach (var c in st.Choices)
                                             {
                                                 <option value="@c.Code">@c.Label</option>
@@ -188,6 +209,12 @@
                         }
                     </tbody>
                 </table>
+                </div>
+            }
+
+            @if (_interpretationNote is not null)
+            {
+                <p class="muted" style="margin-top:.35rem;">@_interpretationNote</p>
             }
 
             @if (_definition.ResultValueType == ResultValueType.Coded)
@@ -198,7 +225,7 @@
                         <option value="">— Select —</option>
                         @foreach (var v in AllowedValues)
                         {
-                            <option value="@v">@v</option>
+                            <option value="@v">@Ui.EnumText(v)</option>
                         }
                     </select>
                 </div>
@@ -206,9 +233,72 @@
             else if (_definition.ResultValueType == ResultValueType.Numeric)
             {
                 <div class="form-row" style="margin-top:.5rem;">
-                    <div class="field"><label>Value</label><input @bind="_value" /></div>
+                    <div class="field"><label>Value</label><input @bind="_value" @bind:event="oninput" inputmode="decimal" data-numeric-value /></div>
                     <div class="field"><label>Units</label><input @bind="_units" placeholder="e.g. g/dL" /></div>
                 </div>
+                @if (_definition.Numeric?.ReferenceText(_units) is { } reference)
+                {
+                    <p class="muted" style="margin:.25rem 0 0;" data-numeric-reference>Reference @reference</p>
+                }
+                @if (NumericCheck is { } check)
+                {
+                    @if (!check.IsAllowed)
+                    {
+                        <p class="text-danger" style="margin:.25rem 0 0;" data-numeric-check>@check.Result.Message</p>
+                    }
+                    else if (check.Flag is { } flag)
+                    {
+                        <p style="margin:.25rem 0 0;" data-numeric-check>
+                            <span class="badge @(flag is "LL" or "HH" ? "badge-red" : "badge-amber")">@flag</span>
+                            @(check.Critical?.Message ?? (flag == "L" ? "Below the reference range." : "Above the reference range."))
+                        </p>
+                    }
+                }
+            }
+            else if (_definition.ResultValueType == ResultValueType.Titer && _definition.Titer is { } titer)
+            {
+                @* One row per dilution, read until the first negative; endpoint and score follow the shared rule. *@
+                <div class="table-scroll">
+                <table class="bb" style="margin-top:.5rem;max-width:28rem;" data-titer-entry>
+                    <thead><tr><th>Dilution</th><th>Reaction@(string.IsNullOrWhiteSpace(titer.PhaseCode) ? "" : $" ({titer.PhaseCode})")</th></tr></thead>
+                    <tbody>
+                        @foreach (var dilution in TiterRule.Dilutions(titer.StartDilution, titer.EndDilution))
+                        {
+                            var d = dilution;
+                            <tr>
+                                <td class="mono">1:@d</td>
+                                <td>
+                                    <select value="@_titerGrades.GetValueOrDefault(d, string.Empty)" @onchange="e => SetTiterGrade(d, e.Value?.ToString())" aria-label="@($"Reaction at 1:{d}")">
+                                        <option value="">—</option>
+                                        @foreach (var grade in TiterRule.Grades)
+                                        {
+                                            <option value="@grade">@Ui.EnumText(grade)</option>
+                                        }
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+                @if (_titerGrades.Count > 0)
+                {
+                    var titerCheck = TiterRule.Evaluate(titer, TiterReadings());
+                    <p style="margin:.25rem 0 0;" data-titer-check>
+                        @if (titerCheck.Value is { } t)
+                        {
+                            <strong>@t.Interpretation</strong>
+                        }
+                        else
+                        {
+                            <span class="text-danger">@titerCheck.Result.Message</span>
+                        }
+                        @if (titerCheck.Pattern is { } pattern)
+                        {
+                            <span class="badge badge-amber" style="margin-left:.5rem;">@pattern.Message</span>
+                        }
+                    </p>
+                }
             }
             else if (_definition.ResultValueType == ResultValueType.FreeText)
             {
@@ -243,6 +333,7 @@
                         <input @bind="_unitNumber" placeholder="W0001230000001" />
                     </div>
                 }
+                <div class="table-scroll">
                 <table class="bb" style="margin-top:.5rem;">
                     <thead>
                         <tr>
@@ -275,13 +366,14 @@
                                 }
                                 <td>
                                     <select value="@GetBloodAttrResult(attr.Code)" @onchange="e => SetBloodAttrResult(attr.Code, e)">
-                                        @foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }
+                                        @foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@Ui.EnumText(r)</option> }
                                     </select>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
+                </div>
             }
 
             @if (IsCrossmatchType)
@@ -311,17 +403,15 @@
                     </div>
                     <div class="field"><label>Method</label>
                         <select @bind="_xmMethod">
-                            @foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }
+                            @foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@Ui.EnumText(m)</option> }
                         </select>
                     </div>
                     <div class="field"><label>Crossmatch result</label>
                         <select @bind="_xmResult">
+                            <option value="">— Select —</option>
                             <option value="@CrossmatchResult.Compatible">Compatible</option>
                             <option value="@CrossmatchResult.Incompatible">Incompatible</option>
                         </select>
-                    </div>
-                    <div class="field" style="align-self:end;">
-                        <label class="flex"><input type="checkbox" @bind="_antibodyScreenNegative" /> Antibody screen negative</label>
                     </div>
                 </div>
             }
@@ -345,6 +435,23 @@
                     }
                 </div>
             }
+
+            @* Pass 85: results read on paper (an outage) keep when they were tested, not only when they were entered. *@
+            <details style="margin-top:.5rem;" data-result-tested-at open="@(_testedLocal is not null || WorkItem.SpecimenExpiredOnly)">
+                <summary class="muted">Tested earlier (paper or downtime result)?</summary>
+                <div class="field" style="max-width:16rem;">
+                    <label>Time tested@(WorkItem.SpecimenExpiredOnly ? " (required)" : "")</label>
+                    <input type="datetime-local" @bind="_testedLocal" data-result-tested-time />
+                    <span class="sub">Leave blank when testing now. Kept with the result as "tested … (entered later)".</span>
+                </div>
+                @if (WorkItem.SpecimenExpiredOnly)
+                {
+                    <div class="field" style="max-width:36rem;">
+                        <label>Why enter it now, after the specimen expired? (required)</label>
+                        <input @bind="_expiredSpecimenReason" maxlength="@ExpiredSpecimenBackEntryRule.MaxReasonLength" placeholder="e.g. Read on paper during the outage; system down until after expiry" data-expired-specimen-reason />
+                    </div>
+                }
+            </details>
 
             @if (WorkItem.CurrentResultStatus == ResultStatus.Verified && _showSavePrompt)
             {
@@ -373,7 +480,7 @@
                                     <option value="@AboRhHistoryResolution.Replace">Replace with current result</option>
                                 </select>
                             </div>
-                            <div class="field"><label>Authorized by</label><input @bind="_authorizedBy" placeholder="@Session.UserName" /></div>
+                            <AuthorizerField @bind-Value="_authorizedBy" />
                         </div>
                         <div class="field"><label>Override reason</label><input @bind="_overrideReason" @bind:event="oninput" /></div>
                         <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" @bind:event="oninput" placeholder="I authorize ABO/Rh discrepancy override" /></div>
@@ -394,7 +501,8 @@
                             : "Is this test complete?")
                     </div>
                     <div class="flex gap">
-                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(false)">Save incomplete</button>
+                        @* For ABO/Rh the result is complete; it waits for a second person's verification (end-user testing, 2026-11-12). *@
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(false)">@(IsAboRhEntry ? "Save for verification" : "Save incomplete")</button>
                         @if (Session.Has(PermissionCodes.ResultVerify) && !IsAboRhEntry)
                         {
                             <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(true)">Save &amp; verify</button>
@@ -421,20 +529,26 @@
     // Blood-attribute codes are case-sensitive (Rh C vs c, E vs e).
     private Dictionary<string, AntigenResult> _bloodAttrResults = new(StringComparer.Ordinal);
     private Dictionary<string, bool> _optionalSubtestPerformed = new(StringComparer.OrdinalIgnoreCase);
-    private AboGroup _abo = AboGroup.O;
-    private RhType _rh = RhType.Positive;
+    // Start unchosen: filled in from the reactions or chosen, never assumed O / Positive.
+    private AboGroup? _abo;
+    private RhType? _rh;
     private string _value = string.Empty;
+    // Titer tests: the grade read at each dilution (1:n).
+    private Dictionary<int, string> _titerGrades = new();
     private string _codedValue = string.Empty;
     private string _units = string.Empty;
     private string _interpretation = string.Empty;
+    private string? _interpretationNote;
     private string _unitNumber = string.Empty;
     private List<PatientAllocationRowDto> _reservedUnits = new();
     private List<BloodAttributeListItemDto> _antibodyCatalog = new();
     private bool _unitsLoading;
     private CrossmatchMethod _xmMethod = CrossmatchMethod.Serologic;
-    private CrossmatchResult _xmResult = CrossmatchResult.Compatible;
-    private bool _antibodyScreenNegative = true;
+    // Starts unchosen: filled in from the reactions or chosen, never assumed Compatible.
+    private CrossmatchResult? _xmResult;
     private string _correctionReason = string.Empty;
+    private DateTime? _testedLocal;
+    private string? _expiredSpecimenReason;
     private bool _showSavePrompt;
     private bool _showDeltaOverride;
     private bool _postedVerifyDelta;
@@ -451,7 +565,7 @@
     private bool CanOverrideDelta => Session.SecurityLevel >= _deltaMinLevel;
 
     private bool CanVerifyPostedResult =>
-        WorkItem.CanEnterResults
+        (WorkItem.CanEnterResults || WorkItem.SpecimenExpiredOnly)
         && WorkItem.CurrentResultId is > 0
         && WorkItem.CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
         && Session.Has(PermissionCodes.ResultVerify)
@@ -473,6 +587,7 @@
     {
         _fb = null;
         _showSavePrompt = false;
+        _interpretationNote = null;
         _defLoading = true;
         var r = await Api.GetTestDefinitionForEntryAsync(WorkItem.TestCode);
         _defLoading = false;
@@ -487,8 +602,17 @@
         }
 
         _panelSubtests = _definition?.PanelSubtests.ToList() ?? [];
+        _titerGrades = new();
+        if (_definition?.ResultValueType == ResultValueType.Numeric && string.IsNullOrWhiteSpace(_units))
+        {
+            _units = _definition.ResultUnits ?? string.Empty;
+        }
+
         ResetSubtestValues();
         ResetBloodAttrResults();
+        _xmResult = null;
+        _abo = null;
+        _rh = null;
         _unitNumber = string.Empty;
         _reservedUnits = new();
         PrefillFromCurrent();
@@ -575,7 +699,11 @@
             return;
         }
 
-        if (_definition?.ResultValueType == ResultValueType.AboRh && AboRhResultValue.TryParsePanel(WorkItem.CurrentResultValue, out var panel))
+        if (_definition?.ResultValueType == ResultValueType.Titer && TiterResultValue.TryParse(WorkItem.CurrentResultValue, out var storedTiter))
+        {
+            _titerGrades = storedTiter!.Readings.ToDictionary(r => r.Dilution, r => r.Grade);
+        }
+        else if (_definition?.ResultValueType == ResultValueType.AboRh && AboRhResultValue.TryParsePanel(WorkItem.CurrentResultValue, out var panel))
         {
             _abo = panel.Abo;
             _rh = panel.Rh;
@@ -825,7 +953,7 @@
 
         var req = new VerifyResultRequest(
             _overrideReason.Trim(),
-            string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy.Trim(),
+            _authorizedBy.Trim(),
             _historyResolution,
             sig.Value.Id);
         var r = await Api.VerifyResultAsync(resultId, req, sig.Value.Id);
@@ -872,6 +1000,26 @@
         if (IsCrossmatchType && string.IsNullOrWhiteSpace(_unitNumber))
         {
             _fb = Feedback.Fail("Select the reserved unit this crossmatch was performed against.");
+            return;
+        }
+
+
+        var missingReadings = ReactionInterpretationSuggestion.MissingReadingsMessage(
+            ReactionInterpretationSuggestion.MissingReadings(_panelSubtests, _subtestValues));
+        if (ShowsPanelSubtests && missingReadings is not null)
+        {
+            _fb = Feedback.Fail(missingReadings);
+            return;
+        }
+        if (_definition?.ResultValueType == ResultValueType.AboRh && (_abo is null || _rh is null))
+        {
+            _fb = Feedback.Fail("Choose the interpreted ABO and Rh(D).");
+            return;
+        }
+
+        if (IsCrossmatchType && _xmResult is null)
+        {
+            _fb = Feedback.Fail("Choose the crossmatch result: Compatible or Incompatible.");
             return;
         }
 
@@ -922,11 +1070,15 @@
             string.IsNullOrWhiteSpace(_unitNumber) ? null : _unitNumber.Trim(),
             IsCrossmatchType ? _xmMethod : null,
             IsCrossmatchType ? _xmResult : null,
-            _antibodyScreenNegative,
+            // The antibody screen is read from the specimen's verified results, not attested here.
+            null,
             includeOverride ? _overrideReason.Trim() : null,
-            includeOverride ? (string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy.Trim()) : null,
+            includeOverride ? _authorizedBy.Trim() : null,
             includeOverride ? _historyResolution : null,
-            signatureId);
+            signatureId,
+            TiterReadings: _definition?.ResultValueType == ResultValueType.Titer ? TiterReadings() : null,
+            TestedUtc: _testedLocal is DateTime testedLocal ? LocalEntry.ToUtc(testedLocal) : null,
+            ExpiredSpecimenReason: WorkItem.SpecimenExpiredOnly ? _expiredSpecimenReason : null);
 
         var r = await Api.SaveTestResultAsync(req, signatureId);
         _busy = false;
@@ -942,7 +1094,7 @@
             ? IsAboRhEntry
                 ? $"{ResultSourceEntryCopy.PanelEntered(r.Value.Source)} A different user must verify before it becomes the current type."
                 : IsCrossmatchType
-                    ? CrossmatchEntryCopy.WorklistSaved(r.Value.Source, _xmMethod, _xmResult, markComplete)
+                    ? CrossmatchEntryCopy.WorklistSaved(r.Value.Source, _xmMethod, _xmResult!.Value, markComplete)
                     : markComplete
                         ? $"{ResultSourceEntryCopy.Saved(r.Value.Source)} Verified."
                         : $"{ResultSourceEntryCopy.Saved(r.Value.Source)} Incomplete."
@@ -956,7 +1108,29 @@
             _showDeltaOverride = false;
             _correctionReason = string.Empty;
             _overrideReason = string.Empty;
+            _testedLocal = null;
+            _expiredSpecimenReason = null;
             await OnSaved.InvokeAsync();
+        }
+    }
+
+    private NumericEvaluation? NumericCheck =>
+        _definition?.Numeric is { } limits && !string.IsNullOrWhiteSpace(_value)
+            ? NumericResultRule.Evaluate(_value, limits, _units)
+            : null;
+
+    private IReadOnlyList<TiterReading> TiterReadings() =>
+        _titerGrades.Where(kv => !string.IsNullOrWhiteSpace(kv.Value)).OrderBy(kv => kv.Key).Select(kv => new TiterReading(kv.Key, kv.Value)).ToList();
+
+    private void SetTiterGrade(int dilution, string? grade)
+    {
+        if (string.IsNullOrWhiteSpace(grade))
+        {
+            _titerGrades.Remove(dilution);
+        }
+        else
+        {
+            _titerGrades[dilution] = grade;
         }
     }
 
@@ -977,10 +1151,7 @@
 
     private Dictionary<string, string>? BuildSubtests()
     {
-        if (_definition?.ResultValueType is not (ResultValueType.AboRh
-                or ResultValueType.Subtest
-                or ResultValueType.Crossmatch
-                or ResultValueType.ComplexCrossmatch))
+        if (!ShowsPanelSubtests)
         {
             return null;
         }
@@ -1075,29 +1246,84 @@
 
     private static string DefaultValueFor(ResolvedPanelSubtestDto st)
     {
-        if (!st.Required)
-        {
-            return "NT";
-        }
-
-        return st.ResultType switch
-        {
-            SubtestResultType.FreeText => string.Empty,
-            _ => st.Choices.FirstOrDefault()?.Code ?? "0"
-        };
+        // A required reading starts blank: a reaction nobody read must never be saved as the first grade ("0").
+        return st.Required ? string.Empty : "NT";
     }
 
     private string GetSubtestValue(string code) =>
         _subtestValues.TryGetValue(code, out var v) ? v : string.Empty;
 
-    private void SetSubtestValue(string code, ChangeEventArgs e) =>
+    private void SetSubtestValue(string code, ChangeEventArgs e)
+    {
         _subtestValues[code] = e.Value?.ToString() ?? string.Empty;
+        ApplyReactionInterpretation();
+    }
 
     private bool IsOptionalPerformed(string code) =>
         _optionalSubtestPerformed.TryGetValue(code, out var p) && p;
 
-    private void OnOptionalPerformedChanged(string code, ChangeEventArgs e) =>
+    private void OnOptionalPerformedChanged(string code, ChangeEventArgs e)
+    {
         _optionalSubtestPerformed[code] = e.Value is bool b && b;
+        ApplyReactionInterpretation();
+    }
+
+    /// <summary>
+    /// Fills the ABO/Rh type, crossmatch result or panel interpretation in from the reactions
+    /// as they are entered. Reactions that fit no single interpretation leave the current
+    /// choice alone and say so, so a discrepancy is never resolved silently.
+    /// </summary>
+    private void ApplyReactionInterpretation()
+    {
+        if (_definition is null)
+        {
+            return;
+        }
+
+        var notPerformed = _optionalSubtestPerformed
+            .Where(kv => !kv.Value)
+            .Select(kv => kv.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        bool filled;
+        if (_definition.ResultValueType == ResultValueType.AboRh)
+        {
+            var type = ReactionInterpretationSuggestion.SuggestAboRh(
+                _definition.InterpretationOptions, _panelSubtests, _subtestValues, notPerformed);
+            filled = type is not null;
+            if (type is AboRh t)
+            {
+                _abo = t.Abo;
+                _rh = t.Rh;
+            }
+        }
+        else if (IsCrossmatchType)
+        {
+            var result = ReactionInterpretationSuggestion.SuggestCrossmatch(_panelSubtests, _subtestValues, notPerformed);
+            filled = result is not null;
+            if (result is CrossmatchResult r)
+            {
+                _xmResult = r;
+            }
+        }
+        else if (_interpretationRequired)
+        {
+            var key = ReactionInterpretationSuggestion.SuggestKey(
+                _definition.InterpretationOptions, _panelSubtests, _subtestValues, notPerformed);
+            filled = key is not null;
+            if (key is not null)
+            {
+                _interpretation = key;
+            }
+        }
+        else
+        {
+            return;
+        }
+
+        _interpretationNote = filled
+            ? ReactionInterpretationSuggestion.FilledNote
+            : ReactionInterpretationSuggestion.NoMatchNote;
+    }
 
     private static string DisplayValue(string testCode, string? value)
     {

@@ -455,7 +455,7 @@ public class OrderActionTests : IClassFixture<SqliteContextFactory>
             unit.Id,
             patient.Id,
             PatientIdentifier1Value: patient.MedicalRecordNumber,
-            PatientIdentifier2Value: patient.DateOfBirth.ToString("yyyy-MM-dd")));
+            PatientIdentifier2Value: patient.DateOfBirth.ToString("yyyy-MM-dd"), Appearance: UnitAppearance.Acceptable));
         Assert.True(
             issued.Succeeded,
             issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => $"{r.Code}: {r.Message}") ?? []));

@@ -32,7 +32,11 @@ public sealed class CompatibilityRulesEngine
         bool PathogenReduced,
         bool UnitExpired,
         bool EmergencyRelease,
-        bool ElectronicCrossmatchEligible);
+        bool ElectronicCrossmatchEligible)
+    {
+        /// <summary>For a mixed-ABO pool, the ABO/Rh of each source unit; without them a Mixed unit is refused.</summary>
+        public IReadOnlyList<PoolComponent>? PoolComponents { get; init; }
+    }
 
     public sealed record Decision(
         CompatibilityOutcome Outcome,
@@ -79,7 +83,7 @@ public sealed class CompatibilityRulesEngine
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentExpired, "Component is expired."));
 
         if (request.PatientBloodTypeKnown && request.ComponentAboRh.IsKnown)
-            results.AddRange(AboCompatibilityRule.Evaluate(request.PatientAboRh, request.ComponentAboRh, request.ComponentClass));
+            results.AddRange(AboCompatibilityRule.EvaluateUnit(request.PatientAboRh, request.ComponentAboRh, request.PoolComponents, request.ComponentClass));
 
         // Rule-family selection — do not assume all products use RBC logic.
         var pathway = SelectPathway(request);

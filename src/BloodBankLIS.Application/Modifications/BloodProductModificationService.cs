@@ -42,6 +42,7 @@ public sealed class BloodProductModificationService
     private readonly IRepository<InventoryLocation>? _locations;
     private readonly IRepository<Patient>? _patients;
     private readonly FacilityPolicyService? _policy;
+    private readonly IRepository<Equipment>? _equipment;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -65,8 +66,10 @@ public sealed class BloodProductModificationService
         IRepository<UnitBloodAttribute>? unitAttributes = null,
         IRepository<InventoryLocation>? locations = null,
         IRepository<Patient>? patients = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<Equipment>? equipment = null)
     {
+        _equipment = equipment;
         _inventory = inventory;
         _rules = rules;
         _products = products;
@@ -123,7 +126,8 @@ public sealed class BloodProductModificationService
                         code.RelativeTo, now, new[] { collection }, out var anchor, out _))
                 {
                     available = true;
-                    preview = ModificationExpirationRule.ComputeNewExpiresUtc(anchor, code.ToOffset(), unit.ExpiresUtc);
+                    preview = ModificationExpirationRule.ComputeNewExpiresUtc(anchor, code.ToOffset(), unit.ExpiresUtc,
+                        ModificationExpirationRule.CapsAtSourceExpiration(r.ModificationType));
                 }
                 return new EligibleModificationDto(
                     r.Id, r.ModificationCode, r.ModificationType, r.TargetProductTypeId,
@@ -276,7 +280,9 @@ public sealed class BloodProductModificationService
                         ? patientLabel
                         : ModificationHistoryPatientCue.Format(null, orderCouldNotBeRead: true),
                     m.SupplyDescription,
-                    m.SupplyLot);
+                    m.SupplyLot,
+                    m.DeviceId,
+                    m.IndicatorConfirmed);
             })
             .ToList();
     }
@@ -364,10 +370,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var rule = await _rules.GetByIdAsync(request.RuleId, ct);
         if (rule is null || !rule.IsActive)
@@ -429,10 +439,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var rule = await _rules.GetByIdAsync(request.RuleId, ct);
         if (rule is null || !rule.IsActive)
@@ -493,10 +507,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var rule = await _rules.GetByIdAsync(request.RuleId, ct);
         if (rule is null || !rule.IsActive)
@@ -530,7 +548,9 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Blocked(perUnitEval);
         }
 
-        var poolEval = UnitModificationEligibilityRule.EvaluatePool(sources.Select(ToSnapshot).ToList());
+        var poolTarget = await _inventory.GetProductTypeAsync(rule.TargetProductTypeId, ct);
+        var allowMixed = poolTarget is { AllowMixedAboPool: true, ComponentClass: ComponentClass.Cryoprecipitate };
+        var poolEval = UnitModificationEligibilityRule.EvaluatePool(sources.Select(ToSnapshot).ToList(), allowMixed);
         if (poolEval.IsHardStopped)
         {
             return ModificationActionResult.Blocked(poolEval);
@@ -582,10 +602,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var rule = await _rules.GetByIdAsync(request.RuleId, ct);
         if (rule is null || !rule.IsActive)
@@ -642,7 +666,10 @@ public sealed class BloodProductModificationService
             orderLink.Context,
             inherited.Attributes,
             supplyDescription: request.SupplyDescription,
-            supplyLot: request.SupplyLot);
+            supplyLot: request.SupplyLot,
+            deviceId: request.DeviceId,
+            indicatorConfirmed: request.IndicatorConfirmed,
+            resultLocationId: request.ResultLocationId);
     }
 
     /// <summary>
@@ -658,10 +685,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var ids = (request.SourceUnitIds ?? []).Where(id => id > 0).Distinct().ToList();
         var count = BatchModificationRule.Evaluate(ids.Count);
@@ -712,6 +743,16 @@ public sealed class BloodProductModificationService
             ready.Add((source, inherited.Attributes));
         }
 
+        // Every result must have a place before any unit is modified (a batch modifies all or none).
+        foreach (var item in ready)
+        {
+            var placed = await ResolveResultLocationAsync(rule, item.Unit.CurrentLocationId, request.ResultLocationId, ct);
+            if (placed.Error is not null)
+            {
+                return ModificationActionResult.Fail($"{item.Unit.UnitNumber}: {placed.Error} No unit was modified.");
+            }
+        }
+
         ModificationActionResult? last = null;
         foreach (var item in ready)
         {
@@ -724,7 +765,10 @@ public sealed class BloodProductModificationService
                 ct,
                 inheritedAttributes: item.Attributes,
                 supplyDescription: request.SupplyDescription,
-                supplyLot: request.SupplyLot);
+                supplyLot: request.SupplyLot,
+                deviceId: request.DeviceId,
+                indicatorConfirmed: request.IndicatorConfirmed,
+                resultLocationId: request.ResultLocationId);
             if (!last.Succeeded)
             {
                 return last;
@@ -817,6 +861,50 @@ public sealed class BloodProductModificationService
         return (null, inheritance.Inherited);
     }
 
+    /// <summary>
+    /// Where the result units go. A chosen location must be active and take the result's component (the transfer's
+    /// storage check). With none chosen the result stays where the source was, except that a thawed unit may not stay
+    /// in a freezer (end-user testing, 2026-11-12: thawed plasma was recorded back in the plasma freezer).
+    /// </summary>
+    private async Task<(long? LocationId, string? Error)> ResolveResultLocationAsync(
+        ModificationRule rule, long? sourceLocationId, long? chosenLocationId, CancellationToken ct)
+    {
+        if (_locations is null)
+        {
+            return (chosenLocationId ?? sourceLocationId, null);
+        }
+
+        if (chosenLocationId is long chosen)
+        {
+            var location = await _locations.GetByIdAsync(chosen, ct);
+            if (location is null || !location.IsActive)
+            {
+                return (null, "The result location is not an active inventory location.");
+            }
+
+            var target = await _inventory.GetProductTypeAsync(rule.TargetProductTypeId, ct);
+            if (target is not null && !InventoryLocationPolicyRule.AllowsComponent(location, target.ComponentClass))
+            {
+                return (null, $"{location.Code} {location.Name} does not take {target.Name}. Choose another result location.");
+            }
+
+            // Loop 2 tick 19: thawed and deglycerolized results leave the freezer; a frozen result goes into one.
+            return ModificationResultStorageRule.Problem(rule.ModificationType, location.LocationType, $"{location.Code} {location.Name}", chosen: true) is { } chosenProblem
+                ? (null, chosenProblem)
+                : (chosen, null);
+        }
+
+        if (sourceLocationId is long sourceId
+            && (ModificationResultStorageRule.LeavesFreezer(rule.ModificationType) || ModificationResultStorageRule.GoesToFreezer(rule.ModificationType))
+            && await _locations.GetByIdAsync(sourceId, ct) is { } source
+            && ModificationResultStorageRule.Problem(rule.ModificationType, source.LocationType, $"{source.Code} {source.Name}", chosen: false) is { } stayProblem)
+        {
+            return (null, stayProblem);
+        }
+
+        return (sourceLocationId, null);
+    }
+
     private async Task<ModificationActionResult> ExecuteAsync(
         IReadOnlyList<BloodUnit> sources,
         ModificationRule rule,
@@ -827,13 +915,45 @@ public sealed class BloodProductModificationService
         IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute>? inheritedAttributes = null,
         bool keepParent = false,
         string? supplyDescription = null,
-        string? supplyLot = null)
+        string? supplyLot = null,
+        string? deviceId = null,
+        bool? indicatorConfirmed = null,
+        long? resultLocationId = null)
     {
+        var placed = await ResolveResultLocationAsync(rule, sources[0].CurrentLocationId, resultLocationId, ct);
+        if (placed.Error is not null)
+        {
+            return ModificationActionResult.Fail(placed.Error);
+        }
+
         var requiredLot = _policy is not null && await _policy.GetRequireModificationSupplyLotAsync(ct);
         var supply = ModificationSupplyLotRule.Evaluate(requiredLot, supplyLot);
         if (supply.Severity == RuleSeverity.HardStop)
         {
             return ModificationActionResult.Blocked(new RuleEvaluation([supply]));
+        }
+
+        var requiredIrradiation = rule.ModificationType == ModificationType.Irradiate
+            && _policy is not null && await _policy.GetRequireIrradiationRecordAsync(ct);
+        var device = ModificationDeviceRule.Evaluate(rule.ModificationType, requiredIrradiation, deviceId, indicatorConfirmed);
+        if (device.Severity == RuleSeverity.HardStop)
+        {
+            return ModificationActionResult.Blocked(new RuleEvaluation([device]));
+        }
+
+        // A device in the equipment register must be in service (Cycle 709).
+        if (_equipment is not null && !string.IsNullOrWhiteSpace(deviceId))
+        {
+            var code = deviceId.Trim().ToUpperInvariant();
+            var registered = (await _equipment.ListAsync(e => e.Code == code, ct)).FirstOrDefault();
+            if (registered is not null)
+            {
+                var inService = ModificationDeviceRule.EvaluateRegistered(registered.Code, registered.IsActive, registered.OutOfServiceUtc, registered.OutOfServiceReason);
+                if (inService.Severity == RuleSeverity.HardStop)
+                {
+                    return ModificationActionResult.Blocked(new RuleEvaluation([inService]));
+                }
+            }
         }
 
         var restriction = UnitModificationRestrictionRule.Evaluate(
@@ -881,7 +1001,8 @@ public sealed class BloodProductModificationService
         }
 
         var originalExpiresUtc = ModificationExpirationRule.EarliestExpiration(sources.Select(s => s.ExpiresUtc));
-        var resultExpiresUtc = ModificationExpirationRule.ComputeNewExpiresUtc(anchorUtc, expCode.ToOffset(), originalExpiresUtc);
+        var resultExpiresUtc = ModificationExpirationRule.ComputeNewExpiresUtc(anchorUtc, expCode.ToOffset(), originalExpiresUtc,
+            ModificationExpirationRule.CapsAtSourceExpiration(rule.ModificationType));
 
         var primarySource = sources[0];
         var singleSource = sources.Count == 1;
@@ -917,7 +1038,9 @@ public sealed class BloodProductModificationService
             PerformedBy = _currentUser.UserName,
             PerformedUtc = now,
             SupplyDescription = string.IsNullOrWhiteSpace(supplyDescription) ? null : supplyDescription.Trim(),
-            SupplyLot = string.IsNullOrWhiteSpace(supplyLot) ? null : supplyLot.Trim()
+            SupplyLot = string.IsNullOrWhiteSpace(supplyLot) ? null : supplyLot.Trim(),
+            DeviceId = string.IsNullOrWhiteSpace(deviceId) ? null : deviceId.Trim(),
+            IndicatorConfirmed = rule.ModificationType == ModificationType.Irradiate ? indicatorConfirmed : null
         };
         await _modifications.AddAsync(header, ct);
 
@@ -1016,12 +1139,21 @@ public sealed class BloodProductModificationService
                 ProductDescriptionCode = dividePdc ?? targetProduct?.Isbt128ProductCode,
                 CollectionTypeCode = productCodeData is not null ? divideCollection : null,
                 DivisionCode = division,
-                Abo = primarySource.Abo,
-                RhD = primarySource.RhD,
+                // Mixed-ABO pooling: a pool records every source's ABO/Rh (phase 1) and takes its group from them (phase 3):
+                // Mixed when the groups differ, Rh positive when any source is.
+                Abo = rule.ModificationType == ModificationType.Pool
+                    ? PoolComponents.ResultAbo(sources.Select(s => new PoolComponent(s.Abo, s.RhD)).ToList())
+                    : primarySource.Abo,
+                RhD = rule.ModificationType == ModificationType.Pool
+                    ? PoolComponents.ResultRh(sources.Select(s => new PoolComponent(s.Abo, s.RhD)).ToList())
+                    : primarySource.RhD,
+                PoolComponentsJson = rule.ModificationType == ModificationType.Pool
+                    ? PoolComponents.ToJson(sources.Select(s => new PoolComponent(s.Abo, s.RhD)))
+                    : null,
                 DonationRestriction = restriction.Restriction,
                 ReservedPatientId = restriction.ReservedPatientId,
                 ExpiresUtc = resultExpiresUtc,
-                CurrentLocationId = primarySource.CurrentLocationId,
+                CurrentLocationId = placed.LocationId,
                 Volume = spec.Volume,
                 Status = orderLink is null ? UnitStatus.Quarantine : UnitStatus.Assigned,
                 Source = ComponentEntrySource.Manual,
@@ -1112,7 +1244,9 @@ public sealed class BloodProductModificationService
                 ParentVolumeBefore = parentVolumeBefore,
                 ParentVolumeAfter = parentVolumeAfter,
                 header.SupplyDescription,
-                header.SupplyLot
+                header.SupplyLot,
+                header.DeviceId,
+                header.IndicatorConfirmed
             },
             reason: reason);
 

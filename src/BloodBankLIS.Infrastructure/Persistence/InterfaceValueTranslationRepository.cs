@@ -46,19 +46,21 @@ public sealed class InterfaceValueTranslationRepository : IInterfaceValueTransla
     public async Task ReplaceForDataItemAsync(
         string dataItemKey,
         IReadOnlyList<InterfaceValueTranslation> rows,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        long? endpointId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataItemKey);
         ArgumentNullException.ThrowIfNull(rows);
 
         var existing = await _context.InterfaceValueTranslations
-            .Where(m => m.DataItemKey == dataItemKey)
+            .Where(m => m.DataItemKey == dataItemKey && m.EndpointId == endpointId)
             .ToListAsync(cancellationToken);
         _context.InterfaceValueTranslations.RemoveRange(existing);
 
         foreach (var row in rows)
         {
             row.DataItemKey = dataItemKey;
+            row.EndpointId = endpointId;
             await _context.InterfaceValueTranslations.AddAsync(row, cancellationToken);
         }
     }

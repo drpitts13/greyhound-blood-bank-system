@@ -1,0 +1,77 @@
+@using BloodBankLIS.Application.PatientWorkspace
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+@* History of one order, opened from the Orders tab: placed, changes, specimens, results, and its units. *@
+<div class="bb-specimen-history" data-scroll-on-show data-order-history>
+    <div class="flex-between" style="margin-bottom:.5rem;">
+        <strong>History of order <span class="mono">@(_timeline?.OrderNumber ?? OrderNumber)</span></strong>
+        <span class="flex gap">
+            <label class="bb-timeline-toggle"><input type="checkbox" @bind="_attentionOnly" /> Warnings and critical only</label>
+            @if (Session.Has(PermissionCodes.AuditRead))
+            {
+                <a class="btn btn-ghost btn-sm" href="@AuditUrls.For("Order", OrderId)" title="Every audited change to this order">Full audit trail</a>
+            }
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_loading" @onclick="LoadAsync">Refresh</button>
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="OnClose">Close</button>
+        </span>
+    </div>
+    @if (_loading)
+    {
+        <div class="loading">Loading history...</div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    else if (_timeline is not null)
+    {
+        var events = _timeline.Events.Where(e => !_attentionOnly || e.Severity != TimelineSeverity.Info).ToList();
+        @if (events.Count == 0)
+        {
+            <div class="empty">No warnings or critical events on this order.</div>
+        }
+        else
+        {
+            <TimelineEventList Events="events" />
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public long PatientId { get; set; }
+    [Parameter, EditorRequired] public long OrderId { get; set; }
+    [Parameter] public string? OrderNumber { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private OrderTimelineDto? _timeline;
+    private long _loadedFor;
+    private bool _loading;
+    private bool _attentionOnly;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor != OrderId)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        var result = await Api.GetOrderTimelineAsync(PatientId, OrderId);
+        _loading = false;
+        _loadedFor = OrderId;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _timeline = null;
+            _error = result.Error ?? "The order history could not be loaded. Try Refresh.";
+            return;
+        }
+
+        _timeline = result.Value;
+    }
+}
