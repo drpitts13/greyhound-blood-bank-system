@@ -29931,3 +29931,22 @@ Clean count stays at 0.
 
 Clean count stays at 0.
 
+## Iteration 1134 — End-user testing loop 2, tick 65: Product Billing's ISBT code suggested from the catalog (2026-11-22)
+
+### How it was tested
+
+- Verified tick 64 live: editing RBC-LR shows the six note fields in the collapsed section, with links to Facility Policies, Modification Rules, Product Billing and Inventory Locations.
+- Read Admin › Product Billing, where product charges are mapped, and its New row form. Nothing was saved.
+
+### Findings
+
+- Charges match a unit's ISBT product code, falling back to its product type's code (`BillingService`).
+- The row's ISBT product code was free text with no catalog suggestions or check. A slip there means a charge that never drops, and nothing says so.
+
+### Change
+
+- As on Products (tick 62), the field suggests the loaded codes with descriptions. It shows the matched description, or says that no unit may carry an unknown code.
+- TEST-BB-1427 and FRS-BB-1285 were extended.
+
+Clean count stays at 0.
+

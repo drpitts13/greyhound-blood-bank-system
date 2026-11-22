@@ -244,6 +244,12 @@ public class ProductIsbtCodeSourceTests
         Assert.Contains("await Api.GetAdminIsbtProductCodesAsync()", page);
         Assert.Contains("is not in the loaded ISBT catalog", page);
         Assert.Contains("data-product-isbt-note", page);
+
+        // Tick 65: Product Billing's ISBT code is suggested and checked the same way.
+        var billing = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "Admin", "AdminProductBilling.razor"));
+        Assert.Contains("list=\"billing-isbt-catalog\"", billing);
+        Assert.Contains("await Api.GetAdminIsbtProductCodesAsync()", billing);
+        Assert.Contains("data-billing-isbt-note", billing);
     }
 }
 
