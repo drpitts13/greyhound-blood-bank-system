@@ -113,7 +113,6 @@
             <div class="field"><label>Component class</label>
                 <select value="@_editing.ComponentClass" @onchange="OnComponentClassChanged">@foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@Ui.EnumText(c)</option> }</select>
             </div>
-            <div class="field"><label>Category</label><input @bind="_editing.Category" /></div>
             <div class="field"><label>Shelf life (hours)</label><input type="number" @bind="_editing.DefaultShelfLifeHours" /></div>
             <div class="field"><label>ISBT 128 code</label>
                 @* Loop 2 tick 62: suggested from the loaded ISBT catalog, with the matched description shown. *@
@@ -129,14 +128,15 @@
                     <div class="muted" data-product-isbt-note>@isbtNote</div>
                 }
             </div>
-            <div class="field"><label>Default charge code</label><input @bind="_editing.DefaultChargeCode" /></div>
-            <div class="field"><label>Storage requirements</label><input @bind="_editing.StorageRequirements" /></div>
         </div>
         @* Loop 2 tick 63: these were labelled "rules" but nothing reads them; they are reference notes only. *@
         <details class="bb-help" style="margin-top:.6rem;" open="@HasProductNotes" data-product-notes>
             <summary>Notes (reference only, not enforced)</summary>
-            <p class="muted">Kept with the product for reference. The software does not act on them: returns are judged by the return inspection and the return time limit in <a href="/admin/facility-policies">Facility Policies</a>, and modifications by <a href="/admin/modification-rules">Modification Rules</a>.</p>
+            <p class="muted">Kept with the product for reference. The software does not act on them: returns are judged by the return inspection and the return time limit in <a href="/admin/facility-policies">Facility Policies</a>, modifications by <a href="/admin/modification-rules">Modification Rules</a>, charges by <a href="/admin/product-billing">Product Billing</a>, and storage by component class on <a href="/admin/inventory-locations">Inventory Locations</a>.</p>
             <div class="form-row">
+                <div class="field"><label>Category</label><input @bind="_editing.Category" /></div>
+                <div class="field"><label>Charge code note</label><input @bind="_editing.DefaultChargeCode" /></div>
+                <div class="field"><label>Storage note</label><input @bind="_editing.StorageRequirements" placeholder="e.g. 1-6C" /></div>
                 <div class="field" style="grid-column:1/3;"><label>Issue notes</label><input @bind="_editing.IssueRules" /></div>
                 <div class="field" style="grid-column:1/3;"><label>Return notes</label><input @bind="_editing.ReturnRules" /></div>
                 <div class="field" style="grid-column:1/3;"><label>Modification notes</label><input @bind="_editing.ModificationRules" /></div>
@@ -353,7 +353,8 @@
     private List<IsbtProductCodeDto> _isbtCatalog = new();
 
     private bool HasProductNotes => _editing is not null
-        && (!string.IsNullOrWhiteSpace(_editing.IssueRules) || !string.IsNullOrWhiteSpace(_editing.ReturnRules) || !string.IsNullOrWhiteSpace(_editing.ModificationRules));
+        && new[] { _editing.IssueRules, _editing.ReturnRules, _editing.ModificationRules, _editing.Category, _editing.DefaultChargeCode, _editing.StorageRequirements }
+            .Any(v => !string.IsNullOrWhiteSpace(v));
 
     private string? IsbtCatalogNote
     {

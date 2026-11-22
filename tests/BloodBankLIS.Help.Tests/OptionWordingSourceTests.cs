@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace BloodBankLIS.Help.Tests;
 
@@ -266,12 +266,16 @@ public class ProductNotesSourceTests
         Assert.Contains("Notes (reference only, not enforced)", page);
         Assert.DoesNotContain("<label>Issue rules</label>", page);
         Assert.DoesNotContain("<label>Return rules</label>", page);
+        Assert.DoesNotContain("<label>Default charge code</label>", page);
+        Assert.DoesNotContain("<label>Storage requirements</label>", page);
+        Assert.Contains("href=\"/admin/inventory-locations\"", page);
+        Assert.Contains("href=\"/admin/product-billing\"", page);
 
         // If code starts acting on these fields, the label must change back.
         var readers = Directory.GetFiles(src, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") && !f.Contains("Migrations")
                 && !f.EndsWith("ProductAdminService.cs") && !f.EndsWith("EntityConfigurations.cs") && !f.EndsWith("ProductType.cs") && !f.EndsWith("AdminDtos.cs"))
-            .Where(f => System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(f), @"\.(IssueRules|ReturnRules)\b|\bp\.ModificationRules\b"))
+            .Where(f => System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(f), @"\.(IssueRules|ReturnRules|DefaultChargeCode)\b|\bp\.ModificationRules\b"))
             .Select(Path.GetFileName)
             .ToList();
         Assert.Empty(readers);

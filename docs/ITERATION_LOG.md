@@ -29912,3 +29912,22 @@ Clean count reset to 0.
 
 Clean count stays at 0.
 
+## Iteration 1133 — End-user testing loop 2, tick 64: category, charge code and storage fields are notes too (2026-11-22)
+
+### How it was tested
+
+- Traced the product form's remaining text fields (Category, Default charge code, Storage requirements) through the code. Nothing was saved.
+
+### Findings
+
+- None of the three is read by any code.
+- "Default charge code" suggested billing used it. Product charges are actually mapped on Admin › Product Billing.
+- Storage is enforced by component class (`InventoryLocationPolicyRule`), not by this text.
+
+### Change
+
+- The three fields joined the tick 63 notes section, as Category, Charge code note and Storage note. Its text links to Product Billing and Inventory Locations.
+- The help and FRS-BB-1286 were extended, and the TEST-BB-1428 guard now covers these labels too.
+
+Clean count stays at 0.
+
