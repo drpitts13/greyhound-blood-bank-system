@@ -291,7 +291,7 @@
                 <p class="muted">Check the indicator on each unit after irradiation. Your facility may require the irradiator and a confirmed indicator (an administrator setting).</p>
             }
         }
-        <div class="field" style="margin-top:.6rem;"><label>Reason (required)</label>
+        <div class="field" style="margin-top:.6rem;"><label data-modification-reason-label>Reason @(_reasonRequired ? "(required)" : "(optional)")</label>
             <input @bind="_reason" @bind:event="oninput" placeholder="Why is this modification being performed?" style="width:100%;" />
         </div>
         @if (_selectedRule.ModificationType is not ModificationType.Divide and not ModificationType.Pool and not ModificationType.Aliquot)
@@ -301,7 +301,7 @@
                 <textarea @bind="_batchUnitNumbers" @bind:event="oninput" rows="3" style="width:100%;" placeholder="One additional unit number per line. The selected unit is included."></textarea>
                 <div class="muted">One rule and one reason. If any unit is ineligible, none are modified.</div>
             </div>
-            <button class="btn btn-secondary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason) || string.IsNullOrWhiteSpace(_batchUnitNumbers))" @onclick="SubmitBatchAsync">
+            <button class="btn btn-secondary" style="margin-top:.6rem;" disabled="@(_busy || ReasonMissing || string.IsNullOrWhiteSpace(_batchUnitNumbers))" @onclick="SubmitBatchAsync">
                 Apply to batch
             </button>
         }
@@ -310,7 +310,7 @@
         {
             <div class="alert alert-warning" style="margin-top:.6rem;">Performing a modification requires the inventory modify permission.</div>
         }
-        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason) || !Session.Has(PermissionCodes.InventoryModify))" @onclick="SubmitAsync">
+        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@(_busy || ReasonMissing || !Session.Has(PermissionCodes.InventoryModify))" @onclick="SubmitAsync">
             Perform @Ui.EnumText(_selectedRule.ModificationType).ToLowerInvariant()
         </button>
     </div>
@@ -469,6 +469,11 @@
             : PoolVolumes.Sum(volume => volume!.Value);
 
     private string _reason = string.Empty;
+
+    // End-user testing loop 2 tick 54: the reason follows Modification.RequireReason (on unless the facility turns it
+    // off; unreadable reads as on). The service decides either way.
+    private bool _reasonRequired = true;
+    private bool ReasonMissing => _reasonRequired && string.IsNullOrWhiteSpace(_reason);
     private string? _supplyDescription;
     private string? _supplyLot;
     private string? _deviceId;
@@ -523,6 +528,9 @@
     {
         var productTypes = await Api.GetProductTypesAsync();
         _productTypes = productTypes.Value ?? [];
+
+        var reasonPolicy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireModificationReason);
+        _reasonRequired = reasonPolicy.Value?.Enabled ?? true;
 
         var equipment = await Api.GetEquipmentAsync();
         _equipmentInService = (equipment.Value ?? new()).Where(e => e.InService).OrderBy(e => e.Code).ToList();
@@ -812,7 +820,7 @@
 
     private async Task SubmitAsync()
     {
-        if (_unit is null || _selectedRule is null || string.IsNullOrWhiteSpace(_reason)) return;
+        if (_unit is null || _selectedRule is null || ReasonMissing) return;
 
         _busy = true;
         ApiResult<ModificationResultVm> r;
@@ -979,7 +987,7 @@
 
     private async Task SubmitBatchAsync()
     {
-        if (_unit is null || _selectedRule is null || string.IsNullOrWhiteSpace(_reason))
+        if (_unit is null || _selectedRule is null || ReasonMissing)
         {
             return;
         }

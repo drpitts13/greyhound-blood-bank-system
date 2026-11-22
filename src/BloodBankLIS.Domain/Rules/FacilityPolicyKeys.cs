@@ -103,6 +103,9 @@ public static class FacilityPolicyKeys
 
     /// <summary>When true, a modification requires a supply lot. Default off.</summary>
     public const string RequireModificationSupplyLot = "Modification.RequireSupplyLot";
+
+    /// <summary>When true (the default), a modification requires a typed reason.</summary>
+    public const string RequireModificationReason = "Modification.RequireReason";
     public const string RequireIrradiationRecord = "Modification.RequireIrradiationRecord";
     public const string RequirePrivilegedMfa = "Security.RequirePrivilegedMfa";
     public const string MfaEnabled = "Security.MfaEnabled";

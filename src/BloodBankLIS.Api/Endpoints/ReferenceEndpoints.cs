@@ -29,6 +29,8 @@ public static class ReferenceEndpoints
         FacilityPolicyKeys.DeviationFdaReportabilityToClose,
         // Record crossmatch does not offer Electronic while the facility has it off (end-user testing pass 174).
         FacilityPolicyKeys.AllowElectronicCrossmatch,
+        // Modify products marks the reason optional when the facility does not require one (loop 2 tick 54).
+        FacilityPolicyKeys.RequireModificationReason,
         FacilityPolicyKeys.PrefillPatientIdentifiers,
         FacilityPolicyKeys.RequireSpecimenReceiptByScan,
         FacilityPolicyKeys.InspectionDefaultAcceptable,

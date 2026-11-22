@@ -1686,6 +1686,29 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task Reason_IsRequiredByDefault_AndOptionalWhenTheFacilityTurnsItOff()
+    {
+        // TEST-BB-1423 (end-user testing loop 2 tick 54)
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("REASON");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var defaultId = await CreateUnitAsync("U-REASON-1", sourceProductId, volume: 300m);
+        var optionalId = await CreateUnitAsync("U-REASON-2", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var policy = new FacilityPolicyService(new EfRepository<SystemSetting>(context));
+        var refused = await CreateService(context, policy: policy).ApplySingleAsync(defaultId, new PerformSingleModificationRequest(ruleId, null, " "));
+        Assert.False(refused.Succeeded);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(defaultId))!.Status);
+
+        context.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.RequireModificationReason, Value = "false" });
+        await context.SaveChangesAsync();
+        var done = await CreateService(context, policy: policy).ApplySingleAsync(optionalId, new PerformSingleModificationRequest(ruleId, null, ""));
+        Assert.True(done.Succeeded, done.Error);
+        var row = Assert.Single(await CreateService(context).GetHistoryAsync(optionalId));
+        Assert.Equal(ModificationReasonRule.NotEnteredText, row.Reason);
+    }
+
+    [Fact]
     public async Task ApplySingle_RequiredSupplyLot_BlocksWhenMissing()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SUPREQ");

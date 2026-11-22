@@ -370,10 +370,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var rule = await _rules.GetByIdAsync(request.RuleId, ct);
         if (rule is null || !rule.IsActive)
@@ -435,10 +439,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var rule = await _rules.GetByIdAsync(request.RuleId, ct);
         if (rule is null || !rule.IsActive)
@@ -499,10 +507,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var rule = await _rules.GetByIdAsync(request.RuleId, ct);
         if (rule is null || !rule.IsActive)
@@ -590,10 +602,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var rule = await _rules.GetByIdAsync(request.RuleId, ct);
         if (rule is null || !rule.IsActive)
@@ -669,10 +685,14 @@ public sealed class BloodProductModificationService
             return denied;
         }
 
-        if (string.IsNullOrWhiteSpace(request.Reason))
+        // End-user testing loop 2 tick 54: a reason is required unless the facility turns Modification.RequireReason off.
+        var reasonRequired = _policy is null || await _policy.GetRequireModificationReasonAsync(ct);
+        if (ModificationReasonRule.Resolve(request.Reason, reasonRequired) is not { } reasonText)
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
         }
+
+        request = request with { Reason = reasonText };
 
         var ids = (request.SourceUnitIds ?? []).Where(id => id > 0).Distinct().ToList();
         var count = BatchModificationRule.Evaluate(ids.Count);

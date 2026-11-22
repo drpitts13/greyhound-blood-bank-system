@@ -154,6 +154,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetRequireModificationSupplyLotAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireModificationSupplyLot, false, ct);
 
+    public Task<bool> GetRequireModificationReasonAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireModificationReason, true, ct);
+
     public Task<bool> GetRequireIrradiationRecordAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireIrradiationRecord, false, ct);
 

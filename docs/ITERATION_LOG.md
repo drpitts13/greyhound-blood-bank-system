@@ -29741,3 +29741,24 @@ Clean count stays at 0.
 
 Clean count stays at 0.
 
+## Iteration 1123 — End-user testing loop 2, tick 54: the modification reason can be made optional (2026-11-21)
+
+### How it was tested
+
+- Verified tick 53 live: for IRR-RBC-LR the Irradiator field offers no centrifuge or cell washer, and the no-irradiator note shows.
+- Read the rest of step 3. Nothing was saved.
+
+### Findings
+
+- Every modification needed a typed reason, a routine irradiation or thaw included. The page and all five service methods refused a blank one.
+- The reason is documentation, not a patient-safety stop (item 5), and nothing let a facility relax it.
+
+### Change
+
+- New Facility Policies setting, Modification › "Require a reason for each modification" (`Modification.RequireReason`). Its default is on, so behaviour is unchanged until a facility turns it off.
+- When it is off, the page marks the reason optional, and a blank reason is recorded as "No reason entered (not required by facility policy)."
+- The irradiator, indicator, supply lot and eligibility checks are unchanged.
+- TEST-BB-1423, URS-BB-1163, FRS-BB-1281.
+
+Clean count stays at 0.
+
