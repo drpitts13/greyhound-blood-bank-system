@@ -29950,3 +29950,19 @@ Clean count stays at 0.
 
 Clean count stays at 0.
 
+## Iteration 1135 — End-user testing loop 2, tick 66: ISBT code fields across the builders, nothing to fix (2026-11-22)
+
+### How it was tested
+
+- Verified tick 65 live: Product Billing's New row offers the 51 loaded codes, and E0701 shows "FRESH FROZEN PLASMA|CPD/XX/<=-18C". Nothing was saved.
+- Searched every page for an ISBT product code field.
+
+### Findings
+
+- Products and Product Billing now suggest and check codes (ticks 62 and 65).
+- Auto thaw products already picks from the catalog.
+- ISBT Product Codes' Add one code creates catalog entries, so free text is right there.
+- The receive screens take scanned codes and check them against the catalog when the unit is received.
+
+No change. Clean tick 1 of 5.
+
