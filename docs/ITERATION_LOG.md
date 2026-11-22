@@ -29762,3 +29762,17 @@ Clean count stays at 0.
 
 Clean count stays at 0.
 
+## Iteration 1124 — End-user testing loop 2, tick 55: ISBT Product Codes page, nothing to fix (2026-11-21)
+
+### How it was tested
+
+- Read Admin › ISBT Product Codes, including the licensed-code readiness panel and its problem list.
+
+### Findings
+
+- The catalog holds 51 product description codes, 10 ABO/RhD codes and 1 collection type. All are public-subset placeholders pending the ICCBBA licence (OCD-004).
+- Readiness says "1 code is not in the catalog at all". The problem list names it and links to the unit: W123422123456 carries ABO/RhD code 61.
+- Filtering, adding one code (tick 14) and importing a licensed extract are all on the page.
+
+No change. Clean tick 1 of 5.
+
