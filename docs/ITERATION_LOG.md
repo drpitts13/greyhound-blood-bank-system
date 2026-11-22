@@ -29846,3 +29846,17 @@ Clean count reset to 0.
 
 Clean count stays at 0.
 
+## Iteration 1129 — End-user testing loop 2, tick 60: Specimen Types builder, nothing to fix (2026-11-21)
+
+### How it was tested
+
+- Read Admin › Specimen Types and opened New specimen type. Nothing was saved.
+
+### Findings
+
+- The list shows code, description, expiration ("7D exact"), excluded tests, sort, version and status.
+- The form sets expiration by amount, unit (hours, days, weeks, months) and timing (exact or end of day), with a worked example.
+- Tests that cannot run on the type are chosen from labelled checkboxes ("XM — Crossmatch"), not typed codes.
+
+No change. Clean tick 1 of 5.
+
