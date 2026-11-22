@@ -29795,3 +29795,17 @@ No change. Clean tick 1 of 5.
 
 Clean count reset to 0.
 
+## Iteration 1126 — End-user testing loop 2, tick 57: Expiration Codes builder, nothing to fix (2026-11-21)
+
+### How it was tested
+
+- Read Admin › Expiration Codes and opened New code. Nothing was saved.
+
+### Findings
+
+- The list gives code, offset, relative to, description, version and status (24H, 28D, 42D, 5D seeded), with links to Modification Rules and Modify.
+- The page says the result is capped at the source expiration except for a freeze.
+- New code offers an amount in hours or days (3650 days covers a 10-year frozen red cell), relative to the modification or the collection date/time, and an optional change reason.
+
+No change. Clean tick 1 of 5.
+
