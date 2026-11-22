@@ -62,7 +62,7 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         Apply(entity, req);
 
         var duplicate = await HasActiveDuplicateAsync(entity.Code, 0, ct);
-        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate);
+        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate, await ValidatesKnownPhaseAsync(entity, ct));
         if (evaluation.IsHardStopped)
         {
             return EvaluationResult<PhaseDefinitionDto>.Blocked(evaluation);
@@ -108,7 +108,7 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         }
 
         var duplicate = await HasActiveDuplicateAsync(entity.Code, entity.Id, ct);
-        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate);
+        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate, await ValidatesKnownPhaseAsync(entity, ct));
         if (evaluation.IsHardStopped)
         {
             return EvaluationResult<PhaseDefinitionDto>.Blocked(evaluation);
@@ -138,7 +138,7 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         }
 
         var duplicate = await HasActiveDuplicateAsync(entity.Code, entity.Id, ct);
-        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate);
+        var evaluation = PhaseDefinitionValidator.Validate(entity, duplicate, await ValidatesKnownPhaseAsync(entity, ct));
         if (evaluation.IsHardStopped)
         {
             return EvaluationResult<PhaseDefinitionDto>.Blocked(evaluation);
@@ -189,6 +189,18 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
                 .Select(t => new PanelPartRetirementImpactRule.PanelTest(t.Code, PanelSubtestAssignments.Parse(t.PanelSubtestsJson)))
                 .ToList();
         return OperationResult<PhaseDefinitionDto>.Ok(Map(entity), PanelPartRetirementImpactRule.PhaseWarnings(entity.Code, panelTests));
+    }
+
+    // End-user testing loop 2 tick 59: a check cell's validated phase must be an active reading phase.
+    private async Task<bool?> ValidatesKnownPhaseAsync(PhaseDefinition entity, CancellationToken ct)
+    {
+        if (!entity.IsCheckCell || string.IsNullOrWhiteSpace(entity.ValidatesPhaseCode))
+        {
+            return null;
+        }
+
+        var code = entity.ValidatesPhaseCode.Trim();
+        return await _repo.AnyAsync(s => s.IsActive && !s.IsCheckCell && s.Id != entity.Id && s.Code == code, ct);
     }
 
     private async Task<bool> HasActiveDuplicateAsync(string code, long selfId, CancellationToken ct)

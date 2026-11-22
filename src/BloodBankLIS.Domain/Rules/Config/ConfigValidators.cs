@@ -467,7 +467,9 @@ public static class SpecimenTypeDefinitionValidator
 
 public static class PhaseDefinitionValidator
 {
-    public static RuleEvaluation Validate(PhaseDefinition p, bool duplicateActiveCode)
+    /// <param name="validatesKnownPhase">For a check cell naming a phase: whether that code is an active phase that is
+    /// read (not a check cell). Null when not checked. End-user testing loop 2 tick 59.</param>
+    public static RuleEvaluation Validate(PhaseDefinition p, bool duplicateActiveCode, bool? validatesKnownPhase = null)
     {
         var results = new List<RuleResult>();
 
@@ -499,6 +501,11 @@ public static class PhaseDefinitionValidator
             {
                 results.Add(RuleResult.Warning("PHASE.CHECKCELL.VALIDATES",
                     "Check-cell phases should specify which phase they validate (typically AHG)."));
+            }
+            else if (validatesKnownPhase == false)
+            {
+                results.Add(RuleResult.Warning("PHASE.CHECKCELL.UNKNOWN",
+                    $"Check cells validate '{p.ValidatesPhaseCode!.Trim()}', which is not an active reading phase. Choose the phase the check cells confirm (typically AHG)."));
             }
         }
 

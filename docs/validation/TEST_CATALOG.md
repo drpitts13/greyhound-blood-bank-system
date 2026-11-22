@@ -1433,6 +1433,7 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1422 | U | `IrradiatorChoiceSourceTests.IrradiatorField_SuggestsOnlyIrradiators` | URS-BB-1162 / FRS-BB-1280 |
 | TEST-BB-1423 | I | `BloodProductModificationServiceTests.Reason_IsRequiredByDefault_AndOptionalWhenTheFacilityTurnsItOff` | URS-BB-1163 / FRS-BB-1281 |
 | TEST-BB-1425 | U | `SubtestMissingGradesTests.List_NamesMissingStandardGrades_AndAddKeepsExistingChoices` (summary and Add to all) | URS-BB-1165 / FRS-BB-1283 |
+| TEST-BB-1426 | U | `PhaseAndInterpretationTests.CheckCell_ValidatingAnUnknownPhase_IsWarned` | URS-BB-1166 / FRS-BB-1284 |
 | TEST-BB-1424 | U | `AllowedValuesFieldSourceTests.AllowedValues_ShownOnlyWhereUsed` | URS-BB-1164 / FRS-BB-1282 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

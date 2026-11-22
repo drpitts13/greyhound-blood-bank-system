@@ -29828,3 +29828,21 @@ No change. Clean tick 1 of 5.
 
 Clean count reset to 0.
 
+## Iteration 1128 — End-user testing loop 2, tick 59: check cells validate a chosen phase (2026-11-21)
+
+### How it was tested
+
+- On Admin › Phases, opened New phase and ticked Check cell. Nothing was saved.
+
+### Findings
+
+- Validates phase was a free-text box with the placeholder "AHG". The save checked only that it was not blank, so a slip such as "AGH" saved a check-cell phase that confirms nothing.
+
+### Change
+
+- Validates phase is a list of the active phases that are read (not check cells), ordered as on the page. A saved code that is no longer one stays, marked "(not an active reading phase)".
+- The save warns (`PHASE.CHECKCELL.UNKNOWN`) when the code names no active reading phase.
+- TEST-BB-1426, URS-BB-1166, FRS-BB-1284.
+
+Clean count stays at 0.
+
