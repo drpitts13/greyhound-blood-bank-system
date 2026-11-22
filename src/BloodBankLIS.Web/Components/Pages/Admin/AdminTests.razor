@@ -368,9 +368,9 @@
                     </div>
                 }
             }
-            else
+            else if (ShowsAllowedValues(_editing.ResultValueType, _editing.AllowedResultValues))
             {
-            <div class="field" style="grid-column:1/3;"><label>Allowed result values (one per line)</label>
+            <div class="field" style="grid-column:1/3;" data-allowed-result-values><label>Allowed result values (one per line)</label>
                 <textarea rows="3" @bind="_editing.AllowedResultValues"></textarea>
             </div>
             }
@@ -483,6 +483,12 @@
     private bool _loading = true;
     private bool _includeInactive = true;
     private string _filter = string.Empty;
+
+    // End-user testing loop 2 tick 56: allowed values limit result entry only for a coded test (panel types, crossmatch
+    // included, take the panel section instead); for numeric, titer, free-text and blood attribute tests the field did
+    // nothing, so it is shown there only when a value is already saved.
+    private static bool ShowsAllowedValues(ResultValueType type, string? saved) =>
+        type == ResultValueType.Coded || !string.IsNullOrWhiteSpace(saved);
     private Feedback? _feedback;
     private bool _busy;
 

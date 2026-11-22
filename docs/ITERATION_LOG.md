@@ -29776,3 +29776,22 @@ Clean count stays at 0.
 
 No change. Clean tick 1 of 5.
 
+## Iteration 1125 — End-user testing loop 2, tick 56: Allowed result values only where used (2026-11-21)
+
+### How it was tested
+
+- On Admin › Tests, opened New test and switched Result value type through Titer, Numeric and Blood attribute. Nothing was saved.
+
+### Findings
+
+- Each type brings its own fields, so every blood bank test type can be built.
+- Allowed result values (one per line) showed for every type. It limits result entry only for coded tests (`TestResultEntryPanel`, `ResultService`), and crossmatch tests use it for reflex trigger values. For numeric, titer, free text, ABO/Rh and blood attribute tests it did nothing, yet the form offered it as though it limited the result.
+- The specimen-type stop on result entry was also checked. It is a hard stop, but each test's accepted types are set in the builder. It stays, because a result on a type the lab has not accepted may be invalid.
+
+### Change
+
+- The field shows for coded tests, and for the other non-panel types only when values are already saved, so nothing saved is hidden. Panel types, crossmatch included, keep their panel section; they never showed this field.
+- TEST-BB-1424, URS-BB-1164, FRS-BB-1282.
+
+Clean count reset to 0.
+

@@ -199,3 +199,28 @@ public class IrradiatorChoiceSourceTests
     }
 }
 
+/// <summary>The test builder offers allowed values only where they are used (end-user testing loop 2 tick 56).</summary>
+public class AllowedValuesFieldSourceTests
+{
+    // TEST-BB-1424: Allowed result values shows for coded tests, and for any other non-panel type only when a value is
+    // already saved, so numeric, titer, free-text and antigen tests are not offered a field that does nothing; result
+    // entry uses the list for coded tests only.
+    [Fact]
+    public void AllowedValues_ShownOnlyWhereUsed()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var web = Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components");
+        var page = File.ReadAllText(Path.Combine(web, "Pages", "Admin", "AdminTests.razor"));
+        Assert.Contains("else if (ShowsAllowedValues(_editing.ResultValueType, _editing.AllowedResultValues))", page);
+        Assert.Contains("type == ResultValueType.Coded || !string.IsNullOrWhiteSpace(saved)", page);
+
+        var entry = File.ReadAllText(Path.Combine(web, "TestResultEntryPanel.razor"));
+        Assert.Contains("@if (_definition.ResultValueType == ResultValueType.Coded)", entry);
+    }
+}
+

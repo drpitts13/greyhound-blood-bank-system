@@ -1432,5 +1432,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1421 | U | `ModifyChoiceSourceTests.ModificationChoice_NamesTheTargetProduct` (choice list and step 3's New product) | URS-BB-1161 / FRS-BB-1279 |
 | TEST-BB-1422 | U | `IrradiatorChoiceSourceTests.IrradiatorField_SuggestsOnlyIrradiators` | URS-BB-1162 / FRS-BB-1280 |
 | TEST-BB-1423 | I | `BloodProductModificationServiceTests.Reason_IsRequiredByDefault_AndOptionalWhenTheFacilityTurnsItOff` | URS-BB-1163 / FRS-BB-1281 |
+| TEST-BB-1424 | U | `AllowedValuesFieldSourceTests.AllowedValues_ShownOnlyWhereUsed` | URS-BB-1164 / FRS-BB-1282 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
