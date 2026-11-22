@@ -131,10 +131,17 @@
             </div>
             <div class="field"><label>Default charge code</label><input @bind="_editing.DefaultChargeCode" /></div>
             <div class="field"><label>Storage requirements</label><input @bind="_editing.StorageRequirements" /></div>
-            <div class="field" style="grid-column:1/3;"><label>Issue rules</label><input @bind="_editing.IssueRules" /></div>
-            <div class="field" style="grid-column:1/3;"><label>Return rules</label><input @bind="_editing.ReturnRules" /></div>
-            <div class="field" style="grid-column:1/3;"><label>Modification rules</label><input @bind="_editing.ModificationRules" /></div>
         </div>
+        @* Loop 2 tick 63: these were labelled "rules" but nothing reads them; they are reference notes only. *@
+        <details class="bb-help" style="margin-top:.6rem;" open="@HasProductNotes" data-product-notes>
+            <summary>Notes (reference only, not enforced)</summary>
+            <p class="muted">Kept with the product for reference. The software does not act on them: returns are judged by the return inspection and the return time limit in <a href="/admin/facility-policies">Facility Policies</a>, and modifications by <a href="/admin/modification-rules">Modification Rules</a>.</p>
+            <div class="form-row">
+                <div class="field" style="grid-column:1/3;"><label>Issue notes</label><input @bind="_editing.IssueRules" /></div>
+                <div class="field" style="grid-column:1/3;"><label>Return notes</label><input @bind="_editing.ReturnRules" /></div>
+                <div class="field" style="grid-column:1/3;"><label>Modification notes</label><input @bind="_editing.ModificationRules" /></div>
+            </div>
+        </details>
 
         <div class="flex gap" style="flex-wrap:wrap;margin:.6rem 0;">
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresCrossmatch" /> Requires crossmatch</label>
@@ -344,6 +351,9 @@
             .OrderBy(t => t.Code);
 
     private List<IsbtProductCodeDto> _isbtCatalog = new();
+
+    private bool HasProductNotes => _editing is not null
+        && (!string.IsNullOrWhiteSpace(_editing.IssueRules) || !string.IsNullOrWhiteSpace(_editing.ReturnRules) || !string.IsNullOrWhiteSpace(_editing.ModificationRules));
 
     private string? IsbtCatalogNote
     {

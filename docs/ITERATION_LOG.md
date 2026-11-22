@@ -29893,3 +29893,22 @@ No change. Clean tick 2 of 5.
 
 Clean count reset to 0.
 
+## Iteration 1132 — End-user testing loop 2, tick 63: product "rules" fields are notes (2026-11-22)
+
+### How it was tested
+
+- Followed up on tick 62: traced the product form's Issue rules, Return rules and Modification rules through the code and the dev data. Nothing was saved.
+
+### Findings
+
+- The three fields are saved and shown on the form, but no code reads them. No product in the dev data uses them.
+- Labelled "rules", they suggested they controlled issue, return or modification. The Products help said "Return rules decide whether a unit that comes back unused can be returned to available stock". In fact `ReturnReissueRule` decides that, from the inspection and the Facility Policies return time.
+
+### Change
+
+- The fields sit under a collapsed "Notes (reference only, not enforced)" section, renamed Issue, Return and Modification notes. The section opens when any is filled, and links to Facility Policies and Modification Rules.
+- The help was corrected.
+- TEST-BB-1428 fails if code starts reading the fields, so the label cannot go stale. URS-BB-1168, FRS-BB-1286.
+
+Clean count stays at 0.
+

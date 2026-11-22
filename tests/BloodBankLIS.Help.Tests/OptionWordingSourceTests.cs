@@ -247,3 +247,34 @@ public class ProductIsbtCodeSourceTests
     }
 }
 
+/// <summary>Unused product "rules" fields are labelled as notes (end-user testing loop 2 tick 63).</summary>
+public class ProductNotesSourceTests
+{
+    // TEST-BB-1428: the product's issue, return and modification text is not read by any code, so the form groups it
+    // under "Notes (reference only, not enforced)" with links to where those decisions are made, not as "rules".
+    [Fact]
+    public void ProductNoteFields_AreLabelledAsNotes_AndNothingReadsThem()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var src = Path.Combine(dir!.FullName, "src");
+        var page = File.ReadAllText(Path.Combine(src, "BloodBankLIS.Web", "Components", "Pages", "Admin", "AdminProducts.razor"));
+        Assert.Contains("Notes (reference only, not enforced)", page);
+        Assert.DoesNotContain("<label>Issue rules</label>", page);
+        Assert.DoesNotContain("<label>Return rules</label>", page);
+
+        // If code starts acting on these fields, the label must change back.
+        var readers = Directory.GetFiles(src, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") && !f.Contains("Migrations")
+                && !f.EndsWith("ProductAdminService.cs") && !f.EndsWith("EntityConfigurations.cs") && !f.EndsWith("ProductType.cs") && !f.EndsWith("AdminDtos.cs"))
+            .Where(f => System.Text.RegularExpressions.Regex.IsMatch(File.ReadAllText(f), @"\.(IssueRules|ReturnRules)\b|\bp\.ModificationRules\b"))
+            .Select(Path.GetFileName)
+            .ToList();
+        Assert.Empty(readers);
+    }
+}
+
