@@ -29860,3 +29860,17 @@ Clean count stays at 0.
 
 No change. Clean tick 1 of 5.
 
+## Iteration 1130 — End-user testing loop 2, tick 61: Test Groupers and Order & Test Rules, nothing to fix (2026-11-21)
+
+### How it was tested
+
+- Read Admin › Test Groupers.
+- Read Admin › Order & Test Rules and opened New rule. Nothing was saved.
+
+### Findings
+
+- Test Groupers lists each grouper's members (TNS: ABORH, ABSC; two reaction workups) and links to Tests and Reflex Rules. Its member picker was fixed in tick 33.
+- Rules are written as expressions. The form offers Validate, and the page's Help opens Rule authoring help: attributes by subject, functions, operators, common mistakes, actions, and worked neonatal and weak D examples that match the two seeded rules.
+
+No change. Clean tick 2 of 5.
+
