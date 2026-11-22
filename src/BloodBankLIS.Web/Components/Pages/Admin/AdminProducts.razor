@@ -115,7 +115,20 @@
             </div>
             <div class="field"><label>Category</label><input @bind="_editing.Category" /></div>
             <div class="field"><label>Shelf life (hours)</label><input type="number" @bind="_editing.DefaultShelfLifeHours" /></div>
-            <div class="field"><label>ISBT 128 code</label><input @bind="_editing.Isbt128ProductCode" /></div>
+            <div class="field"><label>ISBT 128 code</label>
+                @* Loop 2 tick 62: suggested from the loaded ISBT catalog, with the matched description shown. *@
+                <input class="mono" @bind="_editing.Isbt128ProductCode" @bind:event="oninput" list="isbt-catalog" placeholder="e.g. E0336" autocomplete="off" />
+                <datalist id="isbt-catalog">
+                    @foreach (var c in _isbtCatalog.Where(c => !c.IsRetired))
+                    {
+                        <option value="@c.ProductDescriptionCode">@c.Description</option>
+                    }
+                </datalist>
+                @if (IsbtCatalogNote is { } isbtNote)
+                {
+                    <div class="muted" data-product-isbt-note>@isbtNote</div>
+                }
+            </div>
             <div class="field"><label>Default charge code</label><input @bind="_editing.DefaultChargeCode" /></div>
             <div class="field"><label>Storage requirements</label><input @bind="_editing.StorageRequirements" /></div>
             <div class="field" style="grid-column:1/3;"><label>Issue rules</label><input @bind="_editing.IssueRules" /></div>
@@ -330,8 +343,29 @@
         _tests.Where(t => t.IsActive && (t.Category is TestCategory.AboRhRetype or TestCategory.AboRh))
             .OrderBy(t => t.Code);
 
+    private List<IsbtProductCodeDto> _isbtCatalog = new();
+
+    private string? IsbtCatalogNote
+    {
+        get
+        {
+            var code = _editing?.Isbt128ProductCode?.Trim();
+            if (string.IsNullOrEmpty(code) || _isbtCatalog.Count == 0)
+            {
+                return null;
+            }
+
+            var match = _isbtCatalog.FirstOrDefault(c => string.Equals(c.ProductDescriptionCode, code, StringComparison.OrdinalIgnoreCase));
+            return match is null
+                ? $"{code} is not in the loaded ISBT catalog. Add it on ISBT Product Codes, or check the code."
+                : $"{match.Description}{(match.IsRetired ? " (retired)" : "")}{(match.IsPlaceholder ? " · placeholder pending the licensed table" : "")}";
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        var isbt = await Api.GetAdminIsbtProductCodesAsync();
+        _isbtCatalog = isbt.Value ?? new();
         var attrs = await Api.GetProductAttributesAsync();
         _attributes = attrs.Value ?? new();
         var tests = await Api.GetAdminTestsAsync(includeInactive: false);

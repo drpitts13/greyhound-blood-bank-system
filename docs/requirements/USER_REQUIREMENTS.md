@@ -1172,3 +1172,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1164 | The test builder offers Allowed result values only for the result types that use them. | P3 | FRS-BB-1282 |
 | URS-BB-1165 | The Subtests list summarizes graded subtests missing a standard grade once, and can add the missing grades to all of them in one step. | P3 | FRS-BB-1283 |
 | URS-BB-1166 | A check-cell phase's validated phase is chosen from the existing reading phases, and a save naming no such phase is warned about. | P2 | FRS-BB-1284 |
+| URS-BB-1167 | When defining a product, the ISBT 128 code is suggested from the loaded product codes, and the matched description, or the code's absence from the catalog, is shown. | P2 | FRS-BB-1285 |

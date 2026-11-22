@@ -29874,3 +29874,22 @@ No change. Clean tick 1 of 5.
 
 No change. Clean tick 2 of 5.
 
+## Iteration 1131 — End-user testing loop 2, tick 62: product ISBT code suggested from the loaded catalog (2026-11-21)
+
+### How it was tested
+
+- On Admin › Products, opened New product. Nothing was saved.
+
+### Findings
+
+- ISBT 128 code was a plain text box. The 51 loaded product description codes (tick 1) were not offered, and nothing said whether a typed code was in the catalog or what it described. The only check was the readiness count on ISBT Product Codes, after saving.
+
+### Change
+
+- The field suggests the loaded, non-retired codes with their descriptions.
+- Below it, the form shows the matched description (marked retired or placeholder), or says the code is not in the loaded catalog and where to add it.
+- Typing a code is still allowed.
+- TEST-BB-1427, URS-BB-1167, FRS-BB-1285.
+
+Clean count reset to 0.
+

@@ -224,3 +224,26 @@ public class AllowedValuesFieldSourceTests
     }
 }
 
+/// <summary>The product builder suggests ISBT codes from the loaded catalog (end-user testing loop 2 tick 62).</summary>
+public class ProductIsbtCodeSourceTests
+{
+    // TEST-BB-1427: Admin › Products offers the loaded ISBT product description codes as suggestions for ISBT 128 code,
+    // shows the matched description, and says when a typed code is not in the loaded catalog.
+    [Fact]
+    public void ProductIsbtCode_SuggestsTheLoadedCatalog_AndNamesTheMatch()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var page = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "Admin", "AdminProducts.razor"));
+        Assert.Contains("list=\"isbt-catalog\"", page);
+        Assert.Contains("<datalist id=\"isbt-catalog\">", page);
+        Assert.Contains("await Api.GetAdminIsbtProductCodesAsync()", page);
+        Assert.Contains("is not in the loaded ISBT catalog", page);
+        Assert.Contains("data-product-isbt-note", page);
+    }
+}
+
