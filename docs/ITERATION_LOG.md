@@ -30009,3 +30009,16 @@ No change. Clean tick 3 of 5.
 
 No change. Clean tick 4 of 5.
 
+## Iteration 1139 — End-user testing loop 2, tick 70: Discard Reasons, nothing to fix; loop complete (2026-11-22)
+
+### How it was tested
+
+- Read Admin › Discard Reasons.
+
+### Findings
+
+- Seven seeded reasons (Expired, Bag, Visual, Temperature, Return, Recall, Other), each with its wording, whether a comment is required (only Other), a sort order and a status.
+- The page says a discard needs one of them and that the wastage report groups by the code.
+
+No change. Clean tick 5 of 5: end-user testing loop 2 is complete, so the schedule was stopped.
+
