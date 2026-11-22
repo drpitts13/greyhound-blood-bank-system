@@ -29995,3 +29995,17 @@ No change. Clean tick 2 of 5.
 
 No change. Clean tick 3 of 5.
 
+## Iteration 1138 — End-user testing loop 2, tick 69: Reflex Rules builder, nothing to fix (2026-11-22)
+
+### How it was tested
+
+- Read Admin › Reflex Rules (ABSC Positive → ABID seeded) and opened New reflex rule. Nothing was saved.
+
+### Findings
+
+- Trigger and reflex tests are chosen from every active, non-draft test (`/api/reference/test-definitions`), so a reflex never adds a draft test.
+- The trigger value suggests the trigger test's results and warns about one it never produces (ticks 11 and 20).
+- XM seemed missing from the lists, but the check had cut the option text short.
+
+No change. Clean tick 4 of 5.
+
