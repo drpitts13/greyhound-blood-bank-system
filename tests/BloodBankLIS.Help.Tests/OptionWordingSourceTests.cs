@@ -177,3 +177,25 @@ public class ModifyChoiceSourceTests
     }
 }
 
+/// <summary>The Irradiator field suggests irradiators only (end-user testing loop 2 tick 53).</summary>
+public class IrradiatorChoiceSourceTests
+{
+    // TEST-BB-1422: on Modify products the irradiate device list is filtered to equipment of the kind Irradiator (it
+    // suggested a centrifuge and a cell washer), and says so when none is registered.
+    [Fact]
+    public void IrradiatorField_SuggestsOnlyIrradiators()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "BloodBankLIS.slnx")))
+        {
+            dir = dir.Parent;
+        }
+
+        var page = File.ReadAllText(Path.Combine(dir!.FullName, "src", "BloodBankLIS.Web", "Components", "Pages", "Modifications.razor"));
+        Assert.Contains("@foreach (var e in DeviceChoices(irradiate))", page);
+        Assert.Contains("\"Irradiator\", StringComparison.OrdinalIgnoreCase", page);
+        Assert.Contains("data-no-irradiator-note", page);
+        Assert.Contains("Irradiator", BloodBankLIS.Domain.Rules.EquipmentCheckRule.CommonKinds);
+    }
+}
+

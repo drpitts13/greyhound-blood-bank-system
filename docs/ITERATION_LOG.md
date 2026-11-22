@@ -29723,3 +29723,21 @@ Clean count stays at 0.
 
 Clean count stays at 0.
 
+## Iteration 1122 — End-user testing loop 2, tick 53: the Irradiator field suggests irradiators only (2026-11-21)
+
+### How it was tested
+
+- On step 3 of Modify products, with IRR-RBC-LR chosen for W0001230009201, read the Irradiator field's suggestions. Nothing was saved.
+
+### Findings
+
+- The Irradiator field suggested CENT-01 Serologic centrifuge and CW-01 Cell washer. The list held every device in service, whatever its kind. No irradiator is registered in the dev data.
+
+### Change
+
+- For an irradiation the list holds only equipment of the kind Irradiator (one of the kinds the Equipment page offers). Other modifications still list every device in service.
+- When no irradiator is registered, a note says so and links to Equipment.
+- TEST-BB-1422, URS-BB-1162, FRS-BB-1280.
+
+Clean count stays at 0.
+

@@ -1275,6 +1275,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-1159 / FRS-BB-1277 | End-user testing loop 2 tick 48: product names on the Modification Rules list | `AdminModificationRules.razor` | TEST-BB-1419 | U | |
 | URS-BB-1160 / FRS-BB-1278 | End-user testing loop 2 tick 50: unit pickers say when nothing matches | `FilterableComboBox.razor`, `UnitPickerComboBox.razor` | TEST-BB-1420 | U | |
 | URS-BB-1161 / FRS-BB-1279 | End-user testing loop 2 tick 51: modify choices name the target product | `Modifications.razor` | TEST-BB-1421 | U | |
+| URS-BB-1162 / FRS-BB-1280 | End-user testing loop 2 tick 53: Irradiator field suggests irradiators only | `Modifications.razor` | TEST-BB-1422 | U | |
 | URS-BB-391 / FRS-BB-628 | Reagent QC on the home screen, failed and overdue named | `DashboardQueueCatalog.ReagentQcNote` | TEST-BB-494 | U | |
 | URS-BB-391 / FRS-BB-629 | Reagent QC result block shown on the worklist before entry | `ReagentQcResultBlock` | TEST-BB-495 | U | |
 | URS-BB-391 / FRS-BB-630 | Daily QC by lot scan, last expected offered, recent QC listed | `ReagentQcService.ListRecentQcAsync`; `ReagentQcHistory` | TEST-BB-496 | I | |

@@ -255,7 +255,7 @@
                     <input @bind="_deviceId" @bind:event="oninput" placeholder="@(irradiate ? "Scan or type the irradiator" : "Cell washer, thawer, or other device")" autocomplete="off" list="modification-equipment" />
                     @* Registered equipment in service (Cycle 709); equipment out of service is refused when saved. *@
                     <datalist id="modification-equipment" data-modification-equipment>
-                        @foreach (var e in _equipmentInService)
+                        @foreach (var e in DeviceChoices(irradiate))
                         {
                             <option value="@e.Code">@e.Name (@e.Kind)</option>
                         }
@@ -272,6 +272,10 @@
                     </div>
                 }
             </div>
+            @if (irradiate && !DeviceChoices(true).Any())
+            {
+                <p class="muted" data-no-irradiator-note>No irradiator is registered in Equipment, so none is suggested. Type the irradiator's ID, or register it on <a href="/equipment">Equipment</a> with the kind Irradiator.</p>
+            }
             @if (EquipmentTestNotice.ForDevice(_equipmentInService, _deviceId) is { } deviceDue)
             {
                 <div class="alert alert-warning" style="margin-top:.4rem;" data-modification-device-due>
@@ -508,6 +512,12 @@
     private bool _unitQueryApplied;
 
     private List<EquipmentDto> _equipmentInService = new();
+
+    // End-user testing loop 2 tick 53: the Irradiator field suggested the centrifuge and cell washer. Irradiation
+    // suggests only equipment of the kind Irradiator; other modifications suggest any device in service.
+    private IEnumerable<EquipmentDto> DeviceChoices(bool irradiate) => irradiate
+        ? _equipmentInService.Where(e => string.Equals(e.Kind?.Trim(), "Irradiator", StringComparison.OrdinalIgnoreCase))
+        : _equipmentInService;
 
     protected override async Task OnInitializedAsync()
     {

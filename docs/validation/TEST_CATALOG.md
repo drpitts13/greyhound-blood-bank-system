@@ -1430,5 +1430,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1419 | U | `ModificationRuleListSourceTests.RuleList_ShowsProductNamesUnderCodes` | URS-BB-1159 / FRS-BB-1277 |
 | TEST-BB-1420 | U | `ComboBoxNoMatchSourceTests.NoMatch_IsShownForClearableLists_AndTheUnitPickerNamesItsScope` | URS-BB-1160 / FRS-BB-1278 |
 | TEST-BB-1421 | U | `ModifyChoiceSourceTests.ModificationChoice_NamesTheTargetProduct` (choice list and step 3's New product) | URS-BB-1161 / FRS-BB-1279 |
+| TEST-BB-1422 | U | `IrradiatorChoiceSourceTests.IrradiatorField_SuggestsOnlyIrradiators` | URS-BB-1162 / FRS-BB-1280 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
