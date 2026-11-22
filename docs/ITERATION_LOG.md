@@ -29809,3 +29809,22 @@ Clean count reset to 0.
 
 No change. Clean tick 1 of 5.
 
+## Iteration 1127 — End-user testing loop 2, tick 58: one missing-grade summary on Subtests, with Add to all (2026-11-21)
+
+### How it was tested
+
+- Read Admin › Subtests.
+
+### Findings
+
+- All 20 seeded graded subtests predate the mf (mixed field) standard grade (tick 12). Each row repeated "Missing standard: mf" under Choices.
+- The only fix was to open each subtest, press Add missing standard grades and save, twenty times.
+
+### Change
+
+- One summary above the list names the subtests and the missing grades. Each affected row carries only a * whose title lists them.
+- Add to all, with an optional change reason, adds the missing grades to every one through the same save the editor uses, and reports any it could not save.
+- TEST-BB-1425 (extends the tick 13 component test), URS-BB-1165, FRS-BB-1283.
+
+Clean count reset to 0.
+

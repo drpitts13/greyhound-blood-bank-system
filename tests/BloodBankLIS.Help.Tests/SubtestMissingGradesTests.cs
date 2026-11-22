@@ -29,7 +29,13 @@ public class SubtestMissingGradesTests : BunitContext
         });
         var page = Render<AdminSubtests>();
         page.WaitForAssertion(() => Assert.NotNull(page.Find("[data-subtest-missing-grades='IS']")));
-        Assert.Equal("Missing standard: mf", page.Find("[data-subtest-missing-grades='IS']").TextContent.Trim());
+        Assert.Equal("Missing standard: mf", page.Find("[data-subtest-missing-grades='IS']").GetAttribute("title"));
+
+        // TEST-BB-1425 (loop 2 tick 58): one summary above the list, with an Add to all action, instead of the note on every row.
+        Assert.Equal(
+            "1 graded subtest (IS) lacks the standard grade mf, marked * in Choices. Add them here or with Add missing standard grades on each subtest.",
+            page.Find("[data-subtests-missing-summary] div").TextContent.Trim());
+        Assert.NotNull(page.Find("[data-subtests-add-missing-all]"));
         Assert.Empty(page.FindAll("[data-subtest-missing-grades='AHG']"));
         Assert.Empty(page.FindAll("[data-subtest-missing-grades='PICK']"));
 

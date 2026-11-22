@@ -1170,3 +1170,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1162 | When irradiating, Modify products suggests only registered irradiators, and says when none is registered. | P2 | FRS-BB-1280 |
 | URS-BB-1163 | A facility can make the reason for a product modification optional; it is required unless the facility turns it off. | P2 | FRS-BB-1281 |
 | URS-BB-1164 | The test builder offers Allowed result values only for the result types that use them. | P3 | FRS-BB-1282 |
+| URS-BB-1165 | The Subtests list summarizes graded subtests missing a standard grade once, and can add the missing grades to all of them in one step. | P3 | FRS-BB-1283 |
