@@ -29980,3 +29980,18 @@ No change. Clean tick 1 of 5.
 
 No change. Clean tick 2 of 5.
 
+## Iteration 1137 — End-user testing loop 2, tick 68: Admin › Actions, nothing to fix (2026-11-22)
+
+### How it was tested
+
+- Read Admin › Actions and its seeded rows (IRRAD, LR, THAW, UAGTYPE, VR, WASH).
+- Checked how a patient's aliquot is requested.
+
+### Findings
+
+- The page says which modification types an order action may use: the one-to-one ones, deglycerolize and plasma reduction included (tick 3).
+- Freeze and rejuvenate are not patient-order steps.
+- An aliquot for a patient is ordered as a volume on the order line ("mL each"), shown on Blood orders to prepare, and made on Modify products (Patient orders help). It does not need an order action.
+
+No change. Clean tick 3 of 5.
+
