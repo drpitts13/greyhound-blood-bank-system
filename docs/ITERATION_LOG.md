@@ -30022,3 +30022,23 @@ No change. Clean tick 4 of 5.
 
 No change. Clean tick 5 of 5: end-user testing loop 2 is complete, so the schedule was stopped.
 
+## Iteration 1140 — Tube storage days, automatic discard and medical director expiration extension as facility settings (2026-11-22)
+
+### Request
+
+- A facility setting for how many days a tube can be stored after it expires for routine testing and crossmatching.
+- A setting to turn automatic discarding on or off.
+- An option for the medical director to extend a tube's expiration.
+
+### Changes
+
+- **Storage days.** The setting already existed as *Specimen retention days* (OCD-070). It is renamed *Tube storage days after expiration*, and its description now says what it is for. The key is unchanged, so saved values carry over.
+- **Automatic discard.** New setting *Discard tubes automatically when storage ends*, default off.
+  - When it is on, the expired-specimen sweep records each tube past its storage days as discarded by *system (automatic discard)*. Tubes kept for an unfinished order, an open workup or an open investigation are skipped.
+  - Store tubes lists the last 7 days of automatic discards by former place, so they can be pulled.
+- **Medical director extension.** New setting *Medical director may extend tube expiration*, default on, which keeps what the software already allowed.
+  - An expiration later than the policy window is named as an extension: the override asks for the medical director as Authorized by, and the audit trail records who approved it. When the setting is off, an extension is refused, while an earlier expiration still works with an override.
+  - An expired tube that is not discarded can now be extended from the chart (**Extend**). It goes back to Received and is accepted again before testing.
+  - Fixed in passing: a tube with an extended expiration no longer asks for the override again on every later edit.
+
+URS-BB-1169, FRS-BB-1287, TEST-BB-1429, TEST-BB-1430.

@@ -155,4 +155,64 @@ public class SpecimenDiscardTests
         Assert.Contains($"{onOrder.OrderNumber}", refused.Error);
         Assert.Contains("not finished", refused.Error);
     }
+
+    // TEST-BB-1430: facility policy Discard tubes automatically when storage ends. Off (the default) nothing is discarded;
+    // on, each tube past its storage days is recorded as discarded by the system, a kept tube stays, and the discarded
+    // tubes are listed with their former place to pull.
+    [Fact]
+    public async Task AutoDiscard_RecordsDueTubesAsDiscarded_OnlyWhenTheFacilityTurnsItOn()
+    {
+        using var factory = new SqliteContextFactory();
+        await using (var db = factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(db);
+        }
+
+        await using var c = factory.Create();
+        var now = factory.Clock.UtcNow;
+        var patient = new Patient { MedicalRecordNumber = "MRN-DSC-AUTO", LastName = "Auto", FirstName = "Tube", DateOfBirth = new DateOnly(1970, 1, 1) };
+        var location = new OrderingLocation { Code = "LOC-DSC-A", Name = "BB", IsActive = true };
+        c.AddRange(patient, location);
+        await c.SaveChangesAsync();
+        var encounter = new Encounter { PatientId = patient.Id, VisitNumber = "VIS-DSC-A", EncounterType = EncounterType.Inpatient, Status = EncounterStatus.Active, AdmitUtc = now.AddDays(-20) };
+        Specimen Tube(string accession, int expiredDaysAgo) => new()
+        {
+            PatientId = patient.Id, AccessionNumber = accession, SpecimenType = "EDTA", Status = SpecimenStatus.Expired,
+            CollectedUtc = now.AddDays(-expiredDaysAgo - 3), ExpiresUtc = now.AddDays(-expiredDaysAgo)
+        };
+        var due = Tube("ACC-AUTO-DUE", 10);
+        var kept = Tube("ACC-AUTO-KEPT", 10);
+        var recent = Tube("ACC-AUTO-NEW", 1);
+        c.AddRange(encounter, due, kept, recent);
+        await c.SaveChangesAsync();
+        var order = new Order { PatientId = patient.Id, EncounterId = encounter.Id, OrderingLocationId = location.Id, OrderNumber = "ORD-AUTO-K", OrderCategory = OrderCategory.Test, OrderName = "ABSC", Status = OrderStatus.New, OrderedUtc = now.AddDays(-13) };
+        c.Orders.Add(order);
+        await c.SaveChangesAsync();
+        c.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = kept.Id, IsPrimary = true });
+        (await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.SpecimenRetentionDays)).Value = "7";
+        await c.SaveChangesAsync();
+
+        var service = Service(factory, c, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession));
+        foreach (var tube in new[] { due, kept, recent })
+        {
+            Assert.True((await service.StoreAsync(new StoreSpecimenRequest(tube.AccessionNumber, "Rack A"))).Succeeded);
+        }
+
+        // The catalog default is off: nothing is discarded.
+        Assert.Equal("false", (await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.SpecimenAutoDiscard)).Value);
+        Assert.Equal(0, await service.AutoDiscardDueAsync());
+
+        (await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.SpecimenAutoDiscard)).Value = "true";
+        await c.SaveChangesAsync();
+        Assert.Equal(1, await service.AutoDiscardDueAsync());
+        Assert.Equal(0, await service.AutoDiscardDueAsync());
+
+        var rows = await c.Specimens.AsNoTracking().Where(s => s.PatientId == patient.Id).ToDictionaryAsync(s => s.Id);
+        Assert.Equal((null, now, SpecimenDiscardRule.AutomaticBy), (rows[due.Id].StorageLocation, rows[due.Id].DiscardedUtc, rows[due.Id].DiscardedBy));
+        Assert.Null(rows[kept.Id].DiscardedUtc);
+        Assert.Null(rows[recent.Id].DiscardedUtc);
+        var pulled = Assert.Single(await service.ListAutoDiscardedAsync(), t => t.PatientId == patient.Id);
+        Assert.Equal((due.AccessionNumber, "Rack A"), (pulled.AccessionNumber, pulled.Location));
+        Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityId == due.Id && a.Reason != null && a.Reason.Contains("discarded automatically from Rack A")));
+    }
 }

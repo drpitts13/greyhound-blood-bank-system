@@ -167,7 +167,7 @@ public static class DashboardQueueCatalog
     /// a note says they are not tracked rather than the card reading clear.
     /// </summary>
     public static (int Count, string? Note) TubesDueForDiscardCard(int due, int retentionDays) =>
-        (due, due == 0 && retentionDays <= 0 ? "not tracked: specimen retention days are not set" : null);
+        (due, due == 0 && retentionDays <= 0 ? "not tracked: tube storage days are not set" : null);
 
     public static (int Count, string? Note) ToVerifyCard(IEnumerable<TestWorkItemDto> pending, string? userName)
     {

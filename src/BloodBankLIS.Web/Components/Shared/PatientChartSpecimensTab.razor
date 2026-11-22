@@ -176,6 +176,11 @@
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(s)">@(EditId == s.Id ? "Cancel edit" : "Edit")</button>
                             }
+                            @if (s.Status == SpecimenStatus.Expired && s.DiscardedUtc is null && AllowExpirationExtension && Session.Has(PermissionCodes.SpecimenEdit))
+                            {
+                                @* Facility policy Medical director may extend tube expiration: an expired tube still in storage. *@
+                                <button class="btn btn-ghost btn-sm" data-extend-expiration="@s.AccessionNumber" title="Extend this expired tube's expiration with the medical director's approval" @onclick="() => OnBeginEdit.InvokeAsync(s)">@(EditId == s.Id ? "Cancel extend" : "Extend")</button>
+                            }
                             @if ((s.Status is SpecimenStatus.Collected or SpecimenStatus.Received or SpecimenStatus.Accepted)
                                 && Session.Has(PermissionCodes.SpecimenEdit))
                             {
@@ -218,7 +223,7 @@
                                 <div class="form-row">
                                     <div class="field"><label>Accession #</label><input value="@s.AccessionNumber" disabled /></div>
                                     <div class="field"><label>Specimen type</label><input value="@(s.SpecimenTypeDescription ?? s.SpecimenType)" disabled /></div>
-                                    <div class="field"><label>Collected</label><input type="datetime-local" @bind="Edit.CollectedLocal" @bind:after="OnCollectedChanged" /></div>
+                                    <div class="field"><label>Collected</label><input type="datetime-local" @bind="Edit.CollectedLocal" @bind:after="OnCollectedChanged" disabled="@Edit.Expired" /></div>
                                     <div class="field"><label>Barcode</label><input value="@(s.Barcode ?? "—")" disabled /><span class="muted">Use Relabel to change.</span></div>
                                     <div class="field"><label>Draw location</label><input @bind="Edit.DrawLocation" /></div>
                                     <div class="field"><label>Collector</label><input @bind="Edit.Collector" /></div>
@@ -228,11 +233,21 @@
                                     <label>Comment</label>
                                     <CodedCommentField Page="CommentPage.Specimen" @bind-Value="Edit.Comment" />
                                 </div>
-                                @if (NeedsExpirationOverride)
+                                @if (Edit.Expired)
                                 {
-                                    <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
-                                        <strong>Exception: specimen expiration override</strong>
-                                        <p class="muted">Changing expiration away from the policy-computed window requires an authorized override. The exception is recorded and cannot be removed.</p>
+                                    <p class="muted" data-extend-note>This tube has expired. Set a later expiration approved by the medical director; the tube goes back to Received and is accepted again before testing.</p>
+                                }
+                                @if (Edit.IsExtension && !AllowExpirationExtension)
+                                {
+                                    <div class="alert alert-warning" data-extension-not-allowed>@SpecimenExpirationOverrideRule.ExtensionNotAllowedText</div>
+                                }
+                                else if (NeedsExpirationOverride)
+                                {
+                                    <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;" data-expiration-override="@(Edit.IsExtension ? "extension" : "change")">
+                                        <strong>@(Edit.IsExtension ? "Exception: expiration extended by the medical director" : "Exception: specimen expiration override")</strong>
+                                        <p class="muted">@(Edit.IsExtension
+                                            ? "The new expiration is later than the policy window. Name the medical director who approved it under Authorized by and give the reason. The exception is recorded and cannot be removed."
+                                            : "Changing expiration away from the policy-computed window requires an authorized override. The exception is recorded and cannot be removed.")</p>
                                         @if (Session.SecurityLevel < ExceptionMinLevel)
                                         {
                                             <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum (@ExceptionMinLevel) required to override.</div>
@@ -403,6 +418,7 @@
     [Parameter] public EventCallback<long> OnReceive { get; set; }
     /// <summary>OCD-056: the facility requires receipt by scanning the tube, so the row offers no Receive button.</summary>
     [Parameter] public bool ReceiveByScanOnly { get; set; }
+    [Parameter] public bool AllowExpirationExtension { get; set; } = true;
     [Parameter] public EventCallback<long> OnAccept { get; set; }
     [Parameter] public EventCallback OnOpenOrders { get; set; }
     [Parameter] public int ExceptionMinLevel { get; set; } = 2;
@@ -448,11 +464,7 @@
         _accessionPreview = r.Succeeded ? r.Value : null;
     }
 
-    private bool NeedsExpirationOverride =>
-        SpecimenExpirationOverrideRule.Evaluate(
-            Edit.PolicyExpires,
-            Edit.ExpiresLocal,
-            overrideAuthorized: false).Severity == RuleSeverity.Warning;
+    private bool NeedsExpirationOverride => Edit.NeedsExpirationOverride;
 
     private async Task OnCollectedChanged()
     {

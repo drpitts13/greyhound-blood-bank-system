@@ -78,6 +78,10 @@ public static class SpecimenEndpoints
         group.MapGet("/due-for-discard", async (SpecimenStorageService service, CancellationToken ct) =>
             Results.Ok(await service.ListDueForDiscardAsync(ct)));
 
+        // Tubes the system discarded when their storage days ended (facility policy), with their former place, to pull.
+        group.MapGet("/auto-discarded", async (SpecimenStorageService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAutoDiscardedAsync(7, ct)));
+
         group.MapPost("/discard", async (DiscardSpecimenRequest request, SpecimenStorageService service, CancellationToken ct) =>
             EndpointResults.From(await service.DiscardAsync(request, ct), d => d))
             .RequirePermission(PermissionCodes.SpecimenAccession);

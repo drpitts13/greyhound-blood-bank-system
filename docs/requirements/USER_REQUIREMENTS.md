@@ -1174,3 +1174,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-1166 | A check-cell phase's validated phase is chosen from the existing reading phases, and a save naming no such phase is warned about. | P2 | FRS-BB-1284 |
 | URS-BB-1167 | When defining a product, the ISBT 128 code is suggested from the loaded product codes, and the matched description, or the code's absence from the catalog, is shown. | P2 | FRS-BB-1285 |
 | URS-BB-1168 | Product fields the software does not act on are presented as reference notes, not as rules. | P2 | FRS-BB-1286 |
+| URS-BB-1169 | The facility sets how many days a tube is stored after it expires, whether tubes past that period are discarded automatically, and whether the medical director may extend a tube's expiration, including that of an expired tube still in storage. | P2 | FRS-BB-1287 |

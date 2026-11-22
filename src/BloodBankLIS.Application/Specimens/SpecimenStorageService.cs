@@ -442,6 +442,101 @@ public sealed class SpecimenStorageService
             patient?.MedicalRecordNumber ?? "—", previous, now, early));
     }
 
+    /// <summary>
+    /// Facility policy Discard tubes automatically when storage ends: each tube due for discard (past its storage days,
+    /// not kept for an unfinished order, an open workup or an open investigation) is recorded as discarded by the system.
+    /// Its former place stays on its history and on Store tubes' Discarded automatically list, so it can be pulled.
+    /// Does nothing while the policy is off or no storage days are set. Returns how many tubes were discarded.
+    /// </summary>
+    public async Task<int> AutoDiscardDueAsync(CancellationToken ct = default)
+    {
+        if (_policy is null || _orderSpecimens is null || _orders is null || _investigations is null
+            || !await _policy.GetSpecimenAutoDiscardAsync(ct))
+        {
+            return 0;
+        }
+
+        var due = await ListDueForDiscardAsync(ct);
+        if (due.Count == 0)
+        {
+            return 0;
+        }
+
+        var now = _clock.UtcNow;
+        var dueIds = due.Select(t => t.SpecimenId).ToList();
+        var keepUntil = due.ToDictionary(t => t.SpecimenId, t => t.KeepUntilUtc);
+        var discarded = 0;
+        foreach (var id in dueIds)
+        {
+            // The due list came from read-only queries; change the tracked row.
+            var specimen = await _specimens.GetByIdAsync(id, ct);
+            if (specimen is null || specimen.DiscardedUtc is not null)
+            {
+                continue;
+            }
+
+            discarded++;
+            var previous = specimen.StorageLocation;
+            specimen.DiscardedUtc = now;
+            specimen.DiscardedBy = SpecimenDiscardRule.AutomaticBy;
+            specimen.DiscardReason = null;
+            specimen.StorageLocation = null;
+            _specimens.Update(specimen);
+            await _events.AddAsync(new SpecimenStorageEvent
+            {
+                SpecimenId = specimen.Id,
+                Location = "Discarded",
+                PreviousLocation = previous,
+                StoredUtc = now,
+                StoredBy = SpecimenDiscardRule.AutomaticBy,
+                Note = SpecimenDiscardRule.AutomaticNote,
+                Discarded = true
+            }, ct);
+            _audit.Record(
+                AuditEventType.Update,
+                nameof(Specimen),
+                specimen.Id,
+                oldValue: new { StorageLocation = previous, DiscardedUtc = (DateTime?)null },
+                newValue: new { DiscardedUtc = now, specimen.AccessionNumber, specimen.PatientId, KeepUntilUtc = keepUntil.GetValueOrDefault(specimen.Id) },
+                reason: $"Tube discarded automatically{(previous is null ? string.Empty : $" from {previous}")}: storage days after expiration ended.");
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return discarded;
+    }
+
+    /// <summary>
+    /// Tubes the system discarded automatically in the last <paramref name="days"/> days, with the place each was in, so
+    /// they can be pulled from their racks; newest first.
+    /// </summary>
+    public async Task<IReadOnlyList<TubeInPlaceDto>> ListAutoDiscardedAsync(int days = 7, CancellationToken ct = default)
+    {
+        var since = _clock.UtcNow.AddDays(-Math.Max(1, days));
+        var events = await _events.ListAsync(
+            e => e.Discarded && e.StoredBy == SpecimenDiscardRule.AutomaticBy && e.StoredUtc >= since, ct);
+        if (events.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = events.Select(e => e.SpecimenId).Distinct().ToList();
+        var tubes = (await _specimens.ListAsync(s => ids.Contains(s.Id), ct)).ToDictionary(s => s.Id);
+        var patientIds = tubes.Values.Select(t => t.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        return events
+            .Where(e => tubes.ContainsKey(e.SpecimenId))
+            .OrderByDescending(e => e.StoredUtc)
+            .Select(e =>
+            {
+                var t = tubes[e.SpecimenId];
+                patients.TryGetValue(t.PatientId, out var patient);
+                return new TubeInPlaceDto(
+                    t.Id, t.AccessionNumber, t.SpecimenType, t.Status, t.PatientId, PatientName(patient, t.PatientId),
+                    patient?.MedicalRecordNumber ?? "—", t.CollectedUtc, e.StoredUtc, e.StoredBy, e.PreviousLocation, null);
+            })
+            .ToList();
+    }
+
     // One tube by accession or label barcode (case-insensitive), tracked for update.
     private async Task<(Specimen? Specimen, string? Error)> FindByScanAsync(string? raw, CancellationToken ct)
     {

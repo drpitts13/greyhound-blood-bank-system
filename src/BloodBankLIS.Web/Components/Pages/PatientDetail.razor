@@ -327,6 +327,7 @@ else
             OnCancelReject="() => _rejectId = null"
             OnReceive="ReceiveSpecimenAsync"
             ReceiveByScanOnly="_receiptByScanOnly"
+            AllowExpirationExtension="_allowExpirationExtension"
             OnAccept="AcceptSpecimenAsync"
             OnOpenOrders="OpenAddOrderWithAccessionAsync"
             ExceptionMinLevel="_specimenExpMinLevel"
@@ -566,6 +567,8 @@ else
     // OCD-039: identifier fields start empty unless the facility allows pre-fill. A failed read keeps them empty.
     private bool _prefillIdentifiers;
     private bool _receiptByScanOnly;
+    // Facility policy Medical director may extend tube expiration (default on): Extend on an expired tube, and the prompt.
+    private bool _allowExpirationExtension = true;
     private bool _blockAboSelfVerify = true;
     private List<AntibodyDto> _antibodyHistory = new();
     private List<AntibodyIdWorkupListItemDto> _abidWorkups = new();
@@ -2922,7 +2925,10 @@ else
         _edit = new PatientSpecimenEditForm
         {
             CollectedLocal = LocalEntry.FromUtc(s.CollectedUtc),
+            OriginalCollectedLocal = LocalEntry.FromUtc(s.CollectedUtc),
             ExpiresLocal = LocalEntry.FromUtc(s.ExpiresUtc ?? policyExpires),
+            OriginalExpiresLocal = s.ExpiresUtc is DateTime current ? LocalEntry.FromUtc(current) : null,
+            Expired = s.Status == SpecimenStatus.Expired,
             SpecimenType = s.SpecimenType,
             PolicyHours = hours,
             PolicyExpires = LocalEntry.FromUtc(policyExpires),
@@ -2937,12 +2943,7 @@ else
         if (exc.Succeeded && exc.Value is not null) _specimenExpMinLevel = exc.Value.MinSecurityLevel;
     }
 
-    private bool NeedsSpecimenExpiryOverride =>
-        _editId is not null
-        && SpecimenExpirationOverrideRule.Evaluate(
-            _edit.PolicyExpires,
-            _edit.ExpiresLocal,
-            overrideAuthorized: false).Severity == RuleSeverity.Warning;
+    private bool NeedsSpecimenExpiryOverride => _editId is not null && _edit.NeedsExpirationOverride;
 
     private async Task SaveEditAsync(long specimenId)
     {
@@ -2963,7 +2964,9 @@ else
             // OCD-041: the authorizer is named by the user (Me fills it on request), never filled in for them.
             if (string.IsNullOrWhiteSpace(_edit.AuthorizedBy))
             {
-                _editFb = Feedback.Fail("Name who authorized the expiration override, or choose Me if you authorized it.");
+                _editFb = Feedback.Fail(_edit.IsExtension
+                    ? "Name the medical director who approved the extension under Authorized by."
+                    : "Name who authorized the expiration override, or choose Me if you authorized it.");
                 return;
             }
         }
@@ -3319,6 +3322,8 @@ else
         _prefillIdentifiers = prefill.Succeeded && prefill.Value?.Enabled == true;
         var scanOnly = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSpecimenReceiptByScan);
         _receiptByScanOnly = scanOnly.Succeeded && scanOnly.Value?.Enabled == true;
+        var extension = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.SpecimenAllowExpirationExtension);
+        _allowExpirationExtension = !extension.Succeeded || extension.Value?.Enabled != false;
 
         // A failed read keeps the block on; the server makes the final call either way.
         var aboSelfVerify = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.BlockAboSelfVerify);

@@ -318,7 +318,7 @@ public class DashboardHomeTests
     public void TubesDueForDiscard_NotTracked_IsNotClear()
     {
         var (count, note) = DashboardQueueCatalog.TubesDueForDiscardCard(0, 0);
-        Assert.Equal((0, "not tracked: specimen retention days are not set"), (count, note));
+        Assert.Equal((0, "not tracked: tube storage days are not set"), (count, note));
         Assert.DoesNotContain(DashboardHome.Arrange([State(DashboardQueueCatalog.TubesDueForDiscard, count, note)], WorkFocus.Everything).Clear,
             c => c.Card.Key == DashboardQueueCatalog.TubesDueForDiscard);
         Assert.Equal((0, (string?)null), DashboardQueueCatalog.TubesDueForDiscardCard(0, 14));

@@ -1436,6 +1436,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-1426 | U | `PhaseAndInterpretationTests.CheckCell_ValidatingAnUnknownPhase_IsWarned` | URS-BB-1166 / FRS-BB-1284 |
 | TEST-BB-1427 | U | `ProductIsbtCodeSourceTests.ProductIsbtCode_SuggestsTheLoadedCatalog_AndNamesTheMatch` (Products in tick 62, Product Billing in tick 65) | URS-BB-1167 / FRS-BB-1285 |
 | TEST-BB-1428 | U | `ProductNotesSourceTests.ProductNoteFields_AreLabelledAsNotes_AndNothingReadsThem` (ticks 63–64) | URS-BB-1168 / FRS-BB-1286 |
+| TEST-BB-1429 | D, I | `SpecimenExpirationOverrideRuleTests.Extension_IsApprovedOrRefused_AndAnUnchangedExpirationNeedsNoNewOverride`, `SpecimenExpirationExtensionTests.Extension_NeedsTheMedicalDirector_AndIsRefusedWhenTheFacilityTurnsItOff`, `SpecimenExpirationExtensionTests.ExpiredTube_CanBeExtendedByTheMedicalDirector_AndGoesBackToReceived` | URS-BB-1169 / FRS-BB-1287 |
+| TEST-BB-1430 | I | `SpecimenDiscardTests.AutoDiscard_RecordsDueTubesAsDiscarded_OnlyWhenTheFacilityTurnsItOn` | URS-BB-1169 / FRS-BB-1287 |
 | TEST-BB-1424 | U | `AllowedValuesFieldSourceTests.AllowedValues_ShownOnlyWhereUsed` | URS-BB-1164 / FRS-BB-1282 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

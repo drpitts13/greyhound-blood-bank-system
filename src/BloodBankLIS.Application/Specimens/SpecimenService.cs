@@ -319,7 +319,9 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Specimen not found.");
         }
 
-        if (specimen.Status is not SpecimenStatus.Accepted)
+        // An expired tube still in storage may have its expiration extended by the medical director (facility policy).
+        var reopeningExpired = specimen.Status == SpecimenStatus.Expired && specimen.DiscardedUtc is null;
+        if (specimen.Status is not SpecimenStatus.Accepted && !reopeningExpired)
         {
             return OperationResult<Specimen>.Fail($"A specimen with status {specimen.Status} cannot be edited.");
         }
@@ -348,10 +350,29 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Expiration cannot be before collection.");
         }
 
-        var expirationRule = request.ExpiresUtc is null
-            ? RuleResult.Pass(SpecimenExpirationOverrideRule.Code)
-            : SpecimenExpirationOverrideRule.Evaluate(policyExpires, request.ExpiresUtc.Value, overrideAuthorized: false);
-        var overrideNeeded = expirationRule.Severity == RuleSeverity.Warning;
+        var collectionChanged = specimen.CollectedUtc != request.CollectedUtc;
+        var overrideNeeded = request.ExpiresUtc is DateTime requested
+            && SpecimenExpirationOverrideRule.NeedsOverride(policyExpires, requested, specimen.ExpiresUtc, collectionChanged);
+        var expirationRule = overrideNeeded
+            ? SpecimenExpirationOverrideRule.Evaluate(policyExpires, request.ExpiresUtc!.Value, overrideAuthorized: false)
+            : RuleResult.Pass(SpecimenExpirationOverrideRule.Code);
+        var extending = overrideNeeded && SpecimenExpirationOverrideRule.IsExtension(policyExpires, request.ExpiresUtc!.Value);
+        if (extending)
+        {
+            // Facility policy Medical director may extend tube expiration (default on): off, an extension is refused.
+            expirationRule = SpecimenExpirationOverrideRule.EvaluateExtension(
+                _policy is null || await _policy.GetAllowSpecimenExpirationExtensionAsync(ct));
+            if (expirationRule.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Specimen>.Fail(expirationRule.Message);
+            }
+        }
+
+        if (reopeningExpired && (!extending || collectionChanged || nextExpires <= _clock.UtcNow))
+        {
+            return OperationResult<Specimen>.Fail(
+                "An expired tube can only have its expiration extended to a later time, approved by the medical director; collection cannot be changed.");
+        }
         if (overrideNeeded)
         {
             var blocked = await EvaluateExpirationOverrideAccessAsync(request, expirationRule, ct);
@@ -379,6 +400,12 @@ public sealed class SpecimenService
         specimen.Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim();
         specimen.ExpiresUtc = nextExpires;
         specimen.Comment = NormalizeComment(request.Comment);
+        var previousStatus = specimen.Status;
+        if (reopeningExpired)
+        {
+            // Accepted again before testing, so the acceptance checks run on the extended tube.
+            specimen.Status = specimen.ReceivedUtc is null ? SpecimenStatus.Collected : SpecimenStatus.Received;
+        }
 
         if (overrideNeeded && _overrides is not null)
         {
@@ -409,9 +436,13 @@ public sealed class SpecimenService
                 specimen.ExpiresUtc,
                 specimen.Comment,
                 RuleCode = overrideNeeded ? SpecimenExpirationOverrideRule.Code : null,
-                OverrideReason = overrideNeeded ? request.OverrideReason : null
+                OverrideReason = overrideNeeded ? request.OverrideReason : null,
+                ExtendedBy = extending ? request.AuthorizedBy : null,
+                Status = specimen.Status != previousStatus ? specimen.Status.ToString() : null
             },
-            reason: overrideNeeded
+            reason: extending
+                ? $"Specimen expiration extended past the policy window, approved by {request.AuthorizedBy!.Trim()} ({SpecimenExpirationOverrideRule.Code}){(reopeningExpired ? $"; the expired tube is {specimen.Status} again and is accepted before testing" : string.Empty)}."
+                : overrideNeeded
                 ? $"Specimen metadata updated with {SpecimenExpirationOverrideRule.Code}."
                 : "Specimen metadata updated.");
         await _unitOfWork.SaveChangesAsync(ct);

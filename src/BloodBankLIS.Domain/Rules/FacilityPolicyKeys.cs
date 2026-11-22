@@ -47,6 +47,12 @@ public static class FacilityPolicyKeys
 
     /// <summary>Days a patient tube is kept after its expiration before it is due for discard (OCD-070). 0 = not set.</summary>
     public const string SpecimenRetentionDays = "Specimen.RetentionDays";
+
+    /// <summary>When true, a stored tube is recorded as discarded automatically once its storage days end. Default off.</summary>
+    public const string SpecimenAutoDiscard = "Specimen.AutoDiscard";
+
+    /// <summary>When true (the default), the medical director may extend a tube's expiration past the policy window, with an override.</summary>
+    public const string SpecimenAllowExpirationExtension = "Specimen.AllowExpirationExtension";
     public const string TemperatureReadingIntervalHours = "Inventory.TemperatureReadingIntervalHours";
 
     /// <summary>Minutes a STAT or urgent test may wait from order to verification before it is marked (pass 106). 0 = not set.</summary>

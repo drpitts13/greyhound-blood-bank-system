@@ -25,6 +25,9 @@ public static class ReferenceEndpoints
         FacilityPolicyKeys.RequireWardReceipt,
         // Pass 335: the home page says tubes due for discard are not tracked while retention is not set (OCD-070).
         FacilityPolicyKeys.SpecimenRetentionDays,
+        // The chart offers Extend on an expired tube only while the medical director may extend expiration.
+        FacilityPolicyKeys.SpecimenAllowExpirationExtension,
+        FacilityPolicyKeys.SpecimenAutoDiscard,
         // The deviation form checks closing against the facility's FDA reportability setting (OCD-090).
         FacilityPolicyKeys.DeviationFdaReportabilityToClose,
         // Record crossmatch does not offer Electronic while the facility has it off (end-user testing pass 174).

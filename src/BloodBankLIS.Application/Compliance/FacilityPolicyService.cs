@@ -120,6 +120,12 @@ public sealed class FacilityPolicyService
     public Task<int> GetSpecimenRetentionDaysAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.SpecimenRetentionDays, 0, ct);
 
+    public Task<bool> GetSpecimenAutoDiscardAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.SpecimenAutoDiscard, false, ct);
+
+    public Task<bool> GetAllowSpecimenExpirationExtensionAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.SpecimenAllowExpirationExtension, true, ct);
+
     /// <summary>The C:T ratio target in tenths (pass 342); 0 = not set.</summary>
     public Task<int> GetUtilizationCtRatioTargetTenthsAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.UtilizationCtRatioTargetTenths, 0, ct);

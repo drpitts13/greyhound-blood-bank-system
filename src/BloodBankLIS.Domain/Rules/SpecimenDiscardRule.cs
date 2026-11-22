@@ -2,13 +2,18 @@ namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// Discarding a stored tube. A tube still on an unfinished order or on an open reaction investigation is kept (hard stop,
-/// no reason releases it). The facility sets how many days a tube is kept after its expiration (Specimen retention days,
+/// no reason releases it). The facility sets how many days a tube is kept after its expiration (Tube storage days after expiration,
 /// OCD-070); before then, or when no period is set, a discard needs a reason and is recorded as early.
 /// </summary>
 public static class SpecimenDiscardRule
 {
     public const string Code = "SPECIMEN-DISCARD";
     public const int MaxReasonLength = 500;
+
+    /// <summary>Who discarded a tube the system discarded when its storage days ended (Facility policy: automatic discard).</summary>
+    public const string AutomaticBy = "system (automatic discard)";
+
+    public const string AutomaticNote = "Automatic: storage days after expiration ended";
 
     /// <summary>When the tube may be discarded: its expiration (or collection when it has none) plus the retention days; null when no period is set.</summary>
     public static DateTime? KeepUntil(DateTime collectedUtc, DateTime? expiresUtc, int retentionDays) =>
@@ -69,7 +74,7 @@ public static class SpecimenDiscardRule
         {
             return RuleResult.HardStop(Code, keepUntilUtc is DateTime keep
                 ? $"The tube is kept until {ClinicalTimeText.Local(keep)}; give a reason to discard it early."
-                : "No retention period is set (Facility policy: Specimen retention days); give a reason to discard the tube.");
+                : "No retention period is set (Facility policy: Tube storage days after expiration); give a reason to discard the tube.");
         }
 
         return RuleResult.Warning(Code, keepUntilUtc is DateTime until

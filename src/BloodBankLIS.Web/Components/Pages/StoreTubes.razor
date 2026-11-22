@@ -10,7 +10,7 @@
 <p class="muted">
     Scan the rack or shelf once, then scan each tube you put there (its accession or label barcode). The chart shows where
     each tube is; a tube moved to a new place keeps its earlier place on its timeline. When a tube is no longer needed,
-    scan it under Discard tubes. How long tubes are kept is your facility's policy (Specimen retention days, OCD-070).
+    scan it under Discard tubes. How long tubes are kept is your facility's policy (Tube storage days after expiration, OCD-070).
 </p>
 
 @if (!Session.Has(PermissionCodes.SpecimenAccession))
@@ -166,6 +166,34 @@ else
         </div>
     }
 
+    @if (_autoDiscarded.Count > 0)
+    {
+        @* Facility policy Discard tubes automatically when storage ends: the system records the discard; staff pull the tube. *@
+        <details class="bb-card" data-auto-discarded>
+            <summary><strong>Discarded automatically, last 7 days (@_autoDiscarded.Count)</strong></summary>
+            <p class="muted">The system recorded these tubes as discarded when their storage days ended (Facility policy: Discard tubes automatically when storage ends). They are grouped by the place each was in; pull them and throw them away. Nothing needs to be scanned.</p>
+            <div class="table-scroll">
+            <table class="bb">
+                <thead><tr><th>Tube</th><th>Patient</th><th>Discarded</th></tr></thead>
+                @foreach (var place in TubePullList.Group(_autoDiscarded))
+                {
+                    <tbody data-auto-discard-place="@place.Name">
+                        <tr class="group-row"><th colspan="3">@place.Name <span class="sub">· @place.Tubes.Count @(place.Tubes.Count == 1 ? "tube" : "tubes")</span></th></tr>
+                        @foreach (var t in place.Tubes)
+                        {
+                            <tr>
+                                <td class="mono">@t.AccessionNumber</td>
+                                <td><a href="@($"/patients/{t.PatientId}?tab=specimens&specimen={t.SpecimenId}")">@t.PatientName</a> <span class="sub mono">@t.Mrn</span></td>
+                                <td class="nowrap">@t.StoredUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                }
+            </table>
+            </div>
+        </details>
+    }
+
     @if (_inPlace is not null)
     {
         <div class="bb-card" data-tubes-in-place>
@@ -252,6 +280,7 @@ else
     private Feedback? _discardFb;
     private readonly List<DiscardedSpecimenDto> _discarded = new();
     private List<TubeInPlaceDto> _due = new();
+    private List<TubeInPlaceDto> _autoDiscarded = new();
     // Pass 135: received tubes with no place recorded.
     private List<TubeInPlaceDto> _notStored = new();
     private const int NotStoredShown = 50;
@@ -276,6 +305,8 @@ else
     {
         var due = await Api.GetTubesDueForDiscardAsync();
         _due = due.Succeeded ? due.Value ?? new() : new();
+        var auto = await Api.GetTubesAutoDiscardedAsync();
+        _autoDiscarded = auto.Succeeded ? auto.Value ?? new() : new();
         var notStored = await Api.GetTubesNotStoredAsync();
         _notStored = notStored.Succeeded ? notStored.Value ?? new() : new();
     }

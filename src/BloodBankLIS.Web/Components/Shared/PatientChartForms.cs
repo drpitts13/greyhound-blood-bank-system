@@ -32,6 +32,11 @@ public sealed class PatientSpecimenEditForm
     // Local times as typed (pass 57), like PolicyExpires; sent as UTC with LocalEntry.ToUtc.
     public DateTime CollectedLocal { get; set; } = LocalEntry.Now;
     public DateTime ExpiresLocal { get; set; } = LocalEntry.Now;
+    // What the tube has now, so an unchanged extended expiration is not approved again on every edit.
+    public DateTime OriginalCollectedLocal { get; set; } = LocalEntry.Now;
+    public DateTime? OriginalExpiresLocal { get; set; }
+    // An expired tube opened with Extend: only a later expiration, approved by the medical director, can be saved.
+    public bool Expired { get; set; }
     public string SpecimenType { get; set; } = string.Empty;
     public string? Barcode { get; set; }
     public string? DrawLocation { get; set; }
@@ -42,6 +47,12 @@ public sealed class PatientSpecimenEditForm
     public string? Comment { get; set; }
     public string OverrideReason { get; set; } = string.Empty;
     public string AuthorizedBy { get; set; } = string.Empty;
+
+    public bool NeedsExpirationOverride =>
+        SpecimenExpirationOverrideRule.NeedsOverride(PolicyExpires, ExpiresLocal, OriginalExpiresLocal, CollectedLocal != OriginalCollectedLocal);
+
+    /// <summary>An expiration later than the policy window: the medical director approves it (facility policy).</summary>
+    public bool IsExtension => NeedsExpirationOverride && SpecimenExpirationOverrideRule.IsExtension(PolicyExpires, ExpiresLocal);
 }
 
 public sealed class PatientDemoEditModel
