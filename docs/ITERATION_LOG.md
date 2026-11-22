@@ -29966,3 +29966,17 @@ Clean count stays at 0.
 
 No change. Clean tick 1 of 5.
 
+## Iteration 1136 — End-user testing loop 2, tick 67: every admin page is reachable, nothing to fix (2026-11-22)
+
+### How it was tested
+
+- Listed every `@page "/admin…"` route and checked each against the menu and Admin Home.
+
+### Findings
+
+- Only two routes were in neither or only one.
+  - `/admin/specimen-label` is a redirect to Specimen Labels, which the menu lists.
+  - `/admin/hl7/translations` is a sub-page of HL7 Interface Setup, opened with its Translation table button. It is also linked from Instruments and the unmapped-values card. The menu's prefix match highlights HL7 Interface Setup while it is open.
+
+No change. Clean tick 2 of 5.
+
